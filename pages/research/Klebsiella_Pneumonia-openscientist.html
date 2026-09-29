@@ -1,0 +1,1603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Klebsiella Pneumonia · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Klebsiella Pneumonia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Klebsiella Pneumonia</h1>
+                
+                <p class="report-subtitle">Klebsiella Pneumonia — Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0030602" target="_blank" rel="noopener noreferrer">MONDO:0030602</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">37 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Klebsiella Pneumonia — Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Klebsiella pneumonia (infection caused by <em>Klebsiella pneumoniae</em>)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0030602" target="_blank" rel="noopener noreferrer">MONDO:0030602</a> · <strong>Pathogen taxonomy:</strong> NCBI:txid573 · <strong>Category:</strong> Infectious Disease
+<strong>Report type:</strong> Multi-iteration autonomous literature synthesis (10 confirmed findings; 46 papers reviewed)</p>
+<hr />
+<h2>Summary</h2>
+<p>Klebsiella pneumonia is an acute bacterial infection caused by the encapsulated, non-motile, Gram-negative
+rod <em>Klebsiella pneumoniae</em>, a member of the <em>Enterobacteriaceae</em>. Clinically the disease is not a single
+entity but a spectrum: lobar/nosocomial pneumonia, ventilator-associated pneumonia, bloodstream infection
+(bacteremia/sepsis), urinary tract infection, and — for a distinct <strong>hypervirulent</strong> pathotype — community-acquired
+pyogenic liver abscess with metastatic spread. <em>K. pneumoniae</em> is one of the <strong>ESKAPE</strong> organisms and a <strong>WHO
+critical-priority</strong> antimicrobial-resistance (AMR) pathogen, making it a central actor in the global AMR crisis
+<a href="https://pubmed.ncbi.nlm.nih.gov/42178970/">PMID: 42178970</a>. Unlike the Mendelian disorders this template was
+designed around, Klebsiella pneumonia is an <strong>infectious, non-heritable disease</strong>: its "causal genes" are bacterial
+virulence and resistance genes, not human germline variants, and host genetic susceptibility loci are minor
+relative to healthcare exposures.</p>
+<p>The investigation converged on a <strong>two-pathotype model</strong>. <strong>Classical <em>K. pneumoniae</em> (cKp)</strong> is an opportunistic
+nosocomial pathogen that infects debilitated, catheterized, ventilated, or antibiotic-exposed patients and is the
+leading cause of neonatal sepsis in low- and middle-income countries (LMICs); much of its burden is driven by
+in-hospital transmission <a href="https://pubmed.ncbi.nlm.nih.gov/42127138/">PMID: 42127138</a>. Its danger lies in
+<strong>carbapenem resistance</strong> mediated by KPC, NDM, and OXA-48 carbapenemases, which pushes in-hospital mortality of
+bloodstream infection to 30–50% <a href="https://pubmed.ncbi.nlm.nih.gov/42734011/">PMID: 42734011</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42518856/">PMID: 42518856</a>. <strong>Hypervirulent <em>K. pneumoniae</em> (hvKp)</strong> infects
+younger, immunocompetent hosts in the community, causing invasive liver abscess through K1/K2 capsule serotypes,
+<em>rmpADC</em>-driven hypermucoviscosity, and multiple siderophore systems
+<a href="https://pubmed.ncbi.nlm.nih.gov/42021129/">PMID: 42021129</a>. The two pathotypes are converging on mobile plasmids
+(e.g., ST11 KPC-2 hvKp), an emerging worst-case threat that fuses resistance with virulence
+<a href="https://pubmed.ncbi.nlm.nih.gov/32576652/">PMID: 32576652</a>.</p>
+<p>Mechanistically, pathogenesis runs from <strong>gut/mucosal colonization → barrier breach → capsule- and
+siderophore-mediated immune evasion → TLR4- and NLRC4-inflammasome-driven neutrophil/macrophage recruitment →
+either clearance or, when immunity fails or the organism is resistant, invasive infection, sepsis, and death</strong>
+<a href="https://pubmed.ncbi.nlm.nih.gov/22547706/">PMID: 22547706</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/36018281/">PMID: 36018281</a>. Diagnosis rests on culture with MALDI-TOF species
+identification plus molecular/phenotypic resistance detection; treatment is susceptibility-guided, favoring newer
+β-lactam/β-lactamase-inhibitor combinations (ceftazidime-avibactam, meropenem-vaborbactam, imipenem-relebactam)
+and cefiderocol for metallo-β-lactamase producers; and prevention hinges on antibiotic stewardship and infection
+control, because no vaccine is yet licensed.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Klebsiella pneumonia is infection by <em>Klebsiella pneumoniae</em>, historically described by Carl
+Friedländer (hence "Friedländer's bacillus" / "Friedländer's pneumonia") as a cause of severe lobar pneumonia
+classically producing thick, blood-tinged "currant-jelly" sputum. Modern disease is dominated by
+<strong>healthcare-associated</strong> presentations — hospital-acquired and ventilator-associated pneumonia, catheter-associated
+UTI, and central-line bloodstream infection — plus <strong>community-acquired invasive syndromes</strong> driven by the
+hypervirulent pathotype.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0030602" target="_blank" rel="noopener noreferrer">MONDO:0030602</a> (Klebsiella pneumonia)
+- <strong>Pathogen (NCBI Taxonomy):</strong> <em>Klebsiella pneumoniae</em> txid573
+- <strong>MeSH:</strong> <em>Klebsiella Infections</em> (D007710); <em>Pneumonia, Bacterial</em>
+- <strong>ICD-10:</strong> J15.0 (Pneumonia due to <em>Klebsiella pneumoniae</em>); A49.8/B96.1 (<em>Klebsiella</em> as cause of disease classified elsewhere)
+- <strong>ICD-11:</strong> CA40 (bacterial pneumonia) with pathogen extension; infection codes under 1B/1C
+- <strong>OMIM / Orphanet:</strong> Not applicable — this is an acquired infectious disease, not a Mendelian disorder. There is no OMIM phenotype entry; Orphanet does not list it as a rare genetic disease.</p>
+<p><strong>Synonyms / alternative names.</strong> Friedländer's pneumonia; Friedländer's bacillus infection; <em>Klebsiella pneumoniae</em>
+infection; Klebsiella infection (when generalized); (for the invasive pathotype) hypervirulent <em>Klebsiella pneumoniae</em>
+infection / invasive Klebsiella syndrome.</p>
+<p><strong>Data source type.</strong> The evidence base is overwhelmingly <strong>aggregated disease-level</strong> — surveillance cohorts,
+genomic epidemiology, meta-analyses, and clinical guidelines — supplemented by individual case reports/series for
+the hypervirulent syndrome. It is not derived from a single-patient EHR data file.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — infectious.</strong> The disease is caused by infection with <em>K. pneumoniae</em>. There is <strong>no human
+germline genetic cause</strong>. Two ecological/virulence pathotypes drive distinct etiologies:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Classical (cKp)</th>
+<th>Hypervirulent (hvKp)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Typical host</td>
+<td>Debilitated, hospitalized, immunocompromised</td>
+<td>Younger, often immunocompetent</td>
+</tr>
+<tr>
+<td>Setting</td>
+<td>Nosocomial</td>
+<td>Community-acquired</td>
+</tr>
+<tr>
+<td>Hallmark syndrome</td>
+<td>HAP/VAP, BSI, UTI, neonatal sepsis</td>
+<td>Pyogenic liver abscess, metastatic (endophthalmitis, meningitis)</td>
+</tr>
+<tr>
+<td>Key genetics</td>
+<td>Carbapenemases (KPC/NDM/OXA-48)</td>
+<td>K1/K2 capsule, <em>rmpADC</em>, aerobactin/salmochelin/yersiniabactin</td>
+</tr>
+<tr>
+<td>Mortality driver</td>
+<td>Antibiotic resistance</td>
+<td>Dissemination/metastasis</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Risk factors (host/environmental — quantified).</strong> A meta-analysis of 30 studies (5,075 cases) established that
+carbapenem-resistant <em>K. pneumoniae</em> (CRKP) infection is driven by <strong>healthcare exposures and prior antibiotics,
+not host demographics</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/31525540/">PMID: 31525540</a>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Risk factor</th>
+<th>Odds ratio (95% CI)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Carbapenem exposure</td>
+<td>3.99 (2.86–5.56)</td>
+</tr>
+<tr>
+<td>ICU admission</td>
+<td>3.25 (2.36–4.47)</td>
+</tr>
+<tr>
+<td>Glycopeptide exposure</td>
+<td>3.08 (1.93–4.91)</td>
+</tr>
+<tr>
+<td>Central venous catheterization</td>
+<td>2.93 (2.00–4.28)</td>
+</tr>
+<tr>
+<td>Mechanical ventilation</td>
+<td>2.91 (1.96–4.31)</td>
+</tr>
+<tr>
+<td>Indwelling (urinary) catheter</td>
+<td>2.62 (1.65–4.17)</td>
+</tr>
+<tr>
+<td>Any prior antibiotic exposure</td>
+<td>2.53 (1.56–4.11)</td>
+</tr>
+<tr>
+<td>Nasogastric intubation</td>
+<td>2.38 (1.22–4.62)</td>
+</tr>
+<tr>
+<td>β-lactam/β-lactamase-inhibitor exposure</td>
+<td>2.28 (1.37–3.80)</td>
+</tr>
+<tr>
+<td>Quinolone exposure</td>
+<td>1.75 (1.38–2.22)</td>
+</tr>
+<tr>
+<td>Surgery</td>
+<td>1.59 (1.08–2.34)</td>
+</tr>
+<tr>
+<td>Immunosuppression</td>
+<td>1.47 (1.14–1.90)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Notably, <strong>age, sex, and diabetes mellitus were NOT associated</strong> with CRKP infection in this meta-analysis (a
+useful negative finding) — although diabetes is a well-recognized risk factor specifically for <strong>hvKp liver abscess</strong>
+in the Asian literature. Additional exposure-based risks include prolonged mechanical ventilation and prolonged
+ECMO support, where prior antibiotic use before ECMO (RR 1.25) and longer ventilation (RR 1.31) independently
+predicted healthcare-associated infection <a href="https://pubmed.ncbi.nlm.nih.gov/42685911/">PMID: 42685911</a>.</p>
+<p><strong>Genetic risk factors (human).</strong> No robust, replicated human susceptibility loci for <em>K. pneumoniae</em> disease were
+identified in this investigation. Innate-immune pathway integrity (TLR4, NLRC4/inflammasome, IL-1β signaling) is
+mechanistically protective in models, implying that host defects in these pathways would increase susceptibility,
+but this remains inferred rather than demonstrated in human genetic association studies.</p>
+<p><strong>Protective factors.</strong> Intact mucosal barriers, a diverse gut microbiome that resists colonization by
+multidrug-resistant Enterobacterales, and competent innate immunity are protective. Gut microbiome composition
+modulates intestinal colonization by MDR Enterobacterales
+<a href="https://pubmed.ncbi.nlm.nih.gov/41009869/">PMID: 41009869</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/38659243/">PMID: 38659243</a> — implying microbiome preservation (avoiding
+unnecessary broad-spectrum antibiotics) is protective. No validated protective human genetic variant was found.</p>
+<p><strong>Gene–environment interaction.</strong> The dominant interaction is <strong>antibiotic exposure × bacterial resistance
+genotype</strong>: antibiotic pressure selects for carbapenemase-carrying clones in the gut reservoir, which then cause
+endogenous infection or spread nosocomially. This is an environment-(bacterial)genotype interaction rather than a
+human GxE effect.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Phenotypes are clinical manifestations of infection, varying by syndrome. Onset is typically <strong>acute</strong>;
+severity ranges <strong>moderate to severe</strong>; frequency figures are syndrome-dependent.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Syndrome</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pneumonia / productive cough</td>
+<td>Clinical sign</td>
+<td>HAP/VAP, CAP</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (Pneumonia); <a href="http://purl.obolibrary.org/obo/HP_0031246" target="_blank" rel="noopener noreferrer">HP:0031246</a> (Productive cough)</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>All</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Dyspnea</td>
+<td>Symptom</td>
+<td>Pneumonia, sepsis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea)</td>
+</tr>
+<tr>
+<td>"Currant-jelly" / bloody sputum</td>
+<td>Clinical sign</td>
+<td>Friedländer pneumonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002105" target="_blank" rel="noopener noreferrer">HP:0002105</a> (Hemoptysis)</td>
+</tr>
+<tr>
+<td>Sepsis / septic shock</td>
+<td>Clinical sign</td>
+<td>BSI</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" rel="noopener noreferrer">HP:0100806</a> (Sepsis)</td>
+</tr>
+<tr>
+<td>Bacteremia</td>
+<td>Laboratory</td>
+<td>BSI</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031864" target="_blank" rel="noopener noreferrer">HP:0031864</a> (Bacteremia)*</td>
+</tr>
+<tr>
+<td>Liver abscess</td>
+<td>Physical/imaging</td>
+<td>hvKp</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100523" target="_blank" rel="noopener noreferrer">HP:0100523</a> (Hepatic abscess)*</td>
+</tr>
+<tr>
+<td>Leukocytosis</td>
+<td>Laboratory</td>
+<td>All</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a> (Leukocytosis)</td>
+</tr>
+<tr>
+<td>Elevated D-dimer / coagulopathy</td>
+<td>Laboratory</td>
+<td>Severe BSI</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003581" target="_blank" rel="noopener noreferrer">HP:0003581</a>-adjacent (coagulation abnormality)</td>
+</tr>
+<tr>
+<td>Urinary tract infection</td>
+<td>Clinical sign</td>
+<td>Catheter-associated</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000010" target="_blank" rel="noopener noreferrer">HP:0000010</a> (Recurrent UTI)</td>
+</tr>
+<tr>
+<td>Neonatal sepsis</td>
+<td>Clinical sign</td>
+<td>LMIC neonates</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> + neonatal onset</td>
+</tr>
+<tr>
+<td>Metastatic endophthalmitis / meningitis</td>
+<td>Clinical sign</td>
+<td>hvKp dissemination</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000623" target="_blank" rel="noopener noreferrer">HP:0000623</a> / <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" rel="noopener noreferrer">HP:0001287</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>*Term suggestions; verify exact HPO ID before ingestion.</p>
+<p><strong>Age of onset.</strong> Bimodal — <strong>neonatal</strong> (LMIC sepsis) and <strong>older adults</strong> (nosocomial; mean age ≈66 years,
+male predominance ≈70% in BSI cohorts). hvKp liver abscess tends to occur in middle-aged adults.</p>
+<p><strong>Quality-of-life impact.</strong> Severe infection causes ICU-level morbidity, prolonged hospitalization, and
+long-term functional impairment in survivors of sepsis; disease-specific QoL instruments were not identified in
+the literature reviewed.</p>
+<hr />
+<h2>4. Genetic / Molecular Information (bacterial)</h2>
+<p>Because this is an infectious disease, the relevant genetics are the <strong>pathogen's virulence and resistance
+determinants</strong>, not human variants.</p>
+<p><strong>Resistance genes (carbapenemases).</strong> Carbapenem resistance is mediated chiefly by three carbapenemase families
+<a href="https://pubmed.ncbi.nlm.nih.gov/42734011/">PMID: 42734011</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42439974/">PMID: 42439974</a>:
+- <strong>KPC</strong> (<em>bla</em>KPC; class A) — dominant in many regions; 88.9% (48/54) of CRKP BSI isolates in a Chinese cohort.
+- <strong>NDM</strong> (<em>bla</em>NDM; class B metallo-β-lactamase) — 7.4% in the same cohort; alters therapy because MBLs hydrolyze most β-lactams and are not inhibited by avibactam/vaborbactam.
+- <strong>OXA-48</strong> (<em>bla</em>OXA-48; class D) — predominant (50.4%) in a southern Saudi Arabia CRE cohort, illustrating strong geographic variation.
+Additional/associated genes: <em>bla</em>VIM (MBL), <em>bla</em>SHV and <em>bla</em>CTX-M (ESBLs).</p>
+<p><strong>Virulence genes.</strong> In CRKP BSI, virulence genes <em>ycfM</em>, <em>wabG</em>, and <em>entB</em> were present in <strong>all</strong> strains;
+<em>fimH</em> 98.15%, <em>mrkD</em> 96.30%, <em>uge</em> 92.60%, <em>kpn</em> 92.60% <a href="https://pubmed.ncbi.nlm.nih.gov/42734011/">PMID: 42734011</a>.
+For <strong>hvKp</strong>, the defining loci are the <strong>capsular polysaccharide serotypes K1/K2</strong>, the <strong>regulator of
+mucoid phenotype</strong> operon <strong><em>rmpADC</em></strong> (drives hypermucoviscosity), and multiple <strong>siderophore</strong> systems —
+<strong>aerobactin</strong>, <strong>salmochelin</strong> (<em>iroBCDN</em>), and <strong>yersiniabactin</strong> (<em>ybt</em>) — frequently carried on large
+virulence plasmids. A characterized ST111 hvKp isolate harbored a <strong>181 kb IncHI1B/IncFIB virulence plasmid</strong>
+encoding <em>rmpADC</em> and salmochelin (<em>iroBCDN</em>) plus yersiniabactin; CRISPR/Cas9 plasmid curing followed by murine
+infection <strong>confirmed the plasmid's causal contribution</strong> to hypervirulence
+<a href="https://pubmed.ncbi.nlm.nih.gov/42021129/">PMID: 42021129</a>.</p>
+<p><strong>Lineages (multilocus sequence types).</strong> hvKp liver abscess is canonically linked to <strong>ST23, ST65, ST86</strong>;
+convergent resistance-plus-virulence clones include <strong>ST11</strong> (KPC-2-producing hvKp).</p>
+<p><strong>Epigenetics / chromosomal abnormalities / human modifier genes.</strong> Not applicable to this infectious disease.
+(Bacterial DNA methylation/restriction-modification systems exist but are not disease-defining here.)</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Infectious agent.</strong> <em>Klebsiella pneumoniae</em> (NCBI:txid573), Gram-negative, encapsulated, non-motile,
+lactose-fermenting, oxidase-negative rod of the <em>Enterobacteriaceae</em>.</p>
+<p><strong>Environmental reservoirs &amp; transmission.</strong> The <strong>gastrointestinal tract is the principal reservoir</strong>;
+the organism also colonizes the oropharynx and skin, and persists on hospital surfaces and medical devices,
+enabling patient-to-patient nosocomial transmission via healthcare-worker hands and equipment. Genomic clustering
+of neonatal isolates across 27 units in 13 countries confirmed extensive nosocomial spread
+<a href="https://pubmed.ncbi.nlm.nih.gov/42127138/">PMID: 42127138</a>.</p>
+<p><strong>Lifestyle / host-environment factors.</strong> Alcohol use and diabetes are associated with invasive hvKp disease in
+Asian populations; broad-spectrum antibiotic exposure is the dominant modifiable environmental driver of resistant
+infection (see Section 2). Timor-Leste and Ethiopian surveillance underscore that third-generation cephalosporin
+and emerging carbapenem resistance are widespread, particularly in LMIC settings
+<a href="https://pubmed.ncbi.nlm.nih.gov/42662930/">PMID: 42662930</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42594141/">PMID: 42594141</a>.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating event → clinical manifestation)</h3>
+<ol>
+<li><strong>Gut/mucosal colonization</strong> by <em>K. pneumoniae</em> (often a resistant or hypervirulent clone selected by prior antibiotics) <strong>establishes a reservoir</strong> in the GI tract <a href="https://pubmed.ncbi.nlm.nih.gov/32576652/">PMID: 32576652</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42127138/">PMID: 42127138</a>.</li>
+<li><strong>Barrier breach</strong> — via micro-aspiration into the lung, a urinary/vascular catheter, surgery, or translocation across a compromised gut epithelium — <strong>allows the organism to reach a normally sterile site</strong> (<em>inferred from reservoir + device risk-factor data</em>).</li>
+<li>At the tissue site, the <strong>polysaccharide capsule and hypermucoviscosity (hvKp: K1/K2, <em>rmpADC</em>) resist phagocytosis and complement</strong>, while <strong>siderophores (aerobactin, salmochelin, yersiniabactin) scavenge host iron</strong>, <strong>enabling bacterial survival and replication</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/42021129/">PMID: 42021129</a>.</li>
+<li>Bacterial ligands (LPS) <strong>engage TLR4 on epithelium/macrophages</strong>, which <strong>triggers NF-κB signaling and cytokine/chemokine release (KC, MIP-2, LIX)</strong>, <strong>recruiting neutrophils and monocytes/macrophages</strong> to the lung <a href="https://pubmed.ncbi.nlm.nih.gov/36018281/">PMID: 36018281</a>.</li>
+<li>In parallel, the <strong>NLRC4 inflammasome senses the organism and drives IL-1β (and IL-17A) production</strong>, which <strong>is essential for neutrophil-mediated clearance and host survival</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/22547706/">PMID: 22547706</a>.</li>
+<li><strong>Branch A — effective immunity:</strong> neutrophil/macrophage phagocytosis and inflammasome/IL-1β signaling <strong>clear the infection → recovery.</strong></li>
+<li><strong>Branch B — failed immunity or antibiotic-resistant organism:</strong> the bacterium <strong>evades clearance and disseminates into blood → bacteremia/sepsis</strong>, activating coagulation (elevated D-dimer) and causing <strong>organ dysfunction and death (30–50% in resistant BSI)</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/42518856/">PMID: 42518856</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42734011/">PMID: 42734011</a>.</li>
+<li><strong>Branch C — hypervirulent dissemination:</strong> hvKp seeds the <strong>liver (pyogenic abscess)</strong> and metastasizes to <strong>eye (endophthalmitis), meninges, lung</strong>, producing invasive syndrome even in immunocompetent hosts <a href="https://pubmed.ncbi.nlm.nih.gov/41356976/">PMID: 41356976</a>.</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> TLR4 → MyD88 → NF-κB (pro-inflammatory transcription); NLRC4 inflammasome → caspase-1 → IL-1β/IL-18 maturation.</li>
+<li><strong>Cellular processes:</strong> acute inflammation, neutrophil chemotaxis and phagocytosis, macrophage activation, pyroptosis (inflammasome-linked cell death).</li>
+<li><strong>Immune involvement:</strong> innate immunity is decisive; NLRC4-derived <strong>IL-1β specifically</strong> (not IL-18 or IL-17A) partially rescued survival and neutrophil accumulation in NLRC4−/− mice <a href="https://pubmed.ncbi.nlm.nih.gov/22547706/">PMID: 22547706</a>. TLR4-agonist (3D-PHAD) pretreatment increased phagocytic innate cells, reduced lung CFU, and improved survival <a href="https://pubmed.ncbi.nlm.nih.gov/36018281/">PMID: 36018281</a>.</li>
+<li><strong>Bacterial "protein dysfunction":</strong> capsule and siderophore systems are gain-of-virulence; carbapenemases are enzymatic drug-inactivation.</li>
+<li><strong>Tissue damage:</strong> neutrophilic inflammation, abscess/necrosis (liver in hvKp), and sepsis-associated microvascular injury/coagulopathy.</li>
+</ul>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response); <a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a>/<a href="http://purl.obolibrary.org/obo/GO_0038123" target="_blank" rel="noopener noreferrer">GO:0038123</a> (toll-like receptor signaling); <a href="http://purl.obolibrary.org/obo/GO_0072559" target="_blank" rel="noopener noreferrer">GO:0072559</a> (NLRP/NLRC4-type inflammasome complex — verify exact ID); <a href="http://purl.obolibrary.org/obo/GO_0006935" target="_blank" rel="noopener noreferrer">GO:0006935</a> (chemotaxis); <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis). <strong>Cell types (CL):</strong> <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a> (alveolar macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000066" target="_blank" rel="noopener noreferrer">CL:0000066</a> (epithelial cell). <strong>Anatomy (UBERON):</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a> (lung), <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver), <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> (blood).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> <strong>lung</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>) — pneumonia; <strong>blood</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>) — bacteremia; <strong>urinary tract/bladder</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" rel="noopener noreferrer">UBERON:0001255</a>) — UTI.</li>
+<li><strong>hvKp target organs:</strong> <strong>liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>) — pyogenic abscess; with metastasis to <strong>eye</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>, endophthalmitis) and <strong>meninges/CNS</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>, meningitis).</li>
+<li><strong>Body systems:</strong> respiratory, cardiovascular (sepsis), hepatobiliary, urinary, and (neonatal) systemic.</li>
+<li><strong>Tissues/cells:</strong> respiratory and urinary <strong>epithelium</strong> (adhesion via type 1/type 3 fimbriae <em>fimH</em>/<em>mrkD</em>); recruited <strong>neutrophils</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>) and <strong>macrophages/alveolar macrophages</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>/<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>).</li>
+<li><strong>Subcellular compartments (host innate response):</strong> cytosolic inflammasome complex, plasma-membrane TLR4 receptor; (bacterial) outer-membrane capsule and LPS.</li>
+<li><strong>Lateralization:</strong> pneumonia may be lobar (classically upper-lobe in Friedländer pneumonia) or bilateral; liver abscess is often solitary right-lobe.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> typically <strong>acute</strong> (hours–days). Neonatal sepsis presents early/late neonatal period; nosocomial pneumonia after device exposure/ICU stay.</li>
+<li><strong>Progression:</strong> can be <strong>rapid</strong>, progressing to sepsis and septic shock, particularly with resistant organisms or delayed effective therapy. hvKp abscess may be subacute but disseminate.</li>
+<li><strong>Course:</strong> acute and, with treatment, often self-limited to the treatment course; complicated/resistant infections have prolonged courses. Not relapsing-remitting or chronic in the Mendelian sense.</li>
+<li><strong>Critical intervention window:</strong> early appropriate (susceptibility-matched) antimicrobial therapy is the key modifiable determinant of survival; delays worsen outcome. Faster microbiological clearance with ceftazidime-avibactam (HR 2.475; 95% CI 1.493–4.102) underscores the value of rapid, correct therapy <a href="https://pubmed.ncbi.nlm.nih.gov/42708480/">PMID: 42708480</a>.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance.</strong> Not applicable — infectious, non-heritable. No AD/AR/X-linked pattern; no penetrance/expressivity/
+anticipation/founder-effect/consanguinity considerations for the human host.</p>
+<p><strong>Epidemiology.</strong>
+- <em>K. pneumoniae</em> is the <strong>leading cause of neonatal sepsis in LMICs</strong> in Africa and Asia; in a genomic study of
+1,523 isolates from 27 neonatal units across 13 countries, an estimated <strong>68.0% (1,035/1,523) of neonatal
+infections were part of nosocomial transmission clusters</strong>, with ≥57.7% (879) acquired via nosocomial
+transmission <a href="https://pubmed.ncbi.nlm.nih.gov/42127138/">PMID: 42127138</a>.
+- In ICU/ECMO cohorts, <em>K. pneumoniae</em> is repeatedly among the top VAP/HAP pathogens; VAP reached 31.1 cases/1,000
+ECMO-days <a href="https://pubmed.ncbi.nlm.nih.gov/42685911/">PMID: 42685911</a>.
+- CRKP bloodstream infection incidence was ~2.2/100,000 patient-days in one Chinese study
+<a href="https://pubmed.ncbi.nlm.nih.gov/42734011/">PMID: 42734011</a>.</p>
+<p><strong>Demographics.</strong> BSI cohorts show <strong>male predominance (~67–70%)</strong> and <strong>older age (mean ≈64–66 years)</strong>
+<a href="https://pubmed.ncbi.nlm.nih.gov/42518856/">PMID: 42518856</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42563676/">PMID: 42563676</a>. Geographic variation in carbapenemase type is
+pronounced: KPC-dominant in East Asia/parts of the Americas, OXA-48-dominant in the Middle East/Mediterranean,
+NDM widespread in South Asia. hvKp invasive liver-abscess syndrome is most reported in East/Southeast Asia.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Culture + identification.</strong> The reference approach is <strong>culture with MALDI-TOF MS identification</strong> plus
+<strong>molecular/phenotypic resistance detection</strong>. MALDI-TOF correctly identified <strong>174/174</strong> <em>K. pneumoniae</em> isolates
+with log score &gt;2.0, 100% concordant with reference systems
+<a href="https://pubmed.ncbi.nlm.nih.gov/27239799/">PMID: 27239799</a>.</p>
+<p><strong>Rapid molecular panels.</strong> BioFire FilmArray Blood Culture Identification from positive blood cultures showed
+<strong>94% concordance</strong> with MALDI Biotyper and detects <em>bla</em>KPC
+<a href="https://pubmed.ncbi.nlm.nih.gov/32305272/">PMID: 32305272</a>.</p>
+<p><strong>Resistance detection.</strong> PCR/WGS identify carbapenemase genes (<em>bla</em>KPC, <em>bla</em>NDM, <em>bla</em>OXA-48, <em>bla</em>VIM);
+phenotypic tests include the modified Carbapenem Inactivation Method (mCIM). The <strong>MALDIxin test</strong> detects lipid A
+modifications (L-Ara4N/pEtN) underlying <strong>colistin resistance in &lt;30 min</strong> and distinguishes chromosomal vs
+MCR-mediated resistance <a href="https://pubmed.ncbi.nlm.nih.gov/31580426/">PMID: 31580426</a>. Strain typing (rep-PCR,
+WGS/MLST) supports outbreak investigation <a href="https://pubmed.ncbi.nlm.nih.gov/21568752/">PMID: 21568752</a>.</p>
+<p><strong>Biomarkers / labs.</strong> Leukocytosis, elevated CRP/procalcitonin; <strong>elevated D-dimer</strong> is an independent prognostic
+marker in BSI (see Section 11). Imaging: chest radiograph/CT for pneumonia (classic bulging-fissure lobar
+consolidation); abdominal CT/ultrasound for hvKp liver abscess.</p>
+<p><strong>Differential diagnosis.</strong> Other Gram-negative pneumonias/BSI (<em>E. coli</em>, <em>Pseudomonas aeruginosa</em>,
+<em>Acinetobacter baumannii</em>, <em>Serratia</em>), <em>S. aureus</em> pneumonia, and other causes of liver abscess (<em>E. coli</em>,
+anaerobes, amebic abscess).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Mortality is high</strong>, especially for resistant bloodstream infection.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>In-hospital mortality, KP BSI (n=222)</td>
+<td><strong>47.7% (106/222)</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42518856/">PMID: 42518856</a></td>
+</tr>
+<tr>
+<td>28-day mortality, BSI in acute-on-chronic liver failure</td>
+<td>49.1%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42717128/">PMID: 42717128</a></td>
+</tr>
+<tr>
+<td>Donor-derived / hospital-acquired pneumonia in lung transplant</td>
+<td>50%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42781399/">PMID: 42781399</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Prognostic factors.</strong> Independent predictors and correlates of death include <strong>elevated D-dimer</strong> (adjusted
+HR 1.04 per unit, 95% CI 1.03–1.07; high vs low group HR 2.14, 95% CI 1.27–3.59)
+<a href="https://pubmed.ncbi.nlm.nih.gov/42518856/">PMID: 42518856</a>; <strong>capsular type K47/K64 and KPC-plasmid features</strong>
+in CRKP bacteraemia <a href="https://pubmed.ncbi.nlm.nih.gov/42216056/">PMID: 42216056</a>; disease severity scores
+(MELD, Pitt bacteremia score, APACHE II); and <strong>choice of therapy</strong> — non-polymyxin regimens achieved higher
+clinical cure than polymyxin-based therapy in CRKP bacteraemia (<strong>58.4% vs 15.4%; p=0.02</strong>)
+<a href="https://pubmed.ncbi.nlm.nih.gov/42455851/">PMID: 42455851</a>.</p>
+<p><strong>Complications.</strong> Septic shock, multi-organ failure, DIC/coagulopathy; for hvKp, metastatic endophthalmitis,
+meningitis, and septic emboli. Recovery is achievable with early appropriate therapy but is compromised by
+resistance and host frailty.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Susceptibility-guided antibiotic therapy is the cornerstone.</strong> For <strong>non-metallo-β-lactamase CRE</strong>, IDSA 2022
+guidance and the German MDRO guideline recommend <strong>ceftazidime-avibactam, meropenem-vaborbactam, and
+imipenem-relebactam</strong> as first-choice agents; <strong>metallo-β-lactamase (e.g., NDM) production must be detected or
+excluded</strong> because it changes therapy to <strong>cefiderocol</strong> or <strong>ceftazidime-avibactam plus aztreonam</strong>
+<a href="https://pubmed.ncbi.nlm.nih.gov/35439291/">PMID: 35439291</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42661422/">PMID: 42661422</a>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Preferred therapy</th>
+<th>NCIT-type intervention</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Susceptible <em>K. pneumoniae</em></td>
+<td>β-lactam per susceptibility (e.g., ceftriaxone)</td>
+<td>Cephalosporin therapy</td>
+</tr>
+<tr>
+<td>ESBL producer</td>
+<td>Carbapenem</td>
+<td>Carbapenem therapy</td>
+</tr>
+<tr>
+<td>CRE (non-MBL: KPC/OXA-48)</td>
+<td>Ceftazidime-avibactam, meropenem-vaborbactam, imipenem-relebactam</td>
+<td>β-lactam/β-lactamase-inhibitor therapy</td>
+</tr>
+<tr>
+<td>MBL (NDM/VIM)</td>
+<td>Cefiderocol, or ceftazidime-avibactam + aztreonam</td>
+<td>Siderophore-cephalosporin therapy</td>
+</tr>
+<tr>
+<td>Adjunct / renal-sparing</td>
+<td>IV fosfomycin-containing regimens</td>
+<td>Fosfomycin therapy</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Ceftazidime-avibactam</strong> produced faster microbiological clearance than alternatives
+<a href="https://pubmed.ncbi.nlm.nih.gov/42708480/">PMID: 42708480</a>. <strong>IV fosfomycin</strong> combination regimens achieved
+79.4% clinical success and were associated with <strong>reduced acute kidney injury</strong> versus colistin-heavy regimens
+<a href="https://pubmed.ncbi.nlm.nih.gov/42599357/">PMID: 42599357</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42482780/">PMID: 42482780</a>. <strong>Colistin/polymyxins</strong> are now later-line owing to
+nephrotoxicity and inferior cure rates <a href="https://pubmed.ncbi.nlm.nih.gov/42455851/">PMID: 42455851</a>.</p>
+<p><strong>Source control</strong> (drainage of liver abscess/empyema, removal of infected catheters/lines) is essential,
+particularly for hvKp.</p>
+<p><strong>Adjunctive/experimental.</strong> In a murine model, <strong>atorvastatin added to imipenem</strong> provided additional benefit
+in Gram-negative pneumonia <a href="https://pubmed.ncbi.nlm.nih.gov/29463546/">PMID: 29463546</a>; immunomodulation of the
+ICOS pathway influenced airway-pathogen pathogenesis <a href="https://pubmed.ncbi.nlm.nih.gov/29378030/">PMID: 29378030</a>.
+TLR4-agonist innate stimulation was protective in mice <a href="https://pubmed.ncbi.nlm.nih.gov/36018281/">PMID: 36018281</a>.
+These are pre-clinical.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong> Antibiotic <strong>stewardship</strong> (limiting carbapenem/glycopeptide/quinolone pressure — the
+strongest modifiable risk factors, Section 2) and <strong>infection prevention and control</strong>: hand hygiene, contact
+precautions, device-care bundles (ventilator, central-line, urinary-catheter), and environmental cleaning to
+interrupt nosocomial transmission <a href="https://pubmed.ncbi.nlm.nih.gov/42127138/">PMID: 42127138</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42685911/">PMID: 42685911</a>.</p>
+<p><strong>Secondary prevention.</strong> Active surveillance cultures / rectal screening for CRKP carriage in high-risk units;
+early detection of carbapenemase producers enables cohorting and rapid appropriate therapy.</p>
+<p><strong>Vaccines (investigational).</strong> <strong>No licensed <em>Klebsiella</em> vaccine exists.</strong> Candidates target capsular
+polysaccharides, O-antigen (LPS), and the <strong>MrkA</strong> type-3 fimbrial subunit. A <strong>pVAX1-MrkA DNA vaccine protected
+80% of mice against sepsis (p=0.0373)</strong>, identifying MrkA as a lead antigen
+<a href="https://pubmed.ncbi.nlm.nih.gov/42634491/">PMID: 42634491</a>; reverse-vaccinology antigen discovery is ongoing
+<a href="https://pubmed.ncbi.nlm.nih.gov/42511741/">PMID: 42511741</a>,
+<a href="https://pubmed.ncbi.nlm.nih.gov/42453653/">PMID: 42453653</a>.</p>
+<p><strong>Microbiome-based prevention (emerging).</strong> Because the gut is the reservoir, strategies preserving/restoring a
+colonization-resistant microbiome are under investigation
+<a href="https://pubmed.ncbi.nlm.nih.gov/41009869/">PMID: 41009869</a>.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of pathogen:</strong> <em>Klebsiella pneumoniae</em> (NCBI:txid573); related species <em>K. oxytoca</em>, <em>K. variicola</em>,
+<em>K. aerogenes</em>.</li>
+<li><strong>Host range:</strong> broad — <em>K. pneumoniae</em> naturally infects humans and many animals (cattle mastitis, equine and
+companion-animal infections, primates, wildlife) and colonizes environmental niches (water, soil, plants). It is
+an important <strong>One Health</strong> organism, with resistance genes shared across human, animal, agricultural, and
+environmental compartments <a href="https://pubmed.ncbi.nlm.nih.gov/42568440/">PMID: 42568440</a>.</li>
+<li><strong>Zoonotic/cross-species transmission:</strong> plausible via the environment and food chain; direct zoonosis is less
+defined than the environmental resistance-gene flow. No single human ortholog gene is relevant (infectious disease).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (murine) models</strong> are the primary system for pathogenesis and immunity: pulmonary infection models
+demonstrated the essential role of <strong>NLRC4/IL-1β</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/22547706/">PMID: 22547706</a>
+and <strong>TLR4-agonist protection</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/36018281/">PMID: 36018281</a>; sepsis models
+validated the <strong>MrkA DNA vaccine</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/42634491/">PMID: 42634491</a> and
+<strong>atorvastatin+imipenem</strong> adjunctive therapy <a href="https://pubmed.ncbi.nlm.nih.gov/29463546/">PMID: 29463546</a>.</li>
+<li><strong>Genetic host models:</strong> knockout mice (e.g., <em>Nlrc4−/−</em>, <em>Icos−/−</em>) dissect host-defense pathways
+<a href="https://pubmed.ncbi.nlm.nih.gov/29378030/">PMID: 29378030</a>.</li>
+<li><strong>Bacterial genetic tools:</strong> CRISPR/Cas9 plasmid curing established causality of the hvKp virulence plasmid
+<a href="https://pubmed.ncbi.nlm.nih.gov/42021129/">PMID: 42021129</a>.</li>
+<li><strong>Phenotype recapitulation:</strong> murine pneumonia/sepsis models reproduce neutrophilic lung inflammation,
+bacteremia, and (for hvKp) dissemination, and predict vaccine/therapy efficacy. <strong>Limitations:</strong> mouse innate
+immunity and microbiome differ from humans; models may not capture chronic colonization dynamics, human
+device-associated disease, or the full breadth of resistance-plasmid ecology. General animal-model reviews are
+available <a href="https://pubmed.ncbi.nlm.nih.gov/38559342/">PMID: 38559342</a>.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>    ┌─────────────────────────────────────────────────────────┐
+    │  ANTIBIOTIC PRESSURE (carbapenem OR≈4.0, ICU, catheters) │
+    └───────────────────────────┬─────────────────────────────┘
+                                 ▼
+   GUT / MUCOSAL RESERVOIR  ──(prior antibiotics select resistant/hvKp clones)──►  colonization
+                                 │
+             barrier breach (aspiration, catheter, surgery, translocation)
+                                 ▼
+           BACTERIUM AT STERILE SITE (lung / blood / liver / urine)
+                                 │
+    ┌───────────────── capsule (K1/K2) + rmpADC + siderophores ──────────────────┐
+    │                  resist phagocytosis/complement; scavenge iron              │
+    ▼                                                                             ▼
+   HOST INNATE SENSING:  TLR4→NF-κB  +  NLRC4 inflammasome→caspase-1→IL-1β
+    │
+    ▼
+   NEUTROPHIL + MACROPHAGE recruitment &amp; phagocytosis
+    │
+   ┌────────┴─────────┬──────────────────────────────┐
+   ▼                  ▼                              ▼
+ CLEARANCE       FAILED IMMUNITY / RESISTANCE     HYPERVIRULENT DISSEMINATION
+ (recovery)      → bacteremia → SEPSIS            → liver abscess → metastasis
+ → coagulopathy (↑D-dimer)          (eye, meninges, lung)
+ → 30–50% MORTALITY
+</code></pre>
+<p>The unifying insight is that <strong>two epidemiologically distinct pathotypes share a common virulence toolkit</strong>
+(capsule + siderophores) and a <strong>common gut reservoir</strong>, but differ in their principal threat: cKp weaponizes
+<strong>antibiotic resistance</strong> against debilitated hosts, whereas hvKp weaponizes <strong>capsule-based hypervirulence</strong>
+against healthy hosts. Their <strong>convergence on mobile plasmids</strong> (resistant <em>and</em> hypervirulent, e.g., ST11 KPC-2
+hvKp) is the field's chief emerging concern.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42127138/">42127138</a></td>
+<td>Neonatal sepsis, 68% nosocomial clusters across 13 countries</td>
+<td>Establishes burden &amp; nosocomial transmission</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42734011/">42734011</a></td>
+<td>KPC 88.9%, NDM 7.4% in CRKP BSI; virulence gene profile</td>
+<td>Resistance &amp; virulence genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42439974/">42439974</a></td>
+<td>OXA-48 predominant (50.4%) in Saudi CRE</td>
+<td>Geographic resistance variation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42021129/">42021129</a></td>
+<td>ST111 hvKp; 181 kb virulence plasmid; CRISPR curing</td>
+<td>hvKp causal genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41356976/">41356976</a></td>
+<td>53-case systematic review of hvKp liver abscess</td>
+<td>hvKp clinical phenotype</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22547706/">22547706</a></td>
+<td>NLRC4/IL-1β essential for pulmonary defense</td>
+<td>Host mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36018281/">36018281</a></td>
+<td>TLR4 agonist protective in mice</td>
+<td>Host mechanism / therapy lead</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42518856/">42518856</a></td>
+<td>47.7% BSI mortality; D-dimer HR 1.04</td>
+<td>Prognosis/biomarker</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42455851/">42455851</a></td>
+<td>Non-polymyxin cure 58.4% vs 15.4%</td>
+<td>Treatment outcome</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42216056/">42216056</a></td>
+<td>K47/K64 + KPC-plasmid features &amp; mortality</td>
+<td>Prognostic genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35439291/">35439291</a></td>
+<td>IDSA 2022 CRE treatment guidance</td>
+<td>Treatment standard</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42661422/">42661422</a></td>
+<td>German MDRO guideline first-line agents</td>
+<td>Treatment standard</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42708480/">42708480</a></td>
+<td>CAZ-AVI faster clearance HR 2.475</td>
+<td>Treatment efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31525540/">31525540</a></td>
+<td>Meta-analysis of CRKP risk factors</td>
+<td>Etiology/risk</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27239799/">27239799</a></td>
+<td>MALDI-TOF 174/174 identification</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32305272/">32305272</a></td>
+<td>FilmArray BCID 94% concordance, blaKPC</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31580426/">31580426</a></td>
+<td>MALDIxin colistin-resistance test</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32576652/">32576652</a></td>
+<td>Stool reservoir of ST11 KPC-2 hvKp</td>
+<td>Reservoir/convergence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42634491/">42634491</a></td>
+<td>MrkA DNA vaccine 80% protection</td>
+<td>Prevention</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42178970/">42178970</a></td>
+<td>ESKAPE priority designation</td>
+<td>Public-health framing</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>Template mismatch.</strong> This template is designed for Mendelian/genetic diseases; sections on human causal genes,
+inheritance, penetrance, chromosomal abnormalities, and germline variants are <strong>not applicable</strong> to an infectious
+disease and were reframed to bacterial genetics.</li>
+<li><strong>Human host-susceptibility genetics</strong> are underexplored — no replicated GWAS loci were identified; the
+protective role of TLR4/NLRC4 is inferred from mouse models, not human association data.</li>
+<li><strong>Geographic bias.</strong> Resistance and hvKp data skew toward East Asia, the Middle East, and select LMIC surveillance
+sites; global prevalence/incidence per 100,000 is not uniformly quantified.</li>
+<li><strong>Prognostic evidence</strong> derives largely from single-center retrospective cohorts (risk of confounding by
+indication for therapy choices).</li>
+<li><strong>Vaccine and adjunctive-therapy data</strong> are pre-clinical (murine); none is licensed or validated in humans.</li>
+<li><strong>Convergent resistant-hypervirulent clones</strong> (e.g., ST11 KPC-2 hvKp) are documented but their population-level
+frequency and outcome impact remain incompletely quantified.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Human host-genetics study:</strong> targeted or genome-wide association analysis of <em>TLR4</em>, <em>NLRC4/NLRP</em>, <em>IL1B</em>,
+and complement variants against severe <em>K. pneumoniae</em> sepsis to test the inferred protective pathways in humans.</li>
+<li><strong>Prospective, multicenter trial</strong> comparing ceftazidime-avibactam-based vs fosfomycin-combination vs
+polymyxin-based regimens for CRKP BSI, powered for mortality and nephrotoxicity, stratified by carbapenemase class.</li>
+<li><strong>Reservoir-interruption trial:</strong> evaluate microbiome-preserving stewardship or decolonization strategies to
+reduce endogenous CRKP/hvKp infection in ICU cohorts.</li>
+<li><strong>Convergent-clone surveillance:</strong> systematic WGS monitoring for resistant-plus-hypervirulent plasmids
+(rmpADC + carbapenemase) to quantify emergence and outcomes.</li>
+<li><strong>Advance MrkA/capsule/O-antigen vaccine candidates</strong> toward first-in-human immunogenicity trials, prioritizing
+high-risk populations (neonates in LMICs, ICU/transplant patients).</li>
+<li><strong>Validate D-dimer and capsular-type (K47/K64) prognostic markers</strong> in prospective cohorts and integrate into a
+clinical risk-stratification tool.</li>
+</ol>
+<hr />
+<p><em>Report generated from a 5-iteration autonomous literature synthesis (10 confirmed findings, 46 papers). Evidence
+types span human clinical cohorts/meta-analyses, genomic epidemiology, murine model studies, and in-vitro
+diagnostics. All quantitative claims are attributed to the cited PMIDs.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Klebsiella_Pneumonia-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Klebsiella_Pneumonia-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>37</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>UBERON:0002048</code> (2 mentions) - the report calls it "lung", "Primary organs:<strong> </strong>lung"; UBERON calls it <strong>lung</strong></li>
+<li><code>UBERON:0002107</code> (2 mentions) - the report calls it "liver", "hvKp target organs:<strong> </strong>liver"; UBERON calls it <strong>liver</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0100523</code> (1 mention) - the report calls it "Hepatic abscess"; HP calls it <strong>Liver abscess</strong>, and lists "Hepatic abscess" among its other names</li>
+<li><code>HP:0001974</code> (1 mention) - the report calls it "Leukocytosis"; HP calls it <strong>Increased total leukocyte count</strong>, and lists "Leukocytosis" among its other names</li>
+<li><code>HP:0000010</code> (1 mention) - the report calls it "Recurrent UTI"; HP calls it <strong>Recurrent urinary tract infections</strong>, and lists "Recurrent UTIs" among its other names</li>
+<li><code>GO:0038123</code> (1 mention) - the report calls it "toll-like receptor signaling"; GO calls it <strong>toll-like receptor TLR1:TLR2 signaling pathway</strong></li>
+<li><code>GO:0072559</code> (1 mention) - the report calls it "NLRP/NLRC4-type inflammasome complex — verify exact ID"; GO calls it <strong>NLRP3 inflammasome complex</strong></li>
+<li><code>UBERON:0001255</code> (1 mention) - the report calls it "urinary tract/bladder"; UBERON calls it <strong>urinary bladder</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CL:0000775</code> - called "neutrophil", "neutrophils"</li>
+<li><code>UBERON:0002048</code> - called "lung", "Primary organs:<strong> </strong>lung"</li>
+<li><code>UBERON:0002107</code> - called "liver", "hvKp target organs:<strong> </strong>liver"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="KLC4-Related_Early-Childhood-Onset_Neurodegeneration-falcon.html">← KLC4-Related Early-Childhood-Onset Neurodegeneration (Falcon)</a>
+                
+                
+                <a href="Kleefstra_Syndrome-falcon.html">Kleefstra Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Klebsiella_Pneumonia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Klebsiella_Pneumonia-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

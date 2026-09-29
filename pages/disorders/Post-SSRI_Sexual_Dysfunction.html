@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4243,6 +4320,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4264,6 +4342,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4392,6 +4471,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4413,6 +4493,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4522,6 +4603,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4543,6 +4625,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4654,6 +4737,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4675,6 +4759,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4761,6 +4846,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4782,6 +4868,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5059,6 +5146,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5080,6 +5168,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5157,6 +5246,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5181,6 +5271,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5202,6 +5293,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5402,6 +5494,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5423,6 +5516,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5572,6 +5666,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5596,6 +5691,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5617,6 +5713,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5654,6 +5751,7 @@ Mechanistically PSSD is unsettled, and this entry deliberately models it as a se
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serotonin-reuptake-inhibition-during-antidepressant-treatment" data-dismech-node="Serotonin Reuptake Inhibition During Antidepressant Treatment" data-dismech-type="pathophysiology">
                 <div class="item-name">Serotonin Reuptake Inhibition During Antidepressant Treatment</div>
+
 
                 <div class="item-desc">The initiating exposure is blockade of the serotonin transporter by an SSRI, SNRI or tricyclic antidepressant, raising extracellular serotonin over weeks to years of treatment. This node is the shared trigger of every downstream arm; nothing about it is itself pathological, and the great majority of treated patients never develop the enduring syndrome. What distinguishes PSSD is that some consequence of this exposure fails to reverse when the drug is withdrawn.</div>
 
@@ -5879,6 +5977,7 @@ This pathophysiological event involves decreased serotonin uptake (GO:0051610). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5901,6 +6000,7 @@ This pathophysiological event involves decreased serotonin uptake (GO:0051610). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-5-ht1a-receptor-desensitization-and-serotonergic-tone-dysregulation" data-dismech-node="5-HT1A Receptor Desensitization and Serotonergic Tone Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">5-HT1A Receptor Desensitization and Serotonergic Tone Dysregulation</div>
+
 
                 <div class="item-desc">Prolonged reuptake blockade is proposed to desensitize and downregulate 5-HT1A receptors, leaving serotonergic signalling maladapted once the drug is cleared. Because 5-HT1A activation is inhibitory to sexual function and interacts reciprocally with dopaminergic drive, an enduring shift in this receptor system provides a route from the exposure to loss of arousal and orgasmic capacity. No receptor-level measurement has been made in patients with PSSD; the node is inferred from symptom analysis and from the pharmacology of the drug class.</div>
 
@@ -6081,6 +6181,7 @@ This pathophysiological event involves abnormal serotonin receptor signaling pat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6103,6 +6204,7 @@ This pathophysiological event involves abnormal serotonin receptor signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-brain-neurosteroidogenesis" data-dismech-node="Suppression of Brain Neurosteroidogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Brain Neurosteroidogenesis</div>
+
 
                 <div class="item-desc">Suppression of steroidogenic enzyme expression in brain — including the 5-alpha-reductase step that generates allopregnanolone from progesterone — reduces local neuroactive steroid availability. The evidence is from male rats treated subchronically with paroxetine, in which brain but not plasma neuroactive steroid levels changed, and in which the negative effect on steroidogenic enzyme expression was seen specifically at withdrawal rather than during treatment. That withdrawal-specific timing is why this node is mechanistically attractive for a syndrome defined by onset or persistence after the drug is stopped.</div>
 
@@ -6254,6 +6356,7 @@ This pathophysiological event involves decreased 3-oxo-5-alpha-steroid 4-dehydro
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6275,6 +6378,7 @@ This pathophysiological event involves decreased 3-oxo-5-alpha-steroid 4-dehydro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6302,6 +6406,7 @@ This pathophysiological event involves decreased 3-oxo-5-alpha-steroid 4-dehydro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6324,6 +6429,7 @@ This pathophysiological event involves decreased 3-oxo-5-alpha-steroid 4-dehydro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-transcriptional-reprogramming-of-reward-circuitry" data-dismech-node="Persistent Transcriptional Reprogramming of Reward Circuitry" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent Transcriptional Reprogramming of Reward Circuitry</div>
+
 
                 <div class="item-desc">Paroxetine produces a large transcriptional response in the nucleus accumbens (245 differentially expressed genes during treatment), involving dopaminergic, glutamatergic and GABAergic genes together with neurexin/neuroligin and BDNF signalling, plus an inflammatory and immune-activation signature. A residue of that response — six genes at one month of withdrawal — is still present after the drug is gone. The persistence, not the magnitude, is the mechanistically relevant observation: it supplies a substrate by which a finite exposure could leave an open-ended deficit in reward processing.</div>
 
@@ -6505,6 +6611,7 @@ This pathophysiological event involves decreased G protein-coupled dopamine rece
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6526,6 +6633,7 @@ This pathophysiological event involves decreased G protein-coupled dopamine rece
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6551,6 +6659,7 @@ This pathophysiological event involves decreased G protein-coupled dopamine rece
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genital-sensory-nerve-dysfunction" data-dismech-node="Genital Sensory Nerve Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Genital Sensory Nerve Dysfunction</div>
+
 
                 <div class="item-desc">A peripheral lesion of genital sensory innervation, proposed to involve transient receptor potential ion channels of mechano-, thermo- and chemosensitive nerve endings. Objective peripheral-nerve abnormality has been documented in this patient group by corneal confocal microscopy, and treatments directed at the peripheral nerves of the genitalia produce partial improvement in penile sensitivity while leaving central symptoms untouched — a dissociation that argues the peripheral component is real and separable rather than a projection of the central deficit.</div>
 
@@ -6698,6 +6807,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6719,6 +6829,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6744,6 +6855,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-central-sexual-arousal-and-reward-signaling" data-dismech-node="Suppression of Central Sexual Arousal and Reward Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Central Sexual Arousal and Reward Signaling</div>
+
 
                 <div class="item-desc">The convergence point of the three central arms. Whatever the upstream lesion — receptor desensitization, neurosteroid depletion, or persisting transcriptional reprogramming — the shared output is loss of sexual desire, arousal and orgasmic pleasure, together with the non-sexual reward deficits (anhedonia, emotional blunting) that accompany them. Modelling this as one node rather than three parallel outputs reflects that the clinical presentation does not discriminate between the arms, which is precisely why the mechanism remains unresolved.</div>
 
@@ -6839,6 +6951,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6861,6 +6974,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genital-hypoesthesia" data-dismech-node="Genital Hypoesthesia" data-dismech-type="pathophysiology">
                 <div class="item-name">Genital Hypoesthesia</div>
+
 
                 <div class="item-desc">Reduced or absent genital touch and temperature sensation is the single most discriminating feature of the syndrome — it is the somatic sign used by the 2022 criteria to separate PSSD from a depressive relapse, and it is not explained by mood. In the index laser-treated case, sensation was measurably recoverable, showing the deficit is not simply a report of altered subjective interest.</div>
 
@@ -6952,6 +7066,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6974,6 +7089,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enduring-post-discontinuation-sexual-dysfunction" data-dismech-node="Enduring Post-Discontinuation Sexual Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Enduring Post-Discontinuation Sexual Dysfunction</div>
+
 
                 <div class="item-desc">The defining clinical state: sexual dysfunction that continues, or first appears, after the serotonergic antidepressant has been stopped, and does not resolve with time. Duration is open-ended — the longest case in the Netherlands pharmacovigilance series had lasted 23 years — and roughly a third of surveyed patients report no improvement or worsening after discontinuation. Secondary consequences include relationship breakdown and a severely impaired quality of life.</div>
 
@@ -7012,6 +7128,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7033,6 +7150,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7058,6 +7176,7 @@ This pathophysiological event involves decreased sensory perception of touch (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-emotional-blunting-and-anhedonia" data-dismech-node="Emotional Blunting and Anhedonia" data-dismech-type="pathophysiology">
                 <div class="item-name">Emotional Blunting and Anhedonia</div>
+
 
                 <div class="item-desc">Non-sexual ancillary features — emotional blunting, anhedonia, apathy and cognitive impairment — accompany the sexual phenotype in a substantial share of cases and are part of the consensus criteria. They are mechanistically informative because they point at the reward circuitry rather than at the genital periphery, and they are the component least likely to respond to peripheral-directed treatment.</div>
 
@@ -7130,6 +7249,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7194,9 +7314,9 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7205,246 +7325,9 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
+                    Genitourinary
+                    <span class="cat-count">5</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-orgasmic-and-ejaculatory-anhedonia" data-dismech-node="Orgasmic and ejaculatory anhedonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Orgasmic and ejaculatory anhedonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0012154</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anhedonia (HP:0012154). HP:0012154 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34627736" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34627736" target="_blank">PMID:34627736</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"PSSD symptoms include genital anesthesia, erectile dysfunction and orgasmic/ejaculatory anhedonia, and should be differentiated from depression-related sexual-dysfunction."</div>
-
-
-                <div class="evidence-explanation">Lists orgasmic/ejaculatory anhedonia among the core symptoms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cognitive impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100543</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34719438" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34719438" target="_blank">PMID:34719438</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ancillary non-sexual symptoms vary depending on the specific condition but can include emotional blunting and cognitive impairment."</div>
-
-
-                <div class="evidence-explanation">Consensus-criteria statement listing cognitive impairment as an ancillary feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-genital-hypoesthesia" data-dismech-node="Genital hypoesthesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Genital hypoesthesia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0033748</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Genital hypoesthesia (genital numbness or anesthesia), annotated with Hypoesthesia (HP:0033748). HP:0033748 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39289881" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39289881" target="_blank">PMID:39289881</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The condition is known as post-SSRI sexual dysfunction (PSSD) and is characterised most commonly by genital numbness, pleasureless or weak orgasm, loss of libido and erectile dysfunction."</div>
-
-
-                <div class="evidence-explanation">Names genital numbness as the most common characteristic feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39302425" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39302425" target="_blank">PMID:39302425</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Persistent post-treatment genital hypoesthesia (PPTGH) is a primary symptom of post-SSRI sexual dysfunction (PSSD), an iatrogenic syndrome characterized by enduring sexual dysfunction following the discontinuation of some antidepressants."</div>
-
-
-                <div class="evidence-explanation">Defines persistent post-treatment genital hypoesthesia as a primary symptom of the syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-libido" data-dismech-node="Decreased libido" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7462,15 +7345,18 @@ This clinical feature is Genital hypoesthesia (genital numbness or anesthesia), 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0046504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0046504</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0046504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0046504</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased libido (HP:0046504). HP:0046504 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7490,6 +7376,7 @@ This clinical feature is Decreased libido (HP:0046504). HP:0046504 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7532,15 +7419,18 @@ This clinical feature is Decreased libido (HP:0046504). HP:0046504 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100639</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100639" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100639</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Erectile dysfunction (HP:0100639). HP:0100639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7560,6 +7450,7 @@ This clinical feature is Erectile dysfunction (HP:0100639). HP:0100639 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7584,6 +7475,7 @@ This clinical feature is Erectile dysfunction (HP:0100639). HP:0100639 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7626,15 +7518,18 @@ This clinical feature is Erectile dysfunction (HP:0100639). HP:0100639 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0046502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0046502</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0046502" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0046502</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anorgasmia (HP:0046502). HP:0046502 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7657,6 +7552,7 @@ This clinical feature is Anorgasmia (HP:0046502). HP:0046502 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7665,76 +7561,6 @@ This clinical feature is Anorgasmia (HP:0046502). HP:0046502 is a phenotype from
 
 
                 <div class="evidence-explanation">Anorgasmia in 5 of 86 reports is 6%, in the OCCASIONAL band (5-29%). The figure is likely an undercount because pleasureless orgasm may be reported under other symptom headings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-blunting" data-dismech-node="Emotional blunting" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Emotional blunting
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Emotional dearth</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030213</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Emotional blunting, annotated with Emotional dearth (HP:0030213). HP:0030213 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34719438" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34719438" target="_blank">PMID:34719438</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ancillary non-sexual symptoms vary depending on the specific condition but can include emotional blunting and cognitive impairment."</div>
-
-
-                <div class="evidence-explanation">Consensus-criteria statement listing emotional blunting as an ancillary feature.</div>
 
 
 
@@ -7764,15 +7590,18 @@ This clinical feature is Emotional blunting, annotated with Emotional dearth (HP
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012876</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012876" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012876</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature ejaculation (HP:0012876). HP:0012876 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7792,6 +7621,7 @@ This clinical feature is Premature ejaculation (HP:0012876). HP:0012876 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7832,15 +7662,18 @@ This clinical feature is Premature ejaculation (HP:0012876). HP:0012876 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012879" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012879</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012879" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012879</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anejaculation (HP:0012879). HP:0012879 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7863,6 +7696,7 @@ This clinical feature is Anejaculation (HP:0012879). HP:0012879 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7871,6 +7705,330 @@ This clinical feature is Anejaculation (HP:0012879). HP:0012879 is a phenotype f
 
 
                 <div class="evidence-explanation">Documents persistence of the genital and sexual complaints, including anejaculation, for two years after the drug was stopped.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">4</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-genital-hypoesthesia" data-dismech-node="Genital hypoesthesia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Genital hypoesthesia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0033748</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Genital hypoesthesia (genital numbness or anesthesia), annotated with Hypoesthesia (HP:0033748). HP:0033748 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39289881" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39289881" target="_blank">PMID:39289881</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The condition is known as post-SSRI sexual dysfunction (PSSD) and is characterised most commonly by genital numbness, pleasureless or weak orgasm, loss of libido and erectile dysfunction."</div>
+
+
+                <div class="evidence-explanation">Names genital numbness as the most common characteristic feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39302425" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39302425" target="_blank">PMID:39302425</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Persistent post-treatment genital hypoesthesia (PPTGH) is a primary symptom of post-SSRI sexual dysfunction (PSSD), an iatrogenic syndrome characterized by enduring sexual dysfunction following the discontinuation of some antidepressants."</div>
+
+
+                <div class="evidence-explanation">Defines persistent post-treatment genital hypoesthesia as a primary symptom of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-orgasmic-and-ejaculatory-anhedonia" data-dismech-node="Orgasmic and ejaculatory anhedonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Orgasmic and ejaculatory anhedonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012154</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anhedonia (HP:0012154). HP:0012154 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34627736" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34627736" target="_blank">PMID:34627736</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PSSD symptoms include genital anesthesia, erectile dysfunction and orgasmic/ejaculatory anhedonia, and should be differentiated from depression-related sexual-dysfunction."</div>
+
+
+                <div class="evidence-explanation">Lists orgasmic/ejaculatory anhedonia among the core symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-blunting" data-dismech-node="Emotional blunting" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Emotional blunting
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Emotional dearth</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030213" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030213</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Emotional blunting, annotated with Emotional dearth (HP:0030213). HP:0030213 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34719438" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34719438" target="_blank">PMID:34719438</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ancillary non-sexual symptoms vary depending on the specific condition but can include emotional blunting and cognitive impairment."</div>
+
+
+                <div class="evidence-explanation">Consensus-criteria statement listing emotional blunting as an ancillary feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cognitive impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34719438" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34719438" target="_blank">PMID:34719438</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ancillary non-sexual symptoms vary depending on the specific condition but can include emotional blunting and cognitive impairment."</div>
+
+
+                <div class="evidence-explanation">Consensus-criteria statement listing cognitive impairment as an ancillary feature.</div>
 
 
 
@@ -7996,6 +8154,31 @@ This treatment uses vortioxetine (CHEBI:76016). CHEBI:76016 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A multimodal antidepressant used off-label on the rationale of shifting the central serotonin/dopamine ratio without itself causing sexual dysfunction. In a 13-patient retrospective open-label series that excluded patients with major depressive disorder or psychotic symptoms a priori, most patients treated with vortioxetine and/or nutraceuticals improved across all IIEF-5 domains at 12 months. This is the strongest treatment signal available and it is still an uncontrolled cohort of thirteen.</div>
 
 
@@ -8038,6 +8221,7 @@ This treatment uses vortioxetine (CHEBI:76016). CHEBI:76016 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8059,6 +8243,7 @@ This treatment uses vortioxetine (CHEBI:76016). CHEBI:76016 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8144,6 +8329,31 @@ This treatment uses bupropion (CHEBI:3219). CHEBI:3219 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A norepinephrine-dopamine reuptake inhibitor used off-label on the same dopamine/serotonin-ratio rationale as vortioxetine. Reported as a strategy rather than as a drug with its own efficacy data in PSSD.</div>
 
 
@@ -8183,6 +8393,7 @@ This treatment uses bupropion (CHEBI:3219). CHEBI:3219 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8247,6 +8458,31 @@ This treatment is low-power laser irradiation, annotated with Laser Therapy (NCI
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Photobiomodulation applied to the penis, reported in a single case of paroxetine-induced persistent penile anesthesia. After 20 sessions the patient regained partial touch and temperature sensation, while anejaculation and erectile difficulty were unchanged — a within-patient dissociation that maps onto the peripheral versus central split in the mechanism model.</div>
 
 
@@ -8289,6 +8525,7 @@ This treatment is low-power laser irradiation, annotated with Laser Therapy (NCI
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8310,6 +8547,7 @@ This treatment is low-power laser irradiation, annotated with Laser Therapy (NCI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8374,6 +8612,31 @@ This treatment is peripheral nerve neuromodulation of the genitalia, annotated w
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-frequency electrical stimulation combined with low-intensity extracorporeal shock wave therapy directed at the peripheral nerves of the genitalia, given over 16 weeks in three men with post-drug syndrome. All three showed mild to moderate improvement in erectile function, penile sensitivity and nocturnal erections; central symptoms did not change and patients remained profoundly affected.</div>
 
 
@@ -8416,6 +8679,7 @@ This treatment is peripheral nerve neuromodulation of the genitalia, annotated w
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8437,6 +8701,7 @@ This treatment is peripheral nerve neuromodulation of the genitalia, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8501,6 +8766,31 @@ This treatment is patient counselling and supportive management, annotated with 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In the absence of any approved treatment, the actionable interventions are pre-treatment counselling about the risk of persistent sexual dysfunction — recalled by only 12% of affected patients — accurate recognition so that the implicated agent is not reinstated, and adverse-event reporting. Recognition matters therapeutically as well as epidemiologically: misdiagnosis as depressive relapse leads to re-exposure to the drug class that caused the syndrome.</div>
 
 
@@ -8522,6 +8812,7 @@ This treatment is patient counselling and supportive management, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8549,6 +8840,7 @@ This treatment is patient counselling and supportive management, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8570,6 +8862,7 @@ This treatment is patient counselling and supportive management, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8658,6 +8951,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8679,6 +8973,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8733,6 +9028,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8754,6 +9050,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8811,6 +9108,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8832,6 +9130,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8886,6 +9185,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8907,6 +9207,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8964,6 +9265,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9012,6 +9314,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9121,6 +9424,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9145,6 +9449,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9166,6 +9471,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9248,6 +9554,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9306,6 +9613,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9361,6 +9669,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9425,6 +9734,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9446,6 +9756,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9498,6 +9809,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9522,6 +9834,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9543,6 +9856,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9595,6 +9909,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9616,6 +9931,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9711,6 +10027,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9779,6 +10096,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9844,6 +10162,7 @@ This environmental factor is SSRI antidepressant exposure, annotated with exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

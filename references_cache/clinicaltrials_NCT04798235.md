@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04798235"
+reference_id: clinicaltrials:NCT04798235
 title: "Phase 1/2, Open-Label Clinical Study to Evaluate the Safety and Efficacy of Intrathecal TSHA-101 Gene Therapy for Treatment of Infantile Onset GM2 Gangliosidosis"
 content_type: summary
+full_text_attempted: true
 ---
 
 # Phase 1/2, Open-Label Clinical Study to Evaluate the Safety and Efficacy of Intrathecal TSHA-101 Gene Therapy for Treatment of Infantile Onset GM2 Gangliosidosis

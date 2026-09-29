@@ -62,7 +62,9 @@ Disorders with no pathograph edges are skipped rather than treated as errors.
 
 ## NDEx Visibility
 
-The current default upload visibility is `PUBLIC`.
+The current default upload visibility is `PRIVATE`. Publication should be a
+separate, explicit operation after the uploaded network has passed NDEx's
+server-side validation.
 
 That default applies to:
 
@@ -73,7 +75,7 @@ That default applies to:
 To override for a one-off upload:
 
 ```bash
-just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --visibility PRIVATE
+just upload-cx2-test kb/disorders/Stargardt_Disease.yaml --visibility PUBLIC
 ```
 
 ## Test Server Host
@@ -177,3 +179,102 @@ Uploads create new networks. Re-running the same bulk upload will create duplica
 The `just upload-cx2-test` and `just upload-cx2-test-all` wrappers now default to replacement mode, so this duplicate-creation behavior mainly applies when you invoke `dismech-cx2 --ndex-upload` directly without `--ndex-replace-existing`.
 
 The uploader makes a best-effort attempt to set NDEx `index_level=META` after upload. If that post-upload call fails on the test server, the network upload itself is still treated as successful.
+
+## Production releases
+
+Production publication uses the manually triggered `Publish NDEx release`
+GitHub Actions workflow. It is intentionally separate from pull-request and
+`main`-branch builds: merging a curation change must not mutate the public NDEx
+account.
+
+The workflow has two jobs:
+
+1. `export` checks out the requested ref, generates a versioned CX2 corpus, and
+   records hashes, counts, skipped disorders, export defects, and any UUIDs
+   carried forward from a previous manifest.
+2. `publish`, when explicitly enabled, runs behind the protected
+   `ndex-production` GitHub environment. It uploads to
+   `https://www.ndexbio.org`, verifies the NDEx network summaries, and changes
+   newly created or previously private networks to public only after the
+   complete staged upload has succeeded. For a `PUBLIC` release, existing public
+   networks remain public during a successful update; if one fails verification,
+   that network is made private before the workflow stops. A `PRIVATE` release
+   intentionally makes every network it touches private.
+
+Configure these repository variables before running the workflow:
+
+- `NDEX_AUTHOR`
+- `NDEX_RIGHTS`
+- `NDEX_RIGHTS_HOLDER`
+
+Configure `NDEX_USERNAME` and `NDEX_PASSWORD` as secrets on the protected
+`ndex-production` environment, and configure that environment with required
+reviewers. Environment-scoped secrets alone do not create an approval gate.
+The workflow never passes the password on a command line.
+
+Production updates use the `ndex_uuid` values in a previous UUID registry.
+They do not search for or delete networks by name. After the first successful
+release, review `uuid-registry.json` from the verified artifact and
+commit it as `conf/ndex-production-manifest.json` before using update mode in a
+later release. This compact registry contains only slugs, UUIDs, and active or
+retired status; the full per-run manifest remains an Actions artifact.
+
+When a slug in the previous registry is absent from the current knowledge base,
+the manifest reports it under `retired_networks`. Retirement is never automatic:
+an operator must decide whether to retain, privatize, or delete that NDEx
+network.
+
+For the first production release, select the workflow's `first_release` input.
+That is the only workflow path that intentionally runs without a previous UUID
+registry, and it refuses to run if the configured registry already exists.
+Later releases require the configured registry path to exist; a missing or
+misspelled path fails rather than minting duplicate networks.
+
+The workflow refuses to publish any new or changed orphan/unknown-node or
+missing-disease-metadata defect. Networks matching the exact reviewed backlog in
+`conf/ndex-production-defect-allowlist.txt` are quarantined: they remain in the
+manifest as `SKIPPED_EXPORT_DEFECT`, but are not uploaded. Fixing a quarantined
+network automatically makes it publishable; changing or introducing a defect
+fails the release audit until the finding is reviewed explicitly. The manifest
+therefore exposes both the release exclusions and the remaining remediation
+work without placing broken networks in production.
+
+The manifest reports allowlist lines that no longer match a defect as
+`unmatched_allowed_export_defects`; remove those stale lines as the backlog is
+repaired. `BLOCKED_EXPORT_DEFECT` identifies a network with a new or changed
+finding. The manual `--allow-export-defects` CLI escape hatch suppresses that
+audit failure but still does not upload the defective network; if it already has
+an NDEx UUID, the registry preserves the mapping to the last verified network.
+
+`META` indexing covers network attributes such as disease and tissue. Select
+`ALL` only when node/gene search is intended and its resource cost has been
+agreed with NDEx operators.
+
+### Recovering an interrupted release
+
+The verified-artifact step runs even when publication fails, so an interrupted
+run retains `manifest.json` with every UUID minted before the failure. Download
+that artifact and derive a temporary recovery registry:
+
+```bash
+jq '{
+  schema_version: "1.0",
+  networks: ((
+    [.networks[] | select(.ndex_uuid != null) |
+      {slug, ndex_uuid, status: "ACTIVE"}] +
+    [.retired_networks[] | select(.ndex_uuid != null) |
+      {slug, ndex_uuid, status: "RETIRED"}]
+  ) | sort_by(.slug))
+}' manifest.json > conf/ndex-production-manifest.json
+```
+
+Review the recovered slug-to-UUID mapping, commit it on the ref that will be
+released, and rerun with `first_release` disabled. The next export carries those
+UUIDs forward and updates rather than duplicates the networks. After the run
+succeeds, replace the recovery registry with the verified
+`uuid-registry.json` artifact. A resumed public promotion skips networks already
+recorded as `VERIFIED_PUBLIC` and continues with the remaining private networks.
+
+NDEx warnings remain fatal for production releases. This is deliberate: an
+operator should inspect and explicitly resolve a server warning rather than
+allowing the workflow to publish it silently.

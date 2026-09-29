@@ -23,11 +23,13 @@ import httpx
 import typer
 from oaklib import get_adapter
 
+from dismech import oak_db
 from dismech.qc_plugins import causal_inlink_coverage
 
 from .support import default_kb_dir as _default_kb_dir
 from .support import get_disease_term_id as _get_mondo_id
 from .support import iter_disease_files as _iter_disease_files
+from .support import load_shared_yaml_object as _load_shared_disease_yaml
 from .support import load_yaml_object as _load_disease_yaml
 from .support import normalize_hp_id as _normalize_hp_id
 
@@ -56,14 +58,33 @@ app = typer.Typer(help="Compare dismech phenotypes against OMIM/Orphanet databas
 
 
 class HPOClosureResolver:
-    """Lazily loads OAK HP adapter and provides is-a ancestor lookups with caching."""
+    """Lazily loads OAK HP adapter and provides is-a ancestor lookups with caching.
+
+    Only when that build is on disk. `get_adapter(_HP_ADAPTER_SPEC)` downloads
+    it (440 MB) rather than failing when it is absent, so running this audit on
+    a machine without it used to fetch the whole of HPO silently. Both lookups
+    already degrade and warn on a failed query, so an absent build takes the
+    path they have (issue #11299).
+    """
 
     def __init__(self) -> None:
         self._adapter = None
         self._ancestor_cache: dict[str, set[str]] = {}
+        self._warned_no_build = False
 
     def _get_adapter(self):
+        """The HP adapter, or None when its build would have to be downloaded."""
         if self._adapter is None:
+            if not oak_db.local_build_present(_HP_ADAPTER_SPEC):
+                if not self._warned_no_build:
+                    typer.echo(
+                        f"WARNING: no local {_HP_ADAPTER_SPEC} build; HPO closure "
+                        "is unavailable and ancestor lookups will return nothing. "
+                        f"Run `just fetch-ontology-dbs hp` to enable it.",
+                        err=True,
+                    )
+                    self._warned_no_build = True
+                return None
             self._adapter = get_adapter(_HP_ADAPTER_SPEC)
         return self._adapter
 
@@ -75,6 +96,8 @@ class HPOClosureResolver:
             return self._ancestor_cache[normalized]
 
         adapter = self._get_adapter()
+        if adapter is None:
+            return set()
         try:
             anc = {
                 a
@@ -99,6 +122,8 @@ class HPOClosureResolver:
         if not normalized:
             return None
         adapter = self._get_adapter()
+        if adapter is None:
+            return None
         try:
             return adapter.label(normalized)
         except Exception as exc:
@@ -792,7 +817,7 @@ def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
         ref_upper = reference_text.upper()
         matches: list[Path] = []
         for disease_file in disease_files:
-            disease_model = _load_disease_yaml(disease_file)
+            disease_model = _load_shared_disease_yaml(disease_file)
             term_id = _get_mondo_id(disease_model)
             if term_id and term_id.upper() == ref_upper:
                 matches.append(disease_file)
@@ -807,7 +832,7 @@ def _resolve_disease_ref(ref: str) -> tuple[str, Path]:
     normalized_ref = _normalize_disease_lookup(reference_text)
     name_matches: list[Path] = []
     for disease_file in disease_files:
-        disease_model = _load_disease_yaml(disease_file)
+        disease_model = _load_shared_disease_yaml(disease_file)
         disease_name = disease_model.get("name")
         if (
             _normalize_disease_lookup(str(disease_name) if disease_name else "")

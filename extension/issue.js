@@ -101,7 +101,7 @@
         `\n### Curation checklist\n` +
         `- [ ] Confirm the disease is not already in \`kb/disorders/\` (check MONDO id, label, synonyms)\n` +
         `- [ ] Draft the entry with \`/curate\` or the \`initiate-new-disorder-creation\` skill\n` +
-        `- [ ] Evidence items use exact-quote PMID snippets and pass \`just validate-references\`\n` +
+        `- [ ] Evidence items use exact-quote PMID snippets and pass \`just validate-kb-references\`\n` +
         tracker;
 
       return { title, body, labels: settings.diseaseLabels };
@@ -145,7 +145,7 @@
         `\n### Curation checklist\n` +
         `- [ ] Identify the target disorder(s) in \`kb/disorders/\`\n` +
         `- [ ] Extract **exact-quote** snippet(s) for each mechanistic claim (verbatim from the abstract — no paraphrase)\n` +
-        `- [ ] ${fetchCmd} then \`just validate-references\`\n` +
+        `- [ ] ${fetchCmd} then \`just validate-kb-references\`\n` +
         `\nRequested via the dismech curator browser extension.\n` +
         tracker;
 

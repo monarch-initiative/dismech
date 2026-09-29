@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1182/bloodadvances.2024012585
+extractor_version: 1
 title: Daratumumab monotherapy in refractory warm autoimmune hemolytic anemia and cold agglutinin disease
 authors:
 - Marit Jalink
@@ -24,6 +25,7 @@ journal: Blood Advances
 year: '2024'
 doi: 10.1182/bloodadvances.2024012585
 content_type: abstract_only
+is_preprint: false
 full_text_attempted: true
 ---
 

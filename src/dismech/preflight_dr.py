@@ -33,8 +33,12 @@ Verdicts
     no genes could be found at all, or the canonical gene is mentioned fewer
     than ``min_signal`` times, or a lookup the verdict depends on failed. This
     is the Temtamy pattern (PR #3835): a single report mixing C12orf57 and
-    CHSY1 content. Sections about the rival entity must be excluded before
-    curating.
+    CHSY1 content. A mention count cannot tell that apart from a report on
+    the right disease that names the disease's own receptor, ligand, fusion
+    partner or modifier gene: in KDM1A-related adrenal hyperplasia (#9826)
+    the effector gene GIP reaches 0.44 of KDM1A, above the 0.40 the Temtamy
+    rival reached, so no ratio separates the two. Read the sections naming
+    the second gene and exclude them only if they are about another disease.
 ``PASS``
     The canonical gene dominates the report's gene mentions.
 ``SKIP``
@@ -61,9 +65,22 @@ bill of health and away from a spurious "discard the report":
   ``PASS``; ``min_signal`` applies to the expected gene as well as to rivals.
 * ``FAIL`` is only issued when nothing contradicts it. If a lookup failed
   (so the alias rescue that could have found the canonical gene never ran),
-  or if the report's OMIM IDs agree with the MONDO xref (an *independent*
-  identity anchor pointing at the right disease), the verdict is capped at
-  ``WARN``.
+  the verdict is capped at ``WARN``.
+
+What an OMIM match does and does not show
+-----------------------------------------
+A report that cites the OMIM number MONDO xrefs was pointed at the right
+identifier. It does not follow that its text is about the right gene: the
+immunodeficiency 97 report (#12166) cites OMIM 619802 and is about TBK1, never
+naming the canonical gene PIK3CG. So when the canonical gene is never
+mentioned, the matching OMIM number is reported as context and decides nothing
+on its own. What decides is :func:`find_rival_diseases`: if a gene the report
+does discuss is MONDO's ``RO:0004003`` cause of a *different* disease
+(TBK1 -> MONDO:0971173), the report's subject is identified and the verdict is
+``FAIL`` whatever the OMIM citation says. Only when no rival resolves to
+another disease does the OMIM match keep the verdict at ``WARN``: that is the
+report written throughout in a protein name the HGNC alias rescue does not
+cover (NHE1 for SLC9A1), which a mention count alone would bin.
 """
 from __future__ import annotations
 
@@ -109,6 +126,17 @@ OMIM_RE = re.compile(r"\b(?:OMIM|MIM)\s*[:#\s]\s*#?\s*(\d{6})\b", re.IGNORECASE)
 # the actual rival-gene signal.
 CURIE_RE = re.compile(r"\b[A-Za-z][A-Za-z0-9_]*\s*:\s*\d[\w.]*")
 
+# Ontology prefixes that are also HGNC symbols, or that the uppercase token
+# pattern picks up as one. CURIE_RE removes them when they carry a local ID,
+# but reports also name the ontology in prose ("HP calls it Optic atrophy",
+# "(HP terms)"), and 40 such bare mentions put haptoglobin among the top
+# "rival" genes of a correct ACO2 report (#9826). These are kept out of the
+# rival pool only: a disease whose own causal gene is HP still counts it.
+ONTOLOGY_PREFIX_TOKENS = frozenset({
+    "HP", "HPO", "GO", "CL", "MP", "SO", "MONDO", "PATO", "UBERON", "NCIT",
+    "CHEBI", "ECTO", "MAXO", "ORPHA", "OMIM", "HGNC",
+})
+
 # A gene needs at least this many mentions before it counts as "discussed
 # substantively". Below it, a symbol is usually an aside, a pathway member, or a
 # gene named once in a citation title -- not the subject of the report.
@@ -118,6 +146,11 @@ DEFAULT_MIN_SIGNAL = 3
 # marks the report as contaminated. Tuned against the Temtamy report, where the
 # wrong-entity gene CHSY1 (23) reaches 0.40 of C12orf57 (57).
 DEFAULT_RIVAL_RATIO = 0.25
+
+# How many of the most-mentioned rival genes are looked up for a MONDO disease
+# of their own. The first rival is not enough: in the #12166 report TNF (58)
+# out-ranks TBK1 (47), and only TBK1 is the recorded cause of a disease.
+MAX_RIVAL_LOOKUPS = 5
 
 PASS, WARN, FAIL, SKIP = "PASS", "WARN", "FAIL", "SKIP"
 
@@ -194,6 +227,19 @@ class PreflightResult:
     alias_mentions: dict[str, int] = field(default_factory=dict)
     #: Lookups that failed while assembling the comparison (see MondoRecord).
     lookup_errors: list[str] = field(default_factory=list)
+    #: Rival gene -> the ``(MONDO id, label)`` pairs MONDO records it as the
+    #: ``RO:0004003`` cause of, other than the intended entity. Filled only
+    #: when the canonical gene is never mentioned (see :func:`find_rival_diseases`).
+    rival_diseases: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+
+    @property
+    def expected_absent(self) -> bool:
+        """True when no resolvable canonical gene is named even once.
+
+        Kept apart from a low count: ``PIK3CG=0`` means the report never
+        discusses the gene, ``PIK3CG=2`` means it does so in passing.
+        """
+        return bool(self.expected_mentions) and not any(self.expected_mentions.values())
 
     @property
     def ok(self) -> bool:
@@ -336,6 +382,42 @@ def _symbol_like(value: str) -> bool:
     return bool(match) and value.upper() not in NON_GENE_TOKENS
 
 
+MONDO_ADAPTER = "sqlite:obo:mondo"
+
+
+class MondoBuildUnavailable(RuntimeError):
+    """The local ``mondo.db`` build is absent, so the preflight cannot run.
+
+    Raised instead of opening the adapter, because opening it does not fail on a
+    missing build: semsql downloads ``mondo.db`` (232 MB compressed, 1.3 GB on
+    disk) with no prompt (#12687). Nor is an empty :class:`MondoRecord` an
+    acceptable answer, since it reads as "MONDO records no causal gene" and
+    turns into a ``SKIP`` verdict.
+    """
+
+
+def open_mondo_adapter():
+    """Open the local MONDO build, refusing to download it.
+
+    The build is fetched deliberately with ``just fetch-ontology-dbs mondo``.
+    ``conf/oak_config.yaml`` routes MONDO to ``ols:mondo`` for term validation,
+    but this check needs the ``RO:0004003`` causal-gene edges and OMIM xrefs,
+    which it reads from the local build.
+    """
+    from dismech.oak_db import local_build_path, local_build_present
+
+    if not local_build_present(MONDO_ADAPTER):
+        raise MondoBuildUnavailable(
+            f"the local MONDO build is not present at {local_build_path('mondo')}. "
+            "preflight-dr reads the MONDO causal gene and OMIM xrefs from it and "
+            "will not download it implicitly (about 1.3 GB on disk). Fetch it "
+            "with `just fetch-ontology-dbs mondo`, then re-run."
+        )
+    from oaklib import get_adapter
+
+    return get_adapter(MONDO_ADAPTER)
+
+
 def fetch_mondo_record(
     mondo_id: str, adapter=None, hgnc_adapter=None, *, use_hgnc: bool = True
 ) -> MondoRecord:
@@ -356,11 +438,13 @@ def fetch_mondo_record(
     ``use_hgnc=False`` keeps the whole function offline: HGNC is never opened,
     so ``--no-hgnc`` really is an offline mode rather than only a swap of the
     token lexicon.
+
+    With no ``adapter`` given, the local MONDO build must already be on disk:
+    :class:`MondoBuildUnavailable` is raised rather than letting semsql
+    download it (see :func:`open_mondo_adapter`).
     """
     if adapter is None:
-        from oaklib import get_adapter
-
-        adapter = get_adapter("sqlite:obo:mondo")
+        adapter = open_mondo_adapter()
 
     errors: list[str] = []
 
@@ -556,6 +640,116 @@ def _gene_aliases(curie, symbol: str, hgnc_getter, errors: list[str]) -> tuple[s
     return tuple(seen)
 
 
+def _hgnc_curies_for_symbol(symbol: str, adapter, hgnc_adapter=None) -> list[str]:
+    """HGNC CURIE(s) whose label is ``symbol``, asking MONDO first, then HGNC.
+
+    MONDO labels the HGNC objects of its ``RO:0004003`` edges, so a gene that
+    causes any MONDO disease is found there without opening the HGNC build.
+    """
+    for source in (adapter, hgnc_adapter):
+        if source is None:
+            continue
+        hits = [
+            str(c) for c in (source.curies_by_label(symbol) or [])
+            if str(c).lower().startswith("hgnc:")
+        ]
+        if hits:
+            return hits
+    return []
+
+
+def find_rival_diseases(
+    symbols, exclude: str, adapter, hgnc_adapter=None
+) -> tuple[dict[str, list[tuple[str, str]]], list[str]]:
+    """Which of ``symbols`` MONDO records as the cause of a disease other than ``exclude``.
+
+    This is the reverse of the ``RO:0004003`` lookup in
+    :func:`fetch_mondo_record`: from a gene the report discusses to the
+    disease(s) that gene causes. A hit means the report's subject is a disease
+    that exists and is not the one intended (#12166: TBK1 ->
+    MONDO:0971173 autoinflammation with arthritis and vasculitis).
+
+    Returns ``(found, errors)``. A symbol with no HGNC identifier, or one whose
+    gene causes no MONDO disease, is simply absent from ``found``; a lookup
+    that *raises* is recorded in ``errors`` instead, because "could not check"
+    is not "checked, nothing there".
+    """
+    found: dict[str, list[tuple[str, str]]] = {}
+    errors: list[str] = []
+    for symbol in symbols:
+        try:
+            curies = _hgnc_curies_for_symbol(symbol, adapter, hgnc_adapter)
+        except Exception as exc:
+            errors.append(f"HGNC identifier lookup for rival gene {symbol} failed: {exc}")
+            continue
+        diseases: dict[str, str] = {}
+        for curie in curies:
+            variants = _curie_variants(curie)
+            try:
+                edges = list(
+                    adapter.relationships(predicates=[GENE_RELATION], objects=list(variants))
+                )
+            except Exception as exc:
+                errors.append(
+                    f"reverse {GENE_RELATION} lookup for rival gene {symbol} ({curie}) "
+                    f"failed: {exc}"
+                )
+                continue
+            for subject, predicate, obj in edges:
+                subject = str(subject)
+                if (
+                    predicate != GENE_RELATION
+                    or str(obj) not in variants
+                    or subject == exclude
+                    or not subject.upper().startswith("MONDO:")
+                    or subject in diseases
+                ):
+                    continue
+                try:
+                    diseases[subject] = adapter.label(subject) or ""
+                except Exception:  # pragma: no cover - adapter variance
+                    diseases[subject] = ""
+        if diseases:
+            found[symbol] = sorted(diseases.items())
+    return found, errors
+
+
+def _default_rival_lookup(adapter, use_hgnc: bool):
+    """A lazy :func:`find_rival_diseases` for :func:`assess`.
+
+    Lazy because it is needed only when the canonical gene is never mentioned,
+    so a clean run never opens anything it did not open already. Neither
+    build is downloaded: MONDO goes through :func:`open_mondo_adapter`, and
+    HGNC, only a fallback for genes MONDO does not label, is skipped when its
+    build is absent.
+    """
+
+    def _lookup(symbols, exclude):
+        mondo = adapter if adapter is not None else open_mondo_adapter()
+        hgnc = None
+        if use_hgnc:
+            from dismech.oak_db import local_build_present
+
+            if local_build_present("sqlite:obo:hgnc"):
+                try:
+                    from oaklib import get_adapter
+
+                    hgnc = get_adapter("sqlite:obo:hgnc")
+                except Exception:  # pragma: no cover - install/network failure
+                    hgnc = None
+        return find_rival_diseases(symbols, exclude, mondo, hgnc)
+
+    return _lookup
+
+
+def _describe_rival_diseases(found: dict[str, list[tuple[str, str]]], counts: dict) -> str:
+    parts = []
+    for symbol, diseases in found.items():
+        named = "; ".join(f"{mid} {label}".rstrip() for mid, label in diseases)
+        parts.append(f"{symbol} ({counts.get(symbol, 0)} mentions) causes {named}")
+    return ", and ".join(parts)
+
+
 def assess(
     record: MondoRecord,
     gene_counts: Counter,
@@ -566,8 +760,15 @@ def assess(
     rival_ratio: float = DEFAULT_RIVAL_RATIO,
     lexicon_name: str = "hgnc",
     lexicon_note: str = "",
+    rival_disease_lookup=None,
 ) -> PreflightResult:
-    """Compare a report's gene mentions against a MONDO entity's canonical gene."""
+    """Compare a report's gene mentions against a MONDO entity's canonical gene.
+
+    ``rival_disease_lookup(symbols, exclude_mondo_id)`` returns what
+    :func:`find_rival_diseases` returns. It is called only when the canonical
+    gene is never mentioned; ``None`` skips the check, which then cannot turn
+    a ``WARN`` into a ``FAIL``.
+    """
     report_omim = report_omim or set()
     expected = list(record.genes)
     unresolved = set(record.unresolved_genes)
@@ -594,7 +795,9 @@ def assess(
     rivals = [
         (sym, n)
         for sym, n in gene_counts.most_common()
-        if sym not in claimed and n >= min_signal
+        if sym not in claimed
+        and sym not in ONTOLOGY_PREFIX_TOKENS
+        and n >= min_signal
     ]
 
     result = PreflightResult(
@@ -649,38 +852,99 @@ def assess(
 
     if expected_total == 0 and rivals:
         top_sym, top_n = rivals[0]
-        omim_agrees = bool(record.omim_ids and (set(record.omim_ids) & report_omim))
+        shared = ", ".join(sorted(set(record.omim_ids) & report_omim))
+        absent = (
+            f"Expected gene {expected_str} is never mentioned (zero mentions, not a "
+            "low count)"
+        )
         # FAIL is the tool's most destructive instruction ("discard the
         # report"), so it is issued only when nothing contradicts it. A lookup
         # that failed is exactly the lookup that could have found the expected
-        # gene under an alias, and an OMIM match is an *independent* identity
-        # anchor. Either one downgrades to WARN.
+        # gene under an alias, so it downgrades to WARN. An OMIM match does
+        # not: it shows the report was pointed at the right identifier, not
+        # that its text is about the right gene (#12166).
         if record.lookup_errors:
             result.verdict = WARN
             result.reasons.append(
-                f"Expected gene {expected_str} is never mentioned while {top_sym} is "
-                f"mentioned {top_n} times — but an ontology lookup failed, so alias "
-                "symbols could not be checked and the absence of the canonical symbol "
-                "is not conclusive. Verify the report's identity manually rather than "
-                "discarding it on this evidence."
-            )
-        elif omim_agrees:
-            result.verdict = WARN
-            shared = ", ".join(sorted(set(record.omim_ids) & report_omim))
-            result.reasons.append(
-                f"Expected gene {expected_str} is never mentioned while {top_sym} is "
-                f"mentioned {top_n} times, but the report cites OMIM {shared}, which "
-                f"matches the {record.id} xref. That independent identity anchor "
-                "contradicts the gene-frequency signal — reconcile the two manually "
-                "instead of discarding the report."
+                f"{absent} while {top_sym} is mentioned {top_n} times, but an "
+                "ontology lookup failed, so alias symbols could not be checked and "
+                "the absence of the canonical symbol is not conclusive. Verify the "
+                "report's identity manually rather than discarding it on this "
+                "evidence."
             )
         else:
-            result.verdict = FAIL
-            result.reasons.append(
-                f"Expected gene {expected_str} is never mentioned, but {top_sym} is "
-                f"mentioned {top_n} times. The report is most likely about a "
-                "different disease entity — discard it rather than cherry-picking."
+            found: dict[str, list[tuple[str, str]]] = {}
+            rival_errors: list[str] = []
+            # Only a real gene may decide a FAIL. "AR" (autosomal recessive)
+            # and "HR" (hazard ratio) are HGNC symbols too, and AR is the cause
+            # of Kennedy disease, so an abbreviation-heavy report on the right
+            # disease would otherwise be binned.
+            checked = [
+                sym for sym, _n in rivals if sym.upper() not in NON_GENE_TOKENS
+            ][:MAX_RIVAL_LOOKUPS]
+            if rival_disease_lookup is not None and checked:
+                try:
+                    found, rival_errors = rival_disease_lookup(checked, record.id)
+                except Exception as exc:
+                    rival_errors = [f"rival-gene disease lookup failed: {exc}"]
+                result.rival_diseases = dict(found)
+                result.lookup_errors.extend(rival_errors)
+            omim_note = (
+                f" The report does cite OMIM {shared}, which matches the {record.id} "
+                "xref; that shows it was pointed at the right identifier, not that "
+                f"its text is about {expected_str}, so it does not soften this verdict."
+                if shared
+                else ""
             )
+            if found:
+                result.verdict = FAIL
+                result.reasons.append(
+                    f"{absent}, and MONDO ({GENE_RELATION}) records genes the report "
+                    "does discuss as the cause of a different disease: "
+                    f"{_describe_rival_diseases(found, dict(gene_counts))}. The report "
+                    "is about a disease that exists and is not this one; discard it "
+                    f"rather than cherry-picking.{omim_note}"
+                )
+            elif shared:
+                result.verdict = WARN
+                if not checked:
+                    checked_note = (
+                        "Every rival symbol is a common abbreviation (such as AR for "
+                        "autosomal recessive), so none was looked up as a gene."
+                    )
+                elif rival_disease_lookup is None:
+                    checked_note = (
+                        "The rival genes were not checked for a MONDO disease of their "
+                        "own."
+                    )
+                elif rival_errors:
+                    checked_note = (
+                        "The rival-gene disease lookup did not complete, so it is "
+                        "unknown whether the rival genes cause another MONDO disease."
+                    )
+                else:
+                    checked_note = (
+                        "None of the rival genes checked "
+                        f"({', '.join(checked)}) is "
+                        "MONDO's recorded cause of another disease."
+                    )
+                result.reasons.append(
+                    f"{absent} while {top_sym} is mentioned {top_n} times. The report "
+                    f"cites OMIM {shared}, matching the {record.id} xref, but a "
+                    "matching identifier shows only that the report was pointed at the "
+                    f"right entry, not that its text is about {expected_str}. "
+                    f"{checked_note} The report may name {expected_str} only by a "
+                    "protein or legacy name the HGNC alias list does not carry. Search "
+                    "it for the gene under any name; if it is not there, discard the "
+                    "report."
+                )
+            else:
+                result.verdict = FAIL
+                result.reasons.append(
+                    f"{absent}, but {top_sym} is mentioned {top_n} times. The report "
+                    "is most likely about a different disease entity; discard it "
+                    "rather than cherry-picking."
+                )
         if result.lookup_errors:
             result.reasons.append(
                 "Some ontology lookups failed, so this verdict is incomplete: "
@@ -722,9 +986,13 @@ def assess(
         result.verdict = WARN
         rival_sym, rival_n = rivals[0]
         result.reasons.append(
-            f"Rival gene {rival_sym} is mentioned {rival_n} times "
+            f"Second gene {rival_sym} is mentioned {rival_n} times "
             f"({rival_n / expected_total:.0%} of {expected_str}). The report may "
-            "mix in a second disease entity — exclude those sections before curating."
+            f"mix in a second disease entity, or {rival_sym} may be this disease's "
+            "own receptor, ligand, fusion partner, or modifier gene; a mention "
+            "count cannot tell the two apart. Read the sections naming "
+            f"{rival_sym} and decide which it is; exclude them only if they are "
+            "about a different disease."
         )
 
     if unresolved:
@@ -789,6 +1057,7 @@ def preflight(
         rival_ratio=rival_ratio,
         lexicon_name=getattr(lexicon, "name", "custom"),
         lexicon_note=getattr(lexicon, "reason", ""),
+        rival_disease_lookup=_default_rival_lookup(adapter, use_hgnc),
     )
 
 
@@ -802,6 +1071,8 @@ def format_report(result: PreflightResult) -> str:
         mentions = ", ".join(
             f"{g}={n}" for g, n in sorted(result.expected_mentions.items())
         )
+        if result.expected_absent:
+            mentions += " (never named)"
         lines.append(f"  mentions        : {mentions}")
     if result.alias_mentions:
         aliases = ", ".join(f"{g}={n}" for g, n in sorted(result.alias_mentions.items()))
@@ -816,6 +1087,9 @@ def format_report(result: PreflightResult) -> str:
         lines.append(
             f"  OMIM (report)   : {', '.join(result.report_omim[:8]) or '-'}"
         )
+    for symbol, diseases in result.rival_diseases.items():
+        for mondo_id, label in diseases:
+            lines.append(f"  rival disease   : {symbol} -> {mondo_id} {label}".rstrip())
     if result.lexicon != "hgnc":
         suffix = f" (HGNC unavailable: {result.lexicon_note})" if result.lexicon_note else ""
         lines.append(f"  lexicon         : {result.lexicon}{suffix}")
@@ -885,6 +1159,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.no_hgnc and args.require_hgnc:
         parser.error("--no-hgnc and --require-hgnc are mutually exclusive")
 
+    # Open MONDO first: without it there is no verdict to give, and failing
+    # here also stops the HGNC lexicon below from fetching its own build for a
+    # run that cannot finish.
+    try:
+        mondo_adapter = open_mondo_adapter()
+    except MondoBuildUnavailable as exc:
+        parser.exit(2, f"error: {exc}\n")
+
     if args.no_hgnc:
         lexicon = HeuristicLexicon()
     else:
@@ -896,6 +1178,7 @@ def main(argv: list[str] | None = None) -> int:
     result = preflight(
         args.report,
         mondo,
+        adapter=mondo_adapter,
         lexicon=lexicon,
         min_signal=args.min_signal,
         rival_ratio=args.rival_ratio,

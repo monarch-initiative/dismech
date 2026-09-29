@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4574,6 +4651,7 @@ Two features of the organism gate treatment and are curated here as explicit mec
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4595,6 +4673,7 @@ Two features of the organism gate treatment and are curated here as explicit mec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4787,6 +4866,7 @@ Two features of the organism gate treatment and are curated here as explicit mec
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4808,6 +4888,7 @@ Two features of the organism gate treatment and are curated here as explicit mec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4845,6 +4926,7 @@ Two features of the organism gate treatment and are curated here as explicit mec
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chigger-borne-dermal-inoculation-of-orientia-tsutsugamushi" data-dismech-node="Chigger-Borne Dermal Inoculation of Orientia tsutsugamushi" data-dismech-type="pathophysiology">
                 <div class="item-name">Chigger-Borne Dermal Inoculation of Orientia tsutsugamushi</div>
+
 
                 <div class="item-desc">A feeding Leptotrombidium larva deposits Orientia tsutsugamushi into the dermis at its attachment site. This is the initiating event of the disease and the only natural route of human infection; the mite feeds once, so a single attachment is sufficient. Bacteraemia becomes detectable roughly a week after attachment, one to three days before clinical illness begins.</div>
 
@@ -4932,6 +5014,7 @@ This pathophysiological event involves dermal fibroblast at the inoculation site
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4954,6 +5037,7 @@ This pathophysiological event involves dermal fibroblast at the inoculation site
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tsa56-fibronectin-binding-and-integrin-mediated-host-cell-entry" data-dismech-node="TSA56-Fibronectin Binding and Integrin-Mediated Host Cell Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">TSA56-Fibronectin Binding and Integrin-Mediated Host Cell Entry</div>
+
 
                 <div class="item-desc">The 56-kDa type-specific antigen (TSA56), the major outer membrane protein of O. tsutsugamushi, binds host fibronectin. Fibronectin bridges the bacterium to integrin alpha5beta1, and the bacterium then activates the integrin signalling machinery - focal adhesion kinase, Src kinase and RhoA GTPase, with recruitment of talin and paxillin - to drive actin reorganisation and membrane protrusion that engulfs it. This is an induced uptake: the organism forces its own entry into cells that are not professional phagocytes. Blocking tyrosine kinases or RhoA, or competing with the fibronectin-binding region of TSA56, reduces invasion, which is what makes this a causal step rather than a correlate.</div>
 
@@ -5109,6 +5193,7 @@ This pathophysiological event involves symbiont entry into host (GO:0044409). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5130,6 +5215,7 @@ This pathophysiological event involves symbiont entry into host (GO:0044409). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5155,6 +5241,7 @@ This pathophysiological event involves symbiont entry into host (GO:0044409). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytosolic-replication-in-an-obligate-intracellular-niche" data-dismech-node="Cytosolic Replication in an Obligate Intracellular Niche" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytosolic Replication in an Obligate Intracellular Niche</div>
+
 
                 <div class="item-desc">Having entered the cell, Orientia escapes the endocytic vacuole into the cytosol and replicates free in the cytoplasm. It cannot replicate outside a host cell at all. This niche is simultaneously the engine of the disease and the constraint on its treatment: an antibiotic must cross the host plasma membrane and accumulate intracellularly to reach the organism, which excludes the poorly cell-penetrant beta-lactams.</div>
 
@@ -5258,6 +5345,7 @@ This pathophysiological event involves biological process involved in interactio
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5280,6 +5368,7 @@ This pathophysiological event involves biological process involved in interactio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ank13-mediated-p53-suppression-and-host-cell-cycle-arrest" data-dismech-node="Ank13-Mediated p53 Suppression and Host Cell Cycle Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Ank13-Mediated p53 Suppression and Host Cell Cycle Arrest</div>
+
 
                 <div class="item-desc">Orientia does not merely occupy the host cell, it reconfigures it. The nucleomodulatory effector Ank13 blocks transcription of TP53, nearly depleting p53 and disabling the DNA-damage-triggered apoptosis that would otherwise destroy the infected cell and with it the bacterial niche. Rather than releasing the cell into unrestricted proliferation, the organism arrests the cycle at S phase in a way that favours its own replication, and delays genotoxic apoptosis until a high bacterial load has accumulated. This is niche maintenance, and it explains why infected endothelium survives long enough to support the bacterial burden that drives systemic disease.</div>
 
@@ -5371,6 +5460,7 @@ This pathophysiological event involves increased biological process involved in 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5392,6 +5482,7 @@ This pathophysiological event involves increased biological process involved in 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5508,7 @@ This pathophysiological event involves increased biological process involved in 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eschar-formation-at-the-inoculation-site" data-dismech-node="Eschar Formation at the Inoculation Site" data-dismech-type="pathophysiology">
                 <div class="item-name">Eschar Formation at the Inoculation Site</div>
+
 
                 <div class="item-desc">Replication at the chigger attachment site produces a localised necrotic papule that ulcerates and forms a black crust surrounded by an erythematous halo - the eschar - typically with regional lymphadenopathy in the draining basin. It is the single most useful diagnostic sign, but it is not universal, is frequently concealed in the axilla, groin or under clothing, and is easily missed on darker skin, which is a recurring cause of delayed diagnosis. The eschar is the visible correlate of the initiating focus rather than a cause of the systemic disease, so it is deliberately a terminal node carrying no outgoing causal edge.</div>
 
@@ -5455,6 +5547,7 @@ This pathophysiological event involves increased biological process involved in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5477,6 +5570,7 @@ This pathophysiological event involves increased biological process involved in 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-and-haematogenous-dissemination" data-dismech-node="Lymphatic and Haematogenous Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic and Haematogenous Dissemination</div>
+
 
                 <div class="item-desc">From the inoculation site the organism travels through draining lymphatics to regional nodes and then into the bloodstream, producing the rickettsaemia that precedes clinical illness by one to three days. Dissemination is what converts a localised skin lesion into a systemic vasculotropic disease, and it is why the organ complications of scrub typhus are simultaneous rather than sequential.</div>
 
@@ -5530,6 +5624,7 @@ This pathophysiological event involves increased biological process involved in 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5552,6 +5647,7 @@ This pathophysiological event involves increased biological process involved in 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-and-mononuclear-phagocyte-infection" data-dismech-node="Endothelial and Mononuclear Phagocyte Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial and Mononuclear Phagocyte Infection</div>
+
 
                 <div class="item-desc">Orientia is endotheliotropic: vascular endothelial cells are its principal target throughout the body, and infection of the endothelium is the anatomical basis of the disease&#39;s small-vessel character. Monocytes, macrophages and dendritic cells are also productively infected - monocytes support bacterial replication, not merely uptake - which supplies the second, immunological arm of the lesion.</div>
 
@@ -5737,6 +5833,7 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5759,6 +5856,7 @@ This pathophysiological event involves dendritic cell (CL:0000451). CL:0000451 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-i-interferon-driven-m1-monocyte-polarisation-and-cytokine-response" data-dismech-node="Type I Interferon-Driven M1 Monocyte Polarisation and Cytokine Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Type I Interferon-Driven M1 Monocyte Polarisation and Cytokine Response</div>
+
 
                 <div class="item-desc">Infection reprogrammes the mononuclear phagocyte compartment on a large scale: more than 4,500 genes change in infected healthy-donor monocytes, with upregulation of type I interferon and interferon-stimulated genes, M1 macrophage-polarisation genes, and apoptosis-related genes. Live organisms are required for the interferon response, so this is an active host response to replicating bacteria rather than a reaction to bacterial debris. Critically, the same interferon-dominated signature is recovered from the mononuclear cells of patients with scrub typhus, so this is not a cell-culture artefact.</div>
 
@@ -5876,6 +5974,7 @@ This pathophysiological event involves M1-polarised macrophage, annotated with m
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5897,6 +5996,7 @@ This pathophysiological event involves M1-polarised macrophage, annotated with m
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5922,6 +6022,7 @@ This pathophysiological event involves M1-polarised macrophage, annotated with m
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-small-vessel-vasculitis-and-endothelial-barrier-failure" data-dismech-node="Disseminated Small-Vessel Vasculitis and Endothelial Barrier Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Small-Vessel Vasculitis and Endothelial Barrier Failure</div>
+
 
                 <div class="item-desc">Direct endothelial infection plus the interferon- and cytokine-rich inflammatory response produce a disseminated small-vessel vasculitis with perivascular mononuclear infiltration and loss of endothelial barrier integrity. This is the single unifying lesion of scrub typhus. Because the vascular bed is everywhere, one lesion expressed in different organs generates the entire severe phenotype, which is why respiratory, hepatic, cardiac, renal and neurological complications appear together rather than in sequence.</div>
 
@@ -6009,6 +6110,7 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6031,6 +6133,7 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multi-organ-vascular-leak-and-end-organ-dysfunction" data-dismech-node="Multi-Organ Vascular Leak and End-Organ Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multi-Organ Vascular Leak and End-Organ Dysfunction</div>
+
 
                 <div class="item-desc">Capillary leak and microvascular injury across multiple beds produce the severe end of the disease: pneumonitis and acute respiratory distress syndrome, hepatitis, myocarditis and circulatory shock, acute kidney injury, and meningoencephalitis. In the INTREST trial of severe scrub typhus - a hospitalised cohort selected for having at least one organ involved, so these proportions describe severe disease and are not population frequencies - complications were respiratory in 62%, hepatic in 54%, cardiovascular in 42%, renal in 30% and neurologic in 20% of patients.</div>
 
@@ -6069,6 +6172,7 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6090,6 +6194,7 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6115,6 +6220,7 @@ This pathophysiological event involves blood vessel endothelial cell (CL:0000071
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-orientia-ribosomal-translation-tetracycline-and-macrolide-target" data-dismech-node="Orientia Ribosomal Translation (Tetracycline and Macrolide Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Orientia Ribosomal Translation (Tetracycline and Macrolide Target)</div>
+
 
                 <div class="item-desc">Like other bacteria, Orientia tsutsugamushi depends on translation of its mRNA by the 70S ribosome, and that ribosome is the target of every antibiotic with established activity in scrub typhus. Doxycycline binds the 30S subunit and blocks aminoacyl-tRNA delivery to the A site; azithromycin binds the 50S subunit and blocks nascent-chain elongation. The target is the ribosome and not the cell wall, which - together with the intracellular niche - is why a tetracycline or macrolide rather than a beta-lactam is used.</div>
 
@@ -6202,6 +6308,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6223,6 +6330,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,6 +6356,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-requirement-for-cell-penetrant-antimicrobials" data-dismech-node="Requirement for Cell-Penetrant Antimicrobials" data-dismech-type="pathophysiology">
                 <div class="item-name">Requirement for Cell-Penetrant Antimicrobials</div>
+
 
                 <div class="item-desc">Because the organism replicates free in the host cytosol, effective therapy requires an antibiotic that crosses the host plasma membrane and accumulates intracellularly. Doxycycline and azithromycin do; beta-lactams do not reach the cytosolic organism regardless of dose. This is pharmacokinetic gating rather than a molecular target, and it operates alongside - not instead of - the ribosomal target node. The clinical urgency of the constraint follows from the multi-organ node, since untreated disease progresses to organ failure - but that is a statement about why the constraint matters, not a causal relationship, so it is recorded here rather than encoded as an edge.</div>
 
@@ -6320,6 +6429,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6342,6 +6452,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peptidoglycan-poor-atypical-cell-envelope" data-dismech-node="Peptidoglycan-Poor Atypical Cell Envelope" data-dismech-type="pathophysiology">
                 <div class="item-name">Peptidoglycan-Poor Atypical Cell Envelope</div>
+
 
                 <div class="item-desc">Orientia&#39;s envelope chemistry diverges sharply from that of the rickettsiae it was once classified with, and this divergence was the basis for erecting the genus Orientia. Chemical analysis found no detectable muramic acid, glucosamine, heptose or KDO and no lipopolysaccharide bands, concluding the organism has little or no peptidoglycan or LPS. A later structural study qualified this: it found evidence for a peptidoglycan-LIKE structure together with a cross-linked outer-membrane protein network that confers envelope stability. The two results are curated here together, unresolved, because the difference matters mechanistically - it determines whether beta-lactam inactivity in scrub typhus is target absence or only drug exclusion. See the `orientia-peptidoglycan-status` discussion; this entry deliberately does NOT declare conformance to `bacterial_cell_wall_synthesis_inhibition#Intrinsic Resistance in Cell-Wall-Deficient Organisms` while that question is open.</div>
 
@@ -6395,6 +6506,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6416,6 +6528,7 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6491,17 +6604,17 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6542,6 +6655,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6556,6 +6672,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6619,6 +6736,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6633,6 +6753,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6705,6 +6826,9 @@ This clinical feature is Shock (HP:0031273), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6719,6 +6843,7 @@ This clinical feature is Shock (HP:0031273), qualified as temporality acute. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6775,6 +6900,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6789,6 +6917,7 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6845,6 +6974,9 @@ This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6859,6 +6991,7 @@ This clinical feature is Tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6915,6 +7048,9 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6929,6 +7065,7 @@ This clinical feature is Hypotension (HP:0002615). HP:0002615 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6985,6 +7122,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6999,6 +7139,7 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7064,6 +7205,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7078,6 +7222,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7134,6 +7279,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7148,6 +7296,7 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7204,6 +7353,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7218,6 +7370,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7274,6 +7427,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7288,6 +7444,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7344,6 +7501,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7358,6 +7518,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7439,6 +7600,9 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7453,6 +7617,7 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7485,7 +7650,7 @@ This clinical feature is Acute kidney injury (HP:0001919), qualified as temporal
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-maculopapular-rash" data-dismech-node="Maculopapular rash" data-dismech-type="phenotype">
@@ -7536,6 +7701,9 @@ This clinical feature is Maculopapular exanthema (HP:0040186), qualified as temp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7553,6 +7721,7 @@ This clinical feature is Maculopapular exanthema (HP:0040186), qualified as temp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7561,6 +7730,188 @@ This clinical feature is Maculopapular exanthema (HP:0040186), qualified as temp
 
 
                 <div class="evidence-explanation">Documents the rash, its transient character, and its timing relative to fever onset in controlled human infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute respiratory distress syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acute respiratory distress syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0033677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute respiratory distress syndrome (HP:0033677), qualified as temporality acute. HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: ACUTE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36856615" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36856615" target="_blank">PMID:36856615</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"complications included those that were respiratory (in 62%), hepatic (in 54%), cardiovascular (in 42%), renal (in 30%), and neurologic (in 20%)"</div>
+
+
+                <div class="evidence-explanation">Respiratory complications were the most frequent organ involvement in the severe-disease trial cohort. No frequency band is asserted because the cohort was selected for severity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-meningoencephalitis" data-dismech-node="Meningoencephalitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Meningoencephalitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bacterial encephalitis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0034387</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bacterial encephalitis (HP:0034387), qualified as temporality acute. HP:0034387 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: ACUTE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40747630" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40747630" target="_blank">PMID:40747630</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neurological complications, notably encephalitis and meningitis, have emerged as significant clinical manifestations, considerably affecting morbidity and mortality rates among affected individuals."</div>
+
+
+                <div class="evidence-explanation">Establishes encephalitis and meningitis as significant manifestations affecting outcome. Evidence source is OTHER as this is a review article.</div>
 
 
 
@@ -7590,15 +7941,18 @@ This clinical feature is Maculopapular exanthema (HP:0040186), qualified as temp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001287</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001287</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7618,6 +7972,7 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7649,6 +8004,114 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eschar" data-dismech-node="Eschar" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eschar
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000793" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:6000793</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eschar (HP:6000793). HP:6000793 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39282546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282546" target="_blank">PMID:39282546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The overall pooled proportion of eschar positivity was 28.5% (95% CI: 24.1 to 32.9%)."</div>
+
+
+                <div class="evidence-explanation">Pooled proportion across 34,002 cases; 28.5% falls in the OCCASIONAL band (5-29%) and is the quantitative basis for the frequency asserted here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39282546" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282546" target="_blank">PMID:39282546</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pooled proportion of eschar positivity in the &#39;trunk&#39; (39.3%), &#39;groin&#39; (23.8%), and &#39;axilla&#39; (16.5%) was higher than in the &#39;limbs&#39; (9.9%) and &#39;head&#39; (11.3%)."</div>
+
+
+                <div class="evidence-explanation">Documents the anatomical distribution that explains why the eschar is so often overlooked on routine examination.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">2</span>
                 </summary>
@@ -7667,10 +8130,10 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7699,6 +8162,9 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7713,6 +8179,7 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7755,15 +8222,18 @@ This clinical feature is Fever (HP:0001945), qualified as temporality acute. HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7783,6 +8253,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7811,7 +8282,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7832,10 +8303,10 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315), qualified as severity severe. HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7864,6 +8335,9 @@ This clinical feature is Headache (HP:0002315), qualified as severity severe. HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7878,6 +8352,7 @@ This clinical feature is Headache (HP:0002315), qualified as severity severe. HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7906,98 +8381,12 @@ This clinical feature is Headache (HP:0002315), qualified as severity severe. HP
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute respiratory distress syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acute respiratory distress syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0033677</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acute respiratory distress syndrome (HP:0033677), qualified as temporality acute. HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: ACUTE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36856615" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36856615" target="_blank">PMID:36856615</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"complications included those that were respiratory (in 62%), hepatic (in 54%), cardiovascular (in 42%), renal (in 30%), and neurologic (in 20%)"</div>
-
-
-                <div class="evidence-explanation">Respiratory complications were the most frequent organ involvement in the severe-disease trial cohort. No frequency band is asserted because the cohort was selected for severity.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -8015,15 +8404,18 @@ This clinical feature is Acute respiratory distress syndrome (HP:0033677), quali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0012735</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8043,6 +8435,7 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8085,15 +8478,18 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8113,6 +8509,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8141,7 +8538,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -8162,15 +8559,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8190,6 +8590,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8232,15 +8633,18 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8263,6 +8667,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8271,197 +8676,6 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                 <div class="evidence-explanation">Pooled prevalence of 26% for abdominal pain places it in the OCCASIONAL band (5-29%).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eschar" data-dismech-node="Eschar" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Eschar
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000793" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:6000793</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Eschar (HP:6000793). HP:6000793 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39282546" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282546" target="_blank">PMID:39282546</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The overall pooled proportion of eschar positivity was 28.5% (95% CI: 24.1 to 32.9%)."</div>
-
-
-                <div class="evidence-explanation">Pooled proportion across 34,002 cases; 28.5% falls in the OCCASIONAL band (5-29%) and is the quantitative basis for the frequency asserted here.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39282546" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39282546" target="_blank">PMID:39282546</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The pooled proportion of eschar positivity in the &#39;trunk&#39; (39.3%), &#39;groin&#39; (23.8%), and &#39;axilla&#39; (16.5%) was higher than in the &#39;limbs&#39; (9.9%) and &#39;head&#39; (11.3%)."</div>
-
-
-                <div class="evidence-explanation">Documents the anatomical distribution that explains why the eschar is so often overlooked on routine examination.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-meningoencephalitis" data-dismech-node="Meningoencephalitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Meningoencephalitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bacterial encephalitis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034387" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0034387</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bacterial encephalitis (HP:0034387), qualified as temporality acute. HP:0034387 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: ACUTE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40747630" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40747630" target="_blank">PMID:40747630</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neurological complications, notably encephalitis and meningitis, have emerged as significant clinical manifestations, considerably affecting morbidity and mortality rates among affected individuals."</div>
-
-
-                <div class="evidence-explanation">Establishes encephalitis and meningitis as significant manifestations affecting outcome. Evidence source is OTHER as this is a review article.</div>
 
 
 
@@ -8587,6 +8801,31 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A tetracycline and the standard first-line agent for scrub typhus in adults and children. It satisfies both mechanistic constraints simultaneously: it binds the 30S ribosomal subunit, which is the drug target in this organism, and it accumulates intracellularly, so it reaches an organism replicating free in the host cytosol. Because laboratory confirmation is usually retrospective, treatment is started empirically on clinical suspicion.</div>
 
 
@@ -8642,6 +8881,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8663,6 +8903,7 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8748,6 +8989,31 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A macrolide with efficacy equivalent to doxycycline in adults and in children, and the preferred agent in pregnancy where tetracyclines are avoided. It acts on the 50S ribosomal subunit - a different site on the same target - and, like doxycycline, concentrates intracellularly.</div>
 
 
@@ -8803,6 +9069,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8824,6 +9091,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8926,6 +9194,31 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In severe scrub typhus with organ involvement, combining the two ribosome-active agents outperformed either alone. In a 794-patient double-blind randomised trial the composite outcome of death, persistent complications or persistent fever occurred in 33% with combination therapy versus 47% with doxycycline and 48% with azithromycin, with no difference between the two monotherapies and no excess of adverse events. This is the current evidence-based regimen for severe disease.</div>
 
 
@@ -8981,6 +9274,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9002,6 +9296,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9087,6 +9382,31 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The historical treatment for scrub typhus and still an option where the first-line agents cannot be used. Its role is now limited by toxicity in exactly the groups that most need an alternative: it is avoided in pregnancy and not prescribed to neonates. That constraint, together with the teratogenicity of tetracyclines in pregnancy and their effect on children&#39;s teeth, is what makes azithromycin the agent of choice in pregnancy rather than a mere alternative.</div>
 
 
@@ -9129,6 +9449,7 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9150,6 +9471,7 @@ This treatment uses chloramphenicol (CHEBI:17698). CHEBI:17698 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9232,6 +9554,7 @@ This environmental factor is occupational exposure to chigger-infested vegetatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9280,6 +9603,7 @@ This environmental factor is occupational exposure to chigger-infested vegetatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9354,6 +9678,7 @@ This environmental factor is peridomestic exposure to chigger habitat through fi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9402,6 +9727,7 @@ This environmental factor is peridomestic exposure to chigger habitat through fi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9476,6 +9802,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9524,6 +9851,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9635,6 +9963,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9721,6 +10050,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9813,6 +10143,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9834,6 +10165,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9926,6 +10258,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9947,6 +10280,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10039,6 +10373,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10060,6 +10395,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10137,6 +10473,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10158,6 +10495,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10211,6 +10549,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10311,6 +10650,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10332,6 +10672,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10393,6 +10734,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10414,6 +10756,7 @@ This environmental factor is ecological amplification of Leptotrombidium mite po
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10513,6 +10856,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10588,6 +10932,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10638,6 +10983,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10713,6 +11059,7 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13062,6 +13409,82 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Scrub typhus (MONDO:0019365)</strong> · 2026-08-19T22:52:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Scrub_Typhus/2026-08-19T225253Z-claude-code-c299f5.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry for scrub typhus (MONDO:0019365), the mite-borne rickettsiosis
+caused by Orientia tsutsugamushi. Claimed via issue #8999 off the priority dashboard
+(CURATE_ROOT, score 71.5, no NEC risk badge).
+
+Deep research: `just research-disorder falcon Scrub_Typhus` (Edison/Falcon,
+research/Scrub_Typhus-deep-research-falcon.md). Three gates run before any content was
+used:
+  Gate 1 - report reference_validation block: 9/9 references resolved, 0 unresolved,
+    0 off-topic.
+  Gate 2 - `just preflight-dr ... MONDO:0019365` returned SKIP because MONDO records no
+    causal gene for an infectious disease, so the manual identity check was run against
+    the organism anchor instead (RO:0014001 NCBITaxon:784). The report mentions Orientia
+    tsutsugamushi and Leptotrombidium throughout and Rickettsia typhi / R. prowazekii /
+    R. rickettsii zero times, so the two obvious NEC confusions (murine typhus, epidemic
+    typhus) are excluded. No OMIM claims to conflict.
+  Gate 3 - every citation used was independently fetched with `just fetch-reference` and
+    every snippet checked against the resulting cache. The DR report cites by opaque
+    citation key rather than PMID, so it was used as a structural cross-check only; all
+    17 evidence-bearing references were sourced and verified independently via PubMed
+    E-utilities. Three DR leads (PMID:21610853, PMID:32620750, PMID:37426673) were
+    resolved from their DOIs and confirmed to be the papers claimed before use.
+
+Pathograph: 13 atomic nodes, 15 edges, single connected component, no orphans, all four
+biological_scale values represented with 5 MOLECULAR nodes. Chain runs chigger
+inoculation -&gt; TSA56/fibronectin/integrin-mediated induced entry -&gt; cytosolic replication
+-&gt; eschar / dissemination -&gt; endothelial and mononuclear phagocyte infection -&gt; type I
+interferon M1 programme -&gt; small-vessel vasculitis -&gt; multi-organ leak, with Ank13/p53
+niche maintenance feeding the replication node and two drug-target nodes feeding in.
+
+Module conformance: `intracellular_pathogen_persistence` (both nodes) and
+`bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome`,
+following the Murine_Typhus / Oroya_Fever pattern. Conformance to
+`bacterial_cell_wall_synthesis_inhibition#Intrinsic Resistance in Cell-Wall-Deficient
+Organisms` was deliberately NOT declared: the classic PMID:3114150 finding that Orientia
+lacks peptidoglycan is contested by PMID:28513097, which reports a peptidoglycan-like
+structure. Both papers are curated on one node (the second as PARTIAL) and the tension is
+recorded as an open KNOWLEDGE_GAP rather than resolved by assertion.
+
+Frequency discipline: only eschar carries a frequency band (OCCASIONAL), justified by a
+34,002-case pooled proportion of 28.5% (PMID:39282546), with the description recording
+that the estimate is India-specific and regionally heterogeneous. The INTREST organ-
+involvement percentages are quoted in phenotype descriptions but deliberately NOT mapped
+to FrequencyEnum, because that cohort was selected for severe disease and the numbers are
+not population frequencies.
+
+Also curated: three discussions (two KNOWLEDGE_GAP, one HUMAN_MODEL_MISMATCH on the
+murine-only brain neuroinflammation evidence, evidenced from PMID:37426673), two NCT
+trials, and the INTREST trial keyed on its WHO ICTRP identifier
+(ICTRP:CTRI/2018/08/015159) since it has no ClinicalTrials.gov record.
+
+Validation actually run and read:
+  just validate kb/disorders/Scrub_Typhus.yaml           -&gt; All validations passed
+  just validate-terms kb/disorders/Scrub_Typhus.yaml     -&gt; Validation passed
+  just count-verified-snippets ...                       -&gt; 52/52 verified
+  just check-duplicate-keys ...                          -&gt; OK
+  just check-title-snippets                              -&gt; OK, no new title-quoting snippets
+  scripts/check_snippet_length.py --against-ref origin/main -&gt; OK, no new snippets under 5 words
+  just check-term-cache-integrity / check-cache-order    -&gt; OK
+  pytest tests/test_data.py -k conforms_to_module_node_references -&gt; 2221 passed
+  just validate-disorders kb/disorders/Scrub_Typhus.yaml -&gt; exit 0
+
+Known gap: ORPHA:83317 was not cited because `just refresh-orphadata` currently fails on
+a drifted bulk-file sha256 against the pinned manifest; this is recorded in the entry&#39;s
+notes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

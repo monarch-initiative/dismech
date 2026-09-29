@@ -1,3 +1,4 @@
+{% from "_genomic_regions.html.j2" import render_affected_regions %}
 {% set pill_tips = namespace(n=0) %}<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -700,6 +701,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2251,6 +2267,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2807,7 +2834,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2822,8 +2849,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -2931,8 +2959,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -2944,7 +2972,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3148,8 +3177,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3158,12 +3188,21 @@
                 return label || id;
             }
 
+            {% include "_genomic_regions.js.j2" %}
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3194,11 +3233,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3215,8 +3256,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3523,6 +3572,9 @@
                     {% if ev.directness %}
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">{{ ev.directness }}</span>
                     {% endif %}
+                    {% if ev.quote_role %}
+                    <span class="evidence-quote-role" title="{{ quote_role_tooltip(ev.quote_role) }}">{{ ev.quote_role | replace('_', ' ') }}</span>
+                    {% endif %}
                     {% if ev.evidence_source %}
                     <span class="evidence-source source-{{ ev.evidence_source }}">{{ ev.evidence_source | replace('_', ' ') | title }}</span>
                     {% endif %}
@@ -3579,6 +3631,12 @@
                 <span class="context-gene-tag">{{ g.preferred_term or g.term.label }}</span>
                 {% endfor %}
                 {% endif %}
+                {% if ctx.genetic_context.variant_type %}
+                <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">Variant type: {{ ctx.genetic_context.variant_type }}</span>
+                {% endif %}
+                {% for context in ctx.genetic_context.genomic_contexts or [] %}
+                <span class="context-gene-tag" style="background: #f1f5f9; color: #475569;">Genomic context: {{ context }}</span>
+                {% endfor %}
                 {% if ctx.genetic_context.allele_type %}
                 <span class="context-gene-tag" style="background: #e9d5ff; color: #6b21a8;">{{ ctx.genetic_context.allele_type }}</span>
                 {% endif %}
@@ -3632,6 +3690,7 @@
                 <span class="context-severity">{{ ctx.severity }}</span>
                 {% endif %}
             </div>
+            {% if ctx.genetic_context %}{{ render_affected_regions(ctx.genetic_context.affected_regions) }}{% endif %}
             {% if ctx.genetic_context and ctx.genetic_context.description %}
             <div class="context-detail">{{ ctx.genetic_context.description }}</div>
             {% endif %}
@@ -3789,6 +3848,29 @@
     {% endif %}
     {% endmacro %}
 
+    {# A phenotype bound to a top-level HPO organ-system term ("Abnormality of the
+       eye") looks, on the page, exactly like a specific finding -- which is how a
+       curator stopping early became invisible. The badge tells a reader the
+       coarseness was a decision and which decision it was. It shows nothing the
+       curator did not state: specific findings, where they are known, are
+       ordinary phenotype entries in the same list. #}
+    {% macro render_coarse_binding(descriptor) %}
+    {% if descriptor and descriptor.coarse_binding_basis %}
+    <div class="item-meta">
+        {% set basis_titles = {
+            "VARIABLE_SPECTRUM": "Bound at organ-system level deliberately: involvement of this system is recurrent but its form varies between patients, with no characteristic finding to bind.",
+            "SOURCE_UNSPECIFIED": "Bound at organ-system level deliberately: the cited source characterizes the finding no further, so a narrower term would assert more than the evidence.",
+            "NO_HPO_TERM": "Bound at organ-system level deliberately: the claim is narrower than any available HPO term, and the display name carries the specificity.",
+            "PATHOGRAPH_HUB": "A convergence point in the causal graph rather than a clinical claim: a mechanism reaches this system-level node, which is where several specific findings converge."
+        } %}
+        <span class="tag tag-classification" title="{{ basis_titles.get(descriptor.coarse_binding_basis, '') }}">Coarse binding: {{ descriptor.coarse_binding_basis | replace('_', ' ') | lower }}</span>
+        {% if descriptor.term_gap %}
+        <div class="mapping-notes">Ontology gap: {{ descriptor.term_gap }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+
     {% macro render_genetic_context(gc) %}
     {% if gc %}
     <div class="item-meta">
@@ -3802,6 +3884,12 @@
         {{ render_descriptor_tag(g, "tag-gene", true, "genetic_context.gene") }}
         {% endfor %}
         {% endif %}
+        {% if gc.variant_type %}
+        <span class="tag tag-classification">Variant type: {{ gc.variant_type }}</span>
+        {% endif %}
+        {% for context in gc.genomic_contexts or [] %}
+        <span class="tag tag-classification">Genomic context: {{ context }}</span>
+        {% endfor %}
         {% if gc.allele_type %}
         <span class="tag tag-classification">allele_type: {{ gc.allele_type }}</span>
         {% endif %}
@@ -3826,6 +3914,7 @@
         <span class="tag tag-classification">functional_impact_category: {{ gc.functional_impact_category }}</span>
         {% endif %}
     </div>
+    {{ render_affected_regions(gc.affected_regions) }}
     {% if gc.description %}
     <div class="context-detail">{{ gc.description }}</div>
     {% endif %}
@@ -3840,6 +3929,17 @@
        merges Orphanet's 1-5 and 6-9 classes into it), so the mechanical form
        understates the range. Unmapped values fall back to it rather than
        vanishing, so a new enum member still shows. #}
+    {# `rate_per_100000` carries no dimension on its own; the denominator does.
+       POPULATION maps to "" deliberately -- it is the implicit reading and needs
+       no label. An *unmapped* value is different and must not vanish, so the
+       lookup below humanises unknown members rather than dropping them, matching
+       how PREVALENCE_CLASS_LABELS handles the same case. #}
+    {% set RATE_DENOMINATOR_LABELS = {
+        "POPULATION": "",
+        "LIVE_BIRTHS": "live births",
+        "PERSON_YEARS": "person-years",
+        "POPULATION_PER_YEAR": "per year",
+    } %}
     {% set PREVALENCE_CLASS_LABELS = {
         "ABOVE_1_IN_1000": ">1 in 1,000",
         "BAND_1_5_PER_10000": "1–9 per 10,000",
@@ -3848,10 +3948,123 @@
         "BELOW_1_IN_1000000": "<1 in 1,000,000",
         "NOT_YET_DOCUMENTED": "Not yet documented",
     } %}
-    {% macro render_prevalence_class(value) %}
+    {# A numeric band reports magnitude only; `measure_type` says what is being
+       measured (dismech#8431). A bare "1-9 per 100,000" tag reads as a
+       population disease prevalence, which is wrong on a carrier frequency,
+       an incidence, or a per-live-births rate — so qualify the label rather
+       than emitting it alone.
+
+       Only the NUMERIC bands take a qualifier. The qualitative tiers
+       (COMMON/RARE/ULTRA_RARE) are explicitly *not* magnitude statements, so a
+       denominator does not apply to them: "Rare per year" would repeat, in the
+       renderer, exactly the numerator/denominator conflation this is fixing.
+       Those records are invalid anyway and are tracked in design-decisions §8
+       deferred item (a); they surface here via the adjacent measure_type tag. #}
+    {% set PREVALENCE_CLASS_QUALIFIERS = {
+        "ANNUAL_INCIDENCE": "per year",
+        "CARRIER_FREQUENCY": "(carriers)",
+        "BIRTH_PREVALENCE": "(births)",
+    } %}
+    {% set NUMERIC_PREVALENCE_CLASSES = [
+        "ABOVE_1_IN_1000", "BAND_1_5_PER_10000", "BAND_1_9_PER_100000",
+        "BAND_1_9_PER_1000000", "BELOW_1_IN_1000000",
+    ] %}
+    {% macro render_prevalence_class(value, measure_type=none) %}
     {%- if value -%}
-    <span class="tag">{{ PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) }}</span>
+    {%- set label = PREVALENCE_CLASS_LABELS.get(value) or (value | replace('_', ' ') | title) -%}
+    {%- set qualifier = PREVALENCE_CLASS_QUALIFIERS.get(measure_type) if measure_type and value in NUMERIC_PREVALENCE_CLASSES else none -%}
+    <span class="tag">{{ label }}{% if qualifier %} {{ qualifier }}{% endif %}</span>
     {%- endif -%}
+    {% endmacro %}
+
+
+    {# Treatment platform rows: therapeutic modality, the delivery_system block, and
+       for a treatment that acts by base-pairing with a target RNA, the
+       oligonucleotide_details block.
+
+       The carrier facts (delivery platform, targeting ligand) have two homes. The
+       Treatment-level delivery_system block is the current one and is read first;
+       the copy nested in oligonucleotide_details predates it, still holds most of
+       the KB's oligonucleotide formulations, and is read as the fallback. A
+       treatment carrying both is a curation defect, not a rendering case --
+       `just check-delivery-system` is what reports it -- so the page shows one
+       chip per fact rather than trying to display a disagreement.
+
+       delivery_platform and the targeting ligand are separate chips on purpose:
+       they are orthogonal, and collapsing them would hide the distinction that
+       matters most here (patisiran is Unconjugated AND Lipid nanoparticle, while
+       vutrisiran is GalNAc AND Ligand conjugate). aso_details / aso_mechanism /
+       aso_chemistry / conjugation are the deprecated spellings and are read as
+       fallbacks so entries authored before the slots were generalized render. #}
+    {% macro render_treatment_platform(tx) %}
+    {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set ds = tx.delivery_system %}
+    {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
+    {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
+    {% set delivery_platform = (ds.delivery_platform if ds else none) or (oligo.delivery_platform if oligo else none) %}
+    {% set targeting_ligand = (ds.targeting_ligand if ds else none) or ((oligo.targeting_ligand or oligo.conjugation) if oligo else none) %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or delivery_platform or targeting_ligand %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        {% if tx.therapeutic_modality %}
+        <span class="tag tag-treatment">{{ treatment_platform_label(tx.therapeutic_modality) }}</span>
+        {% endif %}
+        {% if oligo_mechanism %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
+        {% endif %}
+        {% if delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(delivery_platform) }}</span>
+        {% endif %}
+        {% if targeting_ligand %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: {{ treatment_platform_label(targeting_ligand) }}</span>
+        {% endif %}
+        {% if oligo_chemistry %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {# What a targeted carrier is aimed at. Absent for an untargeted formulation
+       (a PEGylated liposome has no receptor and no target cell), which is why
+       this row is separate from the platform chips above rather than folded in. #}
+    {% if ds and (ds.targeting_receptor or ds.target_cell_types) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Delivery target:</strong>
+        {% if ds.targeting_receptor %}
+        {{ render_descriptor_tag(ds.targeting_receptor, "tag-gene", false, "treatment.targeting_receptor") }}
+        {% endif %}
+        {% for cell_type in ds.target_cell_types or [] %}
+        {{ render_descriptor_tag(cell_type, "tag-cell", false, "treatment.target_cell_types") }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if ds and ds.description %}
+    <div class="item-meta" style="font-size: 0.8rem; color: #4b5563;">{{ ds.description }}</div>
+    {% endif %}
+    {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+        {% if oligo.target_gene %}
+        {{ render_descriptor_tag(oligo.target_gene, "tag-gene", false, "treatment.target_gene") }}
+        {% endif %}
+        {% if oligo.target_transcript %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_transcript }}</span>
+        {% endif %}
+        {% if oligo.target_exon %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_exon }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if tx.dosing_interval or tx.dosing_interval_days %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Dosing:</strong>
+        {% if tx.dosing_interval %}
+        <span class="tag tag-treatment">{{ tx.dosing_interval }}</span>
+        {% endif %}
+        {% if tx.dosing_interval_days %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">every {{ tx.dosing_interval_days | round(1) | int if tx.dosing_interval_days == tx.dosing_interval_days | round(0) else tx.dosing_interval_days }} days</span>
+        {% endif %}
+    </div>
+    {% endif %}
     {% endmacro %}
 
     {% macro render_entity_refs(title, refs) %}
@@ -4232,7 +4445,8 @@
         <span class="variant-significance variant-significance-{{ variant.clinical_significance | lower | replace('_', '-') }}">{{ variant.clinical_significance | replace('_', ' ') | title }}</span>
         {% endif %}
     </div>
-    {% if variant.gene or variant.type or variant.regulatory_category or variant.sequence_length %}
+    {% set variant_class = variant.variant_type or variant.type %}
+    {% if variant.gene or variant.regulatory_target_gene or variant_class or variant.regulatory_category or variant.sequence_length %}
     <div class="item-meta">
         {% if variant.gene %}
         {% set variant_gene_label = variant.gene.preferred_term or (variant.gene.term.label if variant.gene.term else '') %}
@@ -4244,8 +4458,19 @@
             {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
         </span>
         {% endif %}
-        {% if variant.type %}
-        <span class="tag" style="background: #e0e7ff; color: #3730a3;">{{ variant.type | replace('_', ' ') }}</span>
+        {% if variant.regulatory_target_gene %}
+        {% set target_gene = variant.regulatory_target_gene %}
+        {% set target_gene_label = target_gene.preferred_term or (target_gene.term.label if target_gene.term else '') %}
+        {% set target_gene_id = target_gene.term.id if target_gene.term else none %}
+        {% set tooltip = term_tooltip(target_gene, "variant.regulatory_target_gene") %}
+        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: {{ target_gene_label }}{% if target_gene_id %} {{ render_curie_link(target_gene_id, describedby=tip_id) }}{% endif %}
+            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if variant_class %}
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">{{ variant_class | replace('_', ' ') }}</span>
         {% endif %}
         {% if variant.regulatory_category %}
         <span class="tag" style="background: #fef3c7; color: #92400e;">{{ variant.regulatory_category | replace('_', ' ') }}</span>
@@ -4255,6 +4480,18 @@
         {% endif %}
     </div>
     {% endif %}
+    {% if variant.variant_type and variant.type and (variant.variant_type | replace('_', ' ') | lower | trim) != (variant.type | replace('_', ' ') | lower | trim) %}
+    <div class="item-desc"><strong>Variant detail:</strong> {{ variant.type | replace('_', ' ') }}</div>
+    {% endif %}
+    {% if variant.genomic_contexts %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #6b7280;">Genomic context:</strong>
+        {% for context in variant.genomic_contexts %}
+        <span class="tag" style="background: #f1f5f9; color: #475569;">{{ context }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {{ render_affected_regions(variant.affected_regions) }}
     {% if variant.description %}
     <div class="item-desc">{{ variant.description }}</div>
     {% endif %}
@@ -5400,6 +5637,15 @@
             {% for patho in disorder.pathophysiology %}
             <div class="item-box pathophys-box anchor-target" id="{{ patho._anchor_id }}" data-dismech-node="{{ patho.name | e }}" data-dismech-type="pathophysiology">
                 <div class="item-name">{{ patho.name }}</div>
+                {% if patho.regulatory_category or patho.mechanism_confidence %}
+                <div class="item-meta">
+                    {% if patho.regulatory_category %}
+                    <span class="tag tag-classification">Regulatory category: {{ patho.regulatory_category }}{% if patho.mechanism_confidence %} ({{ patho.mechanism_confidence | replace('_', ' ') | title }}){% endif %}</span>
+                    {% else %}
+                    <span class="tag tag-classification">Mechanism confidence: {{ patho.mechanism_confidence | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
                 {% endif %}
@@ -5738,6 +5984,7 @@
                         {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
                     </div>
                     {% endif %}
+                    {{ render_coarse_binding(pheno.phenotype_term) }}
                     {% if pheno.notes %}
                     <div class="item-desc">{{ pheno.notes }}</div>
                     {% endif %}
@@ -5805,6 +6052,7 @@
                     {{ render_descriptor_qualifiers(pheno.phenotype_term) }}
                 </div>
                 {% endif %}
+                {{ render_coarse_binding(pheno.phenotype_term) }}
                 {% if pheno.notes %}
                 <div class="item-desc">{{ pheno.notes }}</div>
                 {% endif %}
@@ -5860,6 +6108,7 @@
                     {% endif %}
                 </div>
                 {% endif %}
+                {{ render_affected_regions(gene.affected_regions) }}
                 {% if gene.inheritance %}
                 <div class="item-meta">
                     {% for inheritance_item in gene.inheritance %}
@@ -6022,6 +6271,7 @@
                     {% endfor %}
                 </div>
                 {% endif %}
+                {{ render_treatment_platform(tx) }}
                 {% if tx.treatment_term and tx.treatment_term.dietary_modifications %}
                 <div class="item-meta">
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Diet:</strong>
@@ -6600,6 +6850,8 @@
                         {%- elif rec.get('rate_low') is not none %}
                         (from {{ rec.rate_low }})
                         {%- endif %}
+                        {%- set den_label = RATE_DENOMINATOR_LABELS.get(rec.rate_denominator, rec.rate_denominator | replace('_', ' ') | lower) if rec.get('rate_denominator') else '' %}
+                        {%- if den_label %} {{ den_label }}{% endif %}
                     </span>
                     {# 273 records carry a range and no point rate, so this has to
                        be a sibling branch rather than nested in the one above. #}
@@ -6612,11 +6864,13 @@
                         {%- else -%}
                         &le;{{ rec.rate_high }}
                         {%- endif %} per 100,000
+                        {%- set den_label = RATE_DENOMINATOR_LABELS.get(rec.rate_denominator, rec.rate_denominator | replace('_', ' ') | lower) if rec.get('rate_denominator') else '' %}
+                        {%- if den_label %} {{ den_label }}{% endif %}
                     </span>
                     {% elif rec.percentage %}
                     <span class="tag">{{ rec.percentage }}</span>
                     {% endif %}
-                    {{ render_prevalence_class(rec.prevalence_class) }}
+                    {{ render_prevalence_class(rec.prevalence_class, rec.measure_type) }}
                     {% if rec.subtype %}
                     <span class="tag tag-subtype">{{ rec.subtype }}</span>
                     {% endif %}
@@ -7432,6 +7686,18 @@
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">{{ literature_sections | length }}</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+                {% if research_reviews %}
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes ({{ research_reviews | length }})</summary>
+                    {% for review in research_reviews %}
+                    <div>
+                        <p><strong>{{ review.title }}</strong>{% if review.date %} · {{ review.date }}{% endif %}{% if review.href %} · <a href="{{ review.href }}">{{ 'View source' if review.text else 'Read assessment' }}</a>{% endif %}</p>
+                        {% if review.text %}<p class="research-review-text">{{ review.text }}</p>{% endif %}
+                    </div>
+                    {% endfor %}
+                </details>
+                {% endif %}
                 {% for report in literature_sections %}
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

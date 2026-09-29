@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RECON Progeroid Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RECON Progeroid Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RECON Progeroid Syndrome</h1>
+                
+                <p class="report-subtitle">RECON Progeroid Syndrome — Research Report</p>
+                
+                
+                <div class="report-date">2026-09-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0957266" target="_blank" rel="noopener noreferrer">MONDO:0957266</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">15 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>RECON Progeroid Syndrome — Research Report</h1>
+<p><strong>Target:</strong> RECON Progeroid Syndrome | OMIM #620370 | <a href="http://purl.obolibrary.org/obo/MONDO_0957266" target="_blank" rel="noopener noreferrer">MONDO:0957266</a> | HGNC gene RECQL (<a href="https://bioregistry.io/HGNC:9948" target="_blank" rel="noopener noreferrer">HGNC:9948</a>) | NCBI Gene 5965</p>
+<p><strong>Note on ontology term suggestions throughout this report:</strong> Every HP/GO/CL/CHEBI/NCIT identifier below is a <em>proposed</em> binding based on phenotype/mechanism descriptions in the literature, not a verified lookup against the live ontology. Per this repository's term-binding contract, treat every suggested CURIE as a lead to be checked with <code>runoak</code>/OAK against the current HP/GO/CL build before it is written into any <code>kb/disorders/*.yaml</code> file — do not copy an ID from this report directly into a binding.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> RECON syndrome ("RECql ONe" syndrome) is an autosomal recessive genome-instability/progeroid disorder first described in 2022, caused by a biallelic (homozygous) missense mutation in <em>RECQL</em> (also called <em>RECQL1</em>, <em>RECQ1</em>), the first human disease ever attributed to this gene despite its 1992 discovery. It is characterized by postnatal growth retardation, a progeroid ("prematurely aged") facial gestalt, cutaneous photosensitivity/xeroderma, and slender elongated digits, occurring on a background of cellular chromosomal instability and defective replication-fork restart (Arboleda-Velasquez lab / Sturzenegger et al., <em>J Clin Invest</em> 2022; <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>).</p>
+<blockquote>
+<p>"RECON syndrome (for RECQ ONe) ... is a genome instability disorder caused by mutations in the DNA helicase RECQL1." — PMC8884905 abstract.</p>
+</blockquote>
+<p><strong>Key identifiers:</strong>
+| Resource | ID |
+|---|---|
+| OMIM (phenotype) | #620370 — RECON PROGEROID SYNDROME |
+| OMIM (gene) | <em>600537 — RECQ PROTEIN-LIKE; RECQL |
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0957266" target="_blank" rel="noopener noreferrer">MONDO:0957266</a> |
+| MedGen | C5830504 (UID 1841140) |
+| NCBI Gene | 5965 (RECQL) |
+| HGNC | <a href="https://bioregistry.io/HGNC:9948" target="_blank" rel="noopener noreferrer">HGNC:9948</a> (RECQL) |
+| UniProt disease | DI-06683 |
+| Gene locus | 12p12.1 |
+| Reference transcript | NM_032941.2 |
+| Orphanet | </em><em>No ORPHA number could be located</em>* — this appears to be an Orphanet coverage gap, consistent with the disease's extreme rarity (3 genotyped patients worldwide as of this report) and recent (2022) description. Confirm during curation rather than assuming absence is permanent.
+| GeneReviews chapter | None found — too recently described / too few families for a dedicated chapter.</p>
+<p><strong>Synonyms:</strong> RECON syndrome; RECON progeroid syndrome; RECQL1-related progeroid syndrome. No historical/eponymous synonyms exist since this is a molecularly-defined, recently named entity.</p>
+<p><strong>Evidence basis:</strong> This entry is built almost entirely on a single primary molecular/clinical study (2 families, 3 genotyped individuals; <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>) plus one aging-biology review by an overlapping author group (<a href="https://pubmed.ncbi.nlm.nih.gov/36907310/" target="_blank" rel="noopener noreferrer">PMID:36907310</a>, PMC10018417) and downstream database records (OMIM, MedGen, MalaCards, GeneCC) that recapitulate the same primary source. This is aggregated disease-level curation from structured databases plus the two original literature reports — not EHR/individual-patient-level data.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease-causal factor:</strong> Purely genetic/mechanistic — homozygous hypomorphic missense variant in <em>RECQL</em>, a RecQ-family ATP-dependent DNA helicase gene. No environmental, infectious, or lifestyle causal factor is implicated in disease <em>causation</em> (photosensitivity is a <em>phenotypic consequence</em> of the underlying DNA-repair defect, not an environmental cause).</p>
+<p><strong>Genetic risk factors:</strong>
+- <strong>Causal variant:</strong> <em>RECQL</em> NM_032941.2:c.1375G&gt;T, p.(Ala459Ser) (p.A459S), homozygous, located in the zinc-binding domain (ZBD) of the helicase core. Identified independently, identical, in two apparently unrelated Middle Eastern families (<a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>).
+- <strong>In silico pathogenicity:</strong> CADD 25.9; PolyPhen-2 0.846 (probably damaging); MutationTaster 1.0; DANN 0.9977; GERP conservation score 6.04 (highly conserved alanine).
+- <strong>Population frequency:</strong> Absent from gnomAD and the Greater Middle East (GME) Variome — consistent with a very rare/founder allele rather than a common polymorphism.
+- <strong>Linkage support:</strong> LOD score Z = 3.311 at θ = 0 in Family A (consanguineous pedigree), supporting causality by segregation.
+- <strong>Consanguinity:</strong> Family A are double first cousins; parents of the affected sisters are first-degree relatives, consistent with autosomal recessive homozygosity. Family B had no reported consanguinity, raising the possibility of a shared regional founder haplotype for the identical variant, though this was not explicitly confirmed by haplotype analysis in the primary report as summarized here.
+- <strong>Modifier genes:</strong> None reported or investigated.</p>
+<p><strong>Environmental risk factors:</strong> None identified as disease-causing. UV/sunlight exposure is expected to <em>exacerbate</em> the cutaneous photosensitivity phenotype (as in other RecQ-helicase disorders), by mechanistic analogy rather than direct study in this cohort.</p>
+<p><strong>Protective factors:</strong> None reported. Heterozygous carrier parents and 8 healthy siblings across both families were phenotypically normal, indicating the pathogenic mechanism requires biallelic loss of function/hypomorphic activity (recessive), i.e., a single wild-type allele is fully protective in this Mendelian sense.</p>
+<p><strong>Gene-environment interaction:</strong> Not formally studied. By mechanistic inference (impaired replication-fork restart after genotoxic/replicative stress — camptothecin [TOP1 poison], etoposide [TOP2 poison], hydroxyurea [replication stress], MMS [alkylation]), affected individuals' cells are hypothesized to be hypersensitive to genotoxic environmental/pharmacologic exposures, though this has only been demonstrated in vitro in patient-derived lymphoblastoid cell lines (LCLs) and fibroblasts, not shown clinically as altered exposure sensitivity in the patients themselves.</p>
+<p><strong>Important lump/split note for curation:</strong> <em>RECQL</em> also independently causes <strong>autosomal-dominant, monoallelic breast-cancer susceptibility</strong> via rare truncating variants (e.g., c.643C&gt;T/p.Arg215<em>), acting through haploinsufficiency with no loss of heterozygosity in tumors (<a href="https://pubmed.ncbi.nlm.nih.gov/25915596/" target="_blank" rel="noopener noreferrer">PMID:25915596</a>; Nature Genetics 2015). This is a </em><em>mechanistically and clinically distinct disease entity</em>* from RECON syndrome — different zygosity (heterozygous vs. homozygous), different variant class (truncating/LOF vs. hypomorphic missense), different phenotype (adult-onset cancer predisposition vs. pediatric progeroid syndrome), and no overlap reported between the two patient populations. Keep separate dismech entries; do not conflate "RECQL-related disease" as a single node.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Phenotype data are drawn from three genotype-confirmed patients (Family A: III-2, age 9y8m at report, and III-4, age 4y; Family B: III-4, followed from 5y10m to 14y9m) in <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>, cross-checked against MedGen's HPO-based phenotype list for C5830504.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset/course</th>
+<th>Frequency (n/3 genotyped)</th>
+<th>Suggested HP term (unverified — confirm before binding)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Postnatal growth retardation / short stature</td>
+<td>Physical sign</td>
+<td>Noted by ~18 months; progressive (Family B height z-score fell from baseline to −3.59 by age 14)</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> Short stature (or <a href="http://purl.obolibrary.org/obo/HP_0008897" target="_blank" rel="noopener noreferrer">HP:0008897</a> Postnatal growth retardation)</td>
+</tr>
+<tr>
+<td>Severe wasting / reduced subcutaneous fat</td>
+<td>Physical sign</td>
+<td>Progressive (Family B weight z-score −8.47 at age 14)</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a> Failure to thrive; <a href="http://purl.obolibrary.org/obo/HP_0009062" target="_blank" rel="noopener noreferrer">HP:0009062</a> Decreased subcutaneous fat</td>
+</tr>
+<tr>
+<td>Progeroid ("prematurely aged," mask-like/senile) facial appearance</td>
+<td>Physical sign</td>
+<td>Present from early childhood</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002185" target="_blank" rel="noopener noreferrer">HP:0002185</a> Neurodegeneration (NOT applicable) → correct candidate: <a href="http://purl.obolibrary.org/obo/HP_0002777" target="_blank" rel="noopener noreferrer">HP:0002777</a> Progeroid facial appearance</td>
+</tr>
+<tr>
+<td>Hypoplastic/tiny pinched nose, underdeveloped nasal alae, anteverted nares</td>
+<td>Physical sign</td>
+<td>Congenital/early</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000437" target="_blank" rel="noopener noreferrer">HP:0000437</a> Depressed nasal bridge / <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" rel="noopener noreferrer">HP:0000463</a> Anteverted nares / <a href="http://purl.obolibrary.org/obo/HP_0009928" target="_blank" rel="noopener noreferrer">HP:0009928</a> Hypoplastic nasal alae</td>
+</tr>
+<tr>
+<td>Prominent premaxilla, smooth philtrum, thin lips</td>
+<td>Physical sign</td>
+<td>Early childhood</td>
+<td>Variable (reported in Family A)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010804" target="_blank" rel="noopener noreferrer">HP:0010804</a> Prominent premaxilla</td>
+</tr>
+<tr>
+<td>Slender, elongated ("arachnodactyly-like") thumbs with hyperconvex nails</td>
+<td>Physical sign</td>
+<td>Congenital</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009237" target="_blank" rel="noopener noreferrer">HP:0009237</a> Long thumb; <a href="http://purl.obolibrary.org/obo/HP_0100807" target="_blank" rel="noopener noreferrer">HP:0100807</a> Long fingers; <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" rel="noopener noreferrer">HP:0001596</a> Hyperconvex nail</td>
+</tr>
+<tr>
+<td>Xeroderma / dry, scaling skin, desquamation on sun-exposed areas</td>
+<td>Physical sign</td>
+<td>Early onset, chronic</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" rel="noopener noreferrer">HP:0000958</a> Dry skin (xeroderma)</td>
+</tr>
+<tr>
+<td>Cutaneous photosensitivity</td>
+<td>Physical sign</td>
+<td>Early onset</td>
+<td>3/3</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" rel="noopener noreferrer">HP:0000992</a> Cutaneous photosensitivity</td>
+</tr>
+<tr>
+<td>Xerophthalmia / keratoconjunctivitis sicca, red eyes, absent lower eyelid lashes</td>
+<td>Physical sign</td>
+<td>Early</td>
+<td>Present in both families</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001097" target="_blank" rel="noopener noreferrer">HP:0001097</a> Dry eye; <a href="http://purl.obolibrary.org/obo/HP_0000232" target="_blank" rel="noopener noreferrer">HP:0000232</a> Absent eyelashes</td>
+</tr>
+<tr>
+<td>Livedo reticularis, keratosis pilaris</td>
+<td>Physical sign</td>
+<td>Childhood</td>
+<td>Family A</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100641" target="_blank" rel="noopener noreferrer">HP:0100641</a> Livedo reticularis; <a href="http://purl.obolibrary.org/obo/HP_0032599" target="_blank" rel="noopener noreferrer">HP:0032599</a> Keratosis pilaris (verify exact HPO term)</td>
+</tr>
+<tr>
+<td>Delayed eruption of permanent teeth, dental crowding</td>
+<td>Physical sign</td>
+<td>Childhood</td>
+<td>Family A</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000684" target="_blank" rel="noopener noreferrer">HP:0000684</a> Delayed eruption of teeth</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>Laboratory abnormality</td>
+<td>Reported in Family B (progressive course)</td>
+<td>1/3 documented</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> Thrombocytopenia</td>
+</tr>
+<tr>
+<td>Anemia</td>
+<td>Laboratory abnormality</td>
+<td>MedGen-listed</td>
+<td>Not detailed per-patient in extracted text</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a> Anemia</td>
+</tr>
+<tr>
+<td>Recurrent chest/respiratory infections</td>
+<td>Clinical sign</td>
+<td>Family B, later course</td>
+<td>1/3 documented</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002205" target="_blank" rel="noopener noreferrer">HP:0002205</a> Recurrent respiratory infections</td>
+</tr>
+<tr>
+<td>Joint hypermobility</td>
+<td>Physical sign</td>
+<td>MedGen-listed</td>
+<td>Not detailed per-patient</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" rel="noopener noreferrer">HP:0001382</a> Joint hypermobility</td>
+</tr>
+<tr>
+<td>Microcephaly</td>
+<td>Physical sign</td>
+<td>MedGen-listed as associated</td>
+<td>Conflicts somewhat with primary paper's "no microcephaly" framing in the comparison table generated above — <strong>flag for curator verification against primary source</strong>, do not assume presence without re-checking the original clinical description</td>
+<td></td>
+</tr>
+<tr>
+<td>Hirsutism</td>
+<td>Physical sign</td>
+<td>MedGen-listed</td>
+<td>Not detailed per-patient</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001007" target="_blank" rel="noopener noreferrer">HP:0001007</a> Hirsutism</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity/progression pattern:</strong> Family B illustrates a clearly progressive course — the same patient followed from age ~6 to ~15 years showed worsening growth failure and wasting (height z-score −1.98-equivalent range declining toward −3.59; weight z-score reaching −8.47), i.e., this is not a static congenital malformation syndrome but an accumulating, progeroid degenerative trajectory, consistent with the "genome instability accrual over time" mechanism proposed by the authors.</p>
+<p><strong>Quality of life impact:</strong> Not formally measured (no EQ-5D/SF-36/PROMIS data reported); qualitatively, severe growth failure, recurrent infections, and photosensitivity would be expected to impose a substantial pediatric disease burden, but this is inference, not measured outcome data.</p>
+<p><strong>Not yet assessed / open questions for phenotype curation:</strong> Neurodevelopmental/cognitive phenotype is not emphasized in either source as abnormal (unlike some RecQ disorders); this should be explicitly confirmed as "normal cognition documented" vs. "not assessed" rather than left silent, since the distinction matters for downstream users comparing to Bloom/Werner syndrome, which also generally spare cognition.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>RECQL</em> (RECQ Like Helicase; also known as <em>RECQL1</em>, <em>RECQ1</em>), <a href="https://bioregistry.io/HGNC:9948" target="_blank" rel="noopener noreferrer">HGNC:9948</a>, NCBI Gene 5965, OMIM *600537, locus 12p12.1.</p>
+<p><strong>Pathogenic variant:</strong>
+- Genomic: chr12:21,626,557 (hg19)
+- cDNA: NM_032941.2:c.1375G&gt;T
+- Protein: p.Ala459Ser (p.A459S)
+- Variant type: missense (substitution within the zinc-binding domain, ZBD)
+- Zygosity: <strong>homozygous</strong> in all 3 genotyped affected individuals; parents and 8 unaffected siblings across both families were heterozygous or wild-type
+- ACMG-style classification: Not explicitly stated as a formal ACMG term in the sources retrieved, but functionally and segregation-validated as disease-causing (pathogenic) in the primary report
+- Origin: germline (not somatic)
+- Allele frequency: absent from gnomAD and the Greater Middle East (GME) Variome — i.e., not present in any population reference database retrieved
+- Functional consequence: <strong>hypomorphic</strong> loss-of-function — the mutant retains partial activity rather than being a complete null (distinguishing RECON from the complete-null disease model)</p>
+<p><strong>Gene-disease validity note:</strong> GenCC/ClinGen submitter records show a <strong>"Disputed Evidence"</strong> classification from Labcorp Genetics (formerly Invitae), evaluated 2023-11-30, for the RECQL–RECON progeroid syndrome relationship. This reflects the very limited evidence base (single recurrent variant, two families) typical of an ultra-recently described gene-disease pair, and should be represented honestly in curation as a <strong>limited/disputed validity</strong> relationship rather than "definitive" — cite the GenCC record and the caveat explicitly if a validity classification slot is populated.</p>
+<p><strong>Functional/biochemical consequences of p.A459S</strong> (all from <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>, functional assays comparing recombinant WT vs. mutant RECQL1):
+- <strong>ATPase activity:</strong> markedly reduced kcat/Km/Vmax for ATP hydrolysis relative to WT.
+- <strong>Helicase (DNA unwinding) activity:</strong> substantially reduced — e.g., WT unwound ~60% of a forked-duplex substrate at 2.5 nM protein vs. ~20% for mutant; 2.6- to 4.8-fold reduction in unwinding rate depending on substrate/concentration.
+- <strong>Fork restoration (regressed-fork restart) activity:</strong> 7-fold reduction at 5 minutes, ≥3.5-fold at later time points; ATP-dependent.
+- <strong>DNA binding:</strong> modestly reduced affinity (~1.5-fold higher apparent Kd) for forked-duplex DNA.
+- <strong>Strand-annealing activity:</strong> essentially <strong>preserved</strong>, unlike unwinding — a mechanistically important dissociation showing the mutation selectively impairs the ATP-driven translocase/helicase function rather than all DNA-binding functions.
+- <strong>Oligomerization:</strong> normal (assessed by size-exclusion chromatography).
+- <strong>Protein expression/stability and nuclear localization:</strong> normal in patient LCLs — the defect is purely catalytic/functional, not one of protein loss or mislocalization.</p>
+<p><strong>Structural mechanism:</strong> p.A459S disrupts a hydrophobic cluster within the ZBD core (involving residues W466, M458 in the ZBD; M395, Y359 in the helicase-C domain; F281 in the helicase linker). Because the ZBD is spatially juxtaposed to the ATP-binding cleft, this perturbation is proposed to impair allosteric coupling between ATP binding/hydrolysis and DNA unwinding, explaining the combined ATPase/helicase defect from a single point substitution.</p>
+<p><strong>Cellular phenotypes</strong> in patient-derived LCLs/fibroblasts:
+- Elevated spontaneous and drug-induced (camptothecin [TOP1 poison]/etoposide [TOP2 poison]) 53BP1 DNA-damage foci; corrected by complementation with WT RECQL1.
+- Increased spontaneous and drug-induced chromosome breakage, phenotypically comparable in degree to an ataxia-telangiectasia-like disorder (ATLD) patient LCL used as comparator.
+- Mildly increased spontaneous and DNA-damage-induced sister chromatid exchange (SCE) — notably a much milder SCE phenotype than in Bloom syndrome, where SCE elevation is a diagnostic hallmark.
+- Increased spontaneous replication-fork stalling, consistent with baseline endogenous replication stress.
+- Failure to efficiently replicate through TOP1/TOP2-induced lesions (camptothecin/etoposide) and failure to restart forks after hydroxyurea (nucleotide depletion) or MMS (alkylation) exposure, with increased chromosome breakage after MMS.
+- Mildly increased replication-fork degradation after prolonged hydroxyurea exposure, correctable by WT complementation.
+- Robust ATM-dependent DNA-damage-response (DDR) signaling activation despite the underlying repair defect — i.e., the sensor/signaling arm of the DDR is intact; the defect is specifically in the helicase-mediated repair/restart step.
+- No aberrant MLL/ENL locus translocations after etoposide exposure (distinguishing the mechanism from TDP2-deficiency-associated translocations).</p>
+<p><strong>Epigenetic information:</strong> Not directly studied in the primary RECON paper. The companion review (PMC10018417) frames genome-wide transcriptional/epigenetic alteration as one of three "hallmarks of aging" hypothesized to be relevant (alongside genomic instability and telomere attrition) but does not report direct patient epigenomic data for RECON syndrome specifically.</p>
+<p><strong>Chromosomal abnormalities:</strong> No gross chromosomal rearrangements/aneuploidy reported in patients; the "chromosomal instability" terminology in this disease refers to increased chromosome <em>breakage</em> and replication-stress phenotypes at the cellular level, not constitutional karyotypic abnormality.</p>
+<p><strong>Suggested GO terms (leads, verify before binding):</strong>
+- <a href="http://purl.obolibrary.org/obo/GO_0003678" target="_blank" rel="noopener noreferrer">GO:0003678</a> DNA helicase activity
+- <a href="http://purl.obolibrary.org/obo/GO_0006269" target="_blank" rel="noopener noreferrer">GO:0006269</a> DNA replication, synthesis of RNA primer / <a href="http://purl.obolibrary.org/obo/GO_0000731" target="_blank" rel="noopener noreferrer">GO:0000731</a> DNA synthesis involved in DNA repair
+- <a href="http://purl.obolibrary.org/obo/GO_0031297" target="_blank" rel="noopener noreferrer">GO:0031297</a> replication fork processing
+- <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" rel="noopener noreferrer">GO:0006281</a> DNA repair
+- <a href="http://purl.obolibrary.org/obo/GO_0000724" target="_blank" rel="noopener noreferrer">GO:0000724</a> double-strand break repair via homologous recombination</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No causal environmental, lifestyle, or infectious factor has been reported for RECON syndrome; it is monogenic. As above, exogenous genotoxic stressors (UV light for the cutaneous phenotype; by mechanistic analogy, topoisomerase poisons and alkylating/replication-stress agents for the cellular defect) are plausible <em>exacerbating</em> rather than causal exposures, inferred from the in vitro genotoxin-sensitivity assays (camptothecin, etoposide, hydroxyurea, MMS) rather than from documented clinical exposure histories. No infectious trigger is described. This section is essentially "not applicable" for a purely Mendelian ultra-rare disorder with no reported gene-environment study.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Causal chain (ordered, with inference flagged)</h3>
+<ol>
+<li>Homozygous <em>RECQL</em> c.1375G&gt;T (p.A459S) <strong>leads to</strong> a structurally destabilized zinc-binding-domain/ATP-binding-cleft interface in the RECQL1 helicase protein (demonstrated: structural/biochemical analysis, <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>).</li>
+<li>This structural change <strong>results in</strong> markedly reduced ATPase and DNA-unwinding (helicase) catalytic activity, and impaired fork-restoration activity, while DNA binding and strand-annealing remain largely intact (demonstrated: recombinant protein biochemistry).</li>
+<li>Reduced RECQL1 helicase/fork-restoration activity <strong>leads to</strong> impaired restart of replication forks that stall or regress — particularly forks stalled by topoisomerase I/II poisons (camptothecin, etoposide), nucleotide depletion (hydroxyurea), or alkylation damage (MMS) (demonstrated: patient LCL replication assays).</li>
+<li>Impaired fork restart <strong>results in</strong> accumulation of unresolved/collapsed replication forks and persistent replication stress, evidenced by increased spontaneous fork stalling and increased fork degradation after prolonged replication stress (demonstrated: DNA fiber assays in patient cells).</li>
+<li>Persistent replication stress and fork collapse <strong>lead to</strong> increased DNA double-strand breaks — marked by elevated spontaneous and drug-induced 53BP1 foci and chromosome breakage — despite intact upstream ATM-dependent damage-signaling activation, i.e., the sensing/signaling machinery works but the repair/restart step downstream of it is defective (demonstrated: patient LCL/fibroblast assays).</li>
+<li>Chronic low-level genomic instability (chromosome breakage, mildly elevated sister chromatid exchange) at the cellular level <strong>is proposed to result in</strong> (inferred, not directly demonstrated longitudinally in patients) progressive cellular attrition/senescence in proliferative and genome-maintenance-dependent tissues (skin, connective tissue, growth plate, hematopoietic compartment).</li>
+<li>This cellular-level genome-instability burden <strong>is hypothesized to underlie</strong> (inferred; the authors explicitly frame this as a hallmarks-of-aging model rather than a proven tissue-level mechanism) the clinical progeroid phenotype: postnatal growth failure/short stature, progeroid facial appearance, xeroderma/photosensitivity, and slender-digit skeletal features, by analogy to the general model that replication-stress/genome-instability disorders (Bloom, Werner, Rothmund-Thomson) manifest as premature-aging phenotypes.</li>
+<li>Independently and in parallel (branch point, not sequential to steps 6–7): the cytopenias reported in one patient (thrombocytopenia, anemia) and recurrent infections <strong>may reflect</strong> (inferred) a hematopoietic-compartment consequence of chronic replication stress in a highly proliferative stem/progenitor cell population, analogous to bone-marrow-failure phenotypes in other genome-instability syndromes (e.g., Fanconi anemia), though this specific causal link is <strong>not demonstrated</strong> for RECON syndrome and should be flagged as speculative/unconfirmed in any curated pathograph edge.</li>
+</ol>
+<h3>Molecular pathways</h3>
+<p>RECQL1 functions within the <strong>replication-stress response / homologous-recombination-adjacent fork-protection pathway</strong>, distinct from but overlapping the canonical HR machinery (RAD51, BRCA1/2) and from the Fanconi anemia pathway. It interacts functionally (and antagonistically in terms of timing) with <strong>PARP1</strong>: PARP1 poly(ADP-ribosyl)ation stabilizes regressed forks and <em>restrains</em> premature RECQL1-mediated restart, so the two proteins together regulate the <em>timing</em> of fork restart rather than acting in a simple linear cascade (PMID cited in search results on RECQL1–PARP1 fork restart antagonism). No canonical developmental signaling pathway (Wnt/MAPK/mTOR/PI3K-AKT) has been implicated; this is a DNA-metabolism/genome-maintenance pathway disorder, not a classical signal-transduction disease.</p>
+<h3>Cellular processes</h3>
+<ul>
+<li>DNA replication-fork protection and restart (central, demonstrated defective)</li>
+<li>DNA double-strand break repair / genome stability maintenance (demonstrated defective downstream consequence)</li>
+<li>Possible transcriptional regulation: newer data (cited in the aging review, PMC10018417) indicate RECQL1 "preferentially binds to guanine (G)-rich sequences in target promoter elements that it directly regulates," including genes such as <em>SHOX</em> (a key growth-plate/stature gene) — an emerging, less-established (basic-research-stage) mechanism potentially directly linking RECQL1 to the short-stature phenotype via gene regulation rather than solely via genome-instability/senescence. This should be flagged as an emerging hypothesis, not an established causal mechanism for the human phenotype.</li>
+<li>Cellular senescence (inferred/hypothesized downstream consequence, not directly measured with senescence markers — e.g., no p16/SA-β-gal data reported — in the retrieved sources)</li>
+</ul>
+<h3>Protein dysfunction</h3>
+<p>Loss-of-function is <strong>hypomorphic and selective</strong>: catalytic (ATPase/helicase/fork-restoration) impairment with preserved DNA-binding and strand-annealing — a partial, function-selective loss rather than complete null or a dominant-negative/gain-of-function mechanism. No protein misfolding/aggregation phenotype is reported (protein expression and localization are normal).</p>
+<h3>Metabolic changes</h3>
+<p>None reported; this is not a primary metabolic disease.</p>
+<h3>Immune system involvement</h3>
+<p>Not a primary immunodeficiency, but recurrent chest infections were reported in one patient (Family B) — mechanism unestablished; could reflect general frailty/wasting rather than a specific immune defect, and this ambiguity should be preserved in curation notes rather than resolved without a source.</p>
+<h3>Tissue damage mechanisms</h3>
+<p>Replication-stress-driven genomic instability is the proposed unifying tissue-damage mechanism, analogous to other RecQ-helicase progeroid disorders, but tissue-specific histopathology has not been reported for RECON syndrome specifically (no biopsy/pathology data in the retrieved sources).</p>
+<h3>Biochemical abnormalities</h3>
+<p>Core biochemical defect = reduced RECQL1 ATPase/helicase/fork-restoration enzymatic activity (quantified above in Section 4).</p>
+<h3>Molecular profiling</h3>
+<p>No transcriptomic, proteomic, metabolomic, lipidomic, single-cell, or spatial-omics datasets for RECON-syndrome patient tissue were identified in this search. This is an important, honestly-reportable gap — given the disease's rarity and recency, no GEO/ArrayExpress/PRIDE/MetaboLights datasets appear to exist yet.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong> Skin (photosensitivity, xeroderma, livedo reticularis, keratosis pilaris); craniofacial skeleton/soft tissue (progeroid facial gestalt, nasal hypoplasia, premaxilla prominence); skeletal system, specifically the hands (slender/elongated thumbs, arachnodactyly); growth (whole-body postnatal growth failure — endocrine/skeletal growth axis); ocular surface (dry eyes/keratoconjunctivitis sicca, absent lower lashes); dentition (delayed eruption, crowding).</p>
+<p><strong>Organ level (secondary/systemic):</strong> Hematologic system (thrombocytopenia, anemia reported in at least one patient); respiratory system (recurrent chest infections in one patient); adipose tissue (severe loss of subcutaneous fat).</p>
+<p><strong>Body systems involved:</strong> Integumentary, musculoskeletal, craniofacial/dermatologic, ophthalmologic, hematologic, and (by underlying cellular mechanism) essentially every proliferative tissue compartment via the genome-instability mechanism.</p>
+<p><strong>Tissue/cell level:</strong> Dermal fibroblasts and keratinocytes (photosensitivity/xeroderma phenotype, and the fibroblast lines used experimentally); lymphoblastoid cells (the primary cellular model used — Epstein-Barr-virus-transformed B lymphocytes, i.e., patient-derived LCLs); by extension, any rapidly-dividing progenitor population (hematopoietic stem/progenitor cells, growth-plate chondrocytes) is mechanistically implicated but not directly biopsied/profiled in the retrieved literature.</p>
+<p><strong>Suggested UBERON/CL terms (leads, verify before binding):</strong>
+- <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin of body
+- <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> face
+- <a href="http://purl.obolibrary.org/obo/UBERON_0002389" target="_blank" rel="noopener noreferrer">UBERON:0002389</a> skeleton of manus / <a href="http://purl.obolibrary.org/obo/UBERON_0002389" target="_blank" rel="noopener noreferrer">UBERON:0002389</a>-adjacent thumb-specific term
+- <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a> fibroblast
+- <a href="http://purl.obolibrary.org/obo/CL_0000542" target="_blank" rel="noopener noreferrer">CL:0000542</a> lymphocyte (patient LCLs specifically derive from <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a> B cell)
+- <a href="http://purl.obolibrary.org/obo/CL_0000138" target="_blank" rel="noopener noreferrer">CL:0000138</a> chondrocyte (inferred relevance to growth-plate mechanism, not directly studied)</p>
+<p><strong>Subcellular level:</strong> Nucleus — RECQL1 is a nuclear protein acting at replication forks and sites of DNA damage; normal nuclear localization is preserved in the mutant. Suggested GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a> nucleus; <a href="http://purl.obolibrary.org/obo/GO_0000784" target="_blank" rel="noopener noreferrer">GO:0000784</a>/<a href="http://purl.obolibrary.org/obo/GO_0036387" target="_blank" rel="noopener noreferrer">GO:0036387</a> pre-replicative complex/replication fork (verify exact term).</p>
+<p><strong>Localization/laterality:</strong> No lateralization reported; phenotype is bilateral/symmetric (e.g., bilateral arachnodactyly explicitly noted in Family B).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Early infancy/early childhood — features were noted by approximately 18 months of age in the reported cases; congenital presence of some dysmorphic features (nose, thumbs) is implied but not explicitly staged as "present at birth" in the extracted material — flag for verification against the primary paper's exact wording before asserting congenital vs. early-postnatal onset in a curated <code>onset</code> field.</p>
+<p><strong>Onset pattern:</strong> Insidious/progressive rather than acute.</p>
+<p><strong>Progression:</strong> Clearly progressive in the one longitudinally followed patient (Family B, ages ~6 to ~15 years) — worsening growth failure (height z-score) and severe wasting (weight z-score reaching −8.47 by age 14). This is a meaningful, citable natural-history data point for a <code>progression</code> block.</p>
+<p><strong>Disease stages:</strong> No formal staging system exists (as expected for an ultra-rare, recently described Mendelian disorder).</p>
+<p><strong>Disease course pattern:</strong> Chronic, progressive, not episodic/relapsing-remitting based on available data.</p>
+<p><strong>Disease duration:</strong> Chronic, lifelong (no spontaneous remission reported; no natural death/mortality data reported in the retrieved sources — the oldest documented age at follow-up is 14 years 9 months, so <strong>long-term/adult natural history and life expectancy are simply unknown</strong> rather than favorable or unfavorable — an important honest gap for the Outcome/Prognosis section).</p>
+<p><strong>Critical periods:</strong> None specifically identified; by mechanistic inference, periods of rapid cell proliferation (early childhood growth, puberty) might be expected to be more vulnerable to replication-stress-driven phenotype worsening, but this is speculative and not directly evidenced.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong> Extremely rare — <strong>only 3 individuals with confirmed genotype have ever been reported</strong> (as of the most recent identified review, 2023), from 2 families, plus 2 additional clinically-similar but ungenotyped adult relatives in Family A. No formal prevalence or incidence estimate exists or is calculable; this is a "cases in literature" measure only (n≈3–5), not a population-based prevalence.</p>
+<blockquote>
+<p>"only 3 affected individuals have been identified, all with the same mutation" — PMC10018417 (review, paraphrased/quoted from WebFetch extraction).</p>
+</blockquote>
+<p><strong>Inheritance pattern:</strong> Autosomal recessive (biallelic requirement demonstrated by segregation: heterozygous unaffected parents, 8 unaffected heterozygous/WT siblings, homozygous affected probands).</p>
+<p><strong>Penetrance:</strong> Appears complete in the reported homozygotes (all 3 genotyped homozygotes were clinically affected), but the sample size (n=3) is far too small to make a confident penetrance claim — report as "apparently complete in reported cases, unconfirmed at scale" rather than "complete."</p>
+<p><strong>Expressivity:</strong> Variable in severity/timing even among identical-genotype patients — Family B's proband showed a more severe/progressive wasting phenotype (weight z-score −8.47) than described for Family A's patients, despite the identical p.A459S homozygous genotype, indicating variable expressivity (possible modifier-gene or environmental contribution, unstudied).</p>
+<p><strong>Genetic anticipation:</strong> Not applicable/not reported (not a repeat-expansion disorder).</p>
+<p><strong>Germline mosaicism:</strong> Not addressed in retrieved sources.</p>
+<p><strong>Founder effects:</strong> Strongly suspected but not explicitly proven by haplotype analysis in the material retrieved — the <em>identical</em> c.1375G&gt;T variant occurring homozygously in two "apparently unrelated" Middle Eastern families is classically suggestive of a shared regional founder allele (or, less likely, a recurrent mutational hotspot). Flag this as an inference for curation notes rather than a stated fact unless the primary paper's haplotype data is separately confirmed.</p>
+<p><strong>Consanguinity role:</strong> Central — Family A are double first cousins; this is the expected mechanism for revealing a rare recessive allele. Family B's consanguinity status is less clear from the retrieved material and should be re-checked against the primary source.</p>
+<p><strong>Carrier frequency:</strong> Not calculable/not reported; the variant is absent from gnomAD and the GME Variome, so no meaningful population carrier-frequency estimate exists.</p>
+<p><strong>Affected populations/geographic distribution:</strong> Middle Eastern (2 families, both described as Middle Eastern in the primary report). No other ethnic/geographic groups reported.</p>
+<p><strong>Sex ratio:</strong> All 3 genotyped patients reported were female (both Family A patients are sisters; Family B's proband is also female per pronoun usage in the extraction — "her"/"girls" per the PubMed-search summary: "In 3 girls from 2 apparently unrelated Middle Eastern families"). With n=3, this could reflect ascertainment rather than a true sex-linked effect (the gene is autosomal, so no biological expectation of sex skew exists) — report the observed sex distribution but explicitly caveat that it is not evidence of sex-specific risk given the small, possibly ascertainment-biased sample.</p>
+<p><strong>Age distribution:</strong> Pediatric only in all reported cases (ages 4–15 years at various assessment points); no adult-onset or adult-diagnosed cases reported, consistent with a congenital/early-childhood-onset disorder, though this may also simply reflect that no adult patients have yet been identified given the extreme rarity and recency of description.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical/laboratory tests:</strong>
+- Complete blood count — for thrombocytopenia/anemia (reported in at least one patient)
+- No disease-specific biochemical/enzymatic biomarker exists; diagnosis is clinical-plus-molecular</p>
+<p><strong>Genetic testing (primary diagnostic modality):</strong>
+- Single-gene <em>RECQL</em> sequencing or exome/genome sequencing is the de facto diagnostic approach, as demonstrated in both reported families (identified via presumably exome/targeted sequencing plus homozygosity mapping/linkage, given the LOD score reported for Family A).
+- No dedicated commercial gene panel or GTR-listed test was specifically identified in this search, though <em>RECQL</em> would plausibly be captured on any broad "progeroid syndrome" or "genome instability disorder" NGS panel offered by clinical laboratories, and on exome/genome sequencing.
+- Chromosomal microarray/karyotype: not specifically diagnostic (no gross chromosomal rearrangement reported), though may be used to exclude other progeroid-differential diagnoses.
+- Cellular functional assays (SCE assay, chromosome breakage assay, replication-fork restart/DNA fiber assay) were used as <strong>research-level confirmatory functional studies</strong> in the primary report, not as established clinical diagnostic tests, and should not be represented as standard-of-care diagnostics.</p>
+<p><strong>Imaging/functional/electrophysiology/biopsy:</strong> None specifically reported as part of the diagnostic workup in the retrieved sources.</p>
+<p><strong>Clinical diagnostic criteria:</strong> No formal consensus clinical diagnostic criteria exist (as expected for a disorder with only 3 genotyped cases); diagnosis is currently definitionally molecular (biallelic <em>RECQL</em> pathogenic variant) plus compatible progeroid phenotype.</p>
+<p><strong>Differential diagnosis</strong> (by phenotypic overlap, from the comparison table constructed above and general RecQ-disorder knowledge):
+- <strong>Werner syndrome</strong> (<em>WRN</em>, OMIM #277700) — progeroid facial features, short stature, but <em>adult</em>-onset with normal growth through the teenage years (contrasting with RECON's postnatal/childhood growth failure), and lacking RECON's prominent photosensitivity.
+- <strong>Bloom syndrome</strong> (<em>BLM</em>, OMIM #210900) — photosensitivity and growth retardation overlap, but Bloom syndrome features microcephaly, immunodeficiency, strong cancer predisposition, and a markedly elevated SCE rate (a diagnostic hallmark), which is only mildly elevated in RECON syndrome — an important distinguishing cellular finding.
+- <strong>Rothmund-Thomson syndrome / RAPADILINO / Baller-Gerold syndrome</strong> (<em>RECQL4</em>, OMIM #268400 / #266280 / #218600) — skeletal abnormalities (radial ray defects), poikiloderma, and cancer predisposition (osteosarcoma) are more prominent than in RECON syndrome; RECON lacks the major skeletal malformations of the RECQL4 disorders.
+- Other progeroid/genome-instability syndromes not directly compared in the retrieved sources but relevant by general category: Cockayne syndrome, Hutchinson-Gilford progeria syndrome (LMNA), ataxia-telangiectasia-like disorder (used as a chromosome-breakage comparator cell line in the primary paper, not a clinical differential per se).</p>
+<p><strong>Screening:</strong> No newborn-screening, carrier-screening, or population-screening program exists or would be expected for a disease this rare with only one known recurrent variant confined to specific consanguineous Middle Eastern families; targeted carrier testing within affected families/populations would be the only currently plausible screening approach.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival/mortality:</strong> No mortality data reported; oldest documented follow-up age is 14 years 9 months (Family B proband). Long-term survival, life expectancy, and adult natural history are <strong>unknown</strong> — this must be represented as a genuine evidence gap, not inferred from the (unrelated in mechanism) more severe adult progeroid syndromes.</p>
+<p><strong>Morbidity/function:</strong> Progressive growth failure and wasting (documented longitudinally in one patient); no formal disability, quality-of-life, or functional-outcome instrument data reported.</p>
+<p><strong>Disease course:</strong> Chronic and progressive based on the single longitudinal case; no remission reported.</p>
+<p><strong>Complications:</strong> Thrombocytopenia, anemia, and recurrent chest infections reported in the more severely affected/longer-followed patient (Family B) — whether these represent genuine downstream complications of the core genome-instability mechanism or incidental findings is not established.</p>
+<p><strong>Prognostic factors:</strong> None formally identified (sample size precludes statistical prognostic-factor analysis). By observation, the degree of wasting/growth failure appears to progress with age in the one followed patient, suggesting age/disease-duration itself may correlate with severity, but this is a single-patient observation, not a validated prognostic factor.</p>
+<p><strong>Cancer risk:</strong> Unclear/unestablished for the biallelic RECON phenotype specifically. This should be explicitly distinguished in curation from the <em>separate, heterozygous</em> RECQL-breast-cancer-susceptibility literature (Section 2 lump/split note) — no cancer cases have been reported among the RECON-syndrome homozygotes or their heterozygous-carrier relatives in the retrieved sources, but the patient cohort is small and young, so absence of observed cancer is not strong evidence of absent risk.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No disease-specific, mechanism-targeted, or disease-modifying therapy has been reported or trialed for RECON syndrome.</strong> This is expected given the disease was described in 2022 with only 3 genotyped patients; no clinical trials (searched ClinicalTrials.gov context indirectly via search — none surfaced), no FDA-approved indication, and no gene/cell/RNA therapy program were identified.</p>
+<p><strong>Supportive care (inferred/by extrapolation from phenotype, not explicitly trialed in the source literature):</strong>
+- Photoprotection (sun avoidance, broad-spectrum sunscreen, protective clothing) for cutaneous photosensitivity — standard supportive dermatologic management by analogy to other photosensitive genome-instability disorders; suggested NCIT term (lead only): a general "Sun Protection"/dermatologic-supportive-care concept, no specific NCIT code identified in this search and should be looked up during curation rather than guessed.
+- Emollients for xeroderma — general dermatologic supportive care.
+- Nutritional support for severe growth failure/wasting — general supportive/dietary intervention (<code>NCIT:C15447</code> Dietary Intervention is a plausible generic bind, but must be verified, not asserted here).
+- Monitoring for cytopenias/infection given the thrombocytopenia/anemia/recurrent-infection findings in one patient — routine hematologic surveillance, not a formal published protocol.</p>
+<p><strong>Explicitly note in curation:</strong> the primary source states "No specific therapeutic interventions documented in this research article" — this is a molecular/mechanistic discovery paper, not a clinical-management study, so a dismech <code>treatments:</code> block for this entry should be sparse and clearly labeled as extrapolated supportive care rather than evidence-based disease-specific therapy, or left largely empty with a <code>notes:</code> explanation of why.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>No primary, secondary, or tertiary prevention strategy is established. Given the autosomal recessive inheritance and known consanguineous/founder context in the reported families, <strong>genetic counseling</strong> for at-risk consanguineous families/relatives of known carriers (recurrence risk 25% for full siblings of an affected homozygote, given two heterozygous-carrier parents) is the only currently applicable prevention-adjacent intervention, plus carrier testing and reproductive options (e.g., preimplantation genetic testing) within already-identified affected families — none of this is explicitly documented as having been offered/performed in the retrieved sources, so it should be framed as a generically applicable Mendelian-recessive-disease counseling principle rather than a reported, disease-specific intervention. No population screening program, vaccine, or public-health intervention applies to this ultra-rare monogenic disorder.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Naturally occurring RECON-syndrome-equivalent disease in animals:</strong> None reported. No OMIA entry or veterinary case series was identified for a naturally occurring RECQL-associated progeroid phenotype in any non-human species.</p>
+<p><strong>Orthologous gene:</strong> Mouse <em>Recql</em> (NCBI Gene; human-mouse orthology is well established for RecQ helicase family genes), rat <em>Recql</em>, and orthologs are present across vertebrates as expected for a conserved genome-maintenance gene family.</p>
+<p><strong>Comparative biology:</strong> The RecQ helicase family (BLM, WRN, RECQL, RECQL4, RECQL5) and its disease associations are evolutionarily conserved in function (E. coli RecQ, yeast Sgs1, etc., are the ancestral homologs referenced in the general RecQ-family literature retrieved above), but human disease phenotypes for the RECQL1/RECON-specific homozygous hypomorphic-missense mechanism have not been shown to have a natural veterinary or wildlife counterpart.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse:</strong> <em>Recql</em>-knockout mice are reported as <strong>phenotypically grossly normal</strong> at the whole-organism level — a notable and important contrast to the human progeroid phenotype:</p>
+<blockquote>
+<p>"Mice devoid of this enzyme are phenotypically normal" (as extracted from PMC8884905), despite showing clear cellular abnormalities.</p>
+</blockquote>
+<p>At the cellular level, however, primary embryonic fibroblasts from <em>Recql</em>-knockdown/knockout mice do show relevant genome-instability phenotypes: aneuploidy, spontaneous chromosomal breakage, translocations, elevated spontaneous sister chromatid exchange, increased ionizing-radiation sensitivity, and elevated double-strand-break burden — i.e., the mouse null recapitulates the <em>cellular</em> genome-instability signature reasonably well but <strong>fails to recapitulate the organismal progeroid phenotype</strong> seen in humans with the homozygous hypomorphic p.A459S variant.</p>
+<p><strong>Human-model mismatch — important curation flag:</strong> This is a textbook case for a <code>HUMAN_MODEL_MISMATCH</code> framing (per this repository's schema for model-to-mechanism links) rather than ordinary model recapitulation. Two non-mutually-exclusive explanations are offered in the literature: (1) the human disease variant is a <strong>hypomorphic partial-function allele</strong>, not a null, and may produce a qualitatively different (potentially more severe, or differently distributed) cellular phenotype than complete genetic ablation; and (2) as the authors state, <strong>RECQL1 may have functions in human development that are not shared with, or not essential in, mouse</strong> — i.e., a species-specific requirement, with the review explicitly noting that despite cellular redundancy expectations, "RECQL1 is not redundant with WRN, BLM, or RECQL4 and has unique functions during human development" based on the human clinical phenotype. Any model-mechanism link from a mouse <em>Recql</em>-null study to the RECON pathograph should therefore be recorded with <code>relationship: PARTIALLY_RECAPITULATES</code> or <code>FAILS_TO_RECAPITULATE</code> at the organismal-phenotype level (short stature, progeroid facial features are not observed in the null mouse) while potentially <code>RECAPITULATES</code> at the cellular genome-instability level, with <code>model_scale</code> distinguishing the two, and <code>divergences</code> typed as likely <code>SPECIES_MISMATCH</code> and/or a hypomorphic-vs-null <code>PROXY_QUANTITY</code>-type divergence — this should be worked out carefully against the primary mouse-knockout paper (not directly retrieved in full text here) before being written into a KB entry.</p>
+<p><strong>Cellular/in vitro models used in the primary human study (not "model organisms" in the strict sense, but the disease's actual experimental evidence base):</strong>
+- Patient-derived lymphoblastoid cell lines (LCLs) — the principal cellular disease model, used for chromosome-breakage, SCE, replication-fork-restart, and DDR-signaling assays.
+- Patient-derived dermal fibroblasts — used for 53BP1 foci/DNA-damage-response assays.
+- Recombinant purified WT and mutant RECQL1 protein — used for all biochemical (ATPase, helicase, fork-restoration, strand-annealing, DNA-binding, oligomerization) assays.
+- Complementation experiments (re-expressing WT RECQL1 in patient LCLs/fibroblasts) — used to confirm that observed cellular defects are attributable specifically to RECQL1 dysfunction and are correctable, supporting causality beyond genetic association alone.</p>
+<p><strong>No zebrafish, Drosophila, C. elegans, yeast, iPSC, or organoid model of RECON syndrome specifically was identified</strong> in this search — the yeast/invertebrate RecQ-helicase literature retrieved (Sgs1 in yeast, Rqh1 in fission yeast, Drosophila BLM ortholog studies) pertains to general RecQ-family biology, not to a RECQL1/RECON-specific disease model.</p>
+<hr />
+<h2>Summary of Key Evidence Gaps for Curation</h2>
+<ol>
+<li><strong>No ORPHA code located</strong> — confirm this is a genuine coverage gap rather than a search miss before curating <code>mappings.mondo_mappings</code>/cross-references.</li>
+<li><strong>GenCC/ClinGen "Disputed Evidence"</strong> classification exists — represent gene-disease validity honestly as limited, not definitive.</li>
+<li><strong>No long-term natural history data</strong> (oldest patient documented to age ~15) — do not extrapolate adult prognosis/mortality from other, mechanistically-related but genetically-distinct progeroid syndromes (Werner, Bloom).</li>
+<li><strong>Keep the biallelic RECON-syndrome entry structurally separate</strong> from the monoallelic <em>RECQL</em> breast-cancer-susceptibility literature — different zygosity, variant class, and phenotype (see Section 2).</li>
+<li><strong>Mouse knockout model is a phenotype mismatch at the organismal level</strong> — flag explicitly rather than treating as a validating animal model of the human disease (Section 15).</li>
+<li><strong>Microcephaly</strong> appears in MedGen's phenotype list but was not emphasized as present in the WebFetch-extracted clinical description of the primary paper — verify directly against <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a> full text before including/excluding in a curated phenotype list.</li>
+<li><strong>Formal onset staging</strong> (congenital vs. ~18-month postnatal onset) should be re-verified against exact wording in the primary source before populating an <code>onset</code> field.</li>
+</ol>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8884905/">RECON syndrome is a genome instability disorder caused by mutations in the DNA helicase RECQL1 — PMC8884905</a> (primary report; <a href="https://pubmed.ncbi.nlm.nih.gov/35025765/" target="_blank" rel="noopener noreferrer">PMID:35025765</a>; J Clin Invest 2022)</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35025765/">RECON syndrome is a genome instability disorder caused by mutations in the DNA helicase RECQL1 — PubMed</a></li>
+<li><a href="https://www.jci.org/articles/view/147301">JCI full article</a></li>
+<li><a href="https://omim.org/entry/620370">Entry - #620370 - RECON PROGEROID SYNDROME — OMIM</a></li>
+<li><a href="https://omim.org/entry/600537">Entry - *600537 - RECQ PROTEIN-LIKE; RECQL — OMIM</a></li>
+<li><a href="https://ncbi.nlm.nih.gov/medgen/1841140">RECON progeroid syndrome (Concept ID: C5830504) — MedGen/NCBI</a></li>
+<li><a href="https://www.malacards.org/card/recon_progeroid_syndrome">Recon Progeroid Syndrome — MalaCards</a></li>
+<li><a href="https://www.uniprot.org/diseases/DI-06683">RECON progeroid syndrome — UniProt Diseases (DI-06683)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10018417/">Discovery of a new hereditary RECQ helicase disorder RECON syndrome positions the replication stress response and genome homeostasis as centrally important processes in aging and age-related disease — PMC10018417</a></li>
+<li><a href="https://search.thegencc.org/genes/HGNC:9948">RECQL gene with submissions organized by classifications — GenCC</a></li>
+<li><a href="https://www.genecards.org/cgi-bin/carddisp.pl?gene=RECQL">RECQL Gene — GeneCards</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25915596/">Germline RECQL mutations are associated with breast cancer susceptibility — PubMed (PMID:25915596)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8350743/">RECQ1 Promotes Stress Resistance and DNA Replication Progression Through PARP1 Signaling Pathway in Glioblastoma — PMC8350743</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7947261/">Human RecQ Helicases in DNA Double-Strand Break Repair — PMC7947261</a></li>
+<li><a href="https://en.wikipedia.org/wiki/RECQL4">RECQL4 — Wikipedia</a> (comparator disorder background)</li>
+<li>Frontiers Pediatrics case report (10.3389/fped.2026.1695356) — checked and confirmed <strong>not relevant</strong> to RECON syndrome (it concerns RECQL4/Rothmund-Thomson type 2, a distinct gene and disease; included here only to document that this search lead was checked and excluded).</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>7</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:36907310</code> (1 mention) - Mitochondrial targeted fluorescent nitrite peroxide probe for dynamic monitoring of cellular lung injury.</li>
+<li>shared terms: cellular</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>phenotype</code>, <code>patient</code>, <code>disease</code>, <code>syndrome</code>, <code>primary</code>, <code>progeroid</code>, <code>disorder</code>, <code>mechanism</code>, <code>recon</code>, <code>explicitly</code>, <code>recql</code>, <code>gene</code>, <code>recql1</code>, <code>family</code>, <code>helicase</code>, <code>curation</code>, <code>identified</code>, <code>cellular</code>, <code>dna</code>, <code>directly</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>44</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0957266</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>RECON progeroid syndrome</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>HP:0009062</code> (obsolete Infantile axial hypotonia) (1 mention) - replaced by <code>HP:0008936</code></li>
+<li><code>GO:0000784</code> (GO_0000784) (1 mention) - replaced by <code>GO:0000781</code></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="RCBTB1-Related_Retinopathy-falcon.html">← RCBTB1-Related Retinopathy (Falcon)</a>
+                
+                
+                <a href="Reelin_Pathway_Lissencephaly-falcon.html">Reelin Pathway Lissencephaly (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RECON_Progeroid_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RECON_Progeroid_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

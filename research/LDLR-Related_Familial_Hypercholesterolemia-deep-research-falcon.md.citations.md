@@ -4,7 +4,7 @@
 
 ## Target Disease
 - **Disease Name:** LDLR-Related Familial Hypercholesterolemia
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0007750 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -89,6 +89,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -447,33 +457,56 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-08-19T08:36:59.688429
+**Generated:** 2026-09-06T14:20:32.104217
 
-1. arnold2023familialhypercholesterolemiapitfalls pages 4-6
-2. srivastava2023areviewof pages 8-9
-3. arnold2023familialhypercholesterolemiapitfalls pages 2-3
-4. chora2022theclinicalgenome pages 8-10
-5. chora2022theclinicalgenome pages 1-3
-6. srivastava2023areviewof pages 14-16
-7. sato2023generationofa pages 1-2
-8. watts2023internationalatherosclerosissociety pages 2-3
-9. ishibashi1993hypercholesterolemiainlow pages 1-2
-10. watts2023internationalatherosclerosissociety pages 1-2
-11. arnold2023familialhypercholesterolemiapitfalls pages 1-2
-12. xiao2024efficacyandsafety pages 1-2
-13. chora2022theclinicalgenome pages 5-6
-14. chora2022theclinicalgenome pages 11-13
-15. arnold2023familialhypercholesterolemiapitfalls pages 7-8
-16. https://doi.org/10.1038/s41569-023-00892-0.
-17. https://doi.org/10.31083/j.rcm2408236.
-18. https://doi.org/10.1016/j.gim.2021.09.012.
-19. https://doi.org/10.3390/medicina60101646.
-20. https://doi.org/10.1038/s41598-023-42763-1.
-21. https://doi.org/10.3390/cells12121648.
-22. https://doi.org/10.31083/j.rcm2408236,
-23. https://doi.org/10.1016/j.gim.2021.09.012,
-24. https://doi.org/10.1038/s41569-023-00892-0,
-25. https://doi.org/10.1172/jci116663,
-26. https://doi.org/10.1038/s41598-023-42763-1,
-27. https://doi.org/10.3390/medicina60101646,
-28. https://doi.org/10.3390/cells12121648,
+1. gidding2023childhoodscreeningfor pages 4-6
+2. tokgozoglu2021familialhypercholesterolemiaglobal pages 9-10
+3. iatan2024sexdifferencesin pages 8-8
+4. tabet2026thefunctionallandscape pages 1-3
+5. humphries2025geneticdeterminantsof pages 1-2
+6. taranto2023geneticheterogeneityof pages 1-2
+7. abifadel2023geneticandmolecular pages 1-2
+8. xiao2024efficacyandsafety pages 1-2
+9. kalwick2025acomprehensivereview pages 1-3
+10. xiao2024efficacyandsafety pages 5-8
+11. xiao2024efficacyandsafety pages 4-5
+12. bourbon2026thespectrumof pages 8-10
+13. 10.3390/ijms24043224
+14. 10.1111/joim.13577
+15. 10.3390/ijms25031637
+16. 10.3390/medicina60101646
+17. 10.1001/jamanetworkopen.2022.2687
+18. 10.1126/science.ady7186
+19. 10.1056/NEJMoa1816454
+20. 10.1093/eurheartj/ehae417
+21. 10.1038/s41598-023-42763-1
+22. https://doi.org/10.3390/ijms24043224
+23. https://doi.org/10.1111/joim.13577
+24. https://doi.org/10.3390/ijms25031637
+25. https://doi.org/10.3390/medicina60101646
+26. https://platform.opentargets.org/
+27. https://doi.org/10.3390/ijms24043224;
+28. https://doi.org/10.1111/ahg.12594
+29. https://doi.org/10.3390/ijms25031637;
+30. https://doi.org/10.3390/nu17040659
+31. https://doi.org/10.1111/joim.13577;
+32. https://doi.org/10.1016/j.jacc.2023.07.028
+33. https://doi.org/10.1056/NEJMoa1816454
+34. https://doi.org/10.1007/s11886-021-01565-5
+35. https://doi.org/10.1001/jamanetworkopen.2022.2687
+36. https://doi.org/10.1093/eurheartj/ehae417
+37. https://www.informatics.jax.org/
+38. https://doi.org/10.1590/1414-431X20209557
+39. https://doi.org/10.1038/s41598-023-42763-1
+40. https://doi.org/10.1126/science.ady7186
+41. https://doi.org/10.3390/ijms25031637,
+42. https://doi.org/10.3390/ijms24043224,
+43. https://doi.org/10.1111/joim.13577,
+44. https://doi.org/10.3390/medicina60101646,
+45. https://doi.org/10.1111/ahg.12594,
+46. https://doi.org/10.3390/nu17040659,
+47. https://doi.org/10.1016/j.jacc.2023.07.028,
+48. https://doi.org/10.1007/s11886-021-01565-5,
+49. https://doi.org/10.1093/eurheartj/ehae417,
+50. https://doi.org/10.1126/science.ady7186,
+51. https://doi.org/10.1007/s11883-026-01435-x,

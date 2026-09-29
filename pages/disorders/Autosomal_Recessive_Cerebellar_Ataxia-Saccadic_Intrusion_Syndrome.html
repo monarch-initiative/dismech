@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4176,6 +4253,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4197,6 +4275,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4302,6 +4381,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4323,6 +4403,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4495,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4438,6 +4520,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4459,6 +4542,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4496,6 +4580,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-vps13d-dysfunction" data-dismech-node="Biallelic VPS13D Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic VPS13D Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic pathogenic VPS13D variants are the initiating lesion. The common configuration of one nonsense or splice-site allele with one missense allele supports partial residual function rather than uniform complete protein absence; the node therefore uses dysfunction rather than loss-of-function as its disease-wide label.</div>
 
@@ -4598,6 +4689,7 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4619,6 +4711,7 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4644,6 +4737,13 @@ This pathophysiological event involves VPS13D (hgnc:23595). hgnc:23595 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-vps13d-dependent-organelle-contact-site-lipid-handling" data-dismech-node="Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">VPS13D is a large contact-site protein with a lipid-transfer domain. Its lipid-transfer domain binds glycerophospholipids and fatty acids in vitro; VPS13D depletion inhibits lipid-droplet-to-mitochondria fatty-acid trafficking, and Miro/VAP recruitment can bridge VPS13D between the ER and mitochondria. Whether VPS13D directly transports endogenous lipids in affected human neurons, and how this function contributes to SCASI, remain unproven.</div>
 
@@ -4776,6 +4876,7 @@ This pathophysiological event involves decreased intermembrane lipid transfer (G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4797,6 +4898,7 @@ This pathophysiological event involves decreased intermembrane lipid transfer (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4822,6 +4924,13 @@ This pathophysiological event involves decreased intermembrane lipid transfer (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-fission-and-mitophagic-completion" data-dismech-node="Impaired Mitochondrial Fission and Mitophagic Completion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Fission and Mitophagic Completion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Vps13D is required for mitochondrial size control, fission, and completion of mitophagy in experimental systems. Vps13D-impaired neurons accumulate enlarged mitochondria within stalled mitophagy intermediates, with separable functions in mitochondrial fission and phagophore elongation.</div>
 
@@ -4988,6 +5097,7 @@ This pathophysiological event involves decreased autophagy of mitochondrion (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5009,6 +5119,7 @@ This pathophysiological event involves decreased autophagy of mitochondrion (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5034,6 +5145,13 @@ This pathophysiological event involves decreased autophagy of mitochondrion (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-morphology-distribution-and-bioenergetic-abnormalities" data-dismech-node="Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient fibroblasts show abnormal mitochondrial morphology and reduced energy production or reduced abundance of respiratory-chain complex proteins. Vps13D-deficient fly neurons show altered mitochondrial morphology and impaired axonal distribution. These are convergent observations rather than proof of a single ordered sequence from contact-site function through bioenergetic failure.</div>
 
@@ -5234,6 +5352,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5255,6 +5374,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5282,6 +5402,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5304,6 +5425,13 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-dysfunction-and-neurodegeneration" data-dismech-node="Neuronal Dysfunction and Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Dysfunction and Neurodegeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Neuronal Vps13D depletion causes progressive locomotor impairment and brain degeneration in flies, while conditional excitatory-neuron knockout in mice produces mitochondrial dysfunction, inflammatory microglial activation, neuronal death, and behavioral changes. These models support neuronal vulnerability but do not yet explain why human SCASI preferentially affects cerebellar/oculomotor, corticospinal, and peripheral axonal systems.</div>
 
@@ -5399,6 +5527,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5420,6 +5549,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5445,6 +5575,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellar-and-oculomotor-circuit-dysfunction" data-dismech-node="Cerebellar and Oculomotor Circuit Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellar and Oculomotor Circuit Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Classic SCASI combines cerebellar ataxia with impaired visual fixation from saccadic intrusions. Quantitative recordings show overshooting horizontal saccades, macrosaccadic oscillations, and increased velocity of larger saccades. Slowed conduction in cerebellar feedback pathways has been proposed, but specific Purkinje-cell pathology and the bridge from VPS13D mitochondrial biology remain unproven.</div>
 
@@ -5522,6 +5659,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5543,6 +5681,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5707,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-and-peripheral-axonal-dysfunction" data-dismech-node="Corticospinal and Peripheral Axonal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal and Peripheral Axonal Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Classic SCASI includes corticospinal signs and axonal sensorimotor neuropathy. Selective slowing or degeneration of vulnerable axons is a plausible systems-level explanation, but the precise affected cell populations and molecular intermediates have not been established.</div>
 
@@ -5629,6 +5775,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5674,7 +5821,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic VPS13D Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic VPS13D variants are the initiating lesion. The common configuration of one nonsense or splice-site allele with one missense allele supports partial residual function rather than uniform complete protein absence; the node therefore uses dysfunction rather than loss-of-function as its disease-wide label.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}]}}, {\"id\": \"Biallelic VPS13D Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic SCASI combines cerebellar ataxia with impaired visual fixation from saccadic intrusions. Quantitative recordings show overshooting horizontal saccades, macrosaccadic oscillations, and increased velocity of larger saccades. Slowed conduction in cerebellar feedback pathways has been proposed, but specific Purkinje-cell pathology and the bridge from VPS13D mitochondrial biology remain unproven.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic SCASI includes corticospinal signs and axonal sensorimotor neuropathy. Selective slowing or degeneration of vulnerable axons is a plausible systems-level explanation, but the precise affected cell populations and molecular intermediates have not been established.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS13D is a large contact-site protein with a lipid-transfer domain. Its lipid-transfer domain binds glycerophospholipids and fatty acids in vitro; VPS13D depletion inhibits lipid-droplet-to-mitochondria fatty-acid trafficking, and Miro/VAP recruitment can bridge VPS13D between the ER and mitochondria. Whether VPS13D directly transports endogenous lipids in affected human neurons, and how this function contributes to SCASI, remain unproven.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intermembrane lipid transfer\"], \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}]}}, {\"id\": \"Hypermetric Saccades\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontal saccades overshoot their target.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007338\"}}, {\"id\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vps13D is required for mitochondrial size control, fission, and completion of mitophagy in experimental systems. Vps13D-impaired neurons accumulate enlarged mitochondria within stalled mitophagy intermediates, with separable functions in mitochondrial fission and phagophore elongation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fission\", \"autophagy of mitochondrion\"], \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}]}}, {\"id\": \"Macrosaccadic Oscillations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large back-to-back saccades oscillate around the fixation target.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032105\"}}, {\"id\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show abnormal mitochondrial morphology and reduced energy production or reduced abundance of respiratory-chain complex proteins. Vps13D-deficient fly neurons show altered mitochondrial morphology and impaired axonal distribution. These are convergent observations rather than proof of a single ordered sequence from contact-site function through bioenergetic failure.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"mitochondrion organization\", \"oxidative phosphorylation\"], \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}]}}, {\"id\": \"Neuronal Dysfunction and Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal Vps13D depletion causes progressive locomotor impairment and brain degeneration in flies, while conditional excitatory-neuron knockout in mice produces mitochondrial dysfunction, inflammatory microglial activation, neuronal death, and behavioral changes. These models support neuronal vulnerability but do not yet explain why human SCASI preferentially affects cerebellar/oculomotor, corticospinal, and peripheral axonal systems.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"]}}, {\"id\": \"Peripheral Axonal Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axonal sensorimotor peripheral neuropathy contributes to sensory and motor disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003477\"}}, {\"id\": \"Progressive Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive gait, truncal, and limb ataxia is the core motor syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002073\"}}, {\"id\": \"Pyramidal Signs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corticospinal involvement produces abnormal pyramidal signs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007256\"}}, {\"id\": \"Saccadic Intrusions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent unwanted saccades disrupt steady visual fixation and can severely impair reading.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032114\"}}], \"edges\": [{\"source\": \"Biallelic VPS13D Dysfunction\", \"target\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VPS13D depletion perturbs lipid handling at lipid-droplet-mitochondria contacts, and biochemical studies support a lipid-binding/contact-site function. Extrapolation from depletion systems to patient neurons is partial.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic VPS13D Dysfunction\", \"target\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vps13D loss disrupts mitochondrial size control and completion of mitophagy in experimental systems.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"target\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contact-site dysregulation is proposed to contribute to the observed mitochondrial abnormalities, but the direction and intervening steps are not established as a linear disease pathway.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"target\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired fission and mitophagic completion are consistent with enlarged, poorly cleared mitochondria, but the experimental evidence does not establish every step leading to the patient-cell bioenergetic phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"target\": \"Neuronal Dysfunction and Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adult neuronal depletion and conditional neuronal knockout models link mitochondrial quality-control defects to progressive neuronal dysfunction and degeneration, but the corresponding human intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Dysfunction and Neurodegeneration\", \"target\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cellular mechanism is inferred to impair cerebellar and fixation circuits, but no patient-tissue or human-neuron study has established the intervening causal chain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Dysfunction and Neurodegeneration\", \"target\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mitochondrial/neuronal defect is inferred to affect corticospinal and long peripheral axons; the tissue-selective causal intermediates remain unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Progressive Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar circuit dysfunction produces the progressive ataxic syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Saccadic Intrusions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oculomotor circuit instability disrupts steady visual fixation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Macrosaccadic Oscillations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fixation instability includes recurrent macrosaccadic oscillations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Hypermetric Saccades\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar saccadic dysmetria produces overshooting horizontal saccades.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"target\": \"Pyramidal Signs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal system dysfunction produces pyramidal signs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"target\": \"Peripheral Axonal Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral axonal dysfunction produces the sensorimotor neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Biallelic VPS13D Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic VPS13D Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic VPS13D variants are the initiating lesion. The common configuration of one nonsense or splice-site allele with one missense allele supports partial residual function rather than uniform complete protein absence; the node therefore uses dysfunction rather than loss-of-function as its disease-wide label.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Biallelic VPS13D Pathogenic Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}], \"presence\": \"Positive\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic SCASI combines cerebellar ataxia with impaired visual fixation from saccadic intrusions. Quantitative recordings show overshooting horizontal saccades, macrosaccadic oscillations, and increased velocity of larger saccades. Slowed conduction in cerebellar feedback pathways has been proposed, but specific Purkinje-cell pathology and the bridge from VPS13D mitochondrial biology remain unproven.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classic SCASI includes corticospinal signs and axonal sensorimotor neuropathy. Selective slowing or degeneration of vulnerable axons is a plausible systems-level explanation, but the precise affected cell populations and molecular intermediates have not been established.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"VPS13D is a large contact-site protein with a lipid-transfer domain. Its lipid-transfer domain binds glycerophospholipids and fatty acids in vitro; VPS13D depletion inhibits lipid-droplet-to-mitochondria fatty-acid trafficking, and Miro/VAP recruitment can bridge VPS13D between the ER and mitochondria. Whether VPS13D directly transports endogenous lipids in affected human neurons, and how this function contributes to SCASI, remain unproven.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"intermembrane lipid transfer\"], \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Hypermetric Saccades\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Horizontal saccades overshoot their target.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007338\"}}, {\"id\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Vps13D is required for mitochondrial size control, fission, and completion of mitophagy in experimental systems. Vps13D-impaired neurons accumulate enlarged mitochondria within stalled mitophagy intermediates, with separable functions in mitochondrial fission and phagophore elongation.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrial fission\", \"autophagy of mitochondrion\"], \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Macrosaccadic Oscillations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large back-to-back saccades oscillate around the fixation target.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032105\"}}, {\"id\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show abnormal mitochondrial morphology and reduced energy production or reduced abundance of respiratory-chain complex proteins. Vps13D-deficient fly neurons show altered mitochondrial morphology and impaired axonal distribution. These are convergent observations rather than proof of a single ordered sequence from contact-site function through bioenergetic failure.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"mitochondrion organization\", \"oxidative phosphorylation\"], \"genes\": [\"VPS13D\"], \"gene_terms\": [{\"label\": \"VPS13D\", \"id\": \"hgnc:23595\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Neuronal Dysfunction and Neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neuronal Vps13D depletion causes progressive locomotor impairment and brain degeneration in flies, while conditional excitatory-neuron knockout in mice produces mitochondrial dysfunction, inflammatory microglial activation, neuronal death, and behavioral changes. These models support neuronal vulnerability but do not yet explain why human SCASI preferentially affects cerebellar/oculomotor, corticospinal, and peripheral axonal systems.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Peripheral Axonal Neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Axonal sensorimotor peripheral neuropathy contributes to sensory and motor disability.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003477\"}}, {\"id\": \"Progressive Cerebellar Ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slowly progressive gait, truncal, and limb ataxia is the core motor syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002073\"}}, {\"id\": \"Pyramidal Signs\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Corticospinal involvement produces abnormal pyramidal signs.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007256\"}}, {\"id\": \"Saccadic Intrusions\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frequent unwanted saccades disrupt steady visual fixation and can severely impair reading.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0032114\"}}], \"edges\": [{\"source\": \"Biallelic VPS13D Dysfunction\", \"target\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"VPS13D depletion perturbs lipid handling at lipid-droplet-mitochondria contacts, and biochemical studies support a lipid-binding/contact-site function. Extrapolation from depletion systems to patient neurons is partial.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic VPS13D Dysfunction\", \"target\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vps13D loss disrupts mitochondrial size control and completion of mitophagy in experimental systems.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"target\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Contact-site dysregulation is proposed to contribute to the observed mitochondrial abnormalities, but the direction and intervening steps are not established as a linear disease pathway.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"target\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired fission and mitophagic completion are consistent with enlarged, poorly cleared mitochondria, but the experimental evidence does not establish every step leading to the patient-cell bioenergetic phenotype.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"target\": \"Neuronal Dysfunction and Neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adult neuronal depletion and conditional neuronal knockout models link mitochondrial quality-control defects to progressive neuronal dysfunction and degeneration, but the corresponding human intermediates are unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Dysfunction and Neurodegeneration\", \"target\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cellular mechanism is inferred to impair cerebellar and fixation circuits, but no patient-tissue or human-neuron study has established the intervening causal chain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Neuronal Dysfunction and Neurodegeneration\", \"target\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mitochondrial/neuronal defect is inferred to affect corticospinal and long peripheral axons; the tissue-selective causal intermediates remain unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Progressive Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar circuit dysfunction produces the progressive ataxic syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Saccadic Intrusions\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oculomotor circuit instability disrupts steady visual fixation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Macrosaccadic Oscillations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The fixation instability includes recurrent macrosaccadic oscillations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cerebellar and Oculomotor Circuit Dysfunction\", \"target\": \"Hypermetric Saccades\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar saccadic dysmetria produces overshooting horizontal saccades.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"target\": \"Pyramidal Signs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corticospinal system dysfunction produces pyramidal signs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Corticospinal and Peripheral Axonal Dysfunction\", \"target\": \"Peripheral Axonal Neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Peripheral axonal dysfunction produces the sensorimotor neuropathy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Biallelic VPS13D Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Dysregulated VPS13D-Dependent Organelle Contact-Site Lipid Handling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Impaired Mitochondrial Fission and Mitophagic Completion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Biallelic VPS13D Pathogenic Variants\", \"target\": \"Mitochondrial Morphology, Distribution, and Bioenergetic Abnormalities\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5693,9 +5840,9 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5704,85 +5851,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-cerebellar-ataxia" data-dismech-node="Progressive Cerebellar Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Cerebellar Ataxia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002073</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:14681893" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We describe a family of Slovenian descent with progressive ataxia, corticospinal signs, axonal sensorimotor neuropathy, and disruption of visual fixation by saccadic intrusions."</div>
-
-
-                <div class="evidence-explanation">Progressive ataxia is part of the defining classic SCASI phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Eye
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-saccadic-intrusions" data-dismech-node="Saccadic Intrusions" data-dismech-type="phenotype">
@@ -5799,15 +5869,18 @@ This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032114</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0032114</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5827,6 +5900,7 @@ This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5867,15 +5941,18 @@ This clinical feature is Saccadic intrusion (HP:0032114). HP:0032114 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0032105</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032105</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5895,6 +5972,7 @@ This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5935,15 +6013,18 @@ This clinical feature is Macrosaccadic oscillations (HP:0032105). HP:0032105 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007338" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007338</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007338" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007338</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5966,6 +6047,7 @@ This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5974,6 +6056,87 @@ This clinical feature is Hypermetric saccades (HP:0007338). HP:0007338 is a phen
 
 
                 <div class="evidence-explanation">Overshooting horizontal saccades correspond to saccadic hypermetria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-cerebellar-ataxia" data-dismech-node="Progressive Cerebellar Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Cerebellar Ataxia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002073</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive cerebellar ataxia (HP:0002073). HP:0002073 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:14681893" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/14681893" target="_blank">PMID:14681893</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We describe a family of Slovenian descent with progressive ataxia, corticospinal signs, axonal sensorimotor neuropathy, and disruption of visual fixation by saccadic intrusions."</div>
+
+
+                <div class="evidence-explanation">Progressive ataxia is part of the defining classic SCASI phenotype.</div>
 
 
 
@@ -6019,6 +6182,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6033,6 +6199,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6087,6 +6254,9 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6101,6 +6271,7 @@ This clinical feature is Peripheral axonal neuropathy (HP:0003477). HP:0003477 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6203,6 +6374,9 @@ This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6217,6 +6391,7 @@ This disease-associated gene is VPS13D (hgnc:23595). hgnc:23595 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6404,6 +6579,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying treatment is established. Physical and occupational therapy, gait and fall-risk assessment, mobility aids, speech/swallow support, and symptom-directed management should be individualized.</div>
 
 
@@ -6428,6 +6617,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6449,6 +6639,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6536,6 +6727,31 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">In two brothers with SCASI, memantine 20 mg/day reduced the frequency of saccadic intrusions and produced sustained improvement in reading without reported side effects. This uncontrolled two-patient observation supports a carefully monitored symptomatic trial in selected patients, not established efficacy or disease modification.</div>
 
 
@@ -6557,6 +6773,7 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6622,6 +6839,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Provide autosomal recessive recurrence counseling, targeted carrier testing for relatives, and reproductive testing options once both familial VPS13D variants are known.</div>
 
 
@@ -6643,6 +6874,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6751,6 +6983,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6805,6 +7038,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6856,6 +7090,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7039,6 +7274,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7100,6 +7336,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7405,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7492,6 +7730,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7513,6 +7752,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7664,6 +7904,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7685,6 +7926,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7821,6 +8063,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7953,6 +8196,7 @@ This experimental model concerns VPS13D (hgnc:23595). hgnc:23595 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9442,6 +9686,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

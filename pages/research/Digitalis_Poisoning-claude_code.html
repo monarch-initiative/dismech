@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digitalis Poisoning · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Digitalis Poisoning</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Digitalis Poisoning</h1>
+                
+                <p class="report-subtitle">Digitalis (Digoxin/Cardiac Glycoside) Poisoning — Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-19</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017863" target="_blank" rel="noopener noreferrer">MONDO:0017863</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">70 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Digitalis (Digoxin/Cardiac Glycoside) Poisoning — Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Digitalis poisoning (digoxin toxicity, cardiac glycoside toxicity) is a potentially life-threatening intoxication produced by excessive exposure to digoxin or related cardiac glycosides (digitoxin, oleandrin, bufalin/bufadienolides, ouabain). It results from Na⁺/K⁺-ATPase pump inhibition and manifests as a triad of gastrointestinal, neurologic/visual, and cardiac-conduction disturbances, the last being the dominant cause of morbidity and mortality (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>; <a href="https://emedicine.medscape.com/article/154336-overview">Medscape</a>). Toxicity is classically divided into <strong>acute</strong> (single large ingestion, often suicidal or accidental, in a previously non-exposed person), <strong>acute-on-chronic</strong> (an extra dose/overdose superimposed on chronic therapy), and <strong>chronic</strong> (gradual accumulation from impaired clearance, drug interactions, or dose creep in a patient already on maintenance therapy) — these three patterns differ substantially in electrolyte pattern (hyperkalemia is typically an <strong>acute</strong>-poisoning finding; chronic toxicity does not usually cause hyperkalemia) and prognosis (<a href="https://litfl.com/digoxin-toxicity-ccc/">LITFL Digoxin Toxicity</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls</a>).</p>
+<p><strong>Key identifiers</strong>
+| System | ID |
+|---|---|
+| MONDO | <a href="http://purl.obolibrary.org/obo/MONDO_0017863" target="_blank" rel="noopener noreferrer">MONDO:0017863</a> ("digitalis poisoning") (<a href="https://www.wikidata.org/wiki/Q151350">Wikidata Q151350</a>; <a href="https://rarediseases.org/mondo-disease/digitalis-poisoning/">NORD/Mondo mirror</a>) |
+| MeSH | "Digoxin" (D004077); toxicity subheading; related "Cardiac Glycosides/poisoning" |
+| ATC | C01AA05 (digoxin, cardiac glycoside class C01A); V03AB24 (digoxin immune Fab antidote) |
+| ChEBI | <a href="http://purl.obolibrary.org/obo/CHEBI_4551" target="_blank" rel="noopener noreferrer">CHEBI:4551</a> (digoxin) — cardenolide glycoside from <em>Digitalis lanata</em>, a steroid nucleus + unsaturated lactone ring + trisaccharide (<a href="https://www.ebi.ac.uk/chebi/CHEBI:4551">ChEBI</a>) |
+| PubChem CID | 2724385 (digoxin, C₄₁H₆₄O₁₄) (<a href="https://pubchem.ncbi.nlm.nih.gov/compound/2724385">PubChem</a>) |
+| ICD-10-CM | T46.0X1– (poisoning by cardiac-stimulant glycosides, accidental), with intent-based 5th/6th character extensions |</p>
+<p><strong>Synonyms/alternative names:</strong> digoxin toxicity, digitalis intoxication, cardiac glycoside toxicity/poisoning, digitalis glycoside overdose; plant-source variants are named for the source (oleander/yellow oleander poisoning, foxglove poisoning, toad-venom/bufadienolide poisoning).</p>
+<p><strong>Nature of source data.</strong> Because this is a toxidrome rather than a Mendelian or classically epidemiologic disease, most of the evidence base is: (a) aggregated case series and poison-control/registry data (individual case reports contribute mechanistic and phenotype detail but are not population-representative); (b) the large RCT evidence base for therapeutic digoxin use in heart failure/atrial fibrillation (the DIG trial and its post-hoc analyses), which is the source of dose–toxicity relationship data; and (c) basic-science/model-organism electrophysiology studies establishing mechanism. There is essentially no disease-specific EHR-derived cohort literature distinct from these three streams.</p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease causal factor</h3>
+<p>Digitalis poisoning is fundamentally a <strong>pharmacologic/toxicologic</strong> disease, not a genetic one: it is caused by supratherapeutic tissue concentrations of a cardiac glycoside, reaching a level at which Na⁺/K⁺-ATPase inhibition exceeds the myocardium's compensatory capacity ("mechanistic" causal factor). There is no single-gene or chromosomal cause of the disease itself; genetic contributions are limited to <strong>pharmacokinetic/pharmacogenomic modifiers</strong> of individual susceptibility (below).</p>
+<h3>Risk factors</h3>
+<p><strong>Environmental / iatrogenic / mechanistic:</strong>
+- <strong>Narrow therapeutic index.</strong> Therapeutic total digoxin is 0.8–2.0 ng/mL (older target) or, per contemporary heart-failure guidance, 0.5–1.0 ng/mL (lower is now preferred because higher levels raise morbidity/mortality without added benefit); toxicity is generally associated with levels &gt;2.4 ng/mL, but <strong>~10% of toxic patients have levels below 2 ng/mL</strong>, especially with hypokalemia, hypomagnesemia, hypoxia, or hypercalcemia (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10350506/">PMC10350506</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).
+- <strong>Renal impairment</strong> — the leading cause of <em>chronic</em> toxicity; ~50–70% of a digoxin dose is excreted unchanged by the kidney, closely tracking GFR, so renal decline (common with age) markedly prolongs half-life (1.5–2.0 days with normal renal function → 3.5–5 days in anuric patients) (<a href="https://pubmed.ncbi.nlm.nih.gov/322907/">Clinical Pharmacokinetics of Digoxin, PMID:322907</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK556025/">StatPearls NBK556025</a>).
+- <strong>Electrolyte disturbance</strong>: hypokalemia and hypomagnesemia (digoxin competes with K⁺ at the ATPase binding site, so low K⁺ increases glycoside binding/effect), hypercalcemia (potentiates the arrhythmogenic Ca²⁺-overload mechanism), hypoxemia, acid–base disturbance.
+- <strong>Drug–drug interactions</strong>: &gt;100–400 reported interacting drugs; the clinically dominant mechanism is inhibition of P-glycoprotein (ABCB1)-mediated renal/biliary clearance and reduced volume of distribution — amiodarone, verapamil, quinidine, macrolides (clarithromycin, erythromycin), itraconazole, cyclosporine — each of which can roughly double serum digoxin concentration (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>; <a href="https://www.uspharmacist.com/article/digoxin-toxicity-a-review">uspharmacist.com</a>).
+- <strong>Age and sex</strong>: advanced age (renal decline, lower muscle mass → smaller volume of distribution, polypharmacy) and female sex are independently associated with higher toxicity risk and, in post-mortem genotyping series, greater lethality for a given exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/21311904/">PMID:21311904</a>).
+- <strong>Plant/zootoxin exposure</strong> (non-iatrogenic route): ingestion of foxglove (<em>Digitalis purpurea</em>/<em>lanata</em>), oleander (<em>Nerium oleander</em>), yellow oleander (<em>Thevetia peruviana</em>), lily-of-the-valley (<em>Convallaria majalis</em>), or toad-derived bufadienolide preparations produces an identical clinical/ECG toxidrome via the same Na⁺/K⁺-ATPase mechanism (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3721620/">PMC3721620</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7472096/">PMC7472096</a>).
+- <strong>Intentional self-poisoning</strong> is a major global route, dominated in South/Southeast Asia by yellow oleander seed ingestion (see §9 Epidemiology).</p>
+<p><strong>Genetic risk/modifier factors (pharmacogenomic, not causal):</strong>
+- <strong>ABCB1 (MDR1, P-glycoprotein, HGNC gene ABCB1)</strong> polymorphisms (notably 2677G&gt;T/A and 3435C&gt;T) modestly alter digoxin serum concentration via effects on P-gp–mediated intestinal absorption and renal/biliary excretion; results across studies are mixed — several show no clinically meaningful pharmacokinetic effect (<a href="https://pubmed.ncbi.nlm.nih.gov/12492608/">PMID:12492608</a>), while others link variant ABCB1 alleles to increased sudden-cardiac-death risk in digoxin users and to sex-differential post-mortem toxicity (<a href="https://pubmed.ncbi.nlm.nih.gov/26531821/">PMID:26531821</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21311904/">PMID:21311904 "Post-mortem ABCB1 genotyping reveals an elevated toxicity for female digoxin users"</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28208135/">PMID:28208135</a>; review <a href="https://link.springer.com/article/10.1007/s40262-015-0267-1">PMID: Clin Pharmacokinet 2016</a>).
+- <strong>SLCO1B3</strong> (organic anion transporter) variants have also been examined as modifiers of digoxin disposition alongside ABCB1 in the Tunisian AF cohort study above.
+- There is <strong>no known primary Mendelian causal gene</strong> for digitalis poisoning; it is not a heritable disease.</p>
+<p><strong>Protective factors:</strong>
+- No genetic protective variant is described specifically against digitalis poisoning (unlike, e.g., predator/herbivore cardiac-glycoside-resistance alleles in other species — see §14).
+- <strong>Environmental/clinical protective factors</strong>: routine therapeutic drug monitoring, dose reduction with declining renal function, avoidance of known P-gp inhibitors, potassium/magnesium repletion, and (in the modern heart-failure era) preference for lower target concentrations (0.5–0.8 ng/mL) have reduced population-level toxicity incidence (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).</p>
+<p><strong>Gene–environment interaction:</strong> The clearest G×E pattern is genotype (ABCB1)–drug interaction: a P-gp inhibitor (environmental exposure) produces a larger rise in serum digoxin in a patient whose ABCB1 genotype already confers reduced transporter efficiency, and this combination is proposed to explain some of the sex-based differences in fatal toxicity reported in post-mortem series (<a href="https://pubmed.ncbi.nlm.nih.gov/21311904/">PMID:21311904</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Digitalis poisoning presents with a fairly stereotyped triad. Frequencies below are drawn from case-series/registry literature; most are qualitative ("common," "most common") rather than precisely quantified in a single denominator study.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset/course</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Nausea and vomiting</td>
+<td>Symptom (GI)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a> (Nausea and vomiting); <a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" rel="noopener noreferrer">HP:0002017</a> (Nausea)</td>
+<td>Earliest sign in both acute and chronic toxicity</td>
+<td>Often the presenting complaint; anorexia frequently precedes it</td>
+</tr>
+<tr>
+<td>Anorexia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" rel="noopener noreferrer">HP:0002039</a> (Anorexia)</td>
+<td>Early</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Abdominal pain</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a> (Abdominal pain)</td>
+<td>Variable</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Diarrhea</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a> (Diarrhea)</td>
+<td>Variable</td>
+<td>Less prominent than nausea/vomiting</td>
+</tr>
+<tr>
+<td>Xanthopsia / chromatopsia (yellow-tinged vision)</td>
+<td>Symptom (visual)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025590" target="_blank" rel="noopener noreferrer">HP:0025590</a> or closest available "abnormality of color vision" term; no exact HPO term for xanthopsia exists — consider free text with SNOMED CT grounding</td>
+<td>Chronic toxicity predominant</td>
+<td>Classically described as "Van Gogh's yellow" vision; near-pathognomonic</td>
+</tr>
+<tr>
+<td>Halo vision / photopsia / scotoma</td>
+<td>Symptom (visual)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000496" target="_blank" rel="noopener noreferrer">HP:0000496</a> (Halo vision)</td>
+<td>Chronic toxicity</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Diminished visual acuity</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment)</td>
+<td>Chronic</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+<td>Variable</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Confusion / altered mental status</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001289" target="_blank" rel="noopener noreferrer">HP:0001289</a> (Confusion)</td>
+<td>More prominent in elderly/chronic toxicity</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Malaise / weakness</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" rel="noopener noreferrer">HP:0033834</a> (Fatigue) / <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a> (weakness)</td>
+<td>Variable</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Insomnia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100785" target="_blank" rel="noopener noreferrer">HP:0100785</a> (Insomnia)</td>
+<td>Variable</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Premature ventricular complexes</td>
+<td>Lab/ECG sign</td>
+<td>Not HPO-mapped directly; consider EKG-specific ontologies (LOINC/SNOMED)</td>
+<td>Cardiac</td>
+<td>Most common dysrhythmia in digoxin toxicity</td>
+</tr>
+<tr>
+<td>AV nodal (junctional) block, varying degree</td>
+<td>ECG/clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011703" target="_blank" rel="noopener noreferrer">HP:0011703</a> (Atrioventricular block)</td>
+<td>Cardiac; 30–40% of toxic cases</td>
+<td>"AV junctional blocks... are the most common manifestations of digoxin toxicity, occurring in 30-40% of cases" (<a href="https://emedicine.medscape.com/article/154336-overview">Medscape/StatPearls synthesis</a>)</td>
+</tr>
+<tr>
+<td>Bidirectional ventricular tachycardia</td>
+<td>ECG sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004756" target="_blank" rel="noopener noreferrer">HP:0004756</a> (Ventricular tachycardia) as parent term</td>
+<td>Cardiac</td>
+<td>Near pathognomonic for digoxin toxicity — alternating QRS axis beat-to-beat (<a href="https://litfl.com/digoxin-effect-ecg-library/">LITFL</a>)</td>
+</tr>
+<tr>
+<td>Atrial tachycardia with block (esp. 2:1 AV block)</td>
+<td>ECG sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001700" target="_blank" rel="noopener noreferrer">HP:0001700</a> (parent: Cardiac arrhythmia)</td>
+<td>Cardiac</td>
+<td>Classic pattern</td>
+</tr>
+<tr>
+<td>Sinus bradycardia</td>
+<td>Sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001662" target="_blank" rel="noopener noreferrer">HP:0001662</a> (Sinus bradycardia)</td>
+<td>Cardiac</td>
+<td>Vagotonic effect</td>
+</tr>
+<tr>
+<td>Hyperkalemia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002153" target="_blank" rel="noopener noreferrer">HP:0002153</a> (Hyperkalemia)</td>
+<td><strong>Acute</strong> poisoning predominant; usually absent in chronic toxicity</td>
+<td>Strong severity/mortality marker (see §11)</td>
+</tr>
+<tr>
+<td>"Scooped"/sagging ST depression, T-wave flattening/inversion, short QT, prominent U wave, PR prolongation</td>
+<td>ECG (lab) finding</td>
+<td>— (ECG morphology, not an HPO phenotype per se)</td>
+<td>Chronic "digitalis effect," not toxicity per se</td>
+<td>Reflects therapeutic exposure, distinct from toxic arrhythmia</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity/progression:</strong> Acute poisoning tends to be more abrupt and life-threatening (vomiting, hyperkalemia, brady-/tachyarrhythmias progressing rapidly to hemodynamic collapse), whereas chronic toxicity is insidious, dominated by GI/CNS/visual symptoms with bradyarrhythmia and increased automaticity evolving over days (<a href="https://litfl.com/digoxin-poisoning/">LITFL</a>). Nearly any arrhythmia can occur — "almost any type of arrhythmia has been reported," making digoxin toxicity a classic diagnostic mimicker (<a href="https://www.healio.com/cardiology/learn-the-heart/cardiology-review/topic-reviews/digoxin-toxicity">Healio</a>).</p>
+<p><strong>Quality-of-life impact:</strong> Not separately studied with EQ-5D/SF-36 instruments for the acute poisoning entity (as opposed to chronic digoxin-treated heart failure, where instrument data exist but reflect the underlying heart failure rather than glycoside toxicity itself). This is a data gap.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Digitalis poisoning is <strong>not a monogenic disease</strong> — there is no OMIM causal-gene entry, no ClinVar pathogenic-variant catalog, and no chromosomal-abnormality association analogous to a Mendelian disorder. The molecular information relevant to this entry is instead:</p>
+<ol>
+<li><strong>The molecular target</strong>: Na⁺/K⁺-ATPase (sodium pump), specifically the α-subunit's extracellular cardiac-glycoside binding pocket. In humans this is encoded chiefly by <strong>ATP1A1</strong> (<a href="https://bioregistry.io/HGNC:799" target="_blank" rel="noopener noreferrer">HGNC:799</a>, the ubiquitously expressed catalytic α1 isoform, the principal cardiac isoform relevant to glycoside binding) and <strong>ATP1A2/ATP1A3</strong> in other tissues. Digoxin binds a highly conserved extracellular pocket involving residues homologous to Q111, N122, F786, and T797 across species (<a href="https://elifesciences.org/articles/48224.pdf">eLife 48224</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/8385116/">PMID:8385116</a>).</li>
+<li><strong>Pharmacogenomic modifier genes</strong> — ABCB1 (P-glycoprotein) and SLCO1B3 (organic-anion transporter), discussed in §2, which alter systemic exposure but do not cause the disease.</li>
+<li><strong>Endogenous digoxin-like immunoreactive substances (DLIS/"endobain"/"endoxin")</strong> — an important <em>molecular confounder</em> rather than a causal factor: uncharacterized endogenous Na⁺/K⁺-ATPase-inhibiting factors cross-react with anti-digoxin immunoassays and are elevated in renal failure, liver failure, pregnancy, and especially <strong>neonates</strong> (with an inverse relationship to gestational/postnatal age and possibly linked to bilirubin level), producing falsely elevated "digoxin" levels in patients who have never taken the drug (<a href="https://doi.org/10.7326/0003-4819-99-5-604">Ann Intern Med, DOI:10.7326/0003-4819-99-5-604</a>; <a href="https://onlinelibrary.wiley.com/doi/10.1111/j.1651-2227.1989.tb11093.x">Acta Paediatrica DLIS neonates</a>; <a href="https://link.springer.com/article/10.1007/BF02343220">Eur J Pediatr</a>). "As long as the chemical structure, origin and physiological properties of DLIS remain unknown, clinicians must be cautious in interpreting the serum levels of digoxin."</li>
+<li><strong>Somatic/epigenetic/chromosomal information</strong>: not applicable — no evidence of epigenetic dysregulation or chromosomal abnormality contributing to susceptibility beyond the pharmacogenomic SNP-level effects above.</li>
+</ol>
+<p>Ontology note for a KB entry: since there is no causal Mendelian gene, <code>genetic:</code> entries (if used at all) should be scoped as <strong>modifier/susceptibility</strong> relationships (ABCB1, SLCO1B3) rather than causal, and the molecular target (ATP1A1, <a href="http://purl.obolibrary.org/obo/GO_0005391" target="_blank" rel="noopener noreferrer">GO:0005391</a> sodium:potassium-exchanging ATPase activity) belongs in <code>pathophysiology</code> as the affected molecular function, not in a causal <code>genetic:</code> block.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Iatrogenic/pharmaceutical exposure</strong>: digoxin prescribed for heart failure or atrial fibrillation rate control is the dominant real-world exposure route in high-income settings.</li>
+<li><strong>Toxins/plants</strong> (the classic "digitalis" exposure route and origin of the disease name): <em>Digitalis purpurea</em> and <em>D. lanata</em> (foxglove — original glycoside source), <em>Nerium oleander</em> (oleander) and <em>Thevetia peruviana</em> (yellow oleander), <em>Convallaria majalis</em> (lily of the valley), <em>Kalanchoe</em> spp., and toad venom (bufadienolides, e.g., from <em>Bufo</em> species used in some traditional Chinese medicines) — all inhibit the same Na⁺/K⁺-ATPase target and produce a clinically indistinguishable toxidrome (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3721620/">PMC3721620 Cardiotoxicity of plants in South Africa</a>; <a href="https://vetgirlontherun.com/cardiac-glycoside-plants-poisonous-to-dogs-and-cats/">VETgirl</a>; StatPearls, bufalin/toad section).</li>
+<li><strong>Occupational/accidental exposure</strong>: pediatric accidental ingestion of ornamental plants or grandparents' medications; livestock grazing on oleander (documented outbreak in dairy cattle with food-safety implications for milk/meat, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7472096/">PMC7472096</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6723884/">PMC6723884 fatal cattle case</a>).</li>
+<li><strong>Lifestyle factors</strong>: none specific to the causal mechanism; comorbid heart failure/AF (which drive prescription) are lifestyle-modifiable but the toxicity itself is dose/clearance-driven, not lifestyle-driven, apart from alcohol/renal-toxin exposures that worsen renal clearance.</li>
+<li><strong>Infectious agents</strong>: not applicable — this is not an infectious disease.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Excess systemic exposure</strong> to a cardiac glycoside (supratherapeutic dose, impaired renal clearance, P-gp–inhibiting drug interaction, or ingestion of a glycoside-containing plant/toad product) <strong>leads to</strong> cardiac-glycoside tissue concentrations that exceed the therapeutic window.</li>
+<li>Digoxin <strong>binds</strong> the extracellular K⁺-binding site of the <strong>Na⁺/K⁺-ATPase (Na,K-ATPase; sodium pump)</strong> α-subunit on the cardiomyocyte sarcolemma, <strong>which inhibits</strong> the enzyme's Na⁺-extrusion/K⁺-uptake activity in a manner that is competitively worsened by hypokalemia (digoxin and K⁺ compete for the same site) (<a href="https://derangedphysiology.com/main/cicm-primary-exam/cardiovascular-system/Chapter-968/digoxin">StatPearls; PMID:322907; Deranged Physiology</a>).</li>
+<li>Na,K-ATPase inhibition <strong>causes</strong> a rise in intracellular Na⁺ concentration, <strong>which</strong> collapses the transmembrane Na⁺ gradient that the Na⁺/Ca²⁺ exchanger (NCX1) normally uses to extrude Ca²⁺.</li>
+<li>Reduced Ca²⁺ extrusion via NCX1 <strong>leads to</strong> intracellular (and, specifically, sarcoplasmic-reticulum) Ca²⁺ accumulation — "<strong>calcium overload</strong>." (At therapeutic concentrations this same step, more modestly engaged, is the basis of digoxin's positive inotropic effect; recent work shows the mechanism critically depends on a specific allosteric state of NCX1 called Na⁺-dependent inactivation — <a href="https://www.science.org/doi/10.1126/sciadv.ady9596">Science Advances, sciadv.ady9596</a>.)</li>
+<li>At toxic (but not therapeutic) degrees of Na,K-ATPase inhibition, SR Ca²⁺ overload <strong>exceeds</strong> the SR's sequestering capacity, <strong>causing</strong> spontaneous, oscillatory Ca²⁺ release from the SR after normal repolarization.</li>
+<li>Spontaneous Ca²⁺ release <strong>activates</strong> the electrogenic 3Na⁺/1Ca²⁺ exchanger in the Ca²⁺-extrusion direction, <strong>generating</strong> a net inward (depolarizing) current during phase 4 — a <strong>delayed afterdepolarization (DAD)</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5446409/">PMC5446409</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5597635/">PMC5597635 erratum</a>).</li>
+<li>If the DAD reaches threshold, it <strong>triggers</strong> spontaneous, non-driven action potentials (<strong>triggered automaticity/aftercontractions</strong>), which <strong>manifest as</strong> ectopic beats and, when they arise from independent foci with alternating exit pathways through the ventricular conduction system, produce the near-pathognomonic <strong>bidirectional ventricular tachycardia</strong>, as well as PVCs, accelerated junctional rhythms, and atrial tachycardia with block.</li>
+<li>In parallel, digoxin <strong>increases vagal (parasympathetic) tone</strong> and <strong>enhances central sympathetic outflow / inhibits norepinephrine reuptake at adrenergic terminals</strong>, which <strong>branches to</strong> two further effects: (a) increased vagal tone <strong>slows</strong> SA-node discharge and <strong>prolongs</strong> AV-nodal conduction/refractoriness, <strong>producing</strong> sinus bradycardia and AV block (the basis of the classic "increased automaticity + decreased conduction" toxidrome description); (b) enhanced sympathetic tone <strong>contributes to</strong> the ectopic/triggered-automaticity burden above.</li>
+<li>Independently, Na,K-ATPase inhibition <strong>causes</strong> a shift of intracellular K⁺ into the extracellular space, <strong>producing hyperkalemia</strong> — this branch is most evident in <strong>acute</strong> massive ingestion (where the sudden, large-magnitude pump inhibition rapidly redistributes total-body K⁺) and is typically <strong>absent</strong> in slowly accumulating chronic toxicity (<a href="https://litfl.com/digoxin-poisoning/">StatPearls; LITFL</a>). Serum K⁺ is therefore both a <strong>downstream biomarker</strong> of pump-inhibition severity and, empirically, the single best <strong>prognostic marker</strong> in acute poisoning (§11).</li>
+<li>The combined arrhythmia burden (bradyarrhythmia, AV block, and/or ventricular tachyarrhythmia) <strong>culminates in</strong> hemodynamic instability, and, when untreated or severe, <strong>cardiac arrest/death</strong> — the proximate cause of most digitalis-poisoning mortality.</li>
+<li>A separate, less-defined branch: digoxin's Na,K-ATPase inhibition in the <strong>area postrema/CNS</strong> and GI tract <strong>contributes to</strong> the nausea/vomiting and the visual-pathway effects (color-vision disturbance, xanthopsia), inferred rather than fully mechanistically demonstrated at the retinal/cortical level in humans; retinal Na,K-ATPase inhibition affecting photoreceptor signal processing is the leading hypothesis but retinal-level human mechanistic data are limited (inferred step).</li>
+</ol>
+<h3>Category detail</h3>
+<ul>
+<li><strong>Molecular pathway/function</strong>: <a href="http://purl.obolibrary.org/obo/GO_0005391" target="_blank" rel="noopener noreferrer">GO:0005391</a> (P-type Na⁺/K⁺-exchanging ATPase activity, sodium/potassium-transporting ATPase complex) inhibition is the initiating molecular lesion; downstream engagement of the Na⁺/Ca²⁺ exchanger (NCX1, gene <em>SLC8A1</em>) and SR Ca²⁺-handling machinery (SERCA2a/<em>ATP2A2</em>, ryanodine receptor RyR2) is the amplifying pathway.</li>
+<li><strong>Cellular process</strong>: <a href="http://purl.obolibrary.org/obo/GO_0086036" target="_blank" rel="noopener noreferrer">GO:0086036</a> (regulation of cardiac muscle cell membrane potential), <a href="http://purl.obolibrary.org/obo/GO_0086013" target="_blank" rel="noopener noreferrer">GO:0086013</a> (membrane repolarization in ventricular cardiac muscle cell), and triggered-automaticity/afterdepolarization processes; increased cardiomyocyte contractility (positive inotropy at sub-toxic levels) versus disordered automaticity at toxic levels.</li>
+<li><strong>Protein dysfunction</strong>: not a structural protein-misfolding disease — the "dysfunction" is pharmacologic inhibition of a normally functioning enzyme (Na,K-ATPase), not a mutant/misfolded protein.</li>
+<li><strong>Metabolic/biochemical</strong>: net cellular ion-homeostasis derangement (↑ intracellular Na⁺, ↑ intracellular Ca²⁺, ↑ extracellular K⁺); no primary energy-metabolism or lipid-metabolism lesion.</li>
+<li><strong>Immune involvement</strong>: none intrinsic to the toxicity; immune mechanisms are only relevant to the <strong>antidote</strong> (ovine anti-digoxin Fab fragments) and to rare Fab-associated serum-sickness/anaphylaxis reactions.</li>
+<li><strong>Tissue damage mechanisms</strong>: primarily electrophysiologic/functional (arrhythmia) rather than structural cell death; myocardial injury markers are not classically part of the toxidrome (unlike ischemic injury).</li>
+<li><strong>Cell types involved</strong>: cardiomyocyte (<a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a>, cardiac muscle myoblast/cardiac muscle cell), cardiac Purkinje fiber cell/cardiac conduction system cells, SA-node and AV-node pacemaker cells, and (for the extracardiac symptoms) enteric/vagal afferent neurons and retinal photoreceptor/bipolar cells (visual symptoms).</li>
+<li><strong>Molecular profiling / advanced technologies</strong>: no transcriptomic, proteomic, single-cell, or spatial-omics signature is established for this toxidrome in humans — mechanistic knowledge derives almost entirely from classical electrophysiology (voltage-clamp, sharp-electrode recording in isolated Purkinje fibers and whole-heart preparations), not omics.</li>
+</ul>
+<p><strong>Suggested GO terms</strong>: <a href="http://purl.obolibrary.org/obo/GO_0005391" target="_blank" rel="noopener noreferrer">GO:0005391</a> (Na⁺/K⁺-ATPase activity), <a href="http://purl.obolibrary.org/obo/GO_0086036" target="_blank" rel="noopener noreferrer">GO:0086036</a> (cardiac membrane potential regulation), <a href="http://purl.obolibrary.org/obo/GO_0060402" target="_blank" rel="noopener noreferrer">GO:0060402</a> (calcium ion transport into cytosol via sarcoplasmic reticulum), <a href="http://purl.obolibrary.org/obo/GO_0086016" target="_blank" rel="noopener noreferrer">GO:0086016</a> (AV node cell action potential).
+<strong>Suggested CL terms</strong>: <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> (cardiac muscle cell), <a href="http://purl.obolibrary.org/obo/CL_1000497" target="_blank" rel="noopener noreferrer">CL:1000497</a> (Purkinje myocyte), <a href="http://purl.obolibrary.org/obo/CL_0002129" target="_blank" rel="noopener noreferrer">CL:0002129</a> (cardiac pacemaker cell).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level</strong>: heart (primary organ); secondary/systemic effects on GI tract (nausea/vomiting), CNS (confusion, headache), and visual system (retina/optic pathway — xanthopsia, halos).</li>
+<li><strong>Body systems</strong>: cardiovascular system (primary), digestive system, nervous system (CNS and autonomic/vagal), visual system.</li>
+<li><strong>Tissue/cell level</strong>: the cardiac <strong>conduction system</strong> specifically — SA node, AV node, His-Purkinje fibers — plus ventricular and atrial myocardium generally. UBERON suggestions: <a href="http://purl.obolibrary.org/obo/UBERON_0002018" target="_blank" rel="noopener noreferrer">UBERON:0002018</a> (SA node), <a href="http://purl.obolibrary.org/obo/UBERON_0002205" target="_blank" rel="noopener noreferrer">UBERON:0002205</a> (AV node), <a href="http://purl.obolibrary.org/obo/UBERON_0002136" target="_blank" rel="noopener noreferrer">UBERON:0002136</a> (Purkinje fiber cell tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart).</li>
+<li><strong>Subcellular level</strong>: sarcolemma (site of Na,K-ATPase inhibition; GO cellular component <a href="http://purl.obolibrary.org/obo/GO_0005890" target="_blank" rel="noopener noreferrer">GO:0005890</a> Na⁺/K⁺-ATPase complex), sarcoplasmic reticulum (Ca²⁺ overload site, <a href="http://purl.obolibrary.org/obo/GO_0033017" target="_blank" rel="noopener noreferrer">GO:0033017</a> sarcoplasmic reticulum membrane), mitochondria (secondary Ca²⁺ handling, not primary).</li>
+<li><strong>Localization</strong>: diffuse/systemic rather than focal; no lateralization applicable (bilateral/systemic toxicity).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset</strong>: any age; timing depends on exposure route. Acute ingestion → symptom onset typically within hours (GI symptoms first, cardiac effects following the ~6–8-hour distribution phase). Chronic toxicity develops insidiously over days to weeks as clearance declines or dose/interacting drugs accumulate.</li>
+<li><strong>Progression/stages</strong>: pre-symptomatic supratherapeutic level → GI prodrome → neurologic/visual symptoms (chronic pattern) → cardiac conduction/arrhythmia phase → (if untreated) hemodynamic collapse/cardiac arrest.</li>
+<li><strong>Course pattern</strong>: acute poisoning is typically a self-limited event (resolves with elimination/antidote) unless fatal; chronic toxicity may recur if the precipitating renal/drug-interaction/dosing problem is not corrected.</li>
+<li><strong>Critical period for intervention</strong>: the first ~1 hour post-acute-ingestion is the window for GI decontamination (activated charcoal); the diagnostic/therapeutic window for digoxin-specific antibody (Fab) therapy is essentially the entire symptomatic period, since Fab does not depend on the same narrow timing constraint as charcoal (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>; <a href="https://rebelem.com/management-of-digoxin-toxicity/">RebelEM</a>).</li>
+<li><strong>Remission</strong>: recovery typically follows drug clearance/discontinuation and, when indicated, Fab administration; recurrence is possible if the underlying cause (renal failure, ongoing interacting drug) persists.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance</strong>: not applicable — digitalis poisoning is an acquired toxicologic disease, not a Mendelian condition. No inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder-effect, or carrier-frequency concept applies to the disease itself (only to the minor ABCB1/SLCO1B3 pharmacogenomic modifiers described in §4).</p>
+<p><strong>Epidemiology</strong>:
+- <strong>United States</strong>: an estimated <strong>~8,000 hospital visits annually</strong> for digitalis toxicity; in 2011 the US Poison Control system recorded <strong>2,513 cases</strong>, of which <strong>27 resulted in death</strong> (<a href="https://emedicine.medscape.com/article/154336-overview">Medscape/StatPearls synthesis</a>).
+- <strong>Age-stratified ED burden</strong>: digoxin toxicity accounted for <strong>~1% of adverse-drug-event ED visits</strong> in patients ≥40 years, rising to <strong>3.3%</strong> in patients ≥85 years, and <strong>5.9% of adverse-drug-event hospitalizations</strong> in patients ≥85 years; ED admissions for digoxin toxicity were <strong>3.5-fold greater</strong> in patients &gt;85 years than in a younger comparison cohort (<a href="https://stacks.cdc.gov/view/cdc/37152/cdc_37152_DS1.pdf">CDC report</a>).
+- <strong>Historical elderly-specific series</strong>: up to <strong>a quarter of all drug poisonings</strong> in elderly cohorts have historically been attributed to digitalis toxicity in some series (<a href="https://www.sciencedirect.com/science/article/abs/pii/073567579190161C">ScienceDirect PMID:073567579190161C</a>).
+- <strong>Prescribing trend</strong>: digoxin use in heart failure has declined substantially (to roughly ~8% of HF patients started on it at discharge in recent practice), which has correspondingly reduced toxicity incidence over the past decade (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).
+- <strong>Global/plant-poisoning burden</strong>: Yellow oleander (<em>Thevetia peruviana</em>) seed self-poisoning is a major cause of digitalis-like toxicity in South Asia, with <strong>"thousands of cases each year"</strong> in northern Sri Lanka alone, and an estimated <strong>tens of thousands of cases and probably thousands of deaths per year across South Asia</strong>; in some Sri Lankan regions up to <strong>40% of self-poisoning cases</strong> are oleander-related, with annual incidence &gt;150/100,000 in affected districts, disproportionately affecting adolescents/young adults; overall <strong>mortality ~10%</strong> in Sri Lankan series, and oleander plus paraquat together caused 74% of poisoning deaths in patients &lt;25 years old (<a href="https://onlinelibrary.wiley.com/doi/abs/10.1046/j.1365-3156.1999.00397.x">Trop Med Int Health 1999</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16319413/">PMID:16319413</a>; <a href="https://www.sciencedirect.com/science/article/abs/pii/0379073888901508">Sci Total Environ review, ScienceDirect 0379073888901508</a>).
+- <strong>Sex distribution</strong>: females are disproportionately represented in ED visits for digoxin toxicity relative to outpatient prescription frequency (<a href="https://stacks.cdc.gov/view/cdc/37152/cdc_37152_DS1.pdf">CDC report</a>); in the Sri Lankan oleander series, <strong>61% of admitted cases were women</strong>, and <strong>46% were &lt;21 years old</strong> (<a href="https://www.sciencedirect.com/science/article/abs/pii/0379073888901508">oleander case series</a>).
+- <strong>Geographic distribution</strong>: iatrogenic digoxin toxicity is globally distributed wherever digoxin is prescribed (highest absolute case counts in older, higher-income populations with heart failure/AF); plant-glycoside poisoning is concentrated in regions where the causative plants grow and are used for self-harm (South Asia for yellow oleander; parts of Africa for other cardiotoxic plants — <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3721620/">PMC3721620</a>).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Laboratory tests</strong>
+- <strong>Serum digoxin concentration</strong>: therapeutic 0.8–2.0 ng/mL (older range) / 0.5–1.0 ng/mL (contemporary HF target); toxic threshold &gt;2.4 ng/mL, but diagnosis is <strong>clinical</strong>, since levels do not reliably correlate with toxicity — deaths have occurred within the "therapeutic" range, and atrial-fibrillation patients show increased mortality risk even at &gt;1.2 ng/mL (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10350506/">PMC10350506</a>). <strong>Timing matters</strong>: levels must be drawn ≥6 hours post-dose/ingestion (after the distribution phase) to avoid falsely elevated readings.
+- <strong>Free (unbound) digoxin</strong>: therapeutic 0.4–0.9 ng/mL; toxicity associated with ≥3.0 ng/mL free digoxin (<a href="https://www.droracle.ai/articles/643703/what-are-the-target-serum-levels-for-digoxin-digitalis">droracle summary</a>).
+- <strong>Serum potassium</strong> — the single best-validated <strong>severity/prognostic</strong> biomarker in acute poisoning (see §11); also magnesium, calcium, and renal function (creatinine/GFR) — essential because renal impairment is the dominant chronic-toxicity risk factor.
+- <strong>Assay caveats</strong>: endogenous digoxin-like immunoreactive substances (DLIS) cause false-positive "digoxin" levels in renal failure, hepatic failure, pregnancy, and neonates (§4); Fab therapy itself invalidates standard immunoassay readings post-treatment because bound digoxin-Fab complex cross-reacts, giving falsely high apparent levels (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).</p>
+<p><strong>Electrophysiology / imaging</strong>
+- <strong>12-lead ECG and continuous cardiac monitoring</strong> are the primary and most time-sensitive diagnostic tools: look for PVCs (most common), AV block of any degree, sinus bradycardia, atrial tachycardia with block, and — near-pathognomonic — <strong>bidirectional ventricular tachycardia</strong> (<a href="https://litfl.com/digoxin-effect-ecg-library/">LITFL</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8212916/">PMC8212916 case report</a>).
+- "<strong>Digitalis effect</strong>" (as opposed to toxicity) — scooped/sagging ST depression, T-wave flattening/inversion, short QT, prominent U-wave, PR prolongation — reflects therapeutic exposure and is distinct from a toxic arrhythmia and must not itself be mistaken for toxicity.
+- No specific imaging modality is diagnostic; echocardiography may be used to assess the underlying cardiac disease (not the toxicity per se).</p>
+<p><strong>Clinical criteria / differential diagnosis</strong>
+- Diagnosis is clinical, integrating exposure history, ECG pattern, and (supportively) serum level; differential includes other causes of AV block/bradyarrhythmia (beta-blocker or calcium-channel-blocker toxicity, hyperkalemia from other causes, sick sinus syndrome), other toxidromes causing GI+neuro symptoms, and — importantly — other cardiac glycoside exposures (oleander, foxglove, toad venom) which may or may not cross-react on a digoxin immunoassay depending on the specific assay (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).</p>
+<p><strong>Screening</strong>: no population screening program exists; this is an acute/subacute event rather than a screenable condition. The nearest analog is <em>therapeutic drug monitoring</em> protocol in patients on chronic digoxin (checking level after dose change, with new renal impairment, or with initiation of an interacting drug).</p>
+<p><strong>Genetic testing</strong>: not indicated for the disease itself. ABCB1 genotyping remains a research tool rather than a validated clinical decision aid for digoxin dosing at this time.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality</strong>: severe digoxin toxicity carries an estimated <strong>~20% mortality</strong> in historical series predating widespread Fab availability (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>); more recent in-hospital mortality estimates range <strong>3–20%</strong> depending on population and era (<a href="https://www.ajkd.org/article/S0272-6386(21)00999-9/fulltext">search synthesis, various</a>). US Poison Control 2011 data show a case-fatality of ~1.1% (27/2,513) across the broad (including less-severe) reported case population (<a href="https://emedicine.medscape.com/article/154336-overview">Medscape overview</a>).</li>
+<li><strong>Best-validated prognostic marker — serum potassium in acute ingestion</strong>: a classic series of 91 patients (pre-Fab era) found <strong>serum K⁺ &gt;5.5 mEq/L associated with 100% mortality</strong>, <strong>5.0–5.5 mEq/L with ~50% mortality</strong>, and <strong>&lt;5.0 mEq/L with 0% mortality</strong>, and potassium outperformed both initial ECG changes and serum digoxin level as a predictor of death (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3372009/">synthesis of the classic Bismuth series, cited via StatPearls/PMC3372009</a>). Expert consensus treats serum K⁺ ≥6 mEq/L (with other causes of hyperkalemia excluded) as an indication for Fab therapy.</li>
+<li><strong>Complications</strong>: refractory bradyarrhythmia/heart block, ventricular arrhythmia and cardiac arrest (leading direct cause of death), hyperkalemia-related complications, and — as a treatment complication — anaphylaxis or serum sickness from ovine Fab fragments.</li>
+<li><strong>Recovery potential</strong>: generally good with prompt recognition and Fab therapy where indicated; digoxin's positive inotropic/toxic effects are reversible once free drug is neutralized or eliminated, and no long-term structural cardiac sequelae are described from the toxicity itself (as opposed to the underlying heart disease that led to digoxin prescription).</li>
+<li><strong>Prognostic factors</strong> overall: age, degree/type of arrhythmia (heart block or new arrhythmia worsens prognosis), renal function, timing of presentation, and (per the above) serum potassium at presentation.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Decontamination</strong>
+- <strong>Activated charcoal</strong> (single or multi-dose) is first-line for <strong>recent (~within 1 hour) acute ingestion</strong>; multi-dose charcoal can interrupt enterohepatic recirculation. By the time cardiac symptoms manifest, most patients are outside this window (<a href="https://rebelem.com/management-of-digoxin-toxicity/">RebelEM</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).
+- <strong>Gastric lavage is avoided</strong> — vagal stimulation from the procedure risks worsening bradyarrhythmia.</p>
+<p><strong>Definitive antidote — Digoxin Immune Fab (ovine)</strong>
+- <strong>Digoxin Immune Fab</strong> (brand names Digibind, DigiFab) — ovine polyclonal Fab fragments raised against a digoxin derivative (digoxindicarboxymethoxylamine, DDMA) that rapidly bind and neutralize free digoxin (<a href="https://www.fda.gov/media/74693/download">DigiFab prescribing info, FDA</a>; <a href="https://en.wikipedia.org/wiki/Digoxin_immune_fab">Wikipedia</a>).
+- <strong>Indications</strong>: life-threatening arrhythmia (especially AV block or ventricular tachyarrhythmia), acute ingestion ≥10 mg in a previously healthy adult (≥4 mg or &gt;0.1 mg/kg in a child), serum digoxin &gt;10 ng/mL, or serum K⁺ ≥5 mEq/L in the setting of digoxin toxicity (<a href="https://www.mdcalc.com/calc/4036/digifab-dosing-digoxin-poisoning">mdcalc</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).
+- <strong>Dosing</strong>: one 40 mg vial neutralizes ~0.5 mg digoxin; empiric dosing of 10 vials (adult)/5 vials (pediatric) is used when the ingested dose/level is unknown; a weight-and-level-based formula (vials = [serum level (ng/mL) × weight (kg)] / 100) is used when data are available.
+- <strong>Practical consequences</strong>: after Fab administration, standard digoxin immunoassays become clinically uninterpretable (falsely high, reflecting bound complex) until Fab is cleared; hypokalemia commonly follows successful Fab therapy as the pump is "released," requiring close K⁺ monitoring (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>).
+- <strong>Adverse effects</strong>: hypersensitivity/anaphylaxis (screen for known sheep-protein, papain/papaya allergy) and serum sickness.</p>
+<p><strong>Supportive/electrolyte management</strong>
+- <strong>Hyperkalemia</strong>: standard measures (insulin/glucose, sodium bicarbonate, binding resins); <strong>IV calcium is classically considered relatively contraindicated</strong> in digoxin toxicity because it can precipitate ventricular arrhythmia by further raising already-elevated intracellular Ca²⁺ ("stone heart" concern) — though this theoretical concern lacks strong clinical-outcome data supporting an absolute contraindication, per recent reviews (<a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">StatPearls NBK459165</a>); Fab is preferred over calcium when K⁺ ≥5 mEq/L is due to digoxin.
+- <strong>Bradyarrhythmia/AV block</strong>: <strong>atropine</strong> as a temporizing measure (excess vagal tone); temporary transvenous pacing may be considered but pacing/beta-agonists risk provoking ventricular tachyarrhythmia and are used cautiously.
+- <strong>Ventricular arrhythmia</strong>: lidocaine or phenytoin have been used for digoxin-induced ventricular ectopy/tachyarrhythmia; <strong>magnesium is generally avoided</strong> if it will worsen bradycardia/AV block; <strong>cardioversion is avoided</strong> where possible (risk of precipitating refractory ventricular fibrillation) — defibrillation per ACLS protocol is reserved for pulseless arrest.
+- <strong>Hemodialysis/hemofiltration</strong>: <strong>not effective</strong> for digoxin removal because of its very large volume of distribution (~6 L/kg) and extensive tissue binding (only ~0.5% of total-body digoxin is in the blood at steady state); the digoxin-Fab complex is likewise not cleared by conventional hemodialysis. Continuous venovenous hemodialysis/plasma exchange have been reported in refractory renal-failure cases as salvage options (<a href="https://www.pharmacytimes.com/view/digoxin-overdose-still-no-role-for-dialysis">Pharmacy Times summary</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12702486/">PMC12702486 plasma exchange after Fab failure</a>).</p>
+<p><strong>Yellow-oleander-specific note</strong>: fructose-1,6-diphosphate has been trialed as a low-cost antidote for yellow-oleander cardiotoxicity in resource-limited settings where Fab is unaffordable, given cost barriers to Fab access in South Asia (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2912827/">PMC2912827 FDP RCT</a>).</p>
+<p><strong>Suggested NCIT terms</strong>: NCIT:C15747 (Supportive Care) for general management; NCIT:C15986 (Pharmacotherapy) with <code>therapeutic_agent</code> bound to the Fab product (no confirmed NCIT code identified in this search — verify via OAK/NCIT lookup before curation); a device/procedure term (e.g., transvenous pacing) would use the standard NCIT clinical-intervention/device pattern already established elsewhere in this KB.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention (iatrogenic)</strong>: careful patient selection, renal-function-adjusted dosing, preference for lower target serum concentrations (0.5–0.8/1.0 ng/mL) in heart failure, avoidance/careful monitoring when co-prescribing known P-gp inhibitors (amiodarone, verapamil, macrolides, azole antifungals), and electrolyte optimization (avoid/correct hypokalemia, hypomagnesemia).</li>
+<li><strong>Secondary prevention</strong>: routine therapeutic drug monitoring in at-risk patients (elderly, renal impairment, new interacting drug, dose change), with digoxin levels drawn correctly (≥6 h post-dose).</li>
+<li><strong>Primary prevention (plant/environmental)</strong>: public-health messaging around the toxicity of foxglove, oleander, lily-of-the-valley, and related ornamental plants for households with children/pets; means-restriction approaches (reducing accessibility of yellow oleander seeds) have been proposed as a suicide-prevention strategy in South Asia, analogous to pesticide means-restriction, though this is less developed in the literature than pesticide restriction programs.</li>
+<li><strong>Public health/behavioral</strong>: recognition that self-poisoning with a lethal, locally accessible plant agent (yellow oleander) is closely tied to impulsive self-harm in young people in endemic regions, making rapid access to antidote (Fab) and emergency care — rather than exposure elimination alone — a key tertiary-prevention lever given the plant's ubiquity.</li>
+<li><strong>Veterinary/agricultural prevention</strong>: removing oleander and other cardiotoxic ornamentals from livestock-accessible pasture/hedgerows to prevent grazing-animal poisoning outbreaks and downstream food-safety concerns (contaminated milk/meat) (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7472096/">PMC7472096</a>).</li>
+<li><strong>Prophylaxis</strong>: no chemoprophylactic agent exists; prevention is entirely a matter of dosing/monitoring practice and exposure avoidance.</li>
+<li><strong>Genetic counseling</strong>: not applicable (no heritable component to counsel about).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Companion animals</strong>: dogs and cats are frequently poisoned by ingestion of foxglove, oleander, lily-of-the-valley, or <em>Kalanchoe</em> houseplants; clinical signs mirror the human toxidrome — drooling, vomiting/diarrhea, bradyarrhythmia, "nearly any type of dysrhythmia," tremors, and sudden death with few premonitory signs (<a href="https://www.petpoisonhelpline.com/poison/foxglove/">Pet Poison Helpline</a>; <a href="https://vetgirlontherun.com/cardiac-glycoside-plants-poisonous-to-dogs-and-cats/">VETgirl</a>). Dog-toad (bufadienolide) poisoning from <em>Bufo</em> species interaction is a recognized veterinary presentation, especially where toads/frogs and dogs cohabit outdoor spaces.</li>
+<li><strong>Livestock</strong>: cattle are poisoned by grazing on oleander, with documented outbreak-level mortality in dairy herds and secondary food-safety concerns about oleandrin residues in milk/meat (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7472096/">PMC7472096</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6723884/">PMC6723884</a>).</li>
+<li><strong>NCBI Taxon references</strong>: <em>Canis lupus familiaris</em> (NCBITaxon:9615), <em>Felis catus</em> (NCBITaxon:9685), <em>Bos taurus</em> (NCBITaxon:9913), <em>Equus caballus</em> (NCBITaxon:9796) are all reported natural hosts of cardiac-glycoside plant poisoning.</li>
+<li><strong>Comparative/evolutionary biology — a genuinely distinctive feature of this "disease"</strong>: several vertebrate and invertebrate lineages that specialize on cardiac-glycoside-containing diets or prey have <strong>independently evolved target-site resistance</strong> in the Na,K-ATPase α-subunit. Rodents (Cricetidae and Muridae) have convergently evolved substitutions <strong>Q111L + A119S in ATP1A2</strong> and <strong>Q111R in ATP1A1</strong>, reducing cardiac-glycoside binding affinity at the same pocket digoxin exploits in humans (<a href="https://elifesciences.org/articles/48224.pdf">eLife 48224</a>); the crested serpent-eagle preying on invasive toxic cane toads in Okinawa shows analogous Na,K-ATPase-mediated resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/40660117/">PMID:40660117</a>); milkweed-specialist insect predators/parasites show the same convergent pattern (<a href="https://www.sciencedirect.com/science/article/pii/S0960982221014147">ScienceDirect S0960982221014147</a>). This is directly relevant to why <strong>rodents used as toxicology/pest-control models are relatively insensitive to cardiac glycosides</strong>, a key consideration in interpreting rodent-model data for this entry.</li>
+<li><strong>Zoonotic potential</strong>: none — this is a toxicologic, not infectious, process, so it is not "transmissible," though secondary human poisoning via contaminated animal products (milk/meat from oleander-grazing livestock) is a real, documented food-safety pathway.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>Digitalis poisoning is modeled almost entirely through <strong>acute pharmacologic/electrophysiologic challenge</strong>, not through genetic (knockout/transgenic) disease models, because the "disease" is drug/toxin exposure rather than a genetic lesion.</p>
+<ul>
+<li><strong>Guinea pig (whole-animal, in vivo)</strong>: slow IV digoxin infusion in the anesthetized guinea pig reliably provokes extrasystoles, ventricular tachyarrhythmia, and cardiac arrest, and has been used classically to test antidote efficacy — e.g., a loading dose of 500 µg/kg digoxin was used to establish otherwise-lethal toxicity before testing monoclonal anti-digoxin antibody/Fab reversal (<a href="https://pubmed.ncbi.nlm.nih.gov/6707937/">PMID:6707937 "Reversal of lethal digoxin toxicity in guinea pigs using monoclonal antibodies and Fab fragments"</a>). Standardized "Electrocardiographic Toxicity in the Guinea Pig" protocols exist for this purpose (<a href="https://currentprotocols.onlinelibrary.wiley.com/doi/10.1002/0471141755.ph0529s18">Curr Protoc Pharmacol</a>).</li>
+<li><strong>Dog (whole-animal and isolated Purkinje fiber)</strong>: canine Purkinje fiber preparations, using the cardiac glycoside <strong>strophanthidin</strong> as a pharmacologic proxy, are the classical system for demonstrating glycoside-induced enhancement of diastolic depolarization slope and spontaneous automaticity, and abnormal Ca²⁺ cycling as the source of non-driven depolarizations in conduction tissue (<a href="https://pubmed.ncbi.nlm.nih.gov/1257581/">PMID:1257581 "On the mechanisms underlying digitalis toxicity in cardiac Purkinje fibers"</a>; <a href="https://www.jacc.org/doi/10.1016/S0735-1097(85)80460-5">JACC 1985, S0735-1097(85)80460-5</a>). Selective AV-block induction with physostigmine has been used in dogs to terminate digoxin-induced ventricular arrhythmia experimentally (<a href="https://pubmed.ncbi.nlm.nih.gov/512919/">PMID:512919</a>).</li>
+<li><strong>Rodent limitation</strong> (mouse/rat): as noted in §14, rodents have evolved reduced-affinity Na,K-ATPase isoforms (ATP1A1 Q111R; ATP1A2 Q111L/A119S), making them comparatively <strong>insensitive</strong> to cardiac glycosides relative to humans/dogs/guinea pigs — an important translational caveat for any rodent-based mechanistic or antidote study, and part of why guinea pig and dog (not mouse/rat) are the historical gold-standard toxicity models.</li>
+<li><strong>Cell-based/isolated-tissue systems</strong>: isolated cardiac Purkinje fiber and ventricular myocyte preparations (sharp-electrode/voltage-clamp) remain the primary reductionist system for dissecting the DAD/triggered-automaticity mechanism; no major organoid, iPSC-cardiomyocyte, or CRISPR-screen literature specific to digoxin toxicity was identified in this search (a plausible gap/opportunity area rather than an established resource).</li>
+<li><strong>Model translational fidelity</strong>: guinea pig and dog models recapitulate the core arrhythmia phenotype (ectopy, tachyarrhythmia, AV block) and were historically used to validate Fab-fragment antidote efficacy prior to human licensure, giving them <strong>high fidelity</strong> for the cardiac-electrophysiology endpoint; they do not model the human GI/visual symptom complex, which remains characterized almost exclusively from human case reports and case series.</li>
+</ul>
+<hr />
+<h2>Summary for Knowledge-Base Curation</h2>
+<p>Digitalis poisoning is best curated as an <strong>acquired/toxicologic disease entry</strong> (<a href="http://purl.obolibrary.org/obo/MONDO_0017863" target="_blank" rel="noopener noreferrer">MONDO:0017863</a>) with:
+- <strong>Pathophysiology nodes</strong>: Na⁺/K⁺-ATPase inhibition (molecular) → intracellular Na⁺/Ca²⁺ overload (molecular) → NCX1-mediated delayed afterdepolarization (cellular) → triggered automaticity/AV block (cellular→tissue) → arrhythmia/hemodynamic collapse (systemic), plus a parallel autonomic (vagal/sympathetic) branch and a hyperkalemia branch specific to acute massive exposure.
+- <strong>No causal <code>genetic:</code> entries</strong> in the Mendelian sense; ABCB1/SLCO1B3 belong, if included at all, as <strong>modifier/susceptibility</strong> relationships, and ATP1A1 as the pathophysiology-node molecular target.
+- <strong>Environmental entries</strong> for iatrogenic overdose, drug–drug interaction (P-gp inhibitors), and plant/zootoxin exposure (foxglove, oleander, yellow oleander, lily of the valley, toad bufadienolides), each with <code>influences_mechanisms</code> linking to the Na⁺/K⁺-ATPase inhibition node.
+- <strong>Treatments</strong>: Digoxin Immune Fab as the flagship targeted antidote (with <code>therapeutic_agent</code>/NCIT binding to be resolved via OAK lookup), activated charcoal, atropine/pacing, and explicit <code>notes</code> on the calcium-contraindication controversy and hemodialysis ineffectiveness.
+- <strong>Animal models</strong>: guinea pig and dog (RECAPITULATES, high fidelity for the cardiac phenotype), with an explicit divergence note for rodent Na,K-ATPase target-site insensitivity if a mouse/rat model is ever added.</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://emedicine.medscape.com/article/154336-overview">Digitalis Toxicity: Background, Etiology, Pathophysiology (Medscape)</a></li>
+<li><a href="https://emedicine.medscape.com/article/154336-clinical">Digitalis Toxicity Clinical Presentation (Medscape)</a></li>
+<li><a href="https://emedicine.medscape.com/article/154336-treatment">Digitalis Toxicity Treatment &amp; Management (Medscape)</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Digoxin_toxicity">Digoxin toxicity (Wikipedia)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK459165/">Cardiac Glycoside and Digoxin Toxicity — StatPearls (NBK459165)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK470568/">Digoxin Toxicity — StatPearls (NBK470568)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK556025/">Digoxin — StatPearls (NBK556025)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK556101/">Digoxin Immune Fab — StatPearls (NBK556101)</a></li>
+<li><a href="https://litfl.com/digoxin-toxicity-ccc/">Digoxin Toxicity • LITFL • CCC Toxicology</a></li>
+<li><a href="https://litfl.com/digoxin-poisoning/">Digoxin poisoning • LITFL Toxicology Library</a></li>
+<li><a href="https://litfl.com/digoxin-effect-ecg-library/">Digoxin Effect • LITFL ECG Library</a></li>
+<li><a href="https://emcrit.org/ibcc/dig/">Digoxin &amp; cardiac glycosides: toxicity &amp; therapeutic use — EMCrit IBCC</a></li>
+<li><a href="https://rebelem.com/management-of-digoxin-toxicity/">Management of Digoxin Toxicity — REBEL EM</a></li>
+<li><a href="https://www.healio.com/cardiology/learn-the-heart/cardiology-review/topic-reviews/digoxin-toxicity">Digoxin Toxicity Topic Review — Learn the Heart</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5446409/">Identification of Na+/K+-ATPase inhibition-independent proarrhythmic ionic mechanisms of cardiac glycosides — PMC5446409</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5597635/">Erratum — PMC5597635</a></li>
+<li><a href="https://www.science.org/doi/10.1126/sciadv.ady9596">The mechanism of action of digoxin requires the sodium-dependent inactivation of the sodium-calcium exchanger — Science Advances</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10937055/">Digoxin and Symptomatic Bradyarrhythmia — PMC10937055</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/322907/">Clinical pharmacokinetics of digoxin — PMID:322907</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17377214/">Impact of ABCB1 (MDR1) gene polymorphism and P-gp inhibitors on digoxin serum concentration — PMID:17377214</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21311904/">Post-mortem ABCB1 genotyping reveals elevated toxicity for female digoxin users — PMID:21311904</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28208135/">ABCB1 and SLCO1B3 gene polymorphisms and digoxin pharmacokinetics in AF — PMID:28208135</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26531821/">ABCB1 gene variants, digoxin and risk of sudden cardiac death — PMID:26531821</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12492608/">MDR1 genotypes and digoxin absorption — PMID:12492608</a></li>
+<li><a href="https://link.springer.com/article/10.1007/s40262-015-0267-1">Impact of genetic polymorphisms of ABCB1 on drug disposition — Clin Pharmacokinet review</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3721620/">Cardiotoxicity of plants in South Africa — PMC3721620</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7472096/">Outbreak of Oleander Poisoning in Dairy Cattle — PMC7472096</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6723884/">A Probable Fatal Case of Oleander Poisoning on a Cattle Farm — PMC6723884</a></li>
+<li><a href="https://vetgirlontherun.com/cardiac-glycoside-plants-poisonous-to-dogs-and-cats/">Cardiac Glycoside Plants Poisonous to Dogs and Cats — VETgirl</a></li>
+<li><a href="https://www.petpoisonhelpline.com/poison/foxglove/">Foxglove Is Toxic To Dogs — Pet Poison Helpline</a></li>
+<li><a href="https://www.wikidata.org/wiki/Q151350">MONDO:0017863 digitalis poisoning — Wikidata Q151350</a></li>
+<li><a href="https://rarediseases.org/mondo-disease/digitalis-poisoning/">digitalis poisoning — NORD/Mondo mirror</a></li>
+<li><a href="https://www.ebi.ac.uk/chebi/CHEBI:4551">digoxin (CHEBI:4551)</a></li>
+<li><a href="https://pubchem.ncbi.nlm.nih.gov/compound/2724385">Digoxin — PubChem CID 2724385</a></li>
+<li><a href="https://www.mdcalc.com/calc/4036/digifab-dosing-digoxin-poisoning">DigiFab dosing calculator — MDCalc</a></li>
+<li><a href="https://www.fda.gov/media/74693/download">DIGIFAB prescribing information — FDA</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Digoxin_immune_fab">Digoxin immune fab — Wikipedia</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12702486/">Digoxin Toxicity in Renal Failure: Resolution With Plasma Exchange After Fab Therapy Failure — PMC12702486</a></li>
+<li><a href="https://www.pharmacytimes.com/view/digoxin-overdose-still-no-role-for-dialysis">Digoxin Overdose: Still No Role for Dialysis — Pharmacy Times</a></li>
+<li><a href="https://doi.org/10.7326/0003-4819-99-5-604">An Endogenous Digoxin-Like Substance in Patients with Renal Impairment — Ann Intern Med</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/10.1111/j.1651-2227.1989.tb11093.x">Endogenous Digoxin-Like Factor in Neonates — Acta Paediatrica</a></li>
+<li><a href="https://link.springer.com/article/10.1007/BF02343220">Digoxin-like immunoreactive substance in serum of preterm and full-term neonates — Eur J Pediatr</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1046/j.1365-3156.1999.00397.x">Epidemic of self-poisoning with seeds of the yellow oleander tree in northern Sri Lanka — Trop Med Int Health 1999</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16319413/">Epidemiology of intentional self-poisoning in rural Sri Lanka — PMID:16319413</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/abs/pii/0379073888901508">Yellow oleander poisoning — a study of 170 cases</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2912827/">Fructose-1,6-diphosphate as a novel antidote for yellow oleander cardiotoxicity — PMC2912827</a></li>
+<li><a href="https://www.mdpi.com/2072-6651/17/3/115">Human Deaths Related to Oleander Poisoning: A Review of the Literature — MDPI Toxins</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3372009/">Good Outcome after Digoxin Toxicity Despite Very High Serum Potassium Level — PMC3372009</a></li>
+<li><a href="https://www.amjmed.com/article/S0002-9343(24)00543-6/fulltext">Expert Consensus on the Diagnosis and Management of Digoxin Toxicity — Am J Med</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10350506/">Review: Failure of current digoxin monitoring for toxicity — PMC10350506 / PMID:37465455</a></li>
+<li><a href="https://www.nejm.org/doi/full/10.1056/NEJM199702203360801">The Effect of Digoxin on Mortality and Morbidity in Patients with Heart Failure — NEJM (DIG trial)</a></li>
+<li><a href="https://academic.oup.com/eurheartj/article/27/2/178/553763">Digoxin and reduction in mortality and hospitalization in heart failure: post hoc analysis of the DIG trial — Eur Heart J</a></li>
+<li><a href="https://jamanetwork.com/journals/jama/fullarticle/195990">Association of Serum Digoxin Concentration and Outcomes in Patients With Heart Failure — JAMA</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3860905/">Effects of Digoxin in high-risk chronic heart failure patients in the DIG trial: subgroup analysis — PMC3860905</a></li>
+<li><a href="https://elifesciences.org/articles/48224.pdf">Adaptive substitutions underlying cardiac glycoside insensitivity in rodents — eLife 48224</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/8385116/">Amino acid residues of Na,K-ATPase involved in ouabain sensitivity — PMID:8385116</a></li>
+<li><a href="https://www.sciencedirect.com/science/article/pii/S0960982221014147">Convergent evolution of cardiac-glycoside resistance in predators and parasites of milkweed herbivores — ScienceDirect</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/40660117/">Evolutionary insights into Na+/K+-ATPase-mediated toxin resistance in the Crested Serpent-eagle — PMID:40660117</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/6707937/">Reversal of lethal digoxin toxicity in guinea pigs using monoclonal antibodies and Fab fragments — PMID:6707937</a></li>
+<li><a href="https://currentprotocols.onlinelibrary.wiley.com/doi/10.1002/0471141755.ph0529s18">Electrocardiographic Toxicity in the Guinea Pig — Curr Protoc Pharmacol</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/1257581/">On the mechanisms underlying digitalis toxicity in cardiac Purkinje fibers — PMID:1257581</a></li>
+<li><a href="https://www.jacc.org/doi/10.1016/S0735-1097(85)80460-5">Cellular electrophysiology of digitalis toxicity — JACC 1985</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/512919/">Termination of ventricular arrhythmias from digoxin by physostigmine in the dog — PMID:512919</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>34</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:40660117</code> (5 mentions) - Evolutionary insights into Na(+)/K(+)-ATPase-mediated toxin resistance in the Crested Serpent-eagle preying on introduced cane toads in Okinawa, Japan.</li>
+<li>shared terms: atpase</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>digoxin</code>, <code>toxicity</code>, <code>cardiac</code>, <code>poisoning</code>, <code>digitalis</code>, <code>glycoside</code>, <code>disease</code>, <code>drug</code>, <code>exposure</code>, <code>fab</code>, <code>failure</code>, <code>effect</code>, <code>oleander</code>, <code>atpase</code>, <code>patient</code>, <code>heart</code>, <code>renal</code>, <code>ventricular</code>, <code>acute</code>, <code>arrhythmia</code>.</p>
+<p>34 of 35 references resolved; the rest could not be looked up either way.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>41</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>9</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0017863</code> (3 mentions) - the report calls it "digitalis poisoning", "acquired/toxicologic disease entry"; MONDO calls it <strong>digitalis poisoning</strong></li>
+<li><code>HP:0000496</code> (1 mention) - the report calls it "Halo vision"; HP calls it <strong>Abnormality of eye movement</strong></li>
+<li><code>HP:0011703</code> (1 mention) - the report calls it "Atrioventricular block"; HP calls it <strong>Sinus tachycardia</strong></li>
+<li><code>HP:0001700</code> (1 mention) - the report calls it "parent: Cardiac arrhythmia"; HP calls it <strong>Myocardial necrosis</strong></li>
+<li><code>UBERON:0002205</code> (1 mention) - the report calls it "AV node"; UBERON calls it <strong>manubrium of sternum</strong></li>
+<li><code>UBERON:0002136</code> (1 mention) - the report calls it "Purkinje fiber cell tissue"; UBERON calls it <strong>hilus of dentate gyrus</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001662</code> (1 mention) - the report calls it "Sinus bradycardia"; HP calls it <strong>Bradycardia</strong></li>
+<li><code>GO:0005391</code> (3 mentions) - the report calls it "P-type Na⁺/K⁺-exchanging ATPase activity, sodium/potassium-transporting ATPase complex", "Na⁺/K⁺-ATPase activity"; GO calls it <strong>P-type sodium:potassium-exchanging transporter activity</strong>, and lists "P-type sodium:potassium-exchanging ATPase activity" among its other names</li>
+<li><code>GO:0086036</code> (2 mentions) - the report calls it "regulation of cardiac muscle cell membrane potential", "cardiac membrane potential regulation"; GO calls it <strong>regulation of cardiac muscle cell membrane potential</strong></li>
+<li><code>GO:0086013</code> (1 mention) - the report calls it "membrane repolarization in ventricular cardiac muscle cell"; GO calls it <strong>membrane repolarization during cardiac muscle cell action potential</strong></li>
+<li><code>GO:0060402</code> (1 mention) - the report calls it "calcium ion transport into cytosol via sarcoplasmic reticulum"; GO calls it <strong>calcium ion transport into cytosol</strong></li>
+<li><code>CL:1000497</code> (1 mention) - the report calls it "Purkinje myocyte"; CL calls it <strong>kidney cell</strong></li>
+<li><code>CL:0002129</code> (1 mention) - the report calls it "cardiac pacemaker cell"; CL calls it <strong>regular atrial cardiac myocyte</strong>, and lists "atrial cardiac muscle cell" among its other names</li>
+<li><code>UBERON:0002018</code> (1 mention) - the report calls it "SA node"; UBERON calls it <strong>synovial membrane of synovial joint</strong>, and lists "stratum synoviale" among its other names</li>
+<li><code>NCBITaxon:9615</code> (1 mention) - the report calls it "Canis lupus familiaris", "NCBI Taxon references<strong>: *Canis lupus familiaris"; NCBITaxon calls it </strong>Canis lupus familiaris**</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>MONDO:0017863</code> - called "digitalis poisoning", "acquired/toxicologic disease entry"</li>
+<li><code>GO:0005391</code> - called "P-type Na⁺/K⁺-exchanging ATPase activity, sodium/potassium-transporting ATPase complex", "Na⁺/K⁺-ATPase activity"</li>
+<li><code>GO:0086036</code> - called "regulation of cardiac muscle cell membrane potential", "cardiac membrane potential regulation"</li>
+<li><code>NCBITaxon:9615</code> - called "Canis lupus familiaris", "NCBI Taxon references*<em>: </em>Canis lupus familiaris"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Diffuse_Nonepidermolytic_Palmoplantar_Keratoderma-fallback.html">← Diffuse Nonepidermolytic Palmoplantar Keratoderma (Fallback)</a>
+                
+                
+                <a href="Dihydropyrimidine_Dehydrogenase_Deficiency-claude_code.html">Dihydropyrimidine Dehydrogenase Deficiency (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Digitalis_Poisoning.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Digitalis_Poisoning-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

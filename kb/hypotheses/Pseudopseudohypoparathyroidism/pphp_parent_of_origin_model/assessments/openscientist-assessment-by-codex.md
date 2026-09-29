@@ -1,176 +1,164 @@
-# Paternal GNAS loss-of-function report assessment
+# pphp parent of origin model — OpenScientist assessment
 
-- **Provider:** OpenScientist
-- **Assessor:** Codex
-- **Source:** `../openscientist.md`
-- **Overall verdict:** `PARTIALLY_SUPPORTED`
+Provider: openscientist · Assessor: codex · Assessed: 2026-09-04T23:31:35+00:00
 
-## Executive judgment
+Overall verdict: **PARTIALLY_SUPPORTED**
 
-The report is right about the central mechanism. Paternal coding loss of
-`GNAS` usually leaves sufficient Gs-alpha signaling in the renal proximal
-tubule to avoid classic PTH resistance, while reducing Gs-alpha dosage in
-biallelic tissues and producing AHO skeletal and soft-tissue features. Mouse
-parent-of-origin experiments and human genetics make this a canonical model.
+The canonical parent-of-origin mechanism is well supported: paternal coding GNAS loss usually preserves renal PTH responsiveness while reducing Gs-alpha dosage in biallelic tissues. The report nevertheless turns a strong probabilistic model into several absolutes. It omits a directly relevant paternal-mutation case with PTH and possible GHRH resistance, places an STX16-imprinting-control experiment for PHP1B inside the PPHP causal chain, overstates complete-knockout skeletal experiments as direct heterozygous evidence, and treats mixed-function GNAS variants as counterexamples to a hypothesis explicitly restricted to loss of function. Its ontology leads also mislabel a hypertrophic chondrocyte term and recommend an obsolete cAMP process. The extended review also finds omitted human thyroid and fetal renal allelic-expression studies, a small mixed-subtype patient fibroblast microarray, SFRP2 modifier perturbation, and an explicitly PPHP-inclusive natural-history registry. The clinical YAML now distinguishes baseline from routine repeated mineral biochemistry and models growth and ossification separately. The provider report remains a partly supported literature synthesis with no auditable executed analyses.
 
-The report is not reliable as an exception-free causal graph. It omits a
-directly relevant paternal-variant case with biochemical hormone resistance,
-puts an STX16/PHP1B experiment inside the PPHP causal chain, overstates
-complete-knockout skeletal models, and recommends invalid ontology mappings.
-The right synthesis is strong support for the core model with explicit
-exceptions and tissue/model qualifiers.
+The original provider report is preserved. Literature retrieval and registry checks by the assessor are separate from provider analyses.
 
-## What is supported
+## overall-parent-of-origin-model — QUALIFIED
 
-### The renal parent-of-origin effect is well established
+Paternal coding loss of GNAS is a well-established cause of the classical PPHP phenotype, but the report needs narrower wording around exceptions and direct human evidence.
 
-Maternal, but not paternal, `Gnas` disruption caused PTH resistance and reduced
-renal-cortical Gs-alpha in the foundational mouse model
-([PMID:9671744](https://pubmed.ncbi.nlm.nih.gov/9671744/)). An exon-1-specific
-model likewise found PTH and TSH resistance after maternal inheritance and
-normal hormone responsiveness after paternal inheritance
-([PMID:16099856](https://pubmed.ncbi.nlm.nih.gov/16099856/)). These experiments
-avoid conflating Gs-alpha with all other transcripts at the complex locus.
+Parent-of-origin mouse models, human segregation, and tissue-specific allelic-expression studies strongly support the core model. "Canonical" should not be read as exception-free: the relevant human literature includes paternal variants with biochemical hormone resistance, and several downstream tissue mechanisms remain model-organism inferences.
 
-Human segregation and mutation cohorts support the same group-level
-distinction. They do not justify an absolute claim that a paternal variant can
-never coexist with hormone resistance.
+Sources: [PMID:9671744](https://pubmed.ncbi.nlm.nih.gov/9671744/), [PMID:16099856](https://pubmed.ncbi.nlm.nih.gov/16099856/), [PMID:25802881](https://pubmed.ncbi.nlm.nih.gov/25802881/), [PMID:25464124](https://pubmed.ncbi.nlm.nih.gov/25464124/).
 
-### Biallelic skeletal expression and a PTHrP/Gs-alpha axis are credible
+## renal-imprinting-mouse-evidence — RETAINED
 
-Chimeric growth plates showed approximately half-normal Gs-alpha RNA and
-modestly premature hypertrophy in heterozygous chondrocytes
-([PMID:15459318](https://pubmed.ncbi.nlm.nih.gov/15459318/)). This is good
-dosage-relevant support. It does not directly reproduce digit-selective human
-brachydactyly, and it should not be conflated with complete conditional
-deletion.
+Maternal, but not paternal, Gnas disruption reduces renal-cortical Gs-alpha and causes PTH resistance in the foundational mouse model.
 
-### XL-alpha-s is a plausible modifier
+The cited experiment directly measured the parent-of-origin phenotype and renal-cortical expression. It is strong model-organism support for the renal arm of the hypothesis, while translation to every human carrier should remain qualified.
 
-An engineered mouse allele supports effects of XL-alpha-s loss on growth, fat,
-leptin, and bone
-([PMID:22215617](https://pubmed.ncbi.nlm.nih.gov/22215617/)). Lower birth
-weight reported with human exon 2–13 variants is compatible with that model
-([PMID:25952723](https://pubmed.ncbi.nlm.nih.gov/25952723/)). The human
-contribution has not been isolated from mutation-class and broader
-locus-transcript effects, so “double hit” is a mechanistic lead rather than a
-quantified explanation.
+Sources: [PMID:9671744](https://pubmed.ncbi.nlm.nih.gov/9671744/), [PMID:16099856](https://pubmed.ncbi.nlm.nih.gov/16099856/).
 
-## Major corrections
+## absolute-absence-of-hormone-resistance — QUALIFIED
 
-### 1. “No hormone resistance” is too absolute
+Classical PPHP usually lacks renal PTH resistance, but paternal coding variants do not guarantee complete absence of hormone resistance.
 
-The report repeatedly turns the classical distinction into “NO hormone
-resistance” and proposes a negative curation edge. A patient with a proven
-paternal `GNAS` p.A109P variant had repeatedly elevated PTH and a blunted
-growth-hormone stimulation response
-([PMID:25464124](https://pubmed.ncbi.nlm.nih.gov/25464124/)). A separate
-POH-overlap case developed mild PTH and TSH resistance during adolescence
-([PMID:34254228](https://pubmed.ncbi.nlm.nih.gov/34254228/)).
+This is the classical distinction and is well supported at population level. The report omits a directly relevant patient with a proven paternal GNAS p.A109P variant, repeated PTH elevation, and a blunted growth-hormone stimulation response. It mentions a separate POH-overlap case with adolescent PTH/TSH resistance but still encodes "NO hormone resistance" as a strong causal link and negative curation edge. Those exceptions require "usually spares classic renal PTH resistance," not an absolute exclusion.
 
-These are rare exceptions and do not overturn the parent-of-origin model. They
-do require “usually spares classic renal PTH resistance” and longitudinal
-screening rather than a hard negative edge.
+Sources: [PMID:25464124](https://pubmed.ncbi.nlm.nih.gov/25464124/), [PMID:34254228](https://pubmed.ncbi.nlm.nih.gov/34254228/), [PMID:29959430](https://pubmed.ncbi.nlm.nih.gov/29959430/).
 
-### 2. STX16-ICR is not a PPHP-specific upstream cause
+## stx16-in-pphp-causal-chain — REJECTED
 
-The cited human-embryonic-stem-cell experiment studied why STX16-ICR
-microdeletions have allele-specific effects on GNAS imprinting
-([PMID:39910084](https://pubmed.ncbi.nlm.nih.gov/39910084/)). Those deletions
-cause PHP1B when maternally inherited. A person with a paternal coding
-loss-of-function variant does not acquire PPHP through an STX16 deletion.
+STX16-ICR biology is relevant background on GNAS imprinting but is not a disease-causing upstream step for PPHP due to an intact paternal coding loss-of-function allele.
 
-This is valuable locus-level context, but calling it a filled causal-chain gap
-and proposing it as an upstream PPHP node mixes two distinct etiologies.
+The cited human-embryonic-stem-cell study explains allele-specific pathogenicity of STX16-ICR microdeletions, which cause PHP1B after maternal inheritance. A patient with a paternal GNAS coding variant does not acquire that variant through an STX16 deletion, and the experiment did not establish the renal imprinting pattern in PPHP patient tissue. It can contextualize the locus but should not be promoted as a PPHP-specific causal-chain node.
 
-### 3. The chondrocyte evidence is overstated
+Sources: [PMID:39910084](https://pubmed.ncbi.nlm.nih.gov/39910084/).
 
-The report uses a chondrocyte-specific knockout as a direct link from
-haploinsufficiency to brachydactyly. That experiment used complete
-chondrocyte-specific deficiency, and its heterozygotes explicitly exhibited no
-phenotype
-([PMID:15765186](https://pubmed.ncbi.nlm.nih.gov/15765186/)). The separate
-chimera study provides the better heterozygous evidence, but its effect was
-modest and it did not explain fourth/fifth-digit selectivity.
+## chondrocyte-to-brachydactyly-directness — QUALIFIED
 
-### 4. Mixed GOF/LOF variants are outside the seed hypothesis
+Gs-alpha is a key PTHrP-pathway mediator in growth plate chondrocytes, but the cited deletion evidence does not by itself directly reproduce heterozygous human PPHP brachydactyly.
 
-The report correctly describes receptor-specific variants with both
-ligand-independent gain and ligand-dependent loss of signaling
-([PMID:30312418](https://pubmed.ncbi.nlm.nih.gov/30312418/),
-[PMID:40172207](https://pubmed.ncbi.nlm.nih.gov/40172207/),
-[PMID:41530545](https://pubmed.ncbi.nlm.nih.gov/41530545/)). Those variants
-broaden GNAS-associated disease and complicate variant interpretation. They do
-not qualify a seed hypothesis explicitly restricted to coding
-loss-of-function variants; they are a neighboring mechanism.
+The 2005 conditional study used complete chondrocyte-specific deficiency; its heterozygotes explicitly had no phenotype. A separate chimera study found approximately half-normal Gs-alpha RNA and modestly premature hypertrophy in heterozygous cells, which is the more dosage-relevant support. Neither experiment explains digit selectivity or directly tests human PPHP cartilage, so "directly explaining brachydactyly" is too strong.
 
-### 5. Obesity sparing is typical, not invariant
+Sources: [PMID:15765186](https://pubmed.ncbi.nlm.nih.gov/15765186/), [PMID:15459318](https://pubmed.ncbi.nlm.nih.gov/15459318/).
 
-Parent-specific deletion in the mouse DMH strongly supports a mechanism for
-maternal-variant obesity
-([PMID:27991864](https://pubmed.ncbi.nlm.nih.gov/27991864/)). A 67-person AHO
-cohort described PPHP as lacking **marked** obesity, not as proving universal
-leanness
-([PMID:29059381](https://pubmed.ncbi.nlm.nih.gov/29059381/)). The report’s
-“typically not PPHP” wording is reasonable; its diagrammatic “NO obesity” is
-not.
+## xlas-double-hit — QUALIFIED
 
-### 6. Several ontology leads are not usable
+Loss of XL-alpha-s is a plausible modifier for variants in shared exons, but its contribution to human PPHP is not isolated quantitatively.
 
-- `CL:1000838` is **kidney proximal convoluted tubule epithelial cell**, not a
-  generic renal-proximal-tubule class.
-- `CL:0000743` is **hypertrophic chondrocyte**, not “growth plate
-  chondrocyte.”
-- `GO:0019933` is obsolete **cAMP-mediated signaling**; the current specific
-  term is `GO:0141156` **cAMP/PKA signal transduction**.
-- `GO:0007224` currently labels **smoothened signaling pathway**, so the
-  report should not present “Hedgehog signaling pathway” as its verbatim label.
+The molecular transcript consequence is correct, and an engineered mouse allele supports XL-alpha-s effects on growth, fat, leptin, and bone. Lower birth weight with human exon 2–13 variants is compatible with a modifier effect, but mutation-class confounding and the absence of an XL-alpha-s-specific human rescue or comparison prevent assigning the additional phenotype to XL-alpha-s alone.
 
-### 7. The iPPSD subtype numbers are shifted
+Sources: [PMID:22215617](https://pubmed.ncbi.nlm.nih.gov/22215617/), [PMID:25952723](https://pubmed.ncbi.nlm.nih.gov/25952723/), [PMID:23884777](https://pubmed.ncbi.nlm.nih.gov/23884777/).
 
-The report attributes PRKAR1A to iPPSD5 and PDE4D to iPPSD6. The cited
-classification instead assigns PRKAR1A-related acrodysostosis type 1 to
-**iPPSD4**, PDE4D-related acrodysostosis type 2 to **iPPSD5**, and
-PDE3A-related hypertension with brachydactyly to **iPPSD6**
-([PMID:29280743](https://pubmed.ncbi.nlm.nih.gov/29280743/)). The two
-acrodysostosis genes remain relevant differential diagnoses, but the shifted
-subtype labels should not be curated.
+## mixed-function-variants-scope — QUALIFIED
 
-## Claim-level disposition
+Receptor-specific mixed gain- and loss-of-function variants broaden GNAS disease, but they do not refute a model expressly limited to coding loss-of-function variants.
 
-| Claim | Disposition | Reason |
-| --- | --- | --- |
-| Canonical paternal loss-of-function model | **Qualified** | Strongly supported, but the report needs exceptions and model qualifiers. |
-| Renal parent-of-origin mouse evidence | **Retained** | Direct and well matched to the core renal mechanism. |
-| PPHP means absolutely no hormone resistance | **Qualified** | Rare proven paternal-variant exceptions exist. |
-| STX16-ICR fills the PPHP causal chain | **Rejected** | The experiment explains STX16-deletion PHP1B, not coding-variant PPHP. |
-| Chondrocyte deletion directly proves heterozygous brachydactyly | **Qualified** | Complete knockout was severe; heterozygotes in that study had no phenotype. |
-| PRKAR1A is iPPSD5 and PDE4D is iPPSD6 | **Rejected** | The cited classification assigns PRKAR1A = iPPSD4 and PDE4D = iPPSD5. |
-| XL-alpha-s produces a human “double hit” | **Qualified** | Plausible mouse-supported modifier, not isolated in humans. |
-| Mixed-function GNAS variants qualify a loss-of-function model | **Qualified** | Important neighboring mechanism but outside the seed’s stated scope. |
-| PPHP has no obesity | **Qualified** | Marked obesity is typically spared; universal leanness is not established. |
-| Candidate CL/GO mappings are ready for curation | **Rejected** | One CL label is too narrow, another is wrong, and the cAMP term is obsolete. |
-| 54 papers were reproducibly reviewed | **Needs verification** | Only 30 PMIDs are exposed and a directly relevant case was missed. |
+The cited variants have ligand-independent gain of function at AVPR2 or PTH1R and ligand-dependent loss of function in other contexts. Their non-classical NSIAD and bone phenotypes are real, but the seed hypothesis says "loss-of-function variants." They are differential-diagnosis and variant-interpretation cautions rather than exceptions to the classical paternal loss-of-function mechanism.
 
-## Curation implications
+Sources: [PMID:30312418](https://pubmed.ncbi.nlm.nih.gov/30312418/), [PMID:40172207](https://pubmed.ncbi.nlm.nih.gov/40172207/), [PMID:41530545](https://pubmed.ncbi.nlm.nih.gov/41530545/).
 
-- Retain the parent-of-origin model as canonical, with “usually spares classic
-  renal PTH resistance.”
-- Do not create invariant negative edges for hormone resistance or obesity.
-- Keep STX16-ICR/PHP1B imprinting-establishment biology separate from the
-  coding-variant PPHP causal path.
-- Represent complete knockout, heterozygous chimera, mouse DMH, and human
-  clinical evidence as distinct evidence levels.
-- Treat XL-alpha-s and mixed-function variants as scoped modifier/neighboring
-  mechanisms.
-- Correct the ontology mappings before promotion.
-- Assessment citations are review context only; they are not automatically
-  disease-YAML evidence.
+## obesity-sparing — QUALIFIED
 
-## Most discriminating next evidence
+Parent-of-origin Gs-alpha signaling in the DMH helps explain why marked early-onset obesity is associated with maternal rather than paternal variants, but it does not prove universal leanness in PPHP.
 
-A prospective, molecularly confirmed paternal-`GNAS` cohort should combine
-serial PTH/TSH/GHRH phenotyping with variant phase, exon class, body
-composition, and allele-specific expression in patient-derived renal and
-chondrocyte models. That design would test the frequency and timing of
-exceptions while separating Gs-alpha haploinsufficiency from XL-alpha-s effects.
+The parent-specific DMH deletion experiment strongly supports a mechanism for the group-level difference. It is a mouse experiment, however, and a 67-person AHO cohort described PPHP as lacking marked obesity rather than establishing that every patient is lean. The report's "typically not" wording is defensible; its diagrammatic "NO obesity" should not be carried forward as an invariant negative edge.
+
+Sources: [PMID:27991864](https://pubmed.ncbi.nlm.nih.gov/27991864/), [PMID:29059381](https://pubmed.ncbi.nlm.nih.gov/29059381/), [PMID:29959430](https://pubmed.ncbi.nlm.nih.gov/29959430/).
+
+## ontology-leads — REJECTED
+
+Two ontology leads are invalid as labeled and should not be promoted.
+
+CL:1000838 is specifically "kidney proximal convoluted tubule epithelial cell," not a generic renal-proximal-tubule class. CL:0000743 is "hypertrophic chondrocyte," not "growth plate chondrocyte." In the accompanying process list, GO:0019933 is obsolete "cAMP-mediated signaling"; the current specific term is GO:0141156 "cAMP/PKA signal transduction." GO:0007224 currently labels the smoothened signaling pathway, so it should not be asserted as a verbatim "Hedgehog signaling pathway" label without explanation.
+
+## cohort-characterization — QUALIFIED
+
+The cited cohorts are useful but do not constitute large prospective, PPHP-specific mechanistic confirmation.
+
+The 88-patient mutation cohort combined PHP1A and PPHP and established a truncating-versus-missense association with subcutaneous calcification. The 95-proband study combined iPPSD2 phenotypes and focused on de novo variants and parental mosaicism, not PPHP natural history. The report later recognizes this limitation, but the executive wording overstates what those cohorts directly confirmed for PPHP.
+
+Sources: [PMID:25802881](https://pubmed.ncbi.nlm.nih.gov/25802881/), [PMID:36686455](https://pubmed.ncbi.nlm.nih.gov/36686455/).
+
+## ippsd-subtype-numbering — REJECTED
+
+The report shifts both acrodysostosis subtype numbers: PRKAR1A is iPPSD4 and PDE4D is iPPSD5, not iPPSD5 and iPPSD6.
+
+PMID:29280743 assigns PRKAR1A-related acrodysostosis type 1 to iPPSD4, PDE4D-related acrodysostosis type 2 to iPPSD5, and PDE3A-related hypertension with brachydactyly to iPPSD6. The report therefore misattributes shifted subtype numbers to the very classification paper that states the correct assignments. The genes remain useful differential diagnoses, but these subtype labels must not be propagated.
+
+Sources: [PMID:29280743](https://pubmed.ncbi.nlm.nih.gov/29280743/).
+
+## search-provenance — NEEDS_VERIFICATION
+
+The claimed literature corpus cannot be reproduced from the delivered artifacts.
+
+The citation sidecar lists 30 PMIDs and the report supplies no complete 54-record bibliography, search strings, dates, screening log, or inclusion decisions. The report also missed PMID:25464124, a directly relevant paternal-variant hormone-resistance case. The numerical total should be treated as provider metadata rather than verified systematic coverage. Clinical care must also reflect consensus recommendation 3.2: confirmed paternal GNAS cases are exempt from routine repeated PTH/calcium/phosphate measurements after baseline. Research phenotyping is a separate question.
+
+Sources: [PMID:25464124](https://pubmed.ncbi.nlm.nih.gov/25464124/).
+
+## human-imprinting-data — REJECTED
+
+Human tissue-level allelic-expression data are not restricted to pituitary.
+
+PMID:12147228 studied eight normal human thyroids and measured paternal Gs-alpha transcripts at 25.9–40.4%, demonstrating incomplete imprinting. PMID:11600515 measured biallelic Gs-alpha in fetal human bulk renal cortex. Developmental stage and cell mixture prevent interpreting the latter as a direct contradiction of adult proximal-tubule imprinting. The narrower lack of modern PPHP single-cell allelic profiling remains plausible; the blanket human-data absence is false.
+
+Sources: [PMID:12147228](https://pubmed.ncbi.nlm.nih.gov/12147228/), [PMID:11600515](https://pubmed.ncbi.nlm.nih.gov/11600515/).
+
+## omitted-lesion-omics-modifier — QUALIFIED
+
+Relevant lineage tracing, patient-cell omics and a functional modifier were already published.
+
+PMID:40256763 (2025) uses AHO-mouse alpha-SMA lineage tracing, five human fibroblast cultures including three PPHP participants, and Sfrp2 deletion. Deletion worsens SCOs in male AHO mice, making SFRP2 a protective experimental modifier, not a proven human PPHP-versus-POH determinant. The study directly advances the proposed lineage-tracing test, while human lineage identity and severity prediction remain unresolved.
+
+Sources: [PMID:40256763](https://pubmed.ncbi.nlm.nih.gov/40256763/).
+
+## natural-history-registry — QUALIFIED
+
+An explicitly PPHP-inclusive prospective natural-history protocol exists.
+
+ClinicalTrials.gov NCT00209235, checked 2026-09-04, is ACTIVE_NOT_RECRUITING and explicitly includes mutation-confirmed PPHP in natural-history and cognitive/behavioral arms; its GH arm is PHP1A-only. NCT00001242 also explicitly included PPHP, and NCT03761290 studied PHP1A/PPHP glucose homeostasis but terminated with 14 participants after COVID control-enrollment disruption and funding loss. These records do not prove a large completed PPHP-only cohort, but they invalidate a blanket absence of prospective research.
+
+Sources: [clinicaltrials:NCT00209235](https://clinicaltrials.gov/study/NCT00209235), [clinicaltrials:NCT00001242](https://clinicaltrials.gov/study/NCT00001242), [clinicaltrials:NCT03761290](https://clinicaltrials.gov/study/NCT03761290).
+
+## routine-care-versus-research — QUALIFIED
+
+Annual research biochemistry is a proposed study procedure, not the standard surveillance requirement for every confirmed PPHP patient.
+
+Consensus PMID:29959430 recommendation 3.2 calls for baseline PTH, calcium, phosphate and vitamin D assessment but exempts confirmed paternal GNAS cases from routine repeated mineral biochemistry. Rare phased paternal-variant resistance in PMID:25464124 supports symptom- or finding-driven reassessment and careful classification, not automatic transfer of the PHP1A testing schedule. The paternal allele was established using A/B transcript analysis; father DNA was unavailable, so paternal phase is not evidence of documented transmission from the father.
+
+Sources: [PMID:29959430](https://pubmed.ncbi.nlm.nih.gov/29959430/), [PMID:25464124](https://pubmed.ncbi.nlm.nih.gov/25464124/).
+
+## xl-cohort-design — QUALIFIED
+
+Exon-stratified association alone cannot isolate an XL-alpha-s causal effect.
+
+The direct human birth study PMID:23884777 already compares 26 PPHP/POH and 29 PHP-Ia cases; the report cites its 2015 review instead. Variant class, residual Gs-alpha activity, other transcripts, family structure and mixed PPHP/POH ascertainment can confound exon grouping. Isoform-specific assays and rescue are needed; shared-exon missense variants do not necessarily abolish all XL-alpha-s function. The engineered Ex1A-T mouse is also not a clean analogue of every human shared-exon variant.
+
+Sources: [PMID:23884777](https://pubmed.ncbi.nlm.nih.gov/23884777/), [PMID:25952723](https://pubmed.ncbi.nlm.nih.gov/25952723/), [PMID:22215617](https://pubmed.ncbi.nlm.nih.gov/22215617/).
+
+## ips-imprinting-design — QUALIFIED
+
+Patient-derived renal models require explicit imprinting and maturation controls.
+
+This is an expected result, not observed provider output. Reprogramming and differentiation can affect imprint state, and bulk fetal renal expression differs from the adult proximal-tubule model. Measure GNAS DMR methylation, allele-specific expression with mapping-bias controls, cellular composition and functional PTH response; use multiple clones and isogenic corrected controls before attributing a result to the patient variant.
+
+Sources: [PMID:11600515](https://pubmed.ncbi.nlm.nih.gov/11600515/), [PMID:39910084](https://pubmed.ncbi.nlm.nih.gov/39910084/).
+
+## Proposed analyses and auditability
+
+All six provider proposals are recorded as **SKIPPED / UNVERIFIABLE** because no execution artifacts were supplied.
+
+- **exon-stratified-cohort:** Compare paternal exon-1 and shared-exon cases; control mutation class, familial clustering and PPHP/POH ascertainment.
+- **renal-allelic-expression:** Patient iPSC-derived proximal tubules; validate maturity, methylation, allelic mapping and receptor response.
+- **multi-gpcr-screen:** Basal and agonist-stimulated receptor-specific cAMP assays; normalize receptor and Gs-alpha expression and include wild-type, null and isogenic controls.
+- **lesion-lineage:** Heterozygous AHO mouse lineage tracing and single-cell lesion profiling; existing 2025 lineage work must inform the design.
+- **modifier-screen:** Discordant-family genome and epigenome profiling; distinguish inherited modifiers from local somatic and microenvironment effects.
+- **natural-history:** Prospective molecularly phased PPHP follow-up; use existing registries and distinguish research measurements from recommended routine care.
+
+No provider data-download manifest, analysis environment, code, figures or statistical result files are committed. The report text and citation sidecar support evaluation of a literature synthesis only.

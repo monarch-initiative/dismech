@@ -38,3 +38,10 @@ For the deeper conceptual background, see
 - [Disorder browser](https://dismech.monarchinitiative.org/app/) — browse the knowledge base
 - [Detailed docs](https://dismech.monarchinitiative.org/details/) — how a disorder page is built
 - [GitHub repository](https://github.com/monarch-initiative/dismech)
+
+## Related browsers
+
+- [Curation history dashboard](https://monarch-initiative.github.io/dismech-history/) — explore curation, review, and audit activity by date, agent tool, model, and section, with links to the original [history records](history.md).
+- [Monarch NAMs browser](https://monarch-initiative.github.io/monarch-nams/) — explore New Approach Methodologies (NAMs) and research datasets represented in DisMech, with filters for model type, disease, organism, tissue, and more.
+
+Both browsers are generated from DisMech and refresh daily through GitHub Actions.

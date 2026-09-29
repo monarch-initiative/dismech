@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4069,6 +4146,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4115,6 +4193,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-18p-haploinsufficiency" data-dismech-node="18p haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">18p haploinsufficiency</div>
+
 
                 <div class="item-desc">Terminal or interstitial deletion of the short arm of chromosome 18 removes one copy of multiple dosage-sensitive genes, producing a contiguous-gene haploinsufficiency syndrome. The extent of the deleted region and which dosage-sensitive genes are rendered hemizygous determine the phenotypic spectrum, including a critical region for intellectual disability and the distal location of genes (e.g., TGIF1) underlying midline brain defects and growth-hormone deficiency.</div>
 
@@ -4250,6 +4329,7 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4271,6 +4351,7 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4296,6 +4377,7 @@ This pathophysiological event involves neural cell (CL:0002319). CL:0002319 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgif1-dependent-midline-forebrain-patterning-defect" data-dismech-node="TGIF1-dependent midline forebrain patterning defect" data-dismech-type="pathophysiology">
                 <div class="item-name">TGIF1-dependent midline forebrain patterning defect</div>
+
 
                 <div class="item-desc">TGIF1 (at distal 18p11.3) encodes a homeodomain transcriptional regulator in the TGF-beta / NODAL signaling pathway that is critical for dorsal-ventral patterning and midline development during embryogenesis. Haploinsufficiency is an established genomic mechanism for holoprosencephaly (HPE) and HPE microforms, with incomplete penetrance; in 18p deletion carriers other genetic or environmental factors modulate expressivity.</div>
 
@@ -4498,6 +4580,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4519,6 +4602,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4544,6 +4628,7 @@ This pathophysiological event involves abnormal forebrain development (GO:003090
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-dysregulation" data-dismech-node="Neurodevelopmental dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental dysregulation</div>
+
 
                 <div class="item-desc">Hemizygosity of dosage-sensitive 18p genes impairs brain development, producing intellectual disability and global developmental delay. A critical region for intellectual disability lies between 18p11.1 and 18p11.21, and deletion extent correlates with cognitive outcome.</div>
 
@@ -4677,6 +4762,7 @@ This pathophysiological event involves abnormal nervous system development (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4699,6 +4785,7 @@ This pathophysiological event involves abnormal nervous system development (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pituitary-and-growth-dysregulation" data-dismech-node="Pituitary and growth dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pituitary and growth dysregulation</div>
+
 
                 <div class="item-desc">Distal 18p hemizygosity is associated with isolated growth-hormone deficiency and, less commonly, hypopituitarism, contributing to postnatal growth retardation and short stature. The distal 18p region is implicated in the GH-deficiency phenotype.</div>
 
@@ -4798,6 +4885,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4820,6 +4908,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-dysmorphogenesis" data-dismech-node="Craniofacial dysmorphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial dysmorphogenesis</div>
+
 
                 <div class="item-desc">Reduced dosage of 18p developmental genes perturbs craniofacial and periocular morphogenesis, producing a recognizable but subtle facial gestalt with ptosis, strabismus, hypertelorism, broad flat nose, micrognathia, and large low-set ears.</div>
 
@@ -4913,6 +5002,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4935,6 +5025,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gnal-related-basal-ganglia-dysfunction" data-dismech-node="GNAL-related basal ganglia dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">GNAL-related basal ganglia dysfunction</div>
+
 
                 <div class="item-desc">GNAL (at 18p11.21) encodes the alpha subunit of the olfactory G protein (G-alpha-olf), and point mutations in GNAL are a major cause of adult-onset dystonia. Hemizygosity in 18p deletion carriers confers a low-penetrance (~3%) risk of dystonia through impaired striatal G-protein signaling.</div>
 
@@ -5069,6 +5160,7 @@ This pathophysiological event involves abnormal G protein-coupled receptor signa
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5077,7 +5169,7 @@ This pathophysiological event involves abnormal G protein-coupled receptor signa
 Dystonia-Parkinsonism."</div>
 
 
-                <div class="evidence-explanation">Reports a patient with an 18p deletion encompassing GNAL who presented with dystonia-parkinsonism, supporting GNAL hemizygosity as a movement- disorder mechanism.</div>
+                <div class="evidence-explanation">Reports a patient with an 18p deletion encompassing GNAL who presented with dystonia-parkinsonism, supporting GNAL hemizygosity as a movement-disorder mechanism.</div>
 
 
 
@@ -5092,6 +5184,7 @@ Dystonia-Parkinsonism."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smchd1-dependent-epigenetic-derepression" data-dismech-node="SMCHD1-dependent epigenetic derepression" data-dismech-type="pathophysiology">
                 <div class="item-name">SMCHD1-dependent epigenetic derepression</div>
+
 
                 <div class="item-desc">SMCHD1 (at 18p11.32) is a chromatin modifier that maintains heavy methylation of the D4Z4 macrosatellite repeat on chromosome 4q35, repressing the DUX4 retrogene. In 18p deletion carriers, SMCHD1 hemizygosity combined with a permissive (moderately sized) D4Z4 allele on chromosome 4 can cause facioscapulohumeral muscular dystrophy type 2 (FSHD2) through digenic inheritance, DUX4 derepression, and muscle degeneration.
 The digenic claim here belongs to FSHD2, not to 18p deletion syndrome. 18p deletion is a chromosomal, usually de novo event, so this entry binds no digenic inheritance term (HP:0010984) and is not a member of the Digenic and Oligogenic Disorders grouping; Facioscapulohumeral Muscular Dystrophy is a member, on exactly this SMCHD1-plus-permissive-4qA mechanism. What 18p deletion contributes is one route to the SMCHD1 hemizygosity that FSHD2 needs.</div>
@@ -5174,6 +5267,7 @@ This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5196,6 +5290,7 @@ This pathophysiological event involves SMCHD1 (hgnc:29090). hgnc:29090 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation" data-dismech-node="Immune dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune dysregulation</div>
+
 
                 <div class="item-desc">18p hemizygosity is associated with immunoglobulin deficiency (most notably IgA, but also IgG and IgM), predisposing to recurrent infection and autoimmunity.</div>
 
@@ -5283,6 +5378,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5351,15 +5447,15 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5402,6 +5498,9 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5416,6 +5515,7 @@ This clinical feature is Decreased circulating IgA concentration (HP:0002720). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5479,6 +5579,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5493,6 +5596,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5524,6 +5628,89 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Endocrine
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-deficiency" data-dismech-node="Growth hormone deficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Growth hormone deficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased response to growth hormone stimulation test</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000824</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Growth hormone deficiency, annotated with Decreased response to growth hormone stimulation test (HP:0000824). HP:0000824 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17786116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two unrelated children, a 7-month-old girl and a 2-month-old boy had del(18p) syndrome and GH deficiency."</div>
+
+
+                <div class="evidence-explanation">Documents growth-hormone deficiency in del(18p) patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">3</span>
                 </summary>
@@ -5542,15 +5729,18 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5570,6 +5760,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5610,15 +5801,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5638,6 +5832,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5678,15 +5873,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5706,6 +5904,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5734,11 +5933,11 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-micrognathia" data-dismech-node="Micrognathia" data-dismech-type="phenotype">
@@ -5755,15 +5954,18 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5783,6 +5985,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5809,9 +6012,81 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Wide nasal bridge
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000431</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16691587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The individuals have some typical features, which might be easy to overlook and which are: ptosis, strabismus, hypertelorism, broad flat nose, micrognathia, big and low set ears."</div>
+
+
+                <div class="evidence-explanation">Lists a broad flat nose among the characteristic features of the syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -5832,15 +6107,18 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5860,6 +6138,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5900,15 +6179,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5928,6 +6210,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5968,15 +6251,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001360</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5996,6 +6282,7 @@ This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6036,15 +6323,18 @@ This clinical feature is Holoprosencephaly (HP:0001360). HP:0001360 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6064,6 +6354,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6093,7 +6384,7 @@ Dystonia-Parkinsonism."</div>
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6114,15 +6405,18 @@ Dystonia-Parkinsonism."</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6142,6 +6436,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6153,153 +6448,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Documents postnatal growth retardation, the basis for short stature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-growth-hormone-deficiency" data-dismech-node="Growth hormone deficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Growth hormone deficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased response to growth hormone stimulation test</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000824</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Growth hormone deficiency, annotated with Decreased response to growth hormone stimulation test (HP:0000824). HP:0000824 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17786116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17786116" target="_blank">PMID:17786116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Two unrelated children, a 7-month-old girl and a 2-month-old boy had del(18p) syndrome and GH deficiency."</div>
-
-
-                <div class="evidence-explanation">Documents growth-hormone deficiency in del(18p) patients.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-nasal-bridge" data-dismech-node="Wide nasal bridge" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Wide nasal bridge
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000431" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000431</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Wide nasal bridge (HP:0000431). HP:0000431 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16691587" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16691587" target="_blank">PMID:16691587</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The individuals have some typical features, which might be easy to overlook and which are: ptosis, strabismus, hypertelorism, broad flat nose, micrognathia, big and low set ears."</div>
-
-
-                <div class="evidence-explanation">Lists a broad flat nose among the characteristic features of the syndrome.</div>
 
 
 
@@ -6385,6 +6533,9 @@ This disease-associated gene is TGIF1 (hgnc:11776). hgnc:11776 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6399,6 +6550,7 @@ This disease-associated gene is TGIF1 (hgnc:11776). hgnc:11776 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6454,6 +6606,9 @@ This disease-associated gene is GNAL (hgnc:4388). hgnc:4388 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6468,6 +6623,7 @@ This disease-associated gene is GNAL (hgnc:4388). hgnc:4388 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6524,6 +6680,9 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6538,6 +6697,7 @@ This disease-associated gene is SMCHD1 (hgnc:29090). hgnc:29090 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6621,6 +6781,31 @@ This treatment is occupational therapy (NCIT:C121351). NCIT:C121351 is a clinica
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Early intervention with developmental, occupational, and behavioral therapy for global developmental delay and intellectual disability.</div>
 
 
@@ -6672,6 +6857,31 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech-language therapy for expressive language delay, common in 18p deletion syndrome.</div>
 
 
@@ -6717,6 +6927,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -6795,7 +7030,21 @@ This treatment uses somatropin (NCIT:C837). NCIT:C837 is a therapeutic agent fro
 
 
 
-                <div class="item-desc">Recombinant growth-hormone (somatropin) replacement for documented growth- hormone deficiency, a treatable endocrine manifestation when recognized.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Recombinant growth-hormone (somatropin) replacement for documented growth-hormone deficiency, a treatable endocrine manifestation when recognized.</div>
 
 
 
@@ -6840,6 +7089,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6891,6 +7154,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7288,8 +7565,8 @@ pathophysiology:
     snippet: &#34;A Case of 18p Chromosomal Deletion Encompassing GNAL in a Patient With \nDystonia-Parkinsonism.&#34;
     explanation: &gt;-
       Reports a patient with an 18p deletion encompassing GNAL who presented
-      with dystonia-parkinsonism, supporting GNAL hemizygosity as a movement-
-      disorder mechanism.
+      with dystonia-parkinsonism, supporting GNAL hemizygosity as a movement-disorder
+      mechanism.
   downstream:
   - target: Dystonia
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
@@ -7649,8 +7926,8 @@ treatments:
       label: Physical Therapy
 - name: Growth Hormone Replacement Therapy
   description: &gt;-
-    Recombinant growth-hormone (somatropin) replacement for documented growth-
-    hormone deficiency, a treatable endocrine manifestation when recognized.
+    Recombinant growth-hormone (somatropin) replacement for documented growth-hormone
+    deficiency, a treatable endocrine manifestation when recognized.
   treatment_term:
     preferred_term: hormone modifying therapy
     term:
@@ -7786,6 +8063,8 @@ genetic:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8621,7 +8900,7 @@ Knockout mice show defects in craniofacial and dorsal-ventral patterning during 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chromosome 18p Deletion Syndrome", "mondoId": "MONDO:0007800", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_18p_Deletion_Syndrome", "yamlRevision": "7197c8c769ce"};
+        const OS_CONFIG = {"diseaseName": "Chromosome 18p Deletion Syndrome", "mondoId": "MONDO:0007800", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chromosome_18p_Deletion_Syndrome", "yamlRevision": "1b08c74f72c6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

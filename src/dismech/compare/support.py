@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from dismech import kb_cache
 from dismech.yaml_io import safe_load
 
 
@@ -35,8 +36,24 @@ def iter_disease_files(kb_dir: Path) -> list[Path]:
 
 
 def load_yaml_object(path: Path) -> dict[str, Any]:
+    """Parse ``path`` into a fresh, private mapping."""
     with open(path, encoding="utf-8") as stream:
         data = safe_load(stream)
+    return _require_mapping(data, path)
+
+
+def load_shared_yaml_object(path: Path) -> dict[str, Any]:
+    """Same contract as :func:`load_yaml_object`, but the document is shared.
+
+    Backed by :mod:`dismech.kb_cache`, so repeated scans of kb/disorders/ in one
+    process parse each file once. The returned mapping is the shared copy --
+    treat it as read-only, and use :func:`load_yaml_object` if you need to
+    annotate it.
+    """
+    return _require_mapping(kb_cache.load_document(path), path)
+
+
+def _require_mapping(data: Any, path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"YAML at {path} must be an object")
     return data

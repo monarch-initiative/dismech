@@ -47,6 +47,7 @@ def _entry(snippet: str, reference: str = "PMID:1") -> dict:
     return {"evidence": [{"reference": reference, "snippet": snippet}]}
 
 
+@pytest.mark.ci_step_twin("scripts/check_snippet_length.py")
 def test_no_new_short_snippets():
     # resolve_baseline() grandfathers against origin/main when CI sets
     # SNIPPET_BASELINE_REF (so the base branch is green by construction and

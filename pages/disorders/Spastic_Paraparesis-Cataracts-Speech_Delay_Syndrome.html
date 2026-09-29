@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4326,6 +4403,7 @@ The contrast with the other FAR1 disease is the point. RCDP4 is autosomal recess
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4347,6 +4425,7 @@ The contrast with the other FAR1 disease is the point. RCDP4 is autosomal recess
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4744,6 +4823,13 @@ The mirror-image experiment already exists on the deficiency side: alkylglycerol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-heterozygous-far1-arg480-variant" data-dismech-node="De Novo Heterozygous FAR1 Arg480 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo Heterozygous FAR1 Arg480 Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Every reported allele changes the same arginine. Four patients carry c.1439G&gt;A p.(Arg480His), seven c.1438C&gt;T p.(Arg480Cys), one c.1439G&gt;T p.(Arg480Leu), and a later single case p.(Arg480Ser). None is in gnomAD.
 The residue&#39;s position is the mechanism. Arg480 sits in FAR1&#39;s predicted transmembrane domain, amino acids 466 to 483, near the edge facing the peroxisomal matrix - and the region flanking that domain on the matrix side is the part previously shown to be required for plasmalogen-dependent control of FAR1 stability. So the variants are in the regulatory element, not in the catalytic domain, which is exactly what the functional results show: catalysis intact, regulation gone.
 That every disease allele is at one codon, and that four different substitutions there all produce the same disease, is strong evidence that the residue itself is the essential thing rather than any particular replacement amino acid.</div>
@@ -4806,6 +4892,8 @@ This pathophysiological event involves FAR1 (hgnc:26222). hgnc:26222 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -4818,6 +4906,9 @@ This pathophysiological event involves FAR1 (hgnc:26222). hgnc:26222 is a gene f
         <span class="tag tag-classification">functional_impact_category: HYPERMORPHIC</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Curated as HYPERMORPHIC rather than the generic GAIN_OF_FUNCTION, and the distinction is worth the words. The enum defines HYPERMORPHIC as increased *normal* gene product activity and NEOMORPHIC as a novel activity absent from the wild type. What was measured here is more of the normal reaction: FAR1&#39;s biosynthetic function and peroxisomal localisation are preserved, peroxisomal beta-oxidation and DHAPAT activity are normal, and the enzyme makes the same fatty alcohols it always did - there is simply more enzyme because it is no longer degraded. No new catalytic activity is reported, so NEOMORPHIC is wrong, and HYPERMORPHIC is more specific than GAIN_OF_FUNCTION without asserting anything beyond the data.
 DOMINANT_NEGATIVE is excluded by the direction of effect: the wild-type allele is not being interfered with, and total FAR1 activity is up rather than down.</div>
@@ -4887,6 +4978,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4908,6 +5000,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4933,6 +5026,13 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-plasmalogen-dependent-feedback-degradation-of-far1" data-dismech-node="Loss of Plasmalogen-Dependent Feedback Degradation of FAR1" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Plasmalogen-Dependent Feedback Degradation of FAR1</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The lesion, and the reason this disease exists as a separate entity from RCDP4.
 Normally, FAR1 abundance is set by a negative feedback loop: rising cellular plasmalogen triggers active degradation of FAR1 protein, so ether lipid output self-limits. The experiment that demonstrates the loop is broken here is a clean one. Loading fibroblasts with 1-O-hexadecyl-sn-glycerol raises plasmalogen by a route that bypasses FAR1 entirely, and in control cells that drops FAR1 protein by about 40 percent. In patients&#39; cells the same treatment raised plasmalogen just as intended, and FAR1 protein did not fall.
@@ -5062,6 +5162,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5083,6 +5184,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5110,6 +5212,7 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5132,6 +5235,13 @@ This pathophysiological event involves peroxisomal membrane (GO:0005778). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-far1-protein-and-enzyme-activity" data-dismech-node="Elevated FAR1 Protein and Enzyme Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated FAR1 Protein and Enzyme Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The immediate quantitative consequence of the broken brake: more FAR1 protein on immunoblot, and FAR1 enzyme activity in patients&#39; fibroblasts of 379, 323 and 310 pmol per hour per mg protein against control values of 74, 90 and 101 - three to four times control.
 The `modifier` here is INCREASED, deliberately and in contrast with the node below. The claim at this node is purely quantitative: a normal enzyme, doing its normal reaction, present in larger amounts. Nothing about the enzyme itself is qualitatively altered - immunofluorescence shows normal peroxisomal targeting, and other peroxisomal functions are normal.</div>
@@ -5222,6 +5332,7 @@ This pathophysiological event involves increased fatty acyl-CoA reductase activi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5243,6 +5354,7 @@ This pathophysiological event involves increased fatty acyl-CoA reductase activi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5270,6 +5382,7 @@ This pathophysiological event involves increased fatty acyl-CoA reductase activi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5292,6 +5405,13 @@ This pathophysiological event involves increased fatty acyl-CoA reductase activi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-ether-lipid-synthesis" data-dismech-node="Uncontrolled Ether Lipid Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Ether Lipid Synthesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Flux, not just enzyme level. Feeding fibroblasts a labelled odd-chain fatty acid lets ether and non-ether routes be tracked separately from the same substrate: incorporation into the non-ether lipid LPC(17:0) was the same in patients and controls, while FAR1-dependent incorporation into the ether lipid LPC(O-17:0) was almost fourfold higher in patients. The pathway is running fast, and specifically the ether branch.
 On the `modifier` value, which is the one interpretive choice in this entry that most needs defending. `GAIN_OF_FUNCTION` is used here, and `INCREASED` is used one node up, deliberately. The schema reserves GAIN_OF_FUNCTION for a process driven outside its normal regulatory constraints rather than merely running above its normal level, and warns against migrating a quantitative annotation to it without that qualitative justification. The justification here is not that ether lipid synthesis is high. It is that the homeostatic loop which sets its level has been eliminated: raising the pathway&#39;s own product no longer restrains it, so there is no set point for the output to be above. The authors&#39; own term is &#34;uncontrolled&#34;. A cell with elevated but still-regulated ether lipid synthesis would be INCREASED; this one has lost the control system.</div>
@@ -5399,6 +5519,7 @@ This pathophysiological event involves ether lipid biosynthetic process (GO:0008
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5420,6 +5541,7 @@ This pathophysiological event involves ether lipid biosynthetic process (GO:0008
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5445,6 +5567,13 @@ This pathophysiological event involves ether lipid biosynthetic process (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-membrane-lipid-composition-shift" data-dismech-node="Membrane Lipid Composition Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Membrane Lipid Composition Shift</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The disease is not simply &#34;too much plasmalogen&#34;. Lipidomics shows ether species accumulating - plasmanyl/plasmenyl-choline phospholipids, and the neutral ether lipids DG[O] and TG[O] - with a reciprocal and significant fall in the corresponding non-ether phospholipids PC and PE, PE severely. Strikingly, the totals of choline- and ethanolamine-containing lipids stay roughly constant - the paper states this in the same passage, though it cannot be quoted here because the sentence carries the bracketed ether-lipid nomenclature PE[O] and PC[O] that the reference validator strips. What has changed is the ratio of ether to non-ether species, not the amount of membrane phospholipid.
 The proposed explanation is competition for a shared limited resource - elevated DG[O] outcompeting DG for the activated headgroups CDP-choline and CDP-ethanolamine - which would make this a substrate-competition effect rather than a direct toxicity. The polyunsaturated fatty acids also redistribute, away from PC and toward PC[O].
@@ -5508,6 +5637,7 @@ Recorded because it is the most plausible bridge from a biochemical abnormality 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5529,6 +5659,7 @@ Recorded because it is the most plausible bridge from a biochemical abnormality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5556,6 +5687,7 @@ Recorded because it is the most plausible bridge from a biochemical abnormality 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5578,6 +5710,13 @@ Recorded because it is the most plausible bridge from a biochemical abnormality 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticospinal-tract-dysfunction" data-dismech-node="Corticospinal Tract Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticospinal Tract Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The presenting problem and the most consistent finding: spastic di- or paraparesis in twelve of twelve patients, with lower limb hypertonia, truncal hypotonia in half, and ankle clonus. The pattern - lower limbs affected, upper motor neuron signs, normal brain imaging in most - is that of a hereditary spastic paraplegia, which is why the authors recommend adding FAR1 to hereditary spastic paraplegia and cerebral palsy panels.
 Marked PROVISIONAL because the anatomical claim in the node&#39;s name is a clinical inference. Pyramidal tract dysfunction is what was observed; no imaging, electrophysiological or neuropathological localisation to the corticospinal tract has been reported in any patient, and brain MRI was normal in ten of twelve.
@@ -5618,6 +5757,7 @@ Scaled TISSUE rather than ORGANISM, to match Lens Opacification below. The two n
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5639,6 +5779,7 @@ Scaled TISSUE rather than ORGANISM, to match Lens Opacification below. The two n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5664,6 +5805,13 @@ Scaled TISSUE rather than ORGANISM, to match Lens Opacification below. The two n
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lens-opacification" data-dismech-node="Lens Opacification" data-dismech-type="pathophysiology">
                 <div class="item-name">Lens Opacification</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Bilateral cataracts in twelve of twelve patients, congenital in five and acquired in the other seven - so this is not purely a developmental malformation of the lens; in most patients the lens was clear at birth and opacified later, over months to years.
 Marked PROVISIONAL because nothing is known about why. The one strong piece of causal evidence in this area points the other way entirely: in a mouse model of ether lipid *deficiency*, restoring plasmalogens prevented cataracts, establishing shortage as a cause. How excess produces the same end organ failure is unexplained.</div>
@@ -5724,6 +5872,7 @@ This pathophysiological event occurs in lens of camera-type eye (UBERON:0000965)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5769,7 +5918,7 @@ This pathophysiological event occurs in lens of camera-type eye (UBERON:0000965)
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only treatment reported in this disease, and it is symptomatic. Seizures in the defining cohort responded to barbiturates, levetiracetam and oxcarbazepine, and in four of the eight treated patients antiepileptic treatment was withdrawn without recurrence.\\nThat last detail is the clinically useful one. Early-onset epilepsy in an inborn error of metabolism is often refractory; here it appears both treatable and, in half of cases, self-limiting. Nothing is reported about which agent to prefer, and with eight patients across three drug classes nothing could be.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levetiracetam\", \"oxcarbazepine\", \"barbiturate\"]}}, {\"id\": \"Corticospinal Tract Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The presenting problem and the most consistent finding: spastic di- or paraparesis in twelve of twelve patients, with lower limb hypertonia, truncal hypotonia in half, and ankle clonus. The pattern - lower limbs affected, upper motor neuron signs, normal brain imaging in most - is that of a hereditary spastic paraplegia, which is why the authors recommend adding FAR1 to hereditary spastic paraplegia and cerebral palsy panels.\\nMarked PROVISIONAL because the anatomical claim in the node\u0027s name is a clinical inference. Pyramidal tract dysfunction is what was observed; no imaging, electrophysiological or neuropathological localisation to the corticospinal tract has been reported in any patient, and brain MRI was normal in ten of twelve.\\nScaled TISSUE rather than ORGANISM, to match Lens Opacification below. The two nodes are the disease\u0027s two end-organ failures and the substrate named in each is an anatomical structure - a tract and a lens - so tagging one at organism scale and the other at tissue scale would make the pair look like different kinds of claim when they are the same kind. The organism-level reading is available and was rejected: spastic paraparesis as a whole-body motor phenotype would be ORGANISM, but that is the phenotype, curated in `phenotypes:`, not this node.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"De Novo Heterozygous FAR1 Arg480 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every reported allele changes the same arginine. Four patients carry c.1439G\u003eA p.(Arg480His), seven c.1438C\u003eT p.(Arg480Cys), one c.1439G\u003eT p.(Arg480Leu), and a later single case p.(Arg480Ser). None is in gnomAD.\\nThe residue\u0027s position is the mechanism. Arg480 sits in FAR1\u0027s predicted transmembrane domain, amino acids 466 to 483, near the edge facing the peroxisomal matrix - and the region flanking that domain on the matrix side is the part previously shown to be required for plasmalogen-dependent control of FAR1 stability. So the variants are in the regulatory element, not in the catalytic domain, which is exactly what the functional results show: catalysis intact, regulation gone.\\nThat every disease allele is at one codon, and that four different substitutions there all produce the same disease, is strong evidence that the residue itself is the essential thing rather than any particular replacement amino acid.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FAR1\"], \"gene_terms\": [{\"label\": \"FAR1\", \"id\": \"hgnc:26222\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"HYPERMORPHIC\", \"description\": \"Curated as HYPERMORPHIC rather than the generic GAIN_OF_FUNCTION, and the distinction is worth the words. The enum defines HYPERMORPHIC as increased *normal* gene product activity and NEOMORPHIC as a novel activity absent from the wild type. What was measured here is more of the normal reaction: FAR1\u0027s biosynthetic function and peroxisomal localisation are preserved, peroxisomal beta-oxidation and DHAPAT activity are normal, and the enzyme makes the same fatty alcohols it always did - there is simply more enzyme because it is no longer degraded. No new catalytic activity is reported, so NEOMORPHIC is wrong, and HYPERMORPHIC is more specific than GAIN_OF_FUNCTION without asserting anything beyond the data.\\nDOMINANT_NEGATIVE is excluded by the direction of effect: the wild-type allele is not being interfered with, and total FAR1 activity is up rather than down.\"}, \"role\": \"trigger\"}}, {\"id\": \"Elevated FAR1 Protein and Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immediate quantitative consequence of the broken brake: more FAR1 protein on immunoblot, and FAR1 enzyme activity in patients\u0027 fibroblasts of 379, 323 and 310 pmol per hour per mg protein against control values of 74, 90 and 101 - three to four times control.\\nThe `modifier` here is INCREASED, deliberately and in contrast with the node below. The claim at this node is purely quantitative: a normal enzyme, doing its normal reaction, present in larger amounts. Nothing about the enzyme itself is qualitatively altered - immunofluorescence shows normal peroxisomal targeting, and other peroxisomal functions are normal.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"fatty acyl-CoA reductase activity\"], \"role\": \"amplifier\"}}, {\"id\": \"FAR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FAR1\"], \"gene_terms\": [{\"label\": \"FAR1\", \"id\": \"hgnc:26222\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Lens Opacification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bilateral cataracts in twelve of twelve patients, congenital in five and acquired in the other seven - so this is not purely a developmental malformation of the lens; in most patients the lens was clear at birth and opacified later, over months to years.\\nMarked PROVISIONAL because nothing is known about why. The one strong piece of causal evidence in this area points the other way entirely: in a mouse model of ether lipid *deficiency*, restoring plasmalogens prevented cataracts, establishing shortage as a cause. How excess produces the same end organ failure is unexplained.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"lens of camera-type eye\"]}}, {\"id\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion, and the reason this disease exists as a separate entity from RCDP4.\\nNormally, FAR1 abundance is set by a negative feedback loop: rising cellular plasmalogen triggers active degradation of FAR1 protein, so ether lipid output self-limits. The experiment that demonstrates the loop is broken here is a clean one. Loading fibroblasts with 1-O-hexadecyl-sn-glycerol raises plasmalogen by a route that bypasses FAR1 entirely, and in control cells that drops FAR1 protein by about 40 percent. In patients\u0027 cells the same treatment raised plasmalogen just as intended, and FAR1 protein did not fall.\\nThe starting condition makes the point sharper still. Untreated patient cells already had plasmalogen about twice control - roughly the level that HDG-treated control cells reach - and yet held FAR1 protein at three times the HDG-treated control level. The signal was maximal and the response was absent.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"plasmalogen-triggered degradation of FAR1\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The HDG challenge is a genuine perturbation experiment rather than an observation: it raises plasmalogen by a route that bypasses FAR1, so the feedback loop is stimulated directly, and the patient cells\u0027 failure to respond isolates the regulatory defect from the enzyme\u0027s activity.\"}]}}, {\"id\": \"Membrane Lipid Composition Shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease is not simply \\\"too much plasmalogen\\\". Lipidomics shows ether species accumulating - plasmanyl/plasmenyl-choline phospholipids, and the neutral ether lipids DG[O] and TG[O] - with a reciprocal and significant fall in the corresponding non-ether phospholipids PC and PE, PE severely. Strikingly, the totals of choline- and ethanolamine-containing lipids stay roughly constant - the paper states this in the same passage, though it cannot be quoted here because the sentence carries the bracketed ether-lipid nomenclature PE[O] and PC[O] that the reference validator strips. What has changed is the ratio of ether to non-ether species, not the amount of membrane phospholipid.\\nThe proposed explanation is competition for a shared limited resource - elevated DG[O] outcompeting DG for the activated headgroups CDP-choline and CDP-ethanolamine - which would make this a substrate-competition effect rather than a direct toxicity. The polyunsaturated fatty acids also redistribute, away from PC and toward PC[O].\\nRecorded because it is the most plausible bridge from a biochemical abnormality to a cellular one, and because it is the level at which this disease and the RCDP disorders are precise mirror images: in RCDP the non-ether lipids compensate for absent ether counterparts, and the PUFA distribution runs the other way.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\"}}, {\"id\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblasts from patients 1 to 3 (two p.Arg480His, one p.Arg480Cys) against six anonymised control lines. Every functional claim in this entry comes from this model - plasmalogen measurement by gas chromatography, FAR1 enzyme assay, immunoblot, immunofluorescence, the HDG feedback challenge, and lipidomics with C17:0 labelling.\\nOn animal models, and the claim needs stating precisely because the obvious reading of it is wrong. There is no animal model of *this* disease and no cell line carrying an engineered Arg480 allele. FAR1 itself is not model-less: a Far1 knockout mouse exists, is subviable with growth retardation and male infertility, and its authors present it as a model of ether lipid *deficiency*. That is the recessive arm, the mechanistic inverse of this disease, and it cannot substitute for a model of Arg480 gain of function.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In eight of twelve patients, mostly beginning in the first months of life, and - unusually for an inborn error with early-onset epilepsy - readily controlled. Half of the treated patients came off antiepileptic drugs without recurrence. This is the indication for the one treatment curated in this entry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"8/12\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Uncontrolled Ether Lipid Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Flux, not just enzyme level. Feeding fibroblasts a labelled odd-chain fatty acid lets ether and non-ether routes be tracked separately from the same substrate: incorporation into the non-ether lipid LPC(17:0) was the same in patients and controls, while FAR1-dependent incorporation into the ether lipid LPC(O-17:0) was almost fourfold higher in patients. The pathway is running fast, and specifically the ether branch.\\nOn the `modifier` value, which is the one interpretive choice in this entry that most needs defending. `GAIN_OF_FUNCTION` is used here, and `INCREASED` is used one node up, deliberately. The schema reserves GAIN_OF_FUNCTION for a process driven outside its normal regulatory constraints rather than merely running above its normal level, and warns against migrating a quantitative annotation to it without that qualitative justification. The justification here is not that ether lipid synthesis is high. It is that the homeostatic loop which sets its level has been eliminated: raising the pathway\u0027s own product no longer restrains it, so there is no set point for the output to be above. The authors\u0027 own term is \\\"uncontrolled\\\". A cell with elevated but still-regulated ether lipid synthesis would be INCREASED; this one has lost the control system.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ether lipid biosynthetic process\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The C17:0 labelling experiment measures ether and non-ether lipid synthesis from the same exogenous substrate in the same cells, so the non-ether arm is an internal control for uptake and general lipid handling.\"}]}}], \"edges\": [{\"source\": \"De Novo Heterozygous FAR1 Arg480 Variant\", \"target\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"target\": \"Elevated FAR1 Protein and Enzyme Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated FAR1 Protein and Enzyme Activity\", \"target\": \"Uncontrolled Ether Lipid Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uncontrolled Ether Lipid Synthesis\", \"target\": \"Membrane Lipid Composition Shift\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Membrane Lipid Composition Shift\", \"target\": \"Corticospinal Tract Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No step between the lipid abnormality and the pyramidal tract is known for this disease or for any of the ether-lipid-excess disorders. The authors state the pathophysiological mechanism remains enigmatic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Membrane Lipid Composition Shift\", \"target\": \"Lens Opacification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Equally unexplained, and more puzzling, because cataract is also caused by ether lipid *deficiency* - see the open discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"target\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The HDG challenge is a genuine perturbation experiment rather than an observation: it raises plasmalogen by a route that bypasses FAR1, so the feedback loop is stimulated directly, and the patient cells\u0027 failure to respond isolates the regulatory defect from the enzyme\u0027s activity.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not the affected tissue. Nothing in this model addresses why the corticospinal tract and the lens fail while the fibroblast, which carries the same lipid abnormality, is viable and unremarkable - and that gap is the whole distance between the biochemistry and the disease. The p.Arg480Leu and p.Arg480Ser alleles have never been assayed, because no fibroblasts were available.\"}, {\"source\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"target\": \"Uncontrolled Ether Lipid Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The C17:0 labelling experiment measures ether and non-ether lipid synthesis from the same exogenous substrate in the same cells, so the non-ether arm is an internal control for uptake and general lipid handling.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"A fibroblast\u0027s ether lipid demand is not a neuron\u0027s or a lens fibre cell\u0027s, and the fourfold flux increase measured here cannot be assumed to be the magnitude in the tissues that fail.\"}, {\"source\": \"FAR1\", \"target\": \"De Novo Heterozygous FAR1 Arg480 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only treatment reported in this disease, and it is symptomatic. Seizures in the defining cohort responded to barbiturates, levetiracetam and oxcarbazepine, and in four of the eight treated patients antiepileptic treatment was withdrawn without recurrence.\\nThat last detail is the clinically useful one. Early-onset epilepsy in an inborn error of metabolism is often refractory; here it appears both treatable and, in half of cases, self-limiting. Nothing is reported about which agent to prefer, and with eight patients across three drug classes nothing could be.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"levetiracetam\", \"oxcarbazepine\", \"barbiturate\"]}}, {\"id\": \"Corticospinal Tract Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The presenting problem and the most consistent finding: spastic di- or paraparesis in twelve of twelve patients, with lower limb hypertonia, truncal hypotonia in half, and ankle clonus. The pattern - lower limbs affected, upper motor neuron signs, normal brain imaging in most - is that of a hereditary spastic paraplegia, which is why the authors recommend adding FAR1 to hereditary spastic paraplegia and cerebral palsy panels.\\nMarked PROVISIONAL because the anatomical claim in the node\u0027s name is a clinical inference. Pyramidal tract dysfunction is what was observed; no imaging, electrophysiological or neuropathological localisation to the corticospinal tract has been reported in any patient, and brain MRI was normal in ten of twelve.\\nScaled TISSUE rather than ORGANISM, to match Lens Opacification below. The two nodes are the disease\u0027s two end-organ failures and the substrate named in each is an anatomical structure - a tract and a lens - so tagging one at organism scale and the other at tissue scale would make the pair look like different kinds of claim when they are the same kind. The organism-level reading is available and was rejected: spastic paraparesis as a whole-body motor phenotype would be ORGANISM, but that is the phenotype, curated in `phenotypes:`, not this node.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"De Novo Heterozygous FAR1 Arg480 Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every reported allele changes the same arginine. Four patients carry c.1439G\u003eA p.(Arg480His), seven c.1438C\u003eT p.(Arg480Cys), one c.1439G\u003eT p.(Arg480Leu), and a later single case p.(Arg480Ser). None is in gnomAD.\\nThe residue\u0027s position is the mechanism. Arg480 sits in FAR1\u0027s predicted transmembrane domain, amino acids 466 to 483, near the edge facing the peroxisomal matrix - and the region flanking that domain on the matrix side is the part previously shown to be required for plasmalogen-dependent control of FAR1 stability. So the variants are in the regulatory element, not in the catalytic domain, which is exactly what the functional results show: catalysis intact, regulation gone.\\nThat every disease allele is at one codon, and that four different substitutions there all produce the same disease, is strong evidence that the residue itself is the essential thing rather than any particular replacement amino acid.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FAR1\"], \"gene_terms\": [{\"label\": \"FAR1\", \"id\": \"hgnc:26222\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"HYPERMORPHIC\", \"description\": \"Curated as HYPERMORPHIC rather than the generic GAIN_OF_FUNCTION, and the distinction is worth the words. The enum defines HYPERMORPHIC as increased *normal* gene product activity and NEOMORPHIC as a novel activity absent from the wild type. What was measured here is more of the normal reaction: FAR1\u0027s biosynthetic function and peroxisomal localisation are preserved, peroxisomal beta-oxidation and DHAPAT activity are normal, and the enzyme makes the same fatty alcohols it always did - there is simply more enzyme because it is no longer degraded. No new catalytic activity is reported, so NEOMORPHIC is wrong, and HYPERMORPHIC is more specific than GAIN_OF_FUNCTION without asserting anything beyond the data.\\nDOMINANT_NEGATIVE is excluded by the direction of effect: the wild-type allele is not being interfered with, and total FAR1 activity is up rather than down.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Elevated FAR1 Protein and Enzyme Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immediate quantitative consequence of the broken brake: more FAR1 protein on immunoblot, and FAR1 enzyme activity in patients\u0027 fibroblasts of 379, 323 and 310 pmol per hour per mg protein against control values of 74, 90 and 101 - three to four times control.\\nThe `modifier` here is INCREASED, deliberately and in contrast with the node below. The claim at this node is purely quantitative: a normal enzyme, doing its normal reaction, present in larger amounts. Nothing about the enzyme itself is qualitatively altered - immunofluorescence shows normal peroxisomal targeting, and other peroxisomal functions are normal.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"fatty acyl-CoA reductase activity\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FAR1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"FAR1\"], \"gene_terms\": [{\"label\": \"FAR1\", \"id\": \"hgnc:26222\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"DE_NOVO\"}}, {\"id\": \"Lens Opacification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bilateral cataracts in twelve of twelve patients, congenital in five and acquired in the other seven - so this is not purely a developmental malformation of the lens; in most patients the lens was clear at birth and opacified later, over months to years.\\nMarked PROVISIONAL because nothing is known about why. The one strong piece of causal evidence in this area points the other way entirely: in a mouse model of ether lipid *deficiency*, restoring plasmalogens prevented cataracts, establishing shortage as a cause. How excess produces the same end organ failure is unexplained.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"lens of camera-type eye\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The lesion, and the reason this disease exists as a separate entity from RCDP4.\\nNormally, FAR1 abundance is set by a negative feedback loop: rising cellular plasmalogen triggers active degradation of FAR1 protein, so ether lipid output self-limits. The experiment that demonstrates the loop is broken here is a clean one. Loading fibroblasts with 1-O-hexadecyl-sn-glycerol raises plasmalogen by a route that bypasses FAR1 entirely, and in control cells that drops FAR1 protein by about 40 percent. In patients\u0027 cells the same treatment raised plasmalogen just as intended, and FAR1 protein did not fall.\\nThe starting condition makes the point sharper still. Untreated patient cells already had plasmalogen about twice control - roughly the level that HDG-treated control cells reach - and yet held FAR1 protein at three times the HDG-treated control level. The signal was maximal and the response was absent.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"plasmalogen-triggered degradation of FAR1\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The HDG challenge is a genuine perturbation experiment rather than an observation: it raises plasmalogen by a route that bypasses FAR1, so the feedback loop is stimulated directly, and the patient cells\u0027 failure to respond isolates the regulatory defect from the enzyme\u0027s activity.\"}]}}, {\"id\": \"Membrane Lipid Composition Shift\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease is not simply \\\"too much plasmalogen\\\". Lipidomics shows ether species accumulating - plasmanyl/plasmenyl-choline phospholipids, and the neutral ether lipids DG[O] and TG[O] - with a reciprocal and significant fall in the corresponding non-ether phospholipids PC and PE, PE severely. Strikingly, the totals of choline- and ethanolamine-containing lipids stay roughly constant - the paper states this in the same passage, though it cannot be quoted here because the sentence carries the bracketed ether-lipid nomenclature PE[O] and PC[O] that the reference validator strips. What has changed is the ratio of ether to non-ether species, not the amount of membrane phospholipid.\\nThe proposed explanation is competition for a shared limited resource - elevated DG[O] outcompeting DG for the activated headgroups CDP-choline and CDP-ethanolamine - which would make this a substrate-competition effect rather than a direct toxicity. The polyunsaturated fatty acids also redistribute, away from PC and toward PC[O].\\nRecorded because it is the most plausible bridge from a biochemical abnormality to a cellular one, and because it is the level at which this disease and the RCDP disorders are precise mirror images: in RCDP the non-ether lipids compensate for absent ether counterparts, and the PUFA distribution runs the other way.\", \"meta\": {\"evidence_count\": 3, \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblasts from patients 1 to 3 (two p.Arg480His, one p.Arg480Cys) against six anonymised control lines. Every functional claim in this entry comes from this model - plasmalogen measurement by gas chromatography, FAR1 enzyme assay, immunoblot, immunofluorescence, the HDG feedback challenge, and lipidomics with C17:0 labelling.\\nOn animal models, and the claim needs stating precisely because the obvious reading of it is wrong. There is no animal model of *this* disease and no cell line carrying an engineered Arg480 allele. FAR1 itself is not model-less: a Far1 knockout mouse exists, is subviable with growth retardation and male infertility, and its authors present it as a model of ether lipid *deficiency*. That is the recessive arm, the mechanistic inverse of this disease, and it cannot substitute for a model of Arg480 gain of function.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"In eight of twelve patients, mostly beginning in the first months of life, and - unusually for an inborn error with early-onset epilepsy - readily controlled. Half of the treated patients came off antiepileptic drugs without recurrence. This is the indication for the one treatment curated in this entry.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"8/12\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Uncontrolled Ether Lipid Synthesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Flux, not just enzyme level. Feeding fibroblasts a labelled odd-chain fatty acid lets ether and non-ether routes be tracked separately from the same substrate: incorporation into the non-ether lipid LPC(17:0) was the same in patients and controls, while FAR1-dependent incorporation into the ether lipid LPC(O-17:0) was almost fourfold higher in patients. The pathway is running fast, and specifically the ether branch.\\nOn the `modifier` value, which is the one interpretive choice in this entry that most needs defending. `GAIN_OF_FUNCTION` is used here, and `INCREASED` is used one node up, deliberately. The schema reserves GAIN_OF_FUNCTION for a process driven outside its normal regulatory constraints rather than merely running above its normal level, and warns against migrating a quantitative annotation to it without that qualitative justification. The justification here is not that ether lipid synthesis is high. It is that the homeostatic loop which sets its level has been eliminated: raising the pathway\u0027s own product no longer restrains it, so there is no set point for the output to be above. The authors\u0027 own term is \\\"uncontrolled\\\". A cell with elevated but still-regulated ether lipid synthesis would be INCREASED; this one has lost the control system.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ether lipid biosynthetic process\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"description\": \"The C17:0 labelling experiment measures ether and non-ether lipid synthesis from the same exogenous substrate in the same cells, so the non-ether arm is an internal control for uptake and general lipid handling.\"}]}}], \"edges\": [{\"source\": \"De Novo Heterozygous FAR1 Arg480 Variant\", \"target\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"target\": \"Elevated FAR1 Protein and Enzyme Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated FAR1 Protein and Enzyme Activity\", \"target\": \"Uncontrolled Ether Lipid Synthesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Uncontrolled Ether Lipid Synthesis\", \"target\": \"Membrane Lipid Composition Shift\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Membrane Lipid Composition Shift\", \"target\": \"Corticospinal Tract Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No step between the lipid abnormality and the pyramidal tract is known for this disease or for any of the ether-lipid-excess disorders. The authors state the pathophysiological mechanism remains enigmatic.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Membrane Lipid Composition Shift\", \"target\": \"Lens Opacification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Equally unexplained, and more puzzling, because cataract is also caused by ether lipid *deficiency* - see the open discussion.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Seizures\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"target\": \"Loss of Plasmalogen-Dependent Feedback Degradation of FAR1\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The HDG challenge is a genuine perturbation experiment rather than an observation: it raises plasmalogen by a route that bypasses FAR1, so the feedback loop is stimulated directly, and the patient cells\u0027 failure to respond isolates the regulatory defect from the enzyme\u0027s activity.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Fibroblasts are not the affected tissue. Nothing in this model addresses why the corticospinal tract and the lens fail while the fibroblast, which carries the same lipid abnormality, is viable and unremarkable - and that gap is the whole distance between the biochemistry and the disease. The p.Arg480Leu and p.Arg480Ser alleles have never been assayed, because no fibroblasts were available.\"}, {\"source\": \"Patient dermal fibroblast lines with FAR1 p.Arg480His and p.Arg480Cys\", \"target\": \"Uncontrolled Ether Lipid Synthesis\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The C17:0 labelling experiment measures ether and non-ether lipid synthesis from the same exogenous substrate in the same cells, so the non-ether arm is an internal control for uptake and general lipid handling.\", \"relationship\": \"MEASURES\", \"fidelity\": \"HIGH\", \"limitations\": \"A fibroblast\u0027s ether lipid demand is not a neuron\u0027s or a lens fibre cell\u0027s, and the fourfold flux increase measured here cannot be assumed to be the magnitude in the tissues that fail.\"}, {\"source\": \"FAR1\", \"target\": \"De Novo Heterozygous FAR1 Arg480 Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5792,11 +5941,11 @@ This pathophysiological event occurs in lens of camera-type eye (UBERON:0000965)
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5839,6 +5988,9 @@ This clinical feature is Bilateral cataracts, annotated with Cataract (HP:000051
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5853,6 +6005,7 @@ This clinical feature is Bilateral cataracts, annotated with Cataract (HP:000051
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5918,6 +6071,9 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5932,6 +6088,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5963,15 +6120,13 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
+                    Limbs
                     <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-paraparesis" data-dismech-node="Spastic Paraparesis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ankle-clonus" data-dismech-node="Ankle Clonus" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Spastic Paraparesis
-
-                        <span class="phenotype-freq">12/12</span>
+                        Ankle Clonus
 
 
 
@@ -5983,15 +6138,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002313</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011448</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Ankle clonus (HP:0011448). HP:0011448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6011,6 +6169,90 @@ This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They presented with pyramidal tract dysfunction, exhibiting spastic di- or paraparesis (12/12), lower limb hypertonia, truncal hypotonia (6/12), and (ankle) clonus."</div>
+
+
+                <div class="evidence-explanation">Ankle clonus as part of the upper motor neuron picture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spastic-paraparesis" data-dismech-node="Spastic Paraparesis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spastic Paraparesis
+
+                        <span class="phenotype-freq">12/12</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002313</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33239752" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239752" target="_blank">PMID:33239752</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6037,9 +6279,155 @@ This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a pheno
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Axial Hypotonia
+
+                        <span class="phenotype-freq">6/12</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0008936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Truncal hypotonia, annotated with Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33239752" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239752" target="_blank">PMID:33239752</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They presented with pyramidal tract dysfunction, exhibiting spastic di- or paraparesis (12/12), lower limb hypertonia, truncal hypotonia (6/12), and (ankle) clonus."</div>
+
+
+                <div class="evidence-explanation">Truncal hypotonia in six of twelve.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower Limb Spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lower Limb Spasticity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33239752" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239752" target="_blank">PMID:33239752</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They presented with pyramidal tract dysfunction, exhibiting spastic di- or paraparesis (12/12), lower limb hypertonia, truncal hypotonia (6/12), and (ankle) clonus."</div>
+
+
+                <div class="evidence-explanation">Lower limb hypertonia as part of the pyramidal picture in the cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6062,15 +6450,18 @@ This clinical feature is Spastic paraparesis (HP:0002313). HP:0002313 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6090,6 +6481,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6132,15 +6524,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6160,6 +6555,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6204,15 +6600,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6232,6 +6631,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6274,15 +6674,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002194</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002194</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6302,6 +6705,7 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6313,221 +6717,6 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
                 <div class="evidence-explanation">Gross motor delay in most of the cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Axial Hypotonia
-
-                        <span class="phenotype-freq">6/12</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0008936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Truncal hypotonia, annotated with Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33239752" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239752" target="_blank">PMID:33239752</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They presented with pyramidal tract dysfunction, exhibiting spastic di- or paraparesis (12/12), lower limb hypertonia, truncal hypotonia (6/12), and (ankle) clonus."</div>
-
-
-                <div class="evidence-explanation">Truncal hypotonia in six of twelve.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ankle-clonus" data-dismech-node="Ankle Clonus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ankle Clonus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011448</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ankle clonus (HP:0011448). HP:0011448 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33239752" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239752" target="_blank">PMID:33239752</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They presented with pyramidal tract dysfunction, exhibiting spastic di- or paraparesis (12/12), lower limb hypertonia, truncal hypotonia (6/12), and (ankle) clonus."</div>
-
-
-                <div class="evidence-explanation">Ankle clonus as part of the upper motor neuron picture.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower Limb Spasticity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lower Limb Spasticity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002061</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33239752" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33239752" target="_blank">PMID:33239752</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"They presented with pyramidal tract dysfunction, exhibiting spastic di- or paraparesis (12/12), lower limb hypertonia, truncal hypotonia (6/12), and (ankle) clonus."</div>
-
-
-                <div class="evidence-explanation">Lower limb hypertonia as part of the pyramidal picture in the cohort.</div>
 
 
 
@@ -6617,6 +6806,9 @@ This disease-associated gene is FAR1 (hgnc:26222). hgnc:26222 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6631,6 +6823,7 @@ This disease-associated gene is FAR1 (hgnc:26222). hgnc:26222 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6658,6 +6851,7 @@ This disease-associated gene is FAR1 (hgnc:26222). hgnc:26222 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6679,6 +6873,7 @@ This disease-associated gene is FAR1 (hgnc:26222). hgnc:26222 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6817,6 +7012,31 @@ This treatment uses barbiturate (NCIT:C67084). NCIT:C67084 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The only treatment reported in this disease, and it is symptomatic. Seizures in the defining cohort responded to barbiturates, levetiracetam and oxcarbazepine, and in four of the eight treated patients antiepileptic treatment was withdrawn without recurrence.
 That last detail is the clinically useful one. Early-onset epilepsy in an inborn error of metabolism is often refractory; here it appears both treatable and, in half of cases, self-limiting. Nothing is reported about which agent to prefer, and with eight patients across three drug classes nothing could be.</div>
 
@@ -6861,6 +7081,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6926,6 +7147,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6947,6 +7169,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7017,6 +7240,7 @@ The biochemical confirmation is plasmalogen measurement, read for an elevated re
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7038,6 +7262,7 @@ The biochemical confirmation is plasmalogen measurement, read for an elevated re
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7116,6 +7341,7 @@ The nearest thing to a denominator is the ascertainment itself: eight of the twe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7137,6 +7363,7 @@ The nearest thing to a denominator is the ascertainment itself: eight of the twe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7249,6 +7476,7 @@ This knowledge base curates RCDP4 within Rhizomelic_Chondrodysplasia_Punctata_Pl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7273,6 +7501,7 @@ This knowledge base curates RCDP4 within Rhizomelic_Chondrodysplasia_Punctata_Pl
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7294,6 +7523,7 @@ This knowledge base curates RCDP4 within Rhizomelic_Chondrodysplasia_Punctata_Pl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7354,6 +7584,7 @@ This knowledge base curates RCDP4 within Rhizomelic_Chondrodysplasia_Punctata_Pl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7407,6 +7638,7 @@ Recorded as a differential and, more usefully, as a group: their existence is th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7526,6 +7758,7 @@ On animal models, and the claim needs stating precisely because the obvious read
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7565,6 +7798,7 @@ On animal models, and the claim needs stating precisely because the obvious read
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7644,6 +7878,7 @@ On animal models, and the claim needs stating precisely because the obvious read
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7683,6 +7918,7 @@ On animal models, and the claim needs stating precisely because the obvious read
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9351,6 +9587,39 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Spastic Paraparesis-Cataracts-Speech Delay Syndrome (FAR1 gain of function)</strong> · 2026-08-28T19:43:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Spastic_Paraparesis-cataracts-speech_Delay_Syndrome/2026-08-28T194326Z-claude-code-60fe96.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of spastic paraparesis-cataracts-speech delay syndrome (MONDO:0036212, FAR1 / hgnc:26222) as a standalone kb/disorders Disease entry.
+
+entry_type decision: DISEASE. One causal gene, a single recurrent codon, its own OMIM (619338) and Orphanet (615938) identity, and a conserved pathograph. It is emphatically not a subtype of the recessive FAR1 disease: the mechanism is inverted.
+
+Identity discipline, which was the main risk on this disease. This entry is the dominant gain-of-function arm of FAR1. The recessive loss-of-function arm (FAR1 deficiency / RCDP4, plasmalogen deficiency) is already curated inside Rhizomelic_Chondrodysplasia_Punctata_Plasmalogen_Synthesis_Defect as a has_subtypes entry. Most FAR1 literature is about the recessive arm, so every reference cited here was checked against three discriminators: heterozygous, codon 480, and elevated rather than deficient plasmalogens. PMID:33239752 (defining 12-patient cohort, full text), PMID:36254151 (Middle Eastern case, de novo p.Arg480Cys, full text) and PMID:37335441 (de novo p.Arg480Ser) all pass all three. PMID:36720320 is a review of the normal plasmalogen feedback pathway, cited only for that mechanism and belonging to neither disease. PMID:36781603 (Mov Disord FAR1 variant spectrum) was fetched, found to be content_type unavailable, dropped and not committed.
+
+modifier grading, argued rather than assumed as the issue asked. The entry splits the claim across two nodes. &#34;Elevated FAR1 Protein and Enzyme Activity&#34; takes modifier INCREASED on the reductase activity: the same enzyme doing the same reaction in larger amounts, three to four times control, with normal peroxisomal targeting and normal peroxisomal beta-oxidation and DHAPAT - a purely quantitative claim, and one that stays PATO-bound. &#34;Uncontrolled Ether Lipid Synthesis&#34; takes modifier GAIN_OF_FUNCTION on the ether lipid biosynthetic process, because the negative feedback loop that sets the pathway&#39;s output has been abolished, demonstrated by a direct HDG perturbation in which control cells dropped FAR1 by about 40 percent and patient cells did not respond at all. The pathway is not running above a set point; it has no set point. That is the qualitative &#34;outside normal regulatory constraints&#34; condition CLAUDE.md reserves GAIN_OF_FUNCTION for, and the trade of ontology grounding for expressivity is made knowingly.
+
+GeneticContext.functional_impact_category is HYPERMORPHIC rather than the generic GAIN_OF_FUNCTION: the enum defines HYPERMORPHIC as increased normal gene product activity, which is exactly what was measured, and no novel activity is reported so NEOMORPHIC is wrong. DOMINANT_NEGATIVE is excluded by the direction of effect.
+
+MONDO duplication found and recorded: MONDO:0036212 and MONDO:0100230 both name this disease. The former carries OMIM, Orphanet, MedGen and UMLS cross-references; the latter carries only GARD and its definition is the defining paper&#39;s title restated. This entry anchors on MONDO:0036212 and maps MONDO:0100230 as skos:exactMatch. The pre-existing RCDP entry refers to this disease by MONDO:0100230, so both identifiers are now reachable. This should be reported upstream to MONDO rather than resolved unilaterally.
+
+Treatment and indication kept consistent: the only treatment curated is symptomatic antiseizure pharmacotherapy (barbiturates, levetiracetam, oxcarbazepine), which is genuinely reported in this cohort with 4 of 8 patients withdrawn without recurrence, and its indication - seizures in 8 of 12 - is curated as a phenotype in the same entry with target_phenotypes pointing at it.
+
+Discussions: OPEN_QUESTION on why ether lipid excess and ether lipid deficiency both cause cataracts and spastic paraparesis, with three competing hypotheses kept distinct and none preferred; KNOWLEDGE_GAP on the absence of any model beyond three patients&#39; fibroblasts, sharpened by the observation that the fibroblast carries the full biochemical lesion and is entirely well; KNOWLEDGE_GAP on whether ether lipid flux could be therapeutically reduced, noting that overshooting has a known and worse phenotype.
+
+Snippet handling: four snippets had to be trimmed or restarted mid-sentence because the source writes ether-lipid nomenclature as PC[O], DG[O], TG[O] and units as pmol/[h.mg protein], and the reference validator strips bracketed spans. Each trimmed snippet&#39;s explanation records what was omitted and why, so the omission is not mistaken for selective quotation. This is a general tooling gap worth a follow-up: [O] is standard lipid nomenclature and conf/reference_validator_config.yaml&#39;s literal_bracket_patterns does not cover single letters.
+
+Deep research: falcon. NEC preflight PASS (FAR1=67 mentions, next token PC=5). The report is squarely about the monoallelic gain arm and contrasts it with recessive FAR1 deficiency explicitly; nothing from it was used without checking against the cached full text. Report and citations sidecar committed under research/.
+
+Validation: just validate exit 0; just validate-terms exit 0; just validate-disorders exit 0 with 43/43 snippets verified; check-entity-refs, check-duplicate-keys, check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading and check-environmental-evidence all exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

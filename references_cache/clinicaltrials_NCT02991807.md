@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT02991807
+extractor_version: 1
 title: A Randomized Double-Blind Controlled Trial of Everolimus in Individuals With PTEN Mutations (RAD001XUS257T)
 content_type: summary
 full_text_attempted: true

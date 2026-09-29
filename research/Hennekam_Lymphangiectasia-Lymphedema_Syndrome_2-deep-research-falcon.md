@@ -1183,3 +1183,19 @@ References
 ## Artifacts
 
 - [Edison artifact artifact-00](Hennekam_Lymphangiectasia-Lymphedema_Syndrome_2-deep-research-falcon_artifacts/artifact-00.md)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.2.1.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 7 |
+| Resolved | 7 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| References weighed for topical relevance | 7 |
+| On topic | 5 |
+| Off topic | 0 |
+
+All extracted references resolved successfully.

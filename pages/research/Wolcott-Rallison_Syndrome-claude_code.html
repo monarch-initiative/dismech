@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wolcott-Rallison Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Wolcott-Rallison Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Wolcott-Rallison Syndrome</h1>
+                
+                <p class="report-subtitle">Wolcott-Rallison Syndrome: A Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009192" target="_blank" rel="noopener noreferrer">MONDO:0009192</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Wolcott-Rallison Syndrome: A Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Wolcott-Rallison syndrome (WRS) is a rare, autosomal recessive multisystem disorder caused by biallelic loss-of-function mutations in <em>EIF2AK3</em>, the gene encoding PERK (PKR-like Endoplasmic Reticulum Kinase). WRS is the most common monogenic cause of permanent neonatal diabetes mellitus (PNDM) in populations with frequent consanguinity, and is defined clinically by the triad of early-infantile insulin-dependent diabetes, multiple epiphyseal/skeletal dysplasia, and recurrent, often fatal, episodes of acute liver failure (<a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=1667">Orphanet</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>OMIM:</strong> #226980 (Epiphyseal Dysplasia, Multiple, With Early-Onset Diabetes Mellitus) — gene locus <em>EIF2AK3</em> OMIM <em>604032
+- </em><em>Orphanet:</em><em> <a href="https://bioregistry.io/ORPHA:1667" target="_blank" rel="noopener noreferrer">ORPHA:1667</a>
+- </em><em>MONDO:</em><em> <a href="http://purl.obolibrary.org/obo/MONDO_0009192" target="_blank" rel="noopener noreferrer">MONDO:0009192</a>
+- </em><em>MeSH:</em><em> C536739
+- </em><em>DOID:</em><em> <a href="http://purl.obolibrary.org/obo/DOID_0090060" target="_blank" rel="noopener noreferrer">DOID:0090060</a>
+- </em><em>NCIT:</em><em> NCIT:C131007
+- </em><em>UMLS:</em><em> C0432217
+- </em><em>SNOMED CT:</em><em> 254066006
+- </em><em>ICD-10-CM:</em><em> E13 (Other specified diabetes mellitus) is the closest crosswalk (no dedicated WRS code)
+- </em><em>Gene locus:</em><em> </em>EIF2AK3*, chromosome 2p11.2 (some sources cite 2p12)
+(Sources: <a href="https://www.informatics.jax.org/disease/226980">MGI/OMIM disease page</a>; <a href="https://omim.org/entry/226980">OMIM #226980</a>; <a href="https://rarediseases.info.nih.gov/diseases/5589/wolcott-rallison-syndrome">GARD</a>)</p>
+<p><strong>Synonyms:</strong> Multiple Epiphyseal Dysplasia with Early-Onset Diabetes Mellitus; EIF2AK3-Related Diabetes; WRS; PERK-related diabetes.</p>
+<p><strong>Evidence base:</strong> WRS knowledge derives almost entirely from <strong>aggregated case reports and small case series/cohorts</strong> (largest cohort n=28, Saudi Arabian systematic review; a German/Austrian registry sub-analysis n=11) rather than large prospective epidemiological studies, reflecting its ultra-rarity — fewer than 60–100 published cases worldwide as of the most recent reviews (<a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=1667">Orphanet</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3679509/">PMC3679509</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor.</strong> WRS is caused exclusively by <strong>biallelic (homozygous or compound heterozygous) loss-of-function mutations in <em>EIF2AK3</em></strong> — there is no known environmental, infectious, or multifactorial etiology for the primary syndrome itself, though intercurrent infections/illness act as <strong>precipitants of acute decompensation</strong> (see Mechanism, below) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).</p>
+<p><strong>Genetic risk factors:</strong>
+- To date, ~39 distinct <em>EIF2AK3</em> mutations have been catalogued; <strong>64% are frameshift or nonsense</strong>, <strong>31% missense</strong>, with the remainder splice-site variants (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).
+- <strong>Consanguinity is the dominant risk factor</strong>: the large majority of reported families are from the Middle East, North Africa, Pakistan, and Turkey. As of a 2013 tally, Saudi Arabia alone accounted for 27.7% (23/83) of all reported patients and 22.2% (12/54) of families worldwide (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3679509/">PMC3679509</a>; <a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=1667">Orphanet</a>).
+- No recurrent "hot-spot"/founder mutation dominates globally, though specific mutations recur within specific consanguineous kindreds (e.g., p.V349Sfs<em>3 in 3 families, p.W430X in 2 families in the Saudi cohort) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>).
+- </em><em>Population variant data:</em><em> gnomAD catalogs ~1,294 </em>EIF2AK3<em> variants; the overwhelming majority (1,270/1,294, ~98%) are ultra-rare (allele frequency &lt;0.1%), consistent with strong purifying selection against loss-of-function alleles and a low population carrier frequency for pathogenic variants outside consanguineous/founder populations (source: GeneCards/gnomAD aggregation cited in search).
+- </em><em>Genetic heterogeneity</em><em> has been suggested — not all clinically diagnosed WRS cases have identifiable </em>EIF2AK3* mutations, raising the possibility of a second, uncharacterized locus in a minority of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/15220213/">PMID:15220213</a>, Diabetes 2004).</p>
+<p><strong>Risk-modifying/precipitating environmental factors (not causal, but triggers of crises):</strong>
+- Intercurrent viral/febrile illness is the principal trigger of acute hepatic failure episodes.
+- Hypoglycemia from overly tight glycemic control is an independent trigger of hepatic decompensation.
+- <strong>General anesthesia/anesthetic agents</strong> are explicitly flagged as a precipitant of acute aggravation due to hepatotoxicity and should be avoided when possible (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).
+- Unnecessary medications and vaccinations are advised against as a precautionary/protective measure, presumably to minimize additional ER/hepatic stress burden, though this is empirical/consensus guidance rather than evidence from controlled study.</p>
+<p><strong>Protective factors:</strong> No genetic or environmental protective factors have been identified; missense (vs. truncating) genotype is associated with <strong>milder disease course and longer survival</strong> (see Genetics/Prognosis, below) but this is a modifier of severity, not a true "protective factor" against disease occurrence.</p>
+<p><strong>Gene-environment interaction:</strong> The core mechanistic interaction is that <strong>PERK loss-of-function removes the cell's adaptive buffer against ER stress</strong>, so ordinary physiological stressors (infection-associated cytokine/fever stress, insulin-secretory demand, hepatocyte protein-synthesis load during illness) that a wild-type cell would tolerate via the unfolded protein response (UPR) instead precipitate apoptosis in PERK-null cells — this is the mechanistic basis for why "trivial" childhood infections trigger life-threatening hepatic and pancreatic crises in WRS (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>; mechanism section below).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core triad</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term (suggested)</th>
+<th>Onset</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Permanent neonatal/infantile insulin-dependent diabetes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008205" target="_blank" rel="noopener noreferrer">HP:0008205</a> Neonatal insulin-dependent diabetes mellitus</td>
+<td>Typically &lt;6 months (mean ~7.6 weeks in the largest cohort; range 1 day–30 months)</td>
+<td>100% (defining feature)</td>
+</tr>
+<tr>
+<td>Multiple epiphyseal dysplasia / skeletal dysplasia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003400" target="_blank" rel="noopener noreferrer">HP:0003400</a> Multiple epiphyseal dysplasia; <a href="http://purl.obolibrary.org/obo/HP_0003025" target="_blank" rel="noopener noreferrer">HP:0003025</a> Metaphyseal dysplasia</td>
+<td>Later in infancy/childhood (may lag diabetes onset by months–years)</td>
+<td>Historically considered essential, but recent cohorts find it <strong>less frequent than previously assumed</strong> — absent in all 3 patients of one recent case series, and "lower than expected" in the largest Saudi cohort</td>
+</tr>
+<tr>
+<td>Recurrent acute hepatic failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" rel="noopener noreferrer">HP:0006554</a> Acute hepatic failure</td>
+<td>Episodic, triggered by intercurrent illness</td>
+<td>85.7% of patients show liver dysfunction as the extra-pancreatic feature; among those, 22/24 (92%) progressed to acute hepatic failure</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Additional systemic phenotypes (compiled from HPO/OMIM and cohort literature)</h3>
+<ul>
+<li><strong>Hepatic/GI:</strong> Hepatomegaly (<a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a>), jaundice (<a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a>), ascites (<a href="http://purl.obolibrary.org/obo/HP_0001541" target="_blank" rel="noopener noreferrer">HP:0001541</a>), hepatic encephalopathy (<a href="http://purl.obolibrary.org/obo/HP_0002480" target="_blank" rel="noopener noreferrer">HP:0002480</a>), exocrine pancreatic insufficiency (<a href="http://purl.obolibrary.org/obo/HP_0001738" target="_blank" rel="noopener noreferrer">HP:0001738</a>)</li>
+<li><strong>Renal:</strong> Chronic kidney disease (<a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" rel="noopener noreferrer">HP:0012622</a>), renal insufficiency (<a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a>) — reported in ~6/28 (21%) in the largest cohort, often associated temporally with hepatitis episodes</li>
+<li><strong>Endocrine:</strong> Central/primary hypothyroidism (<a href="http://purl.obolibrary.org/obo/HP_0011771" target="_blank" rel="noopener noreferrer">HP:0011771</a> / <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" rel="noopener noreferrer">HP:0000821</a>) — identified in 4/28 patients in the Saudi cohort (2 novel), now recognized as a genuine WRS feature rather than incidental</li>
+<li><strong>Hematologic:</strong> Decreased neutrophil count/neutropenia (<a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a>), iron deficiency anemia (<a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" rel="noopener noreferrer">HP:0001891</a>), increased lymphocyte count (<a href="http://purl.obolibrary.org/obo/HP_0100827" target="_blank" rel="noopener noreferrer">HP:0100827</a>), recurrent infections (<a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" rel="noopener noreferrer">HP:0002719</a>)</li>
+<li><strong>Neurologic:</strong> Global developmental delay (<a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>), intellectual disability (<a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a>), microcephaly (<a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a>), seizure (<a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>), gait disturbance (<a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a>), muscle weakness (<a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" rel="noopener noreferrer">HP:0001324</a>); the 2024 zebrafish study also flags motor neuropathy and early neurodegeneration as part of the broader symptomatic spectrum (<a href="https://www.biorxiv.org/content/10.1101/2024.04.16.589737v3">bioRxiv 2024.04.16.589737</a>)</li>
+<li><strong>Cardiac:</strong> Atrial septal defect (<a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" rel="noopener noreferrer">HP:0001631</a>), double outlet right ventricle (<a href="http://purl.obolibrary.org/obo/HP_0001719" target="_blank" rel="noopener noreferrer">HP:0001719</a>) — cardiac malformations occur but are not universal</li>
+<li><strong>Craniocervical (newly described, 2016):</strong> <strong>Os odontoideum</strong> with atlanto-axial instability was identified in a case series of 4 WRS patients not previously linked to the syndrome; 2/4 required spinal fusion for symptomatic instability — this is now recommended as an active screening item (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4748609/">PMC4748609</a>)</li>
+<li><strong>Growth:</strong> Severe growth retardation/short stature (<a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a>), decreased body weight (<a href="http://purl.obolibrary.org/obo/HP_0004325" target="_blank" rel="noopener noreferrer">HP:0004325</a>)</li>
+<li><strong>Ophthalmologic:</strong> Strabismus (<a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a>)</li>
+</ul>
+<p><strong>Severity/progression:</strong> Skeletal disease (osteoporosis/osteopenia, epiphyseal dysplasia, fracture tendency) is <strong>progressive</strong>. Hepatic disease is <strong>episodic/relapsing</strong> — "every episode should be considered as potentially fatal," with individual crises lasting 3–20 days and resolving either to full recovery or death, unpredictably (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>). Diabetes is <strong>permanent and non-remitting</strong> from onset.</p>
+<p><strong>Quality of life impact:</strong> Not formally studied with standardized instruments (no EQ-5D/SF-36/PROMIS data identified in the literature); qualitatively, disease burden is dominated by recurrent hospitalization for hepatic crises, insulin pump dependence, and — in survivors — cumulative skeletal morbidity (fractures, craniocervical instability) and neurodevelopmental impairment.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Causal gene:</strong> <em>EIF2AK3</em> (<a href="https://bioregistry.io/HGNC:3255" target="_blank" rel="noopener noreferrer">HGNC:3255</a>), chromosome 2p11.2. Encodes <strong>PERK</strong> (also called PEK, pancreatic eIF2α kinase), a type I transmembrane ER-resident kinase.</p>
+<p><strong>Variant spectrum:</strong> ~39 distinct pathogenic mutations reported; 64% frameshift/nonsense (predicted null alleles), 31% missense, remainder splice-site (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>). Representative variants from recent literature:
+- c.1213-1214del (p.Lys405fs), exon 7 — frameshift
+- c.3087delC (p.Leu1030X), exon 16 — nonsense
+- c.2039_2040del (p.Thr680fs), exon 13 — frameshift
+(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10214929/">PMC10214929</a>)
+- p.S991N, p.G1010D — novel missense variants associated with <strong>prolonged survival</strong> (one patient to 17.5 years)
+- p.V349Sfs*3, p.W430X — recurrent truncating variants in the Saudi founder cohort
+- p.I650T — associated with delayed diabetes onset
+(<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>)
+- c.1805G&gt;T (p.Gly602Val) — novel missense, 2025 case report (<a href="https://www.degruyterbrill.com/document/doi/10.1515/jpem-2025-0216/html">J Pediatr Endocrinol Metab 2025-0216</a>)
+- c.205G&gt;T — recurring in two unrelated families (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6425236/">PMC6425236</a>)</p>
+<p><strong>Variant classification:</strong> Per ACMG/AMP framework, truncating (nonsense/frameshift) variants are generally classified pathogenic via loss-of-function mechanism given <em>EIF2AK3</em>'s established disease mechanism; missense variants require functional validation (kinase-activity assays) for confident classification — several publications explicitly performed such functional studies (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/15220213/">PMID:15220213</a>, "clinical, genetic, and functional study").</p>
+<p><strong>Population frequency:</strong> gnomAD lists ~1,294 <em>EIF2AK3</em> variants; ~98% are ultra-rare (&lt;0.1% AF), ~14 are "rare" (0.1–1%), ~10 are "common" (&gt;1%) — consistent with a gene under purifying selection and no population-level common pathogenic allele; carrier frequency is elevated specifically within consanguineous Middle Eastern/North African/South Asian kindreds due to founder effects rather than a panethnic high carrier rate.</p>
+<p><strong>Mechanism of pathogenicity:</strong> Loss-of-function — all disease mutations abolish or severely impair PERK's kinase activity toward eIF2α, eliminating its stress-buffering function (see Section 6).</p>
+<p><strong>Genotype-phenotype correlation:</strong> Limited overall, but the strongest reported correlation is that <strong>missense mutations are associated with significantly better survival</strong> than truncating mutations (Aldrian et al. 2024, Liver International: overall survival better with missense genotype, p=.013) (<a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/liv.15834">search summary of Liver Int 2024;44(3)</a>).</p>
+<p><strong>Modifier genes:</strong> None formally established; disease severity variability even among siblings/patients with identical genotypes (see Case Series, Section 1) suggests unidentified modifiers or stochastic/environmental influence on crisis triggering.</p>
+<p><strong>Related but distinct <em>EIF2AK3</em>-associated phenotypes</strong> noted in GeneCards/OMIM annotations: metaphyseal chondrodysplasia (Schmid type)-like presentations and spondyloenchondrodysplasia with immune dysregulation have been loosely associated in some annotation databases, but WRS/multiple epiphyseal dysplasia with early-onset diabetes is the well-established, primary <em>EIF2AK3</em> phenotype.</p>
+<p><strong>Epigenetics/chromosomal abnormalities:</strong> No epigenetic mechanism or chromosomal-scale abnormality (aneuploidy, translocation) has been implicated; WRS is a single-gene Mendelian disorder.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>WRS has <strong>no independent environmental or infectious etiology</strong> — it is monogenic. Environmental factors are relevant only as <strong>triggers of acute-on-chronic decompensation</strong> in already-affected individuals:
+- Intercurrent viral illness (implicated in nearly all documented hepatic crisis triggers)
+- Hypoglycemia (iatrogenic, from tight glycemic control)
+- General anesthesia/anesthetic hepatotoxicity
+- Possibly vaccination and additional medication burden (precautionary avoidance recommended, though causal evidence for vaccine-triggered crises specifically was not identified in the literature reviewed)</p>
+<p>No infectious agent, toxin, or occupational/lifestyle exposure has been shown to <em>cause</em> WRS.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic loss-of-function mutation in <em>EIF2AK3</em></strong> (nonsense, frameshift, or destabilizing missense) → <strong>leads to</strong> absent or severely reduced PERK kinase activity in the ER-transmembrane sensor.</li>
+<li>Loss of PERK activity → <strong>results in</strong> failure to phosphorylate eukaryotic translation initiation factor 2-alpha (eIF2α) at Ser51 in response to ER protein-folding stress (this step is well-demonstrated biochemically — e.g., <a href="https://www.nature.com/articles/ng0800_406">Nature Genetics 2000, ng0800_406</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8187601/">PMC8187601</a>).</li>
+<li>Unphosphorylated eIF2α → <strong>fails to</strong> attenuate global cap-dependent mRNA translation, so the normal PERK-branch "translational brake" of the unfolded protein response (UPR) is lost, while the parallel IRE1 and ATF6 UPR arms remain at least partly intact but cannot compensate.</li>
+<li>Loss of translational attenuation, combined with failure to induce the ATF4→CHOP transcriptional program (which normally upregulates chaperones, proteases, and autophagy components to help clear misfolded protein) → <strong>leads to</strong> accumulation of unresolved misfolded/unfolded protein in the ER lumen — chronic, unbuffered ER stress — in any cell type with high secretory/synthetic demand.</li>
+<li>Chronic ER stress in these high-demand tissues → <strong>triggers</strong> apoptotic cell death via CHOP-independent and stress-kinase pathways, disproportionately affecting:</li>
+<li><strong>Branch A — pancreatic β-cells:</strong> PERK is specifically required during <strong>fetal and early neonatal life</strong> for β-cell proliferation, differentiation, and proinsulin trafficking/quality control in the secretory pathway. PERK-null β-cells <strong>fail to expand postnatally</strong>, show low β-cell mass, and cannot properly process/traffic proinsulin, culminating in <strong>permanent neonatal-onset insulin deficiency</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17141632/">Cell Metab 2006, PMID:17141632</a>; <a href="https://dx.doi.org/10.2337/db09-1064">Diabetes 2009, db09-1064</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2749809/">PMC2749809</a>).</li>
+<li><strong>Branch B — hepatocytes:</strong> at baseline hepatocytes tolerate the deficit, but during intercurrent illness/fever (increased secretory/synthetic demand and cytokine stress) the unbuffered ER stress load exceeds the cell's capacity → <strong>triggers</strong> acute hepatocyte apoptosis/necrosis → clinical acute hepatic failure. This explains why hepatic crises are <em>episodic and infection-triggered</em> rather than constant — the deficit is a loss of adaptive reserve, not baseline organ failure.</li>
+<li><strong>Branch C — chondrocytes/osteoblasts and bone:</strong> PERK also has a constitutive, non-redundant role in <strong>bone homeostasis</strong> — it regulates osteoclast differentiation/function (activated during RANKL-induced osteoclastogenesis) and is required for normal ossification-center development. Perk-knockout mice show <strong>reduced cortical and trabecular bone density at birth and a stunted secondary ossification center of the proximal tibia</strong>, mirroring human epiphyseal dysplasia and osteoporosis (<a href="https://www.nature.com/articles/s41419-020-03046-z">Cell Death Dis 2020, s41419-020-03046-z</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8016635/">PMC8016635</a>).</li>
+<li><strong>Branch D — other tissues</strong> (thyroid, kidney, CNS, exocrine pancreas, marrow) → <strong>contributes to</strong> the variable additional phenotypes (central/primary hypothyroidism, renal insufficiency, neurodevelopmental delay/seizures, exocrine pancreatic insufficiency, neutropenia) via the same loss-of-adaptive-capacity mechanism, though tissue-specific mechanistic detail is less well worked out than for β-cell and hepatocyte injury.</li>
+<li>Recurrent hepatic apoptotic crises, superimposed skeletal fragility, and multi-organ vulnerability → <strong>culminate in</strong> the clinical natural history of WRS: high early mortality (predominantly from liver failure), with survivors accumulating progressive skeletal, endocrine, and neurodevelopmental morbidity.</li>
+</ol>
+<p><strong>Where inference substitutes for direct human demonstration:</strong> The β-cell developmental mechanism (branch A) and the bone-homeostasis mechanism (branch C) are demonstrated principally in <strong>Perk knockout mouse models</strong> and are inferred, not directly demonstrated, in human WRS tissue — human data are limited to genetics, biochemistry of patient-derived material in a few functional studies, and clinical/radiographic phenotyping. The 2024 zebrafish PERK-inhibition model provides an additional, largely concordant, cross-species line of evidence (see Model Organisms, below).</p>
+<h3>Molecular pathway / GO term suggestions</h3>
+<ul>
+<li><strong>Molecular function:</strong> <a href="http://purl.obolibrary.org/obo/GO_0004694" target="_blank" rel="noopener noreferrer">GO:0004694</a> eukaryotic translation initiation factor 2alpha kinase activity (loss of function)</li>
+<li><strong>Biological process:</strong> <a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a> response to endoplasmic reticulum stress; <a href="http://purl.obolibrary.org/obo/GO_0036498" target="_blank" rel="noopener noreferrer">GO:0036498</a> IRE1-mediated unfolded protein response (intact/compensatory); <a href="http://purl.obolibrary.org/obo/GO_0036499" target="_blank" rel="noopener noreferrer">GO:0036499</a> PERK-mediated unfolded protein response (lost); <a href="http://purl.obolibrary.org/obo/GO_0006446" target="_blank" rel="noopener noreferrer">GO:0006446</a> regulation of translational initiation; <a href="http://purl.obolibrary.org/obo/GO_0030282" target="_blank" rel="noopener noreferrer">GO:0030282</a> bone mineralization; <a href="http://purl.obolibrary.org/obo/GO_0030316" target="_blank" rel="noopener noreferrer">GO:0030316</a> osteoclast differentiation</li>
+<li><strong>Cellular component:</strong> <a href="http://purl.obolibrary.org/obo/GO_0005789" target="_blank" rel="noopener noreferrer">GO:0005789</a> endoplasmic reticulum membrane (site of PERK localization)</li>
+</ul>
+<h3>Cell types (CL terms)</h3>
+<ul>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a> type B pancreatic cell (β-cell) — primary target, developmental failure</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a> hepatocyte — episodic apoptotic injury</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a> osteoclast; <a href="http://purl.obolibrary.org/obo/CL_0000062" target="_blank" rel="noopener noreferrer">CL:0000062</a> osteoblast — bone homeostasis defect</li>
+<li><a href="http://purl.obolibrary.org/obo/CL_0000037" target="_blank" rel="noopener noreferrer">CL:0000037</a> hematopoietic stem cell / <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> neutrophil — neutropenia (mechanism less characterized)</li>
+</ul>
+<h3>Molecular profiling / omics</h3>
+<p>No large-scale transcriptomic, proteomic, or single-cell datasets specific to human WRS patient tissue were identified in this search — the mechanistic evidence base relies on candidate-gene biochemistry (PERK kinase assays, eIF2α phosphorylation assays) and animal-model transcriptomic/histologic phenotyping rather than patient-derived multi-omics.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level (primary):</strong>
+- <strong>Pancreas</strong> (endocrine — islet β-cells; also exocrine insufficiency reported) — <a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a>
+- <strong>Liver</strong> — <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>
+- <strong>Skeletal system</strong> — long-bone epiphyses/metaphyses, vertebral column (including craniocervical junction/odontoid process) — <a href="http://purl.obolibrary.org/obo/UBERON_0001434" target="_blank" rel="noopener noreferrer">UBERON:0001434</a> (skeletal system); <a href="http://purl.obolibrary.org/obo/UBERON_0002514" target="_blank" rel="noopener noreferrer">UBERON:0002514</a> (epiphysis)</p>
+<p><strong>Secondary/complication-level organ involvement:</strong>
+- <strong>Kidney</strong> (chronic kidney disease/renal insufficiency, often in the context of hepatic crises) — <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>
+- <strong>Thyroid</strong> (central and primary hypothyroidism) — <a href="http://purl.obolibrary.org/obo/UBERON_0002046" target="_blank" rel="noopener noreferrer">UBERON:0002046</a>
+- <strong>Central nervous system</strong> (developmental delay, intellectual disability, seizures, microcephaly) — <a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a>
+- <strong>Bone marrow/hematopoietic system</strong> (neutropenia, anemia) — <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>
+- <strong>Heart</strong> (septal defects, outflow tract anomalies in a subset) — <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>
+- <strong>Cervical spine/craniocervical junction</strong> — atlanto-axial joint, odontoid process — <a href="http://purl.obolibrary.org/obo/UBERON_0004736" target="_blank" rel="noopener noreferrer">UBERON:0004736</a> (atlanto-axial joint) — newly recognized site of pathology (os odontoideum)</p>
+<p><strong>Tissue/cell level:</strong>
+- Pancreatic islet β-cells (<a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a>) — developmental failure, apoptosis
+- Hepatocytes (<a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a>) — recurrent apoptotic/necrotic injury
+- Growth-plate chondrocytes and osteoblasts/osteoclasts — impaired ossification and bone turnover</p>
+<p><strong>Subcellular level:</strong>
+- Endoplasmic reticulum (<a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a>) — site of the primary molecular lesion (PERK is an ER transmembrane sensor)</p>
+<p><strong>Localization/laterality:</strong> Skeletal involvement is typically <strong>bilateral/symmetric</strong> (multiple epiphyseal dysplasia affecting multiple joints); craniocervical instability (os odontoideum) is a midline structural anomaly.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> Congenital predisposition with <strong>infantile clinical onset</strong> — diabetes typically manifests before 6 months of age (mean ~7.6 weeks in the largest cohort; documented range 1 day to 30 months) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>). Skeletal dysplasia and hepatic crises generally emerge <strong>later</strong>, over the first years of life, and are not necessarily present at diabetes diagnosis (in one 3-patient case series, skeletal survey was unremarkable in all three at initial evaluation) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10214929/">PMC10214929</a>).</p>
+<p><strong>Progression:</strong>
+- <strong>Diabetes:</strong> permanent from onset, non-remitting, requires lifelong insulin.
+- <strong>Skeletal disease:</strong> progressive — osteopenia/osteoporosis and epiphyseal dysplasia worsen over childhood; craniocervical instability (os odontoideum) is a later, potentially progressive structural complication.
+- <strong>Hepatic disease:</strong> <strong>episodic/relapsing</strong> rather than continuously progressive — discrete crises (3–20 days each) triggered by intercurrent illness, interspersed with periods of normal or near-normal liver function; each episode carries independent mortality risk ("every episode should be considered as potentially fatal") (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>).
+- <strong>Disease course pattern:</strong> best characterized as <strong>chronic-with-superimposed-acute-crises</strong> — a stable multisystem baseline (diabetes, growth failure, evolving skeletal disease) punctuated by unpredictable, life-threatening hepatic decompensations.</p>
+<p><strong>Critical periods:</strong> The <strong>fetal/early-neonatal window</strong> is a defined critical period for PERK-dependent β-cell mass expansion (established in mouse models), explaining the very early and <em>permanent</em> (non-recoverable) nature of the diabetes. Intercurrent-illness episodes throughout childhood represent recurring "critical windows" of vulnerability for fatal hepatic decompensation.</p>
+<p><strong>Duration/course:</strong> Chronic, lifelong — no spontaneous remission of any component described. Disease is fundamentally <strong>not self-limited</strong>.</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong> Ultra-rare — <strong>fewer than 60–100 cases reported worldwide</strong> in the literature to date; true prevalence is unknown and likely underestimated due to early death before diagnosis in some cases (<a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=1667">Orphanet</a>). WRS is nonetheless recognized as <strong>the single most common cause of permanent neonatal diabetes mellitus (PNDM) in consanguineous populations</strong> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3679509/">PMC3679509</a>).</p>
+<p><strong>Inheritance pattern:</strong> Autosomal recessive; <strong>25% recurrence risk</strong> for future siblings of an affected proband; carrier (heterozygous) parents are clinically unaffected (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).</p>
+<p><strong>Penetrance:</strong> Effectively complete for the diabetes component when biallelic loss-of-function variants are present, given uniform early presentation across cohorts; penetrance/expressivity of skeletal and hepatic components is <strong>more variable</strong> (e.g., skeletal survey normal at diagnosis in several reported cases despite confirmed genotype).</p>
+<p><strong>Expressivity:</strong> <strong>Variable</strong>, even among siblings/patients with the same or similar genotype — documented cases show some family members with only diabetes and mild or absent skeletal disease, and marked variability in hepatic crisis severity and timing; genotype (missense vs. truncating) is the only established modifier identified to date.</p>
+<p><strong>Genetic anticipation:</strong> Not reported/applicable (not a repeat-expansion disorder).</p>
+<p><strong>Germline mosaicism:</strong> Not specifically documented in the literature reviewed for this report.</p>
+<p><strong>Founder effects:</strong> Yes — recurrent identical mutations within specific consanguineous kindreds/regions (e.g., p.V349Sfs*3, p.W430X recurring across multiple Saudi families) are consistent with regional founder alleles rather than panethnic hot-spot mutations (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>).</p>
+<p><strong>Consanguinity role:</strong> <strong>Central</strong> — the overwhelming majority of reported cases arise from consanguineous unions; consanguinity is explicitly noted in essentially all detailed case reports reviewed (e.g., all three patients in the <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10214929/">PMC10214929</a> case series had consanguineous parents, as did the 2025 case report of p.Gly602Val).</p>
+<p><strong>Carrier frequency:</strong> Not formally established at a population level in the sources reviewed; presumed elevated specifically within consanguineous Middle Eastern/North African/South Asian communities based on founder-mutation recurrence, but no population-representative carrier-frequency study was identified.</p>
+<p><strong>Population demographics:</strong>
+- <strong>Geographic distribution:</strong> Middle East, North Africa, Pakistan, and Turkey are disproportionately represented; Saudi Arabia alone contributed 22–28% of all reported cases/families as of a 2013 tally.
+- <strong>Sex ratio:</strong> Male predominance noted in the largest cohort (67% male, n=28) — this may partly reflect ascertainment/reporting rather than a true biological sex effect, as no sex-linked mechanism is plausible for an autosomal recessive disorder.
+- <strong>Age distribution:</strong> Skewed heavily toward infancy/early childhood at both diagnosis and death; mean age at death 5.8 years in the largest cohort, though rare long-term survivors are documented into adulthood (see Prognosis).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical suspicion:</strong> WRS should be suspected in any infant with <strong>permanent neonatal/early-infantile insulin-dependent diabetes</strong>, particularly when accompanied by (or later developing) <strong>skeletal dysplasia and/or episodes of unexplained acute liver failure</strong>, especially in the setting of parental consanguinity (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).</p>
+<p><strong>Laboratory tests:</strong>
+- HbA1c (elevated at diagnosis, typically 9–12% in reported cases)
+- Liver enzymes (markedly elevated during hepatic crises — one cohort reported transaminases ranging 242 to 50,000 IU/L, mean 8,620 IU/L)
+- Bilirubin (jaundice during crises)
+- <strong>Absence of β-cell autoantibodies</strong> (GAD, IA-2, ICA) — a key diagnostic discriminator from autoimmune type 1 diabetes
+- Normal blood calcium and phosphorus (helps distinguish from other skeletal dysplasia syndromes)
+- Renal function panel (during and between hepatic episodes)
+- Thyroid function tests (screen for central/primary hypothyroidism)
+- Complete blood count (screen for neutropenia, anemia)</p>
+<p><strong>Imaging:</strong>
+- <strong>Skeletal survey / radiographs</strong> for epiphyseal/metaphyseal dysplasia, osteopenia
+- <strong>Cervical spine imaging</strong> (flexion-extension views, CT/MRI) — now recommended given the described association with os odontoideum and atlanto-axial instability
+- Abdominal ultrasound (hepatomegaly during crises)</p>
+<p><strong>Genetic testing:</strong>
+- <strong>Molecular sequencing of <em>EIF2AK3</em></strong> (single-gene sequencing, or as part of a neonatal diabetes/monogenic diabetes gene panel) is the confirmatory test.
+- Given the phenotypic overlap and the imperative for early diagnosis, <strong>whole-exome or targeted PNDM gene-panel sequencing</strong> is generally the more practical first-line genetic test in a neonate/infant presenting with permanent diabetes, since it simultaneously interrogates <em>KCNJ11</em>, <em>ABCC8</em>, <em>INS</em>, <em>GLIS3</em>, <em>EIF2AK3</em>, and other PNDM genes.
+- <strong>Parental testing</strong> confirms carrier status and supports genetic counseling / prenatal diagnosis in future pregnancies.</p>
+<p><strong>Differential diagnosis:</strong>
+| Condition | Distinguishing feature |
+|---|---|
+| Autoimmune Type 1 diabetes | Presence of β-cell autoantibodies (GAD, IA-2, ICA); WRS is autoantibody-negative |
+| Transient neonatal diabetes | Hyperglycemia resolves; WRS diabetes is permanent |
+| <em>KCNJ11</em>/<em>ABCC8</em>-related PNDM (e.g., DEND syndrome) | Neuro-developmental/motor features but <strong>no liver disease</strong>; often sulfonylurea-responsive, unlike WRS |
+| <em>GLIS3</em>-related neonatal diabetes | Associated with <strong>congenital</strong> (not later-onset central) hypothyroidism, congenital glaucoma |
+| Other PNDM etiologies (pancreatic agenesis, IPEX, etc.) | Generally lack the combined skeletal + hepatic phenotype |
+(Source: <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>)</p>
+<p><strong>Screening:</strong> No formal population newborn-screening program exists for WRS (it is not detected by standard newborn metabolic screening panels). In high-risk consanguineous populations/regions, <strong>targeted carrier screening and cascade testing within affected families</strong> is the practical screening strategy; prenatal diagnosis is available once the familial mutation is known.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Mortality:</strong> Historically poor prognosis. In the largest cohort (n=28), <strong>46.4% of patients were deceased</strong> at a mean age of death of <strong>5.8 years</strong>; liver failure was the cause of death in essentially all deceased patients (13/13 in the sub-analysis of the 22 hepatic-failure episodes with a fatal outcome available) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>). In the 2024 systematic review/follow-up study (Aldrian et al.), liver failure was the leading cause of death in 17.9% of the pooled cohort, and <strong>overall survival was significantly better with missense genotype</strong> (p=.013) (<a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/liv.15834">Liver Int 2024;44(3)</a>).</p>
+<p><strong>Historical natural-history data:</strong> Of patients with known age at death in an earlier review, <strong>only 3/19 survived to age 10 or older</strong>; two exceptional long-term survivors reached ages 32 and 35 years (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>). A missense variant (p.S991N) has separately been associated with survival to 17.5 years (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>).</p>
+<p><strong>Impact of transplantation on survival:</strong> In the transplant sub-cohort of the 2024 Aldrian systematic review, <strong>1-, 5-, and 10-year patient survival rates were 89.4%, 65.5%, and 53.1%</strong>, respectively, and survival was significantly better in transplanted vs. non-transplanted patients (p=.0057) — the strongest available evidence that liver (or multi-organ) transplantation meaningfully improves long-term survival in WRS (<a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/liv.15834">Liver Int 2024;44(3)</a>).</p>
+<p><strong>Morbidity in survivors:</strong> Progressive skeletal disease (fractures, growth failure), craniocervical instability, developmental delay/intellectual disability, chronic kidney disease, and hypothyroidism accumulate over time even in patients who survive acute hepatic crises. Post-transplant, skeletal complications have been reported to <strong>persist</strong> despite resolution of hepatic and glycemic issues (one 6-year post-transplant follow-up: normal liver function, improved HbA1c to 7.8%, no recurrent hepatitis, but ongoing skeletal complications) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>).</p>
+<p><strong>Prognostic factors:</strong>
+- <strong>Genotype:</strong> missense mutations associated with milder disease and longer survival vs. truncating (nonsense/frameshift) mutations.
+- <strong>Transplantation status:</strong> markedly improves survival.
+- <strong>Frequency/severity of hepatic crises:</strong> the dominant determinant of mortality; "every episode should be considered as potentially fatal."</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy — diabetes management:</strong>
+- <strong>Insulin therapy</strong> is mandatory and lifelong; in the German/Austrian DPV registry sub-analysis (n=11), <strong>90% of patients used continuous subcutaneous insulin infusion (CSII/insulin pump)</strong>, with insulin requirements (~0.7 IU/kg/day at diagnosis and follow-up) comparable to well-controlled type 1 diabetes in preschoolers (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7178620/">PMC7178620</a>). Suggested NCIT term: NCIT:C15986 (Pharmacotherapy) with therapeutic_agent insulin.
+- <strong>Glycemic targets must be individualized and relatively liberal</strong> — tight control is explicitly discouraged because <strong>hepatic dysfunction impairs gluconeogenesis</strong>, making these patients disproportionately vulnerable to severe hypoglycemia, which itself can trigger hepatic decompensation. Reflecting this, glycemic control in the DPV cohort was suboptimal by standard pediatric targets (median HbA1c 8.0%; only 27% achieved &lt;7.5%) — but this likely represents an appropriate clinical trade-off rather than a failure of care (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7178620/">PMC7178620</a>).
+- Diabetes-related complications in this cohort: 70% presented in DKA at diagnosis, 10% had recurrent DKA, and 40% experienced at least one severe hypoglycemic episode during follow-up — substantially higher hypoglycemia rates than general pediatric T1D cohorts (1.9–2.8%), attributed to impaired hepatic glucose counter-regulation.</p>
+<p><strong>Surgical/transplantation:</strong>
+- <strong>Liver transplantation</strong> — the single most impactful intervention demonstrated to date; used alone or combined with pancreas and/or kidney transplantation for combined organ failure. NCIT:C15289 (Organ Transplantation).
+  - First reported successful WRS liver transplant patient maintained normal liver function &gt;6 years post-transplant with improved glycemic control and no recurrent hepatitis (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">PMC4464042</a>).
+  - <strong>Combined en bloc liver-pancreas-kidney transplantation</strong> has been performed for patients with concurrent acute liver and renal failure, using techniques such as a donor aortic conduit for graft inflow (<a href="https://onlinelibrary.wiley.com/doi/pdf/10.1111/ajt.13005">AJT 2015, Tzakis et al.</a>; additional case reports of en bloc multiorgan transplant).
+  - In the 2024 systematic review, transplantation (6 liver-only, 1 combined liver-pancreas, 2 combined liver-pancreas-kidney) was associated with significantly improved survival (1-/5-/10-year: 89.4%/65.5%/53.1%).
+- <strong>Orthopedic management:</strong> surgical stabilization for symptomatic craniocervical instability (spinal fusion performed in 2/4 patients with os odontoideum in the relevant case series) — NCIT:C16186 (Orthopedic Surgical Procedure).</p>
+<p><strong>Supportive/multisystem care:</strong>
+- Aggressive, rapid supportive management of acute hepatic failure episodes (the dominant driver of mortality) — NCIT:C15747 (Supportive Care).
+- Monitoring and treatment of hypothyroidism (levothyroxine replacement), renal dysfunction, neutropenia/infection risk.
+- Orthopedic surveillance and fracture management for progressive osteoporosis/skeletal dysplasia.
+- <strong>Avoidance of unnecessary general anesthesia</strong> and minimization of non-essential medications/vaccines as precautionary measures against triggering hepatic decompensation.
+- Growth and nutritional support; developmental/rehabilitative services (physical, occupational, speech therapy as needed) — NCIT:C15302 (Physical Therapy).</p>
+<p><strong>Experimental/investigational — no disease-modifying therapy is currently approved.</strong> Literature identifies plausible but unproven strategies targeting the underlying ER-stress mechanism:
+- <strong>Chemical chaperones</strong> (mechanism: reduce ER protein-misfolding burden, potentially compensating for loss of the PERK stress-response arm) — proposed but not clinically tested in WRS specifically (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).
+- <strong>GLP-1 receptor agonists</strong> — proposed as a potential ER-stress-reducing/β-cell-protective strategy, again by analogy to broader ER-stress diabetes biology rather than WRS-specific trials.
+- <strong>ISRIB and related Integrated Stress Response (ISR) modulators</strong> — mechanistically relevant to the eIF2α/ISR pathway broadly, but caution is warranted: because WRS already reflects a <em>deficient</em> PERK/ISR response, further ISR inhibition (as ISRIB does) could theoretically <strong>worsen</strong> rather than help ER-stress-related pathology in this specific condition — this is a mechanistic caution raised in the general ISR-therapeutics literature (<a href="https://www.science.org/doi/10.1126/science.aat5314">Science 2019, aat5314</a>; <a href="https://www.pnas.org/doi/10.1073/pnas.1815767116">PNAS 2019, ISRIB</a>), not a WRS-specific clinical finding.
+- No gene therapy, RNA-based therapy, or targeted small-molecule PERK-agonist strategy has reached clinical development for WRS specifically as of this search.</p>
+<p><strong>Clinical trials:</strong> No active interventional clinical trials specific to Wolcott-Rallison syndrome were identified in this search (consistent with its ultra-rarity); management is guided by case series/registry data (e.g., the German/Austrian DPV database) rather than randomized trial evidence.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Not applicable in the sense of preventing occurrence in an individual once conceived (monogenic recessive disorder); the only true primary-prevention lever is <strong>reproductive/genetic counseling</strong> in at-risk consanguineous families (25% recurrence risk per pregnancy for two carrier parents) — NCIT:C15240 (Genetic Counseling).</p>
+<p><strong>Genetic/reproductive prevention:</strong>
+- Carrier testing of parents/extended family once a proband's mutation is identified.
+- <strong>Prenatal diagnosis</strong> via genotyping of the known familial mutation(s) is available for future pregnancies (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">PMC2991281</a>).
+- Preimplantation genetic diagnosis is a logical extension for known-carrier couples, though not explicitly documented as reported/utilized for WRS in the literature reviewed.</p>
+<p><strong>Secondary prevention (early detection):</strong> Early molecular diagnosis in an infant presenting with permanent neonatal diabetes — particularly from a consanguineous family — enables <strong>anticipatory screening for skeletal dysplasia, craniocervical instability, hepatic dysfunction, thyroid dysfunction, and renal dysfunction</strong> before they become symptomatic, and allows for planned rather than reactive management of hepatic crises.</p>
+<p><strong>Tertiary prevention (preventing complications once diagnosed):</strong>
+- Individualized, deliberately non-aggressive glycemic targets to minimize hypoglycemia-triggered hepatic decompensation.
+- Avoidance of unnecessary general anesthesia and non-essential medications.
+- Active surveillance for and prophylactic management of craniocervical instability (screening cervical spine imaging).
+- Prompt, aggressive supportive treatment at the first sign of intercurrent illness to try to blunt progression to hepatic crisis.
+- Consideration of pre-emptive/early liver (or multi-organ) transplantation referral in patients with recurrent severe hepatic crises, given the substantial survival benefit demonstrated in the 2024 systematic review.</p>
+<p><strong>Screening programs:</strong> No population-based newborn screening exists; screening is currently limited to <strong>targeted cascade testing in known-carrier families/high-prevalence consanguineous communities</strong>.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Naturally occurring disease in other species:</strong> No naturally occurring veterinary/companion-animal correlate of Wolcott-Rallison syndrome was identified in this search (no OMIA entry or veterinary case series surfaced). WRS, as characterized, is essentially a human-described disease entity tied to specific <em>EIF2AK3</em> loss-of-function alleles arising in consanguineous human populations.</p>
+<p><strong>Orthologous gene:</strong> Mouse ortholog <em>Eif2ak3</em> (<a href="https://bioregistry.io/MGI:1341830" target="_blank" rel="noopener noreferrer">MGI:1341830</a>) is well characterized and highly conserved with human <em>EIF2AK3</em>; the 2024 zebrafish study explicitly notes "high similarity between human and zebrafish PERK," supporting cross-species conservation of PERK structure and function (<a href="https://www.biorxiv.org/content/10.1101/2024.04.16.589737v3">bioRxiv 2024.04.16.589737</a>; <a href="https://www.informatics.jax.org/marker/MGI:1341830">MGI:1341830</a>).</p>
+<p><strong>Comparative biology:</strong> The core PERK/eIF2α/UPR pathway is deeply evolutionarily conserved (present in mouse, zebrafish, and more broadly across eukaryotes), and its role in β-cell development, hepatocyte stress tolerance, and bone homeostasis appears conserved across the mammalian and zebrafish models studied, supporting strong translational validity of these model systems for mechanism (though not necessarily for the full multisystem human clinical phenotype — see Model Organisms).</p>
+<p><strong>Transmission/zoonotic potential:</strong> Not applicable — WRS is a non-communicable monogenic disorder.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Genetic mouse models</h3>
+<ul>
+<li><strong>Global <em>Eif2ak3</em> (Perk) knockout mice</strong> (<a href="https://bioregistry.io/MGI:1341830" target="_blank" rel="noopener noreferrer">MGI:1341830</a>) are the principal and best-validated model:</li>
+<li><strong>Recapitulates:</strong> neonatal-onset diabetes via failed β-cell developmental expansion and impaired proinsulin trafficking/secretion (<a href="https://pubmed.ncbi.nlm.nih.gov/17141632/">Cell Metab 2006, PMID:17141632</a>; <a href="https://dx.doi.org/10.2337/db09-1064">Diabetes 2009, db09-1064</a>); severe osteopenia with reduced cortical/trabecular bone density and a stunted secondary ossification center of the proximal tibia at birth, closely mirroring human epiphyseal dysplasia and osteoporosis (<a href="https://www.nature.com/articles/s41419-020-03046-z">Cell Death Dis 2020</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8016635/">PMC8016635</a>).</li>
+<li>PERK is shown to be specifically required during the <strong>fetal/early-neonatal window</strong> for β-cell proliferation and differentiation, directly explaining the permanence and very early onset of human WRS diabetes — a key mechanistic insight derived from this model that is not directly testable in human tissue.</li>
+<li><strong>Acute/conditional PERK ablation models</strong> (<a href="https://link.springer.com/article/10.1186/1471-2121-10-61">BMC Mol Cell Biol 2009, link.springer.com/article/10.1186/1471-2121-10-61</a>) show that even acute (post-developmental) PERK loss causes ER dysfunction, reduced insulin secretion, and reduced β-cell proliferation — indicating PERK also has an ongoing homeostatic role beyond the developmental window.</li>
+<li><strong>Limitations:</strong> global knockout mice do not fully reproduce the episodic, infection-triggered hepatic failure pattern seen in humans as a primary readout in the cited literature (the hepatic phenotype is less emphasized in the mouse literature reviewed than the pancreatic and skeletal phenotypes), and mouse models cannot capture some human-specific features (e.g., craniocervical os odontoideum has not been reported in mouse models).</li>
+</ul>
+<h3>Zebrafish model (pharmacological PERK inhibition, 2024)</h3>
+<ul>
+<li><strong>Model:</strong> wild-type zebrafish treated with the selective PERK inhibitor <strong>GSK2606414</strong>, chosen because zebrafish PERK shows high sequence/functional similarity to human PERK (<a href="https://www.biorxiv.org/content/10.1101/2024.04.16.589737v3">bioRxiv 2024.04.16.589737</a>).</li>
+<li><strong>Recapitulates:</strong> growth and skeletal developmental defects, neuromuscular and cardiac deficiencies, and — notably — <strong>decreased pancreatic β-cell mass with disrupted glucose homeostasis</strong>, reproducing a diabetic phenotype pharmacologically rather than genetically.</li>
+<li><strong>Significance:</strong> this is the newest (2024) addition to the WRS model-organism toolkit and the first reported use of a <strong>pharmacological, rather than purely genetic</strong>, PERK-loss model to reproduce the multisystem WRS phenotype, offering a scalable platform for future small-molecule/chaperone-based therapeutic screening.</li>
+<li><strong>Relationship to fidelity/limitations:</strong> as a pharmacological (not genetic) and developmental (acute exposure, not lifelong deficiency) model, it models <strong>PERK loss of function broadly</strong> rather than any single patient-specific <em>EIF2AK3</em> allele, and — being zebrafish — cannot model the human-specific craniocervical or long-term hepatic-failure natural history; it is best understood as a <strong>developmental-biology and drug-screening model</strong>, complementary to the mouse knockout's stronger fidelity for the β-cell/bone developmental mechanism.</li>
+</ul>
+<h3>Resources</h3>
+<ul>
+<li>MGI: <em>Eif2ak3</em> gene page (<a href="https://bioregistry.io/MGI:1341830" target="_blank" rel="noopener noreferrer">MGI:1341830</a>) — mouse allele/phenotype resource</li>
+<li>No dedicated WRS entry found in OMIA (no naturally occurring animal disease correlate)</li>
+</ul>
+<hr />
+<h2>Summary of Suggested Ontology Bindings for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Suggested term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009192" target="_blank" rel="noopener noreferrer">MONDO:0009192</a>; <a href="https://bioregistry.io/OMIM:226980" target="_blank" rel="noopener noreferrer">OMIM:226980</a>; <a href="https://bioregistry.io/ORPHA:1667" target="_blank" rel="noopener noreferrer">ORPHA:1667</a></td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>hgnc EIF2AK3 (verify current HGNC ID before binding)</td>
+</tr>
+<tr>
+<td>Core phenotype — diabetes</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0008205" target="_blank" rel="noopener noreferrer">HP:0008205</a></td>
+</tr>
+<tr>
+<td>Core phenotype — skeletal dysplasia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003400" target="_blank" rel="noopener noreferrer">HP:0003400</a></td>
+</tr>
+<tr>
+<td>Core phenotype — hepatic failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0006554" target="_blank" rel="noopener noreferrer">HP:0006554</a></td>
+</tr>
+<tr>
+<td>Cell type — β-cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a></td>
+</tr>
+<tr>
+<td>Cell type — hepatocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" rel="noopener noreferrer">CL:0000182</a></td>
+</tr>
+<tr>
+<td>Cell type — osteoclast</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000092" target="_blank" rel="noopener noreferrer">CL:0000092</a></td>
+</tr>
+<tr>
+<td>Biological process — ER stress response</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a></td>
+</tr>
+<tr>
+<td>Biological process — PERK-mediated UPR</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0036499" target="_blank" rel="noopener noreferrer">GO:0036499</a></td>
+</tr>
+<tr>
+<td>Anatomy — pancreas</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a></td>
+</tr>
+<tr>
+<td>Anatomy — liver</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a></td>
+</tr>
+<tr>
+<td>Treatment — insulin/pharmacotherapy</td>
+<td>NCIT:C15986</td>
+</tr>
+<tr>
+<td>Treatment — organ transplantation</td>
+<td>NCIT:C15289</td>
+</tr>
+<tr>
+<td>Treatment — orthopedic surgery</td>
+<td>NCIT:C16186</td>
+</tr>
+<tr>
+<td>Treatment — genetic counseling</td>
+<td>NCIT:C15240</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>(All ontology IDs above should be independently re-verified via OAK/<code>just validate-terms</code> before use in a dismech KB entry, per project convention — this report is a research lead, not pre-validated curation content.)</em></p>
+<hr />
+<h3>Sources</h3>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/21518408/">Two novel mutations in the EIF2AK3 gene in children with Wolcott-Rallison syndrome — PubMed</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3386768/">Wolcott-Rallison Syndrome Due to a Novel Mutation (R491X) in EIF2AK3 Gene — PMC3386768</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8187601/">Identification of Two Novel Compound Heterozygous EIF2AK3 Mutations — PMC8187601</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12960215/">Wolcott-Rallison syndrome: pathogenic insights... — PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10214929/">Wolcott-Rallison syndrome: a case series of three patients — PMC10214929</a></li>
+<li><a href="https://www.nature.com/articles/ng0800_406">EIF2AK3 is mutated in patients with Wolcott-Rallison syndrome — Nature Genetics 2000</a></li>
+<li><a href="https://omim.org/entry/226980">OMIM #226980</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5198013/">Wolcott-Rallison Syndrome with Novel EIF2AK3 Gene Mutation — PMC5198013</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7099831/">A novel splice site indel alteration... Hungary — PMC7099831</a></li>
+<li><a href="https://www.biorxiv.org/content/10.1101/2024.04.16.589737v3">PERK inhibition with GSK2606414 in zebrafish — bioRxiv 2024</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2991281/">Wolcott-Rallison syndrome — PMC2991281</a></li>
+<li><a href="https://www.orpha.net/consor/cgi-bin/OC_Exp.php?lng=EN&amp;Expert=1667">Orphanet: Wolcott-Rallison syndrome</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3679509/">Frequency and spectrum of Wolcott–Rallison syndrome in Saudi Arabia — PMC3679509</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/abs/10.1111/liv.15834">Natural history of Wolcott-Rallison syndrome: A systematic review and follow-up study — Liver International 2024</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4464042/">Liver Disease and Other Comorbidities in Wolcott-Rallison Syndrome — PMC4464042</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7178620/">Diabetes management in Wolcott-Rallison syndrome: DPV database — PMC7178620</a></li>
+<li><a href="https://onlinelibrary.wiley.com/doi/pdf/10.1111/ajt.13005">Liver, Pancreas and Kidney Transplantation for Wolcott–Rallison Syndrome — AJT 2015</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4748609/">Os odontoideum in Wolcott-Rallison syndrome: case series of 4 patients — PMC4748609</a></li>
+<li><a href="https://www.degruyterbrill.com/document/doi/10.1515/jpem-2025-0216/html">Wolcott-Rallison syndrome due to novel homozygous missense (p.Gly602Val) — J Pediatr Endocrinol Metab 2025</a></li>
+<li><a href="https://diabetesjournals.org/diabetes/article/53/7/1876/14309/Wolcott-Rallison-SyndromeClinical-Genetic-and">Wolcott-Rallison syndrome: clinical, genetic, and functional study of EIF2AK3 mutations — Diabetes 2004</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/17141632/">PERK EIF2AK3 control of pancreatic β-cell differentiation and proliferation — Cell Metabolism 2006</a></li>
+<li><a href="https://dx.doi.org/10.2337/db09-1064">PERK (EIF2AK3) Regulates Proinsulin Trafficking and Quality Control — Diabetes 2009</a></li>
+<li><a href="https://link.springer.com/article/10.1186/1471-2121-10-61">Acute ablation of PERK results in ER dysfunctions — BMC Mol Cell Biol 2009</a></li>
+<li><a href="https://www.nature.com/articles/s41419-020-03046-z">PERK controls bone homeostasis through osteoclast regulation — Cell Death &amp; Disease 2020</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8016635/">PERK signaling pathway in bone metabolism — PMC8016635</a></li>
+<li><a href="https://www.informatics.jax.org/marker/MGI:1341830">Eif2ak3 MGI Mouse Gene Detail — MGI:1341830</a></li>
+<li><a href="https://www.science.org/doi/10.1126/science.aat5314">The integrated stress response: From mechanism to disease — Science 2019</a></li>
+<li><a href="https://www.pnas.org/doi/10.1073/pnas.1815767116">ISRIB blunts the integrated stress response — PNAS 2019</a></li>
+<li><a href="https://rarediseases.info.nih.gov/diseases/5589/wolcott-rallison-syndrome">GARD/NORD Wolcott-Rallison syndrome overview</a></li>
+<li><a href="https://www.informatics.jax.org/disease/226980">MGI/OMIM Disease Ontology Browser DOID:0090060</a></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Wiskott_Aldrich_Syndrome-fallback.html">← Wiskott-Aldrich syndrome (Fallback)</a>
+                
+                
+                <a href="Wolf-Hirschhorn_Syndrome-falcon.html">Wolf-Hirschhorn_Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Wolcott-Rallison_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Wolcott-Rallison_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

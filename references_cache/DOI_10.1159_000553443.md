@@ -1,0 +1,23 @@
+---
+reference_id: DOI:10.1159/000553443
+title: "The Link between Obstructive Sleep Apnea and Dry Eye Disease: Pathophysiology and Current Updates"
+authors:
+- Hung-Liang Pai
+- Ting-Chi Pan
+- Chien-Han Tsao
+journal: Ophthalmic Research
+year: '2026'
+doi: 10.1159/000553443
+content_type: abstract_only
+is_preprint: false
+full_text_attempted: true
+---
+
+# The Link between Obstructive Sleep Apnea and Dry Eye Disease: Pathophysiology and Current Updates
+**Authors:** Hung-Liang Pai, Ting-Chi Pan, Chien-Han Tsao
+**Journal:** Ophthalmic Research (2026)
+**DOI:** [10.1159/000553443](https://doi.org/10.1159/000553443)
+
+## Content
+
+Background: Obstructive sleep apnea (OSA) and dry eye disease (DED) are increasingly recognized as interrelated conditions with significant clinical implications. Tear film stability is disrupted by inflammation and lacrimal and meibomian gland dysfunction, which are caused by chronic intermittent hypoxia and associated oxidative stress in OSA. These disruptions result in both aqueous-deficient and evaporative forms of DED. Summary: Continuous positive airway pressure (CPAP) therapy is the standard treatment for OSA patients with both beneficial and detrimental effects. It alleviates inflammation and hypoxia while potentially exacerbating DED due to airflow leakage or retrograde air movement. Mechanical factors such as face-down sleeping positions and habitual eye rubbing enhance the risk of meibomian gland dysfunction in OSA patients. This review highlights the multifactorial etiology of OSA-related DED, highlighting the roles of systemic and ocular inflammation, lipid metabolism dysfunction, and mechanical stress. Key Messages: We also emphasize the need for interdisciplinary management, combining sleep medicine and ophthalmology, to optimize outcomes for OSA patients with ocular surface disorders. Future research into targeted therapies, such as modulation of the Hif/NF-κB pathways and innovative CPAP device designs, holds promise for mitigating OSA-induced ocular complications.

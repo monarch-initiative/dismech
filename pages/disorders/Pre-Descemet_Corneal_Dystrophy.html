@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4290,6 +4367,7 @@ Deep corneal deposits closely resembling PDCD are also frequently seen in X-link
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4311,6 +4389,7 @@ Deep corneal deposits closely resembling PDCD are also frequently seen in X-link
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4403,6 +4482,7 @@ Deep corneal deposits closely resembling PDCD are also frequently seen in X-link
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4427,6 +4507,7 @@ Deep corneal deposits closely resembling PDCD are also frequently seen in X-link
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4448,6 +4529,7 @@ Deep corneal deposits closely resembling PDCD are also frequently seen in X-link
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4533,6 +4615,7 @@ It is named &#34;deep corneal deposits&#34; rather than &#34;PDCD&#34; deliberat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4557,6 +4640,7 @@ It is named &#34;deep corneal deposits&#34; rather than &#34;PDCD&#34; deliberat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4578,6 +4662,7 @@ It is named &#34;deep corneal deposits&#34; rather than &#34;PDCD&#34; deliberat
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4738,6 +4823,7 @@ Three outcomes are possible and they are not equivalent. If both arms store chol
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4759,6 +4845,7 @@ Three outcomes are possible and they are not equivalent. If both arms store chol
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4891,6 +4978,7 @@ It matters for what this record is. If IC3D is right, the STS arm belongs to an 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4912,6 +5000,7 @@ It matters for what this record is. If IC3D is right, the STS arm belongs to an 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5044,6 +5133,7 @@ What keeps the question open rather than closed is that the same source reports 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5068,6 +5158,7 @@ What keeps the question open rather than closed is that the same source reports 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5089,6 +5180,7 @@ What keeps the question open rather than closed is that the same source reports 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5126,6 +5218,13 @@ What keeps the question open rather than closed is that the same source reports 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-keratocyte-lysosomal-lipofuscin-like-lipoprotein-accumulation" data-dismech-node="Keratocyte Lysosomal Lipofuscin-Like Lipoprotein Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Keratocyte Lysosomal Lipofuscin-Like Lipoprotein Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The proposed initiating lesion of the isolated arm, and the reason that arm reads as a degeneration. Transmission electron microscopy of PDCD corneas shows membrane-bound intracellular vacuoles containing electron-dense material that has the appearance of secondary lysosomes, together with inclusions of a lipofuscin-like lipoprotein. Lipofuscin is the classic marker of accumulated, incompletely degraded material in long-lived post-mitotic cells, and its presence is what the reporting authors read as evidence of a degenerative process rather than of a genetically determined storage product. Consistent with that, onset is usually after age 30.
 It is curated PROVISIONAL rather than established because IC3D itself reports that the histopathological studies of PDCD are not consistent, and because no gene, locus or metabolic defect has been assigned that would explain why the material accumulates.</div>
@@ -5235,6 +5334,7 @@ This pathophysiological event involves increased lysosome (GO:0005764). GO:00057
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5256,6 +5356,7 @@ This pathophysiological event involves increased lysosome (GO:0005764). GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5283,6 +5384,7 @@ This pathophysiological event involves increased lysosome (GO:0005764). GO:00057
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5305,6 +5407,13 @@ This pathophysiological event involves increased lysosome (GO:0005764). GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-steroid-sulfatase-function" data-dismech-node="Loss of Steroid Sulfatase Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Steroid Sulfatase Function</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The trigger of the genetically characterised arm. STS at Xp22.31 encodes steroid sulfatase, the enzyme that hydrolyses cholesterol sulfate, dehydroepiandrosterone sulfate and estrone sulfate. Three classes of lesion have been found in families with pre-Descemet deposits and X-linked ichthyosis - point mutations, partial deletions removing some of the ten coding exons, and complete deletion of the locus, in one case a 4.4 Mb hemizygous deletion taking three further genes with it. The informative observation is that the corneal phenotype does not differ between these classes, which is the argument that all of them converge on loss of enzyme function rather than on some deletion-size-dependent contiguous-gene effect.</div>
 
@@ -5366,6 +5475,8 @@ This pathophysiological event involves STS (hgnc:11425). hgnc:11425 is a gene fr
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5378,6 +5489,9 @@ This pathophysiological event involves STS (hgnc:11425). hgnc:11425 is a gene fr
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous point mutations, partial deletions (exons 1-7 reported) and complete deletions of STS at Xp22.31 in affected males.</div>
 
@@ -5465,6 +5579,7 @@ This pathophysiological event involves steryl-sulfatase activity (GO:0004773), q
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5486,6 +5601,7 @@ This pathophysiological event involves steryl-sulfatase activity (GO:0004773), q
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5513,6 +5629,7 @@ This pathophysiological event involves steryl-sulfatase activity (GO:0004773), q
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5537,6 +5654,13 @@ This pathophysiological event involves steryl-sulfatase activity (GO:0004773), q
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cholesterol-sulfate-accumulation" data-dismech-node="Cholesterol Sulfate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cholesterol Sulfate Accumulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Steroid sulfatase hydrolyses cholesterol sulfate, so loss of the enzyme allows the sulfated sterol to accumulate. This is firmly established in the skin, where excess cholesterol sulfate in the stratum corneum is what produces the barrier dysfunction and scaling of X-linked ichthyosis, and it is the natural candidate for the corneal deposit as well.
 It is curated as PROVISIONAL because that last step is an inference, and because there is a competing candidate. No study has chemically identified the material inside the posterior keratocytes of an STS-deficient cornea; what has been shown is that the deposit is there, that it is intracellular, and that the patient lacks steroid sulfatase. Meanwhile the ultrastructural material characterised in isolated PDCD is a lipofuscin-like lipoprotein, not a sulfated sterol. Whether the two arms share a stored substance or merely a location is unresolved, and the knowledge-gap discussion on this entry keeps that open rather than assuming it.</div>
@@ -5591,6 +5715,7 @@ It is curated as PROVISIONAL because that last step is an inference, and because
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5612,6 +5737,7 @@ It is curated as PROVISIONAL because that last step is an inference, and because
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5639,6 +5765,7 @@ It is curated as PROVISIONAL because that last step is an inference, and because
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5661,6 +5788,13 @@ It is curated as PROVISIONAL because that last step is an inference, and because
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-deposition-in-posterior-keratocytes" data-dismech-node="Intracellular Deposition in Posterior Keratocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular Deposition in Posterior Keratocytes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The shared cellular lesion, and the observation that most sharply separates this entity from the classical stromal dystrophies. In vivo confocal microscopy shows enlarged, hyperreflective keratocytes in the posterior stroma carrying intracellular dots, with activated keratocytes as far forward as the very anterior stroma; the same is seen in the STS-deficient arm, where hyperreflective particles sit inside enlarged and activated posterior keratocytes. The stromal dystrophies in the same MONDO branch - macular, Schnyder, congenital stromal, the TGFBI forms - deposit abnormal material in the extracellular matrix and progressively opacify the cornea. Here the cell is the affected compartment, the cells are enlarged and activated rather than lost, and the epithelium and endothelium are spared.
 The extracellular contribution is not nil, and the entry does not pretend otherwise: diffuse small extracellular stromal deposits are described in vivo, even though transmission electron microscopy of PDCD reports none. That is one of the inconsistencies IC3D flags in the histopathology.</div>
@@ -5790,6 +5924,7 @@ This pathophysiological event occurs in Corneal stroma, annotated with substanti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5811,6 +5946,7 @@ This pathophysiological event occurs in Corneal stroma, annotated with substanti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5838,6 +5974,7 @@ This pathophysiological event occurs in Corneal stroma, annotated with substanti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5862,6 +5999,13 @@ This pathophysiological event occurs in Corneal stroma, annotated with substanti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deep-stromal-punctate-opacification-anterior-to-descemet-membrane" data-dismech-node="Deep Stromal Punctate Opacification Anterior to Descemet Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Deep Stromal Punctate Opacification Anterior to Descemet Membrane</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The tissue-level endpoint and the diagnostic finding: focal, fine, polymorphic grey opacities - central, annular or diffuse - confined to the deep stroma immediately anterior to Descemet membrane, bilaterally. Cross-sectional imaging resolves the same thing as a hyperreflective line running limbus to limbus just anterior to Descemet&#39;s membrane, and Scheimpflug tomography shows a second, posterior light-scattering peak that does not belong in a normal cornea.
 The name is a slight misdescription that is worth stating explicitly: the opacities are visible pre-Descemet, but multimodal imaging finds fine hyperreflective particles through the posterior, mid and anterior stroma. The disorder affects the whole stroma; the pre-Descemet location is where the damage is maximal, not where it is confined.</div>
@@ -5937,6 +6081,7 @@ This pathophysiological event occurs in Descemet&#39;s membrane (UBERON:0004367)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5958,6 +6103,7 @@ This pathophysiological event occurs in Descemet&#39;s membrane (UBERON:0004367)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5985,6 +6131,7 @@ This pathophysiological event occurs in Descemet&#39;s membrane (UBERON:0004367)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6009,6 +6156,13 @@ This pathophysiological event occurs in Descemet&#39;s membrane (UBERON:0004367)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-visually-silent-corneal-finding" data-dismech-node="Visually Silent Corneal Finding" data-dismech-type="pathophysiology">
                 <div class="item-name">Visually Silent Corneal Finding</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The organism-level outcome, unusual in being an absence of disability. Vision is usually unaffected and patients are typically asymptomatic, so PDCD requires no treatment; IC3D lists it among the dystrophies that are typically asymptomatic and need none. The qualifier &#34;usually&#34; is theirs and is kept here, because one adult in a recently described pedigree did complain of glare.
 The clinical value of the finding is therefore diagnostic rather than therapeutic, and it runs in both directions: pre-Descemet opacities in a male - especially a child, since the XLI-associated deposits appear in the first decade - are a reason to examine the skin and consider copy-number analysis of STS, and known ichthyosis is a reason to look at the cornea.</div>
@@ -6048,6 +6202,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6072,6 +6227,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6093,6 +6249,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6157,6 +6314,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6201,6 +6359,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6251,6 +6410,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6293,7 +6453,7 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cholesterol Sulfate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Steroid sulfatase hydrolyses cholesterol sulfate, so loss of the enzyme allows the sulfated sterol to accumulate. This is firmly established in the skin, where excess cholesterol sulfate in the stratum corneum is what produces the barrier dysfunction and scaling of X-linked ichthyosis, and it is the natural candidate for the corneal deposit as well.\\nIt is curated as PROVISIONAL because that last step is an inference, and because there is a competing candidate. No study has chemically identified the material inside the posterior keratocytes of an STS-deficient cornea; what has been shown is that the deposit is there, that it is intracellular, and that the patient lacks steroid sulfatase. Meanwhile the ultrastructural material characterised in isolated PDCD is a lipofuscin-like lipoprotein, not a sulfated sterol. Whether the two arms share a stored substance or merely a location is unresolved, and the knowledge-gap discussion on this entry keeps that open rather than assuming it.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"XLI-Associated Deep Corneal Deposits\"], \"role\": \"central_effector\"}}, {\"id\": \"Deep Stromal Punctate Opacification Anterior to Descemet Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint and the diagnostic finding: focal, fine, polymorphic grey opacities - central, annular or diffuse - confined to the deep stroma immediately anterior to Descemet membrane, bilaterally. Cross-sectional imaging resolves the same thing as a hyperreflective line running limbus to limbus just anterior to Descemet\u0027s membrane, and Scheimpflug tomography shows a second, posterior light-scattering peak that does not belong in a normal cornea.\\nThe name is a slight misdescription that is worth stating explicitly: the opacities are visible pre-Descemet, but multimodal imaging finds fine hyperreflective particles through the posterior, mid and anterior stroma. The disorder affects the whole stroma; the pre-Descemet location is where the damage is maximal, not where it is confined.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"locations\": [\"Descemet\u0027s membrane\"]}}, {\"id\": \"Intracellular Deposition in Posterior Keratocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared cellular lesion, and the observation that most sharply separates this entity from the classical stromal dystrophies. In vivo confocal microscopy shows enlarged, hyperreflective keratocytes in the posterior stroma carrying intracellular dots, with activated keratocytes as far forward as the very anterior stroma; the same is seen in the STS-deficient arm, where hyperreflective particles sit inside enlarged and activated posterior keratocytes. The stromal dystrophies in the same MONDO branch - macular, Schnyder, congenital stromal, the TGFBI forms - deposit abnormal material in the extracellular matrix and progressively opacify the cornea. Here the cell is the affected compartment, the cells are enlarged and activated rather than lost, and the epithelium and endothelium are spared.\\nThe extracellular contribution is not nil, and the entry does not pretend otherwise: diffuse small extracellular stromal deposits are described in vivo, even though transmission electron microscopy of PDCD reports none. That is one of the inconsistencies IC3D flags in the histopathology.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Posterior stromal keratocyte\"], \"role\": \"central_effector\", \"locations\": [\"Corneal stroma\"], \"animal_models\": [{\"name\": \"Spontaneous canine posterior stromal dystrophy (comparative phenocopy)\", \"species\": \"Canis lupus familiaris\", \"genotype\": \"Not determined - no orthologous mutation demonstrated\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The canine cornea reproduces the cellular lesion this node curates - intracellular hyperreflective deposits in enlarged posterior keratocytes, graded toward Descemet membrane - independently of any human tissue.\"}]}}, {\"id\": \"Keratocyte Lysosomal Lipofuscin-Like Lipoprotein Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed initiating lesion of the isolated arm, and the reason that arm reads as a degeneration. Transmission electron microscopy of PDCD corneas shows membrane-bound intracellular vacuoles containing electron-dense material that has the appearance of secondary lysosomes, together with inclusions of a lipofuscin-like lipoprotein. Lipofuscin is the classic marker of accumulated, incompletely degraded material in long-lived post-mitotic cells, and its presence is what the reporting authors read as evidence of a degenerative process rather than of a genetically determined storage product. Consistent with that, onset is usually after age 30.\\nIt is curated PROVISIONAL rather than established because IC3D itself reports that the histopathological studies of PDCD are not consistent, and because no gene, locus or metabolic defect has been assigned that would explain why the material accumulates.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Posterior stromal keratocyte\"], \"subtypes\": [\"Isolated PDCD\"], \"role\": \"trigger\"}}, {\"id\": \"Loss of Steroid Sulfatase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger of the genetically characterised arm. STS at Xp22.31 encodes steroid sulfatase, the enzyme that hydrolyses cholesterol sulfate, dehydroepiandrosterone sulfate and estrone sulfate. Three classes of lesion have been found in families with pre-Descemet deposits and X-linked ichthyosis - point mutations, partial deletions removing some of the ten coding exons, and complete deletion of the locus, in one case a 4.4 Mb hemizygous deletion taking three further genes with it. The informative observation is that the corneal phenotype does not differ between these classes, which is the argument that all of them converge on loss of enzyme function rather than on some deletion-size-dependent contiguous-gene effect.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"steryl-sulfatase activity\"], \"genes\": [\"STS\"], \"gene_terms\": [{\"label\": \"STS\", \"id\": \"hgnc:11425\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous point mutations, partial deletions (exons 1-7 reported) and complete deletions of STS at Xp22.31 in affected males.\"}, \"subtypes\": [\"XLI-Associated Deep Corneal Deposits\"], \"role\": \"trigger\"}}, {\"id\": \"STS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STS\"], \"gene_terms\": [{\"label\": \"STS\", \"id\": \"hgnc:11425\"}], \"subtypes\": [\"XLI-Associated Deep Corneal Deposits\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Spontaneous canine posterior stromal dystrophy (comparative phenocopy)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring canine case, not an engineered model, and included here for what it does and does not establish. In vivo confocal microscopy of a dog with bilateral, non-inflammatory posterior corneal stromal opacities showed hyperreflective deposits inside keratocytes, with the number of enlarged deposit-containing keratocytes increasing toward the posterior stroma - the same cellular pattern, in the same corneal layer, with the same posterior-increasing gradient described in human PDCD. The reporting ophthalmologists say so themselves.\\nNo gene was identified and no orthologous variant demonstrated, so this is a comparative phenocopy rather than a validated natural model.\"}, {\"id\": \"Visually Silent Corneal Finding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level outcome, unusual in being an absence of disability. Vision is usually unaffected and patients are typically asymptomatic, so PDCD requires no treatment; IC3D lists it among the dystrophies that are typically asymptomatic and need none. The qualifier \\\"usually\\\" is theirs and is kept here, because one adult in a recently described pedigree did complain of glare.\\nThe clinical value of the finding is therefore diagnostic rather than therapeutic, and it runs in both directions: pre-Descemet opacities in a male - especially a child, since the XLI-associated deposits appear in the first decade - are a reason to examine the skin and consider copy-number analysis of STS, and known ichthyosis is a reason to look at the cornea.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\"}}], \"edges\": [{\"source\": \"Keratocyte Lysosomal Lipofuscin-Like Lipoprotein Accumulation\", \"target\": \"Intracellular Deposition in Posterior Keratocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undegraded lipoprotein retained in secondary lysosomes is the material that renders the keratocyte hyperreflective.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Steroid Sulfatase Function\", \"target\": \"Cholesterol Sulfate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Steroid sulfatase is the enzyme that hydrolyses cholesterol sulfate, so its loss allows the substrate to accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholesterol Sulfate Accumulation\", \"target\": \"Intracellular Deposition in Posterior Keratocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated sulfated sterol is the proposed identity of the hyperreflective material seen within posterior keratocytes in this arm; the link is inferred from skin, not demonstrated in cornea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular Deposition in Posterior Keratocytes\", \"target\": \"Deep Stromal Punctate Opacification Anterior to Descemet Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Light-scattering, particle-laden keratocytes concentrated in the deepest stroma are what the slit lamp resolves as discrete punctate opacities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deep Stromal Punctate Opacification Anterior to Descemet Membrane\", \"target\": \"Visually Silent Corneal Finding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the opacities are fine, deep and non-confluent they do not degrade the retinal image, so the finding presents as a sign rather than as visual loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spontaneous canine posterior stromal dystrophy (comparative phenocopy)\", \"target\": \"Intracellular Deposition in Posterior Keratocytes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The canine cornea reproduces the cellular lesion this node curates - intracellular hyperreflective deposits in enlarged posterior keratocytes, graded toward Descemet membrane - independently of any human tissue.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A single spontaneous case with no genotype: no STS variant, no orthologous mutation of any kind, and no demonstration that the stored material is the same. The resemblance is at the level of imaging phenotype only, and the reporting authors describe it as \\\"reminiscent of\\\" rather than as the same disease. It therefore cannot support any causal or therapeutic inference about the human entity; its value is that the cellular pattern recurs in a second species, which is weak evidence that the pattern is a real biological entity rather than an artefact of human imaging convention.\"}, {\"source\": \"STS\", \"target\": \"Loss of Steroid Sulfatase Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cholesterol Sulfate Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Steroid sulfatase hydrolyses cholesterol sulfate, so loss of the enzyme allows the sulfated sterol to accumulate. This is firmly established in the skin, where excess cholesterol sulfate in the stratum corneum is what produces the barrier dysfunction and scaling of X-linked ichthyosis, and it is the natural candidate for the corneal deposit as well.\\nIt is curated as PROVISIONAL because that last step is an inference, and because there is a competing candidate. No study has chemically identified the material inside the posterior keratocytes of an STS-deficient cornea; what has been shown is that the deposit is there, that it is intracellular, and that the patient lacks steroid sulfatase. Meanwhile the ultrastructural material characterised in isolated PDCD is a lipofuscin-like lipoprotein, not a sulfated sterol. Whether the two arms share a stored substance or merely a location is unresolved, and the knowledge-gap discussion on this entry keeps that open rather than assuming it.\", \"meta\": {\"evidence_count\": 3, \"subtypes\": [\"XLI-Associated Deep Corneal Deposits\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Deep Stromal Punctate Opacification Anterior to Descemet Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint and the diagnostic finding: focal, fine, polymorphic grey opacities - central, annular or diffuse - confined to the deep stroma immediately anterior to Descemet membrane, bilaterally. Cross-sectional imaging resolves the same thing as a hyperreflective line running limbus to limbus just anterior to Descemet\u0027s membrane, and Scheimpflug tomography shows a second, posterior light-scattering peak that does not belong in a normal cornea.\\nThe name is a slight misdescription that is worth stating explicitly: the opacities are visible pre-Descemet, but multimodal imaging finds fine hyperreflective particles through the posterior, mid and anterior stroma. The disorder affects the whole stroma; the pre-Descemet location is where the damage is maximal, not where it is confined.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"locations\": [\"Descemet\u0027s membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intracellular Deposition in Posterior Keratocytes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared cellular lesion, and the observation that most sharply separates this entity from the classical stromal dystrophies. In vivo confocal microscopy shows enlarged, hyperreflective keratocytes in the posterior stroma carrying intracellular dots, with activated keratocytes as far forward as the very anterior stroma; the same is seen in the STS-deficient arm, where hyperreflective particles sit inside enlarged and activated posterior keratocytes. The stromal dystrophies in the same MONDO branch - macular, Schnyder, congenital stromal, the TGFBI forms - deposit abnormal material in the extracellular matrix and progressively opacify the cornea. Here the cell is the affected compartment, the cells are enlarged and activated rather than lost, and the epithelium and endothelium are spared.\\nThe extracellular contribution is not nil, and the entry does not pretend otherwise: diffuse small extracellular stromal deposits are described in vivo, even though transmission electron microscopy of PDCD reports none. That is one of the inconsistencies IC3D flags in the histopathology.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"Posterior stromal keratocyte\"], \"role\": \"central_effector\", \"locations\": [\"Corneal stroma\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Spontaneous canine posterior stromal dystrophy (comparative phenocopy)\", \"species\": \"Canis lupus familiaris\", \"genotype\": \"Not determined - no orthologous mutation demonstrated\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The canine cornea reproduces the cellular lesion this node curates - intracellular hyperreflective deposits in enlarged posterior keratocytes, graded toward Descemet membrane - independently of any human tissue.\"}]}}, {\"id\": \"Keratocyte Lysosomal Lipofuscin-Like Lipoprotein Accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proposed initiating lesion of the isolated arm, and the reason that arm reads as a degeneration. Transmission electron microscopy of PDCD corneas shows membrane-bound intracellular vacuoles containing electron-dense material that has the appearance of secondary lysosomes, together with inclusions of a lipofuscin-like lipoprotein. Lipofuscin is the classic marker of accumulated, incompletely degraded material in long-lived post-mitotic cells, and its presence is what the reporting authors read as evidence of a degenerative process rather than of a genetically determined storage product. Consistent with that, onset is usually after age 30.\\nIt is curated PROVISIONAL rather than established because IC3D itself reports that the histopathological studies of PDCD are not consistent, and because no gene, locus or metabolic defect has been assigned that would explain why the material accumulates.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Posterior stromal keratocyte\"], \"subtypes\": [\"Isolated PDCD\"], \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of Steroid Sulfatase Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The trigger of the genetically characterised arm. STS at Xp22.31 encodes steroid sulfatase, the enzyme that hydrolyses cholesterol sulfate, dehydroepiandrosterone sulfate and estrone sulfate. Three classes of lesion have been found in families with pre-Descemet deposits and X-linked ichthyosis - point mutations, partial deletions removing some of the ten coding exons, and complete deletion of the locus, in one case a 4.4 Mb hemizygous deletion taking three further genes with it. The informative observation is that the corneal phenotype does not differ between these classes, which is the argument that all of them converge on loss of enzyme function rather than on some deletion-size-dependent contiguous-gene effect.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"steryl-sulfatase activity\"], \"genes\": [\"STS\"], \"gene_terms\": [{\"label\": \"STS\", \"id\": \"hgnc:11425\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Hemizygous point mutations, partial deletions (exons 1-7 reported) and complete deletions of STS at Xp22.31 in affected males.\"}, \"subtypes\": [\"XLI-Associated Deep Corneal Deposits\"], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"STS\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STS\"], \"gene_terms\": [{\"label\": \"STS\", \"id\": \"hgnc:11425\"}], \"subtypes\": [\"XLI-Associated Deep Corneal Deposits\"], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Spontaneous canine posterior stromal dystrophy (comparative phenocopy)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring canine case, not an engineered model, and included here for what it does and does not establish. In vivo confocal microscopy of a dog with bilateral, non-inflammatory posterior corneal stromal opacities showed hyperreflective deposits inside keratocytes, with the number of enlarged deposit-containing keratocytes increasing toward the posterior stroma - the same cellular pattern, in the same corneal layer, with the same posterior-increasing gradient described in human PDCD. The reporting ophthalmologists say so themselves.\\nNo gene was identified and no orthologous variant demonstrated, so this is a comparative phenocopy rather than a validated natural model.\"}, {\"id\": \"Visually Silent Corneal Finding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism-level outcome, unusual in being an absence of disability. Vision is usually unaffected and patients are typically asymptomatic, so PDCD requires no treatment; IC3D lists it among the dystrophies that are typically asymptomatic and need none. The qualifier \\\"usually\\\" is theirs and is kept here, because one adult in a recently described pedigree did complain of glare.\\nThe clinical value of the finding is therefore diagnostic rather than therapeutic, and it runs in both directions: pre-Descemet opacities in a male - especially a child, since the XLI-associated deposits appear in the first decade - are a reason to examine the skin and consider copy-number analysis of STS, and known ichthyosis is a reason to look at the cornea.\", \"meta\": {\"evidence_count\": 4, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"Keratocyte Lysosomal Lipofuscin-Like Lipoprotein Accumulation\", \"target\": \"Intracellular Deposition in Posterior Keratocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Undegraded lipoprotein retained in secondary lysosomes is the material that renders the keratocyte hyperreflective.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Steroid Sulfatase Function\", \"target\": \"Cholesterol Sulfate Accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Steroid sulfatase is the enzyme that hydrolyses cholesterol sulfate, so its loss allows the substrate to accumulate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cholesterol Sulfate Accumulation\", \"target\": \"Intracellular Deposition in Posterior Keratocytes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated sulfated sterol is the proposed identity of the hyperreflective material seen within posterior keratocytes in this arm; the link is inferred from skin, not demonstrated in cornea.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intracellular Deposition in Posterior Keratocytes\", \"target\": \"Deep Stromal Punctate Opacification Anterior to Descemet Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Light-scattering, particle-laden keratocytes concentrated in the deepest stroma are what the slit lamp resolves as discrete punctate opacities.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deep Stromal Punctate Opacification Anterior to Descemet Membrane\", \"target\": \"Visually Silent Corneal Finding\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the opacities are fine, deep and non-confluent they do not degrade the retinal image, so the finding presents as a sign rather than as visual loss.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Spontaneous canine posterior stromal dystrophy (comparative phenocopy)\", \"target\": \"Intracellular Deposition in Posterior Keratocytes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The canine cornea reproduces the cellular lesion this node curates - intracellular hyperreflective deposits in enlarged posterior keratocytes, graded toward Descemet membrane - independently of any human tissue.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"A single spontaneous case with no genotype: no STS variant, no orthologous mutation of any kind, and no demonstration that the stored material is the same. The resemblance is at the level of imaging phenotype only, and the reporting authors describe it as \\\"reminiscent of\\\" rather than as the same disease. It therefore cannot support any causal or therapeutic inference about the human entity; its value is that the cellular pattern recurs in a second species, which is weak evidence that the pattern is a real biological entity rather than an artefact of human imaging convention.\"}, {\"source\": \"STS\", \"target\": \"Loss of Steroid Sulfatase Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6312,9 +6472,11 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6323,109 +6485,8 @@ The clinical value of the finding is therefore diagnostic rather than therapeuti
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ichthyosis" data-dismech-node="Ichthyosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ichthyosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0008064</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37287641" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37287641" target="_blank">PMID:37287641</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Cutaneous examination demonstrated dry, coarse, scaly ichthyotic changes characteristic of XLI in all individuals."</div>
-
-
-                <div class="evidence-explanation">Documents the ichthyotic skin phenotype in every affected individual of the two families.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28302098" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28302098" target="_blank">PMID:28302098</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dermatological examination revealed that the skin over the patient&#39;s entire body was dry and coarse, with thickening and scaling of the skin in the extensor side of the extremities."</div>
-
-
-                <div class="evidence-explanation">Records the distribution of the ichthyotic changes in a PDCD patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
+                    Eye
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-punctate-posterior-stromal-corneal-opacities" data-dismech-node="Punctate Posterior Stromal Corneal Opacities" data-dismech-type="phenotype">
@@ -6444,15 +6505,18 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007856" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0007856</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007856" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0007856</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Punctate opacification of the cornea (HP:0007856). HP:0007856 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6472,6 +6536,7 @@ This clinical feature is Punctate opacification of the cornea (HP:0007856). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6496,6 +6561,7 @@ This clinical feature is Punctate opacification of the cornea (HP:0007856). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6538,15 +6604,18 @@ This clinical feature is Punctate opacification of the cornea (HP:0007856). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011492" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0011492</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011492" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011492</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corneal stroma morphology (HP:0011492). HP:0011492 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Carried alongside the punctate-opacity phenotype (HP:0007856) on purpose, even though HP:0011492 is that term&#39;s generic ancestor. The two record different observations at different resolutions: HP:0007856 is what the slit lamp sees (discrete grey punctae at a defined depth), while this entry is what confocal microscopy sees (enlarged, activated, particle-laden keratocytes). HPO has no term for the latter, so the generic parent is the closest available anchor and the specificity lives in the description. If a keratocyte-inclusion term is ever added, this binding should move to it.</div>
@@ -6568,6 +6637,7 @@ This clinical feature is Abnormal corneal stroma morphology (HP:0011492). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6594,12 +6664,130 @@ This clinical feature is Abnormal corneal stroma morphology (HP:0011492). HP:001
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ichthyosis" data-dismech-node="Ichthyosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ichthyosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0008064</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37287641" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37287641" target="_blank">PMID:37287641</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cutaneous examination demonstrated dry, coarse, scaly ichthyotic changes characteristic of XLI in all individuals."</div>
+
+
+                <div class="evidence-explanation">Documents the ichthyotic skin phenotype in every affected individual of the two families.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28302098" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28302098" target="_blank">PMID:28302098</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dermatological examination revealed that the skin over the patient&#39;s entire body was dry and coarse, with thickening and scaling of the skin in the extensor side of the extremities."</div>
+
+
+                <div class="evidence-explanation">Records the distribution of the ichthyotic changes in a PDCD patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-glare" data-dismech-node="Glare" data-dismech-type="phenotype">
                     <div class="item-name">
                         Glare
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Left unbound deliberately. HPO has no term for glare - light scatter degrading image quality - and the nearest candidate, Photophobia (HP:0000613), is defined as &#34;Excessive sensitivity to light with the sensation of discomfort or pain in the eyes due to exposure to bright light&#34;, which is a different complaint from glare produced by a light-scattering cornea. `sqlite:obo:hp` was searched for &#34;glare&#34; and for the Photophobia and abnormal-visual-function neighbourhoods; no suitable term exists. `frequency` is likewise omitted: the source describes a single adult in one pedigree, which is below the resolution of any FrequencyEnum band.</div>
@@ -6621,6 +6809,7 @@ This clinical feature is Abnormal corneal stroma morphology (HP:0011492). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6721,6 +6910,9 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6735,6 +6927,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6762,6 +6955,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6783,6 +6977,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6868,6 +7063,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6922,6 +7118,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6943,6 +7140,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7000,6 +7198,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7021,6 +7220,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7103,6 +7303,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7124,6 +7325,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7191,6 +7393,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7240,6 +7443,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7313,6 +7517,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7409,6 +7614,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7475,6 +7681,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7496,6 +7703,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7562,6 +7770,7 @@ This disease-associated gene is STS (hgnc:11425). hgnc:11425 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7712,6 +7921,7 @@ No gene was identified and no orthologous variant demonstrated, so this is a com
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7751,6 +7961,7 @@ No gene was identified and no orthologous variant demonstrated, so this is a com
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9482,6 +9693,82 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Entry-type decision. MONDO:0017392 is a leaf under MONDO:0020213 (stromal corneal dystrophy), and dismech already has a Stromal_Corneal_Dystrophy umbrella entry with six subtypes. PDCD was nonetheless curated as its own Disease rather than folded in as a seventh subtype, because it does not share that umbrella&#39;s pathograph. The umbrella is defined by progressive deposition of abnormal material in the EXTRACELLULAR matrix causing loss of transparency and visual impairment; PDCD&#39;s material is intracellular, in enlarged posterior keratocytes, electron microscopy reports no extracellular deposits at all, and vision is spared. It is linked to the umbrella through `parents` instead.
+Entity boundary - PDCD is NOT PPPCD. IC3D edition 3 groups them in one template but keeps them distinct: punctiform and polychromatic pre-Descemet corneal dystrophy (PPPCD) is category 1, autosomal dominant, caused by PRDX3 variants at 10q26.11, with MIM #619871; PDCD proper is category 4 with &#34;MIM: PDCD - None&#34;. MONDO keeps them apart too - PPPCD is MONDO:0859248 (&#34;corneal dystrophy, punctiform and polychromatic pre-descemet&#34;), which is not a descendant of MONDO:0020213 and is not this entry. Nothing about PRDX3 is curated here, and a future PPPCD entry should be a separate file rather than a subtype of this one. This is not a theoretical hazard: the deep-research report generated for this curation had PRDX3 as its single most-mentioned gene (27 mentions, ahead of STS at 23) and devoted a whole mechanism subsection to PPPCD. Nothing from that subsection was used. PPPCD is instead recorded under `differential_diagnoses`, which is where it belongs.
+Scope of the genetic claim. STS is curated as CAUSATIVE for the XLI-associated arm only. Isolated PDCD has no identified gene and IC3D records its locus and gene as &#34;Unknown&#34;. Note also that the evidence base is small - the reporting authors describe only three genetically confirmed PDCD-with-XLI cases before adding their two families - which is why the strength of the gene-disease relationship is stated with that qualification rather than asserted flatly.
+Deliberately not curated: datasets. `just discover-datasets` returned 12 candidates, all GENE_ONLY and all matched on the string &#34;STS&#34; - which in the GEO corpus overwhelmingly means *soft tissue sarcoma* or a cell line named STS-something (H-STS neuroendocrine tumour line, STS-109 undifferentiated pleomorphic sarcoma), not steroid sulfatase. Not one concerned cornea, ichthyosis or sulfatase biology. This is Named Entity Confusion reached through dataset search in its purest form: every accession resolves, and none is about this disease. No `datasets:` block is therefore recorded, and the absence is deliberate rather than an omission.
+On genetic counselling. A reviewer reasonably suggested a `NCIT:C15240 Genetic Counseling` treatment scoped to the XLI arm, since that arm is a confirmed X-linked disorder with recurrence implications for a family. It is not added, for one reason only: none of the seven cached references contains a quotable statement about counselling. The closest is PMID:23807007&#39;s remark on the clinical utility of copy-number analysis in confirming a presumptive diagnosis, which is about diagnosis and is already curated under `diagnosis:`. Adding a counselling treatment on the strength of it being obviously true is exactly the fabrication the evidence SOP forbids, so the gap is recorded here instead. If a citable source is found - a GeneReviews chapter for X-linked ichthyosis would be the natural one - this is a ready-made addition.
+Deliberately not curated: treatments. PDCD is visually silent, and IC3D lists it among the dystrophies that are typically asymptomatic and do not require treatment. Recording a treatment here would mean inventing one; the absence is the clinically relevant fact, and it is carried by evidence on the &#34;Visually Silent Corneal Finding&#34; node rather than by an empty section.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: evidence_source consistency, glare note, canine model on PR #9489</strong> · 2026-08-25T19:52:49Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pre-descemet_Corneal_Dystrophy/2026-08-25T195249Z-claude-code-76cecc.yaml">View source</a></p>
+                        <p class="research-review-text">Review response for PR #9489 (Pre-Descemet Corneal Dystrophy). Both IMPORTANT findings fixed and
+three of four SUGGESTIONS taken; the fourth is declined with a recorded reason.
+
+IMPORTANT 1 - evidence_source consistency. Four PMID:38359414 snippets carried OTHER in
+has_subtypes and HUMAN_CLINICAL elsewhere. Rather than fix only the four the reviewer listed, I
+wrote a checker that walks the whole document, normalises every snippet&#39;s whitespace, and reports
+any (reference, snippet) pair carrying more than one evidence_source. It found the four plus two
+more of the same kind. All were resolved on the rule the reviewer proposed and extended
+consistently: classification and nomenclature judgements by the IC3D committee -&gt; OTHER (the
+category-4 status statement, the &#34;not a corneal dystrophy&#34; statement, the &#34;similar deep corneal
+deposits&#34; statement, the PPPCD category-1 statement, the &#34;distinguished phenotypically&#34; statement,
+the evidence-tier definition, and the &#34;historically described as having several subgroups&#34;
+statement); factual observations about patients -&gt; HUMAN_CLINICAL (the two age-of-onset statements
+and the two-to-four-generation familial clustering statement). The checker now reports zero
+inconsistent pairs.
+
+IMPORTANT 2 - the Glare phenotype&#39;s stale VERY_RARE clause is deleted. The notes already
+explained that frequency was deliberately omitted; the explanation text contradicting it is gone.
+
+SUGGESTION 1 taken - the first Cholesterol Sulfate Accumulation evidence item moved from SUPPORT
+to PARTIAL, and its explanation now states that the measurement is in stratum corneum, not cornea.
+The support level now carries the tissue mismatch instead of leaving it to prose.
+
+SUGGESTION 2 taken - a notes block on the Abnormal Posterior Corneal Stroma phenotype explains why
+both HP:0011492 and its descendant HP:0007856 are carried: they record different observations at
+different resolutions (slit lamp vs confocal), HPO has no keratocyte-inclusion term, and the
+binding should move if one is ever added.
+
+SUGGESTION 3 taken, and upgraded. The reviewer called the canine phenocopy &#34;genuinely optional&#34;
+because the DR report gave no identifier. An independent PubMed search recovered it -
+PMID:35346188, BMC Vet Res 2022 - and the abstract turned out to support a properly hedged model
+entry after all: &#34;With IVCM, hyperreflective deposits were identified within keratocytes and the
+number of enlarged keratocytes containing hyperreflective deposits increased towards the posterior
+stroma&#34; and &#34;most consistent with a posterior stromal dystrophy reminiscent of pre-Descemet
+corneal dystrophy described in humans&#34;. Curated as an animal_models entry with
+PARTIALLY_RECAPITULATES, fidelity LOW, one readout, and a limitations block stating that there is
+no genotype, no orthologous mutation, no demonstration the stored material is the same, and that
+the value of the observation is only that the cellular pattern recurs in a second species.
+
+SUGGESTION 4 declined, with the reason recorded in the entry notes rather than left implicit.
+Genetic counselling for the X-linked arm is obviously appropriate clinically, but none of the
+eight cached references contains a quotable statement about it. The closest is PMID:23807007&#39;s
+remark on the clinical utility of copy-number analysis, which is about diagnosis and is already
+curated under diagnosis:. Adding a counselling treatment because it is obviously true is precisely
+the fabrication the evidence SOP forbids. The notes now say so and name what source would close
+the gap.
+
+VALIDATION AFTER CHANGES (all run to completion, output quoted).
+- just validate-terms -&gt; &#34;Validation passed&#34;
+- just count-verified-snippets -&gt; &#34;Snippets checked: 70/70 verified against cached references&#34;
+- just check-title-snippets -&gt; &#34;OK: no new title-quoting snippets&#34;
+- scripts/check_snippet_length.py --against-ref origin/main -&gt; &#34;OK: no new snippets under 5 words&#34;
+- just check-duplicate-keys -&gt; &#34;OK: no duplicate mapping keys&#34;
+- just compliance -&gt; Global Compliance 90.4% (122/135), Weighted 90.9%
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

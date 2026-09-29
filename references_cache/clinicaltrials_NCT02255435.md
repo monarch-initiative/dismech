@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT02255435"
+reference_id: clinicaltrials:NCT02255435
 title: "A Phase 2 Study of the Safety, Efficacy, and Pharmacodynamics of RTA 408 in the Treatment of Friedreich's Ataxia (MOXIe)"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Phase 2 Study of the Safety, Efficacy, and Pharmacodynamics of RTA 408 in the Treatment of Friedreich's Ataxia (MOXIe)

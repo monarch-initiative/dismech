@@ -1,0 +1,45 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Cardiomyopathy_Dilated_2H
+  path: kb/disorders/Cardiomyopathy_Dilated_2H.yaml
+session:
+  id: 2026-09-03T134107Z-claude-code-f85513
+  timestamp: '2026-09-03T13:41:07Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10494
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  summary: Replace the wrong-disease research report with a correct one; MONDO ID
+    confirmed as the cause
+  details: |
+    Replaces the committed deep-research report with a correct one, and settles the question of what caused the original to be about the wrong disease.
+
+    The reviewer on PR #10494 traced the wrong-disease report to an empty mondo_id in its frontmatter and asked for a re-run with the identifier supplied. Doing that produced a clean controlled result, because the only variable that changed between runs was the identifier - same provider, same disease name, same prompt template:
+
+      run 1, mondo_id '':                  RPL3L 44 mentions, ASNA1/GET3 0
+      run 2, trailing --var override, '':  RPL3L 44 mentions, ASNA1/GET3 0
+      run 3, patched recipe, MONDO:0859358: RPL3L 0 mentions,  ASNA1/GET3 49
+
+    Run 2 is worth recording because it was my error and I reported it as a test when it was not one. I passed --var mondo_id=MONDO:0859358 as a trailing argument assuming it would override the hardcoded empty value in the recipe; it does not, and the report came back with mondo_id '' and reproduced the original failure exactly. I posted corrections on PR #10494 and PR #10696 rather than leave the claim standing. The practical consequence is that the hardcoded empty value cannot be worked around from the command line at all, which makes the justfile fix in #10696 the only route.
+
+    Run 3 was produced with that fix applied locally and uncommitted in this worktree; the local patch was reverted immediately afterwards, and project.justfile is unmodified on this branch.
+
+    The corrected report independently confirms the mechanism of the failure from the other side. It records that early iterations of the investigation followed the GATAD1 literature - which is CMD2B, OMIM:614672, a third recessive dilated cardiomyopathy - and that cross-referencing MONDO:0859358 to OMIM:620203 to GET3/ASNA1 is what corrected it. So the provider used the identifier to disambiguate, and this disease name sits between at least two decoys rather than one.
+
+    The corrected report validates cleanly: 14/14 references resolved, 0 unresolved, 0 off topic, 8/8 quoted claims found in source. It cites PMID:31461301 and PMID:41370295, the two primary papers this entry is already built from, so it corroborates the entry rather than adding new claims. No entry content was changed on the strength of it; the entry remains built from the primary literature.
+
+    The wrong-disease report is not retained. When it was the only report, keeping it annotated was the right call and that is what the reviewer advised; now that a correct report exists, keeping a CMD2D report under a filename naming CMD2H would be a trap for the next curator with no compensating value. Its content is regenerable in one command for the disease it actually describes, which is still queued as stubs/Cardiomyopathy_Dilated_2D.yaml. The mix-up itself is documented in the entry notes, in this history, in issue #10495 and in the PR discussion.
+
+    Entry notes rewritten accordingly - they previously described the committed report as being about CMD2D, which is no longer true - and now name both decoys, CMD2D/RPL3L and CMD2B/GATAD1.
+
+    Validation unchanged: just validate passes, 37/37 snippets verified.

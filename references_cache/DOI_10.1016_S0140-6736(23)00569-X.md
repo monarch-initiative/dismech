@@ -1,0 +1,749 @@
+---
+reference_id: DOI:10.1016/S0140-6736(23)00569-X
+title: "Sparsentan in patients with IgA nephropathy: a prespecified interim analysis from a randomised, double-blind, active-controlled clinical trial"
+authors:
+- Hiddo J L Heerspink
+- Jai Radhakrishnan
+- Charles E Alpers
+- Jonathan Barratt
+- Stewart Bieler
+- Ulysses Diva
+- Jula Inrig
+- Radko Komers
+- Alex Mercer
+- Irene L Noronha
+- Michelle N Rheault
+- William Rote
+- Brad Rovin
+- Howard Trachtman
+- Hernán Trimarchi
+- Muh Geot Wong
+- Vlado Perkovic
+- Eric Alarmartine
+- Jonathan Barratt
+- Dong Wan Chae
+- Lucia Del Vecchio
+- Jurgen Floege
+- Shang-Jyh Hwang
+- Bojan Jelakovic
+- Bart Maes
+- Robert Malecki
+- Marius Miglinas
+- Fernando Eduardo Barbosa Nolasco
+- Manual Praga
+- Kannaiyan Rabindranath
+- Mai Rosenberg
+- Brad Rovin
+- Sydney Chi Wai Tang
+- Vladmir Tesar
+- Muh Geot Wong
+- Bhadran Bose
+- Muralikrishna Gangadharan
+- Stephen McDonald
+- Chen Peh
+- Sadia Jahan
+- Chii Yeap
+- Philip Clayton
+- Georgina Irish
+- Nikhil Thyagarajan
+- Peter Hollett
+- Rathika Krishnasamy
+- Robert Carroll
+- Shilpanjali Jesudason
+- Susan Crail
+- Toby Coates
+- Jane Waugh
+- Euan Noble
+- Kumaradevan Mahadevan
+- Victoria Campbell
+- Tania Salehi
+- Wai Lim
+- Neil Boudville
+- Aron Chakera
+- Doris Chan
+- Anoushka Krishnan
+- Yusuf Eqbal
+- Alastair Gillies
+- Eswari Vilayur
+- Thida Maung Maung Myint
+- Nicholas Gray
+- Jane Waugh
+- Euan Noble
+- Melissa Cheetham
+- Yusuf Eqbal
+- Peter Hollett
+- Rathika Krishnasamy
+- Kumaradevan Mahadevan
+- Victoria Campbell
+- Carol Pollock
+- Bruce Cooper
+- Amanda Mather
+- Sarah Roxburgh
+- Yvonne Shen
+- Stefanie Stangenberg
+- Amanda Siriwardana
+- "Emma O'Lone"
+- Susan Wan
+- Brendon Neuen
+- Jeffrey Tsun Kit Ha
+- Dana Kim
+- Lauren Heath
+- Arunima Jain
+- Elaine Phua
+- Yan Li
+- Martin Gallagher
+- Meg Jardine
+- Angus Ritchie
+- Mona Razavian
+- Celine Foote
+- Roger Wyndham
+- Shaundeep Sen
+- Zoltan Endre
+- Jonathan Erlich
+- Mangalee Fernando
+- Kenneth Yong
+- Grant Luxton
+- Sradha Kotwal
+- Simon Roger
+- Vidu Wijeratne
+- David Packham
+- Ian Fraser
+- Bert Vandewiele
+- Margo Laute
+- Wim Lemahieu
+- Sofie Jamar
+- Sara Ombelet
+- Gert Meeus
+- Marc Decupere
+- Olivier Schockaert
+- Peter Doubel
+- Liesbeth Viaene
+- Luc Radermacher
+- Catherine Masset
+- Martial Moonen
+- Eric Firre
+- Martina Milicevic
+- Xavier Warling
+- An Vanacker
+- Thomas Malfait
+- Ivan Durlen
+- Ivica Horvatic
+- Ana Savuk
+- Lana Gellineo
+- Sandra Karanovic
+- Zivka Dika
+- Djuro Plavljanic
+- Ivana Mikacic
+- Dubravka Trajbar Kentric
+- Dunja Barisic
+- Marija Stankovic
+- Karolina Majstorovic Barac
+- Ivan Kruljac
+- Drasko Pavlovic
+- Martin Drinkovic
+- Ingrid Prkacin
+- Jerko Barbic
+- Zvonimir Sitas
+- Dunja Vujcic
+- Ivan Rychlik
+- Anna Benesova
+- Klara Drinovska
+- Karolina Kratka
+- Dita Maixnerova
+- Madis Ilmoja
+- Kristin Unt
+- Kadri Lilienthal
+- Asta Auerbach
+- Liisi Leis
+- Julia Piel
+- Annika Adoberg
+- Kulli Kolvald
+- Kristi Veermae
+- Kadri Telling
+- Elviira Seppet
+- Jana Uhlinova
+- Philippe Zaoui
+- Pierre-Louis Carron
+- Ingrid Masson
+- Miriana Dinic
+- Damien Thibaudin
+- Christian Broyet
+- Nicolas Maillard
+- Hesham Mohey
+- Christophe Mariat
+- Guillaume Claisse
+- Eric Alamartine
+- Bertrand Dussol
+- Stephane Burtey
+- Noemie Chiche-Jourde
+- Jean-Emmanuel Serre
+- Guillaume Jeantet
+- Leila Chenine
+- Anne Blanchard
+- Stephane Roueff
+- Eric Thervet
+- David Fouassier
+- Alexandre Buffet
+- Marine Livrozet
+- Roxane Gaisset
+- Alexandre Karras
+- Anne-Elisabeth Heng
+- Cyril Garrouste
+- Carole Philipponnet
+- Clementine Nicolo
+- Alba Atenza
+- Camille Lanaret
+- Clarisse Greze
+- Valentin Mayet
+- Clement Dumond
+- Yahsou Delmas
+- Christian Combe
+- Claire Rigothier
+- Laure Burguet
+- Aurore Labat
+- Simon Mucha
+- Valérie de Précigout
+- Thomas Weinreich
+- Helmut Reichel
+- Diliana Draganova
+- Lothar Wolf
+- Bernd Hohenstein
+- Sven Heinrichs
+- Simone Kulka
+- Sebahat Sat
+- Lea Weiland
+- Thilo Krueger
+- Gunter Wolf
+- Christiane Kettner
+- Mandy Schlosser
+- Johann Konstantin Herfurth
+- Annegret Koch
+- Martin Busch
+- Stephan Christian Werth
+- Martin Nitschke
+- Figen Cakiroglu
+- Franziska Sarnow
+- Lisa Schulz
+- Stefan Weiner
+- Nikolaus Wirtz
+- Eric Koester
+- Marcus Moeller
+- Eleni Stamellou
+- Silja Sanden
+- Hans Schmidt-Guertler
+- Wanja Bernhardt
+- Margret Patecki
+- Georg Schlieper
+- Kevin Schulte
+- Annette Girardet
+- Ulrich Kunzendorf
+- Lorraine Pui Yuen Kwan
+- Maggie Ming Yee Mok
+- Gary Chi Wang Chan
+- Mingyao Ma
+- Davina Ngoi Wah Lie
+- Anthony Ting Pong Chan
+- Cheuk Chun Szeto
+- Kit Chung Jack Ng
+- Siu Fai Cheung
+- Tak Tai Andrew Yue
+- Ka Shun Samuel Fung
+- Hon Tang
+- Ka Fai Yim
+- Wai Ping Law
+- Yick Hei Wong
+- Chi Kwan Darwin Lam
+- Sze Ho Sunny Wong
+- Carmelita Marcantoni
+- Roberta Aliotta
+- Francesca Deodato
+- Gemma Patella
+- Nicolino Comi
+- Caterina Vita
+- Nazareno Carullo
+- Davide Bolignano
+- Michela Musolino
+- Matias Trillini
+- Norberto Perico
+- Giuseppe Remuzzi
+- Erica Daina
+- Luigi Biancone
+- Loredana Colla
+- Manuel Burdese
+- Chiara Cogno
+- Elena Boaglio
+- Isabella Abbasciano
+- Carlotta Federica Zizzi
+- Paolo Randone
+- Pietro Napodano
+- Anna Ricchiuto
+- Matthias Cassia
+- Simone Accarino
+- Mario Cozzolino
+- Rocco Baccaro
+- Stefano Costanzi
+- Federica Di Maio
+- Maria Arena
+- Federica Urciuolo
+- Sara Vigano
+- Andrea Cavalli
+- Monica Limardo
+- Monica Bordoli
+- Serena Ponti
+- Selena Longhi
+- Andrea Solazzo
+- Francesco Giaroni
+- Gabriele Donati
+- Massimo Torreggiani
+- Davide Catucci
+- Marco Colucci
+- Vittoria Esposito
+- Ciro Esposito
+- Loreto Gesualdo
+- Flavia Capaccio
+- Emma Diletta Stea
+- Carmen Sivo
+- Francesca Annese
+- Federica Papadia
+- Piergiorgio Messa
+- Mirco Belingheri
+- Patrizia Passerini
+- Silvia Malvica
+- Alvita Vickiene
+- Urte Zakauskiene
+- Egle Asakiene
+- "Inga Arune Bumblyte'"
+- Asta Stankuviene
+- Lina Santockiene
+- Ashik Hayat
+- Allister Williams
+- Peter Sizeland
+- Eddie Tan
+- Gerald Waters
+- Lai Wan Chan
+- Andrew Henderson
+- Angus Turnbull
+- Andrew McNally
+- Annie Reynolds
+- Helen Pilmore
+- Ian Dittmer
+- Paul Manley
+- Elizabeth Stallworthy
+- Tze Goh
+- David Semple
+- Michael Collins
+- Elizabeth Curry
+- Jafar Ahmed
+- Thu Nguyen
+- Agata Winiarska
+- Justyna Zbrzezniak
+- Tomasz Stompor
+- Magdalena Krajewska
+- Hanna Augustyniak-Bartosik
+- Dorota Zielinska
+- Anna Jander
+- Malgorzata Stanczyk
+- Marcin Tkaczyk
+- Przemyslaw Miarka
+- Dariusz Aksamit
+- Piotr Jaskowski
+- Wladyslaw Sulowicz
+- Dominik Cieniawski
+- Julita Gontarek-Kacprzak
+- Elzbieta Felicjanczuk
+- Norbert Kwella
+- Bogna Kwella
+- Ewa Satora
+- João Carlos Fernandes
+- Ana Marta Gomes
+- Marina Reis
+- Daniela Lopes
+- Catarina Almeida
+- Helena Sá
+- Ana Carolina Figueiredo
+- Clara Pardinhas
+- Edgar Almeida
+- Mario Raimundo
+- Ana Cortesão Costa
+- Luis Pedro Falcao Goncalves
+- Sara Fernandes
+- Sónia Silva
+- Catarina Teixeira
+- Adriana Fernandes
+- Fernando Nolasco
+- Patricia Alves
+- Mario Gois
+- Nuno Fonseca
+- Ana Messias
+- Maria Menezes
+- Filipa Cardoso
+- Helena Sousa
+- Joana Marques
+- Rui Barata
+- Jose Antonio Lopes
+- Sofia Jorge
+- Joana Gameiro
+- Jose Nuno de Almeida Agapito Fonseca
+- Sara Goncalves
+- Ana Farinha
+- Patricia Valerio Santos
+- Ana Natario
+- Jose Carlos de Jesus Barreto
+- Catarina Abrantes
+- Elsa Sofia Quadrado Soares
+- Joana de Sousa Soares Felgueiras
+- Liliana Cunha
+- Lucia Parreira
+- Teresa Furtado
+- Alvaro Vaz
+- Kook-Hwan Oh
+- Hajeong Lee
+- Se Joong Kim
+- Jong Cheol Jeong
+- Yeong Hoon Kim
+- Yunmi Kim
+- Hyeong Cheon Park
+- Hoon Young Choi
+- Hyung Wook Kim
+- Moon Hyoung Lee
+- Songuk Yoon
+- Kyu-Beck Lee
+- YoungYoul Hyun
+- Tae-Hyun Yoo
+- Seung Hyeok Han
+- Jung Tak Park
+- Sunggyun Kim
+- Young Rim Song
+- Jwa-Kyung Kim
+- Hyung-seok Lee
+- Narae Joo
+- JungEun Lee
+- Hye Ryoun Jang
+- Junseok Jeon
+- Wookyung Chung
+- HyunHee Lee
+- Jae Hyun Chang
+- Ka Yeong Chun
+- Ji Yong Jung
+- Han Ro
+- Aejin Kim
+- Sang-Kyung Jo
+- Jihyun Yang
+- Myung-Gyu Kim
+- SeWon Oh
+- Caridad Martinez Villanueva
+- Ana Vilar Gimeno
+- Gustavo Andres Useche Bonilla
+- Esther Tamarit
+- Antonio Galan Serrano
+- Eduardo Verde Moreno
+- Jose Luño Fernandez
+- Maria Angeles Goicoechea Diezhandino
+- Ursula Verdalles Guzman
+- Ana Perez de Jose
+- Alberto Ortiz Arduan
+- María Vanessa Pérez Gómez
+- Catalina Martín Cleary
+- Raul Fernandez Prado
+- Elena Goma
+- Jose Ballarin
+- Montserrat Diaz Encarnacion
+- Iara Da Silva Santos
+- Helena Marco Rusinol
+- Monica Furlano
+- Carlos Arias
+- Clara Barrios
+- Eva Rodriguez Garcia
+- Adriana Sierra Ochoa
+- Belen Vizcaino Castillo
+- Jonay Pantoja Perez
+- Mercedes Gonzalez Moya
+- Mari Sargsyan
+- Emma Calatayud Aristoy
+- Ana Avila Bernabeu
+- Leticia Perez Lluna
+- Tamara Malek Marin
+- Maria Antonia Munar Vila
+- Ivon Maritza Bobadilla Rico
+- Natalia Allende Burgos
+- Eduardo Gutierrez Martinez
+- Elena Gutierrez Solis
+- Angel Sevillano
+- Evangelina Merida Herrero
+- Josep Miquel Blasco Pelicano
+- Lida Maria Rodas Marin
+- Luis F Quintana
+- Maria Antonieta Azancot Rivero
+- Natalia Ramos Terrades
+- Clara Garcia Carro
+- Irene Agraz Pamplona
+- Mercedes Salgueira Lazo
+- Francisco de la Prada Alvarez
+- Fabiola Alonso Garcia
+- Wenceslao Adrian Aguilera Morales
+- Salia Virxinia Pol Heres
+- Angel Forcen
+- Eduardo Parra Moncasi
+- Cristina Medrano Villarroya
+- Alejandro Soria Villen
+- Olga Gracia Garcia
+- Mercedes Velo Plaza
+- Maria Dolores Sánchez de la Nieta
+- Marta Calvo Arevalo
+- Antolina Moreno
+- Secundino Cigarran Guldris
+- Manuel Pereira de Vicente
+- Maria Antonia Munar Vila
+- Ivon Maritza Bobadilla Rico
+- Natalia Allende Burgos
+- Bang-Gee Hsu
+- Chih-Hsien Wang
+- Cheng-Hsu Chen
+- Tung-Min Yu
+- Ming-Ju Wu
+- Shang-Feng Tsai
+- Chia-Tien Hsu
+- Hsien-Fu Chiu
+- Kang-Ju Chou
+- Hua-Chang Fang
+- Po-Tsang Lee
+- Hsin-Yu Chen
+- Chien-Liang Chen
+- Chien-Wei Huang
+- Shih-Hsiang Ou
+- Tzung-Yo Ho
+- Chih-Yang Hsu
+- Ming-Shan Chang
+- Yen-Ling Chiu
+- Yu-Sen Peng
+- Kai-Hsiang Shu
+- Szu-Yu Pan
+- Shih-Ping Hsu
+- Ju-Yeh Yang
+- Mei-Fen Pai
+- Po-Yu Tseng
+- Hon-Yen Wu
+- Wan-Chuan Tsai
+- Kuei-Ting Tung
+- Hung-Yuan Chen
+- Hung-Chun Chen
+- Mei-Chuan Kuo
+- Daw-Yang Hwang
+- Yi-Wen Chiu
+- Chi-Chih Hung
+- Hung-Tien Kuo
+- Jer-Chia Tsai
+- Kieran McCafferty
+- Suzanne Forbes
+- Indranil Dasgupta
+- Mark Thomas
+- Amar Mahdi
+- Bamidele Ajayi
+- Paramit Chowdhury
+- Theodoros Kasimatis
+- Dimitrios Moutzouris
+- Caroline Dudreuilh
+- Rishi Pruthi
+- Nick Mansfield
+- Gabriel Doctor
+- Sapna Shah
+- Sui Kon
+- Priscilla Smith
+- Patrick Hamilton
+- Durga Kanigicherla
+- Omar Sherin Ibrahim Ragy
+- Bassam Alchi
+- Oliver Flossmann
+- Farid Ghalli
+- Sarah Lawman
+- Smeeta Sinha
+- Constantina Chrysochou
+- Chukwuma Chukwu
+- Aine Maire De Bhailis
+- Saif Al Chalabi
+- Amy Hudson
+- Arun Gopu
+- Olivia Wickens
+- Joshua Storrar
+- Mona Wahba
+- Nathan Lorde
+- Mohammad Rony
+- Sian Griffin
+- Farah Latif
+- Mohammad Ali
+- Louise DaSilva
+- Jonathan Ayling-Smith
+- Eamon Mahdi
+- Lisa Willcocks
+- Rachel Jones
+- Chee Kay Cheung
+- Haresh Selvaskandan
+- Dan Pugh
+- Matthew Sayer
+- Neeraj Dhaun
+- Fiona Chapman
+- Patrick Mark
+- Colin Geddes
+- Emily McQuarrie
+- Rajan Patel
+- Laurence Solomon
+- Arvind Ponnusamy
+- Adam Morris
+- Pedro Okoh
+- Lauren Floyd
+- Ajay Dhaygude
+- Janson Leung
+- Christopher Goldsmith
+- Bhavna Pandya
+- Didem Tez
+- Ashraf Mikhail
+- Karen Brown
+- Thomas Bucknall
+- Mark Lambie
+- Roderick Comunale
+- Donald Brandon
+- Stacy Martinez
+- Amanda Hall
+- Amy Henderson
+- Aaron Fearday
+- Nicole Douthit
+- Brian Snow
+- Arnold Silva
+- Cathylee Sly
+- Christopher Keller
+- Robert Davidson
+- Jerry Meng
+- Robert Haws
+- Siddhartha Kattamanchi
+- Javad Mojarrab
+- Unnikrishnan Pillai
+- Richard Lafayette
+- "Michelle O'Shaughnessy"
+- Fahameedah Kamal
+- Kshama Mehta
+- Bruce Baker
+- Mario Ruiz
+- Praveena Jyothinagaram
+- Usha Peri
+- William Paxton
+- James Tumlin
+- Kerri McGreal
+- Ellen McCarthy
+- Cassandra Kimber
+- Archana Gautam
+- Kassem Khalil
+- Viet Nguyen
+- Viet Nguyen
+- Raffi Minasian
+- Dariush Arfaania
+- Sam Daneshvari
+- Michel Zakari
+- Artashes Patrikyan
+- Rouzbeh Afsari
+- Christine Ayvazyan
+- Faisal Fakih
+- Mark Lagatta
+- Faisal Fakih
+- Alfred Rodriguez
+- Jorge Enrique Monroy Avella
+- Ramachandra Patak
+- Jigar Kadakia
+- Jai Radhakrishnan
+- Gerald Appel
+- Wooin Ahn
+- Bradley Nelson
+- Allyson Medina
+- Syeda Ahmad
+- Yonatan Peleg
+- Nisha Clement
+- Ian Chiu
+- Elizabeth Hendren
+- Andrew Bomback
+- Pietro Canetta
+- Bruce Spinowitz
+- Chaim Charytan
+- Nishita Parikh
+- Sheng Kuo
+- Ritesh Raichoudhury
+- Mirela Dobre
+- Lavinia Negrea
+- Aparna Padiyar
+- Arksarapuk Jittirat
+- Nishigandha Pradhan
+- Ranjit Dhelaria
+- Saravanan Balamuthusamy
+- Machaiah Madhrira
+- Thomas Powell
+- Howard Lifland
+- Asha Bailey
+- Sarah Ashley Ford Sightler
+- Meera Patel Suthar
+- Heather Green
+- Samir Parikh
+- Isabelle Ayoub
+- Salem Almaani
+- Gabriel Contreras
+- Alessia Fornoni
+- Yelena Drexler
+- Abdallah Geara
+- Brittany Sheridan
+- Gaia Coppock
+- Jonathan Hogan
+- Carlos Gonzalez
+- Shamik Bhadra
+- Pradip Chowdhury
+- Kay Kyaw
+- May Tan
+- Lathika Raakesh
+- Elder Mendoza
+- Veronica Viramontes
+- Asghar Chaudhry
+- Juan Carbonell
+- Rajdeep Gadh
+- Victor Fernandez
+- Mohamad Kassem
+- Radu Jacob
+- Karen Wilder
+- Britt Newsome
+- Kathryn Klamm
+- Irina Suyumova
+- Laura Ann Kooienga
+- Catherine Janko
+- Dana Rizk
+- Bruce Julian
+- Dawn Caster
+- Erika Perez
+- Gunjan Garg
+- Nayan Gowda
+- Suneel Udani
+- Sreedhar Mandayam
+- Biruh Workeneh
+- Roderick Comunale
+- Donald Brandon
+- Unnikrishnan Pillai
+- Ali Assefi
+- Barbara Greco
+- Michael Germain
+- Jusmin Patel
+- Sarah Quinn
+- James Sullivan
+- Jeffrey Glaze
+- Phillip Madonia
+- Kellyn McMahon
+- Harold Giles
+- Sharon Adler
+- Tiane Dai
+journal: The Lancet
+year: '2023'
+doi: 10.1016/S0140-6736(23)00569-X
+content_type: unavailable
+is_preprint: false
+full_text_attempted: true
+---
+
+# Sparsentan in patients with IgA nephropathy: a prespecified interim analysis from a randomised, double-blind, active-controlled clinical trial
+**Authors:** Hiddo J L Heerspink, Jai Radhakrishnan, Charles E Alpers, Jonathan Barratt, Stewart Bieler, Ulysses Diva, Jula Inrig, Radko Komers, Alex Mercer, Irene L Noronha, Michelle N Rheault, William Rote, Brad Rovin, Howard Trachtman, Hernán Trimarchi, Muh Geot Wong, Vlado Perkovic, Eric Alarmartine, Jonathan Barratt, Dong Wan Chae, Lucia Del Vecchio, Jurgen Floege, Shang-Jyh Hwang, Bojan Jelakovic, Bart Maes, Robert Malecki, Marius Miglinas, Fernando Eduardo Barbosa Nolasco, Manual Praga, Kannaiyan Rabindranath, Mai Rosenberg, Brad Rovin, Sydney Chi Wai Tang, Vladmir Tesar, Muh Geot Wong, Bhadran Bose, Muralikrishna Gangadharan, Stephen McDonald, Chen Peh, Sadia Jahan, Chii Yeap, Philip Clayton, Georgina Irish, Nikhil Thyagarajan, Peter Hollett, Rathika Krishnasamy, Robert Carroll, Shilpanjali Jesudason, Susan Crail, Toby Coates, Jane Waugh, Euan Noble, Kumaradevan Mahadevan, Victoria Campbell, Tania Salehi, Wai Lim, Neil Boudville, Aron Chakera, Doris Chan, Anoushka Krishnan, Yusuf Eqbal, Alastair Gillies, Eswari Vilayur, Thida Maung Maung Myint, Nicholas Gray, Jane Waugh, Euan Noble, Melissa Cheetham, Yusuf Eqbal, Peter Hollett, Rathika Krishnasamy, Kumaradevan Mahadevan, Victoria Campbell, Carol Pollock, Bruce Cooper, Amanda Mather, Sarah Roxburgh, Yvonne Shen, Stefanie Stangenberg, Amanda Siriwardana, Emma O'Lone, Susan Wan, Brendon Neuen, Jeffrey Tsun Kit Ha, Dana Kim, Lauren Heath, Arunima Jain, Elaine Phua, Yan Li, Martin Gallagher, Meg Jardine, Angus Ritchie, Mona Razavian, Celine Foote, Roger Wyndham, Shaundeep Sen, Zoltan Endre, Jonathan Erlich, Mangalee Fernando, Kenneth Yong, Grant Luxton, Sradha Kotwal, Simon Roger, Vidu Wijeratne, David Packham, Ian Fraser, Bert Vandewiele, Margo Laute, Wim Lemahieu, Sofie Jamar, Sara Ombelet, Gert Meeus, Marc Decupere, Olivier Schockaert, Peter Doubel, Liesbeth Viaene, Luc Radermacher, Catherine Masset, Martial Moonen, Eric Firre, Martina Milicevic, Xavier Warling, An Vanacker, Thomas Malfait, Ivan Durlen, Ivica Horvatic, Ana Savuk, Lana Gellineo, Sandra Karanovic, Zivka Dika, Djuro Plavljanic, Ivana Mikacic, Dubravka Trajbar Kentric, Dunja Barisic, Marija Stankovic, Karolina Majstorovic Barac, Ivan Kruljac, Drasko Pavlovic, Martin Drinkovic, Ingrid Prkacin, Jerko Barbic, Zvonimir Sitas, Dunja Vujcic, Ivan Rychlik, Anna Benesova, Klara Drinovska, Karolina Kratka, Dita Maixnerova, Madis Ilmoja, Kristin Unt, Kadri Lilienthal, Asta Auerbach, Liisi Leis, Julia Piel, Annika Adoberg, Kulli Kolvald, Kristi Veermae, Kadri Telling, Elviira Seppet, Jana Uhlinova, Philippe Zaoui, Pierre-Louis Carron, Ingrid Masson, Miriana Dinic, Damien Thibaudin, Christian Broyet, Nicolas Maillard, Hesham Mohey, Christophe Mariat, Guillaume Claisse, Eric Alamartine, Bertrand Dussol, Stephane Burtey, Noemie Chiche-Jourde, Jean-Emmanuel Serre, Guillaume Jeantet, Leila Chenine, Anne Blanchard, Stephane Roueff, Eric Thervet, David Fouassier, Alexandre Buffet, Marine Livrozet, Roxane Gaisset, Alexandre Karras, Anne-Elisabeth Heng, Cyril Garrouste, Carole Philipponnet, Clementine Nicolo, Alba Atenza, Camille Lanaret, Clarisse Greze, Valentin Mayet, Clement Dumond, Yahsou Delmas, Christian Combe, Claire Rigothier, Laure Burguet, Aurore Labat, Simon Mucha, Valérie de Précigout, Thomas Weinreich, Helmut Reichel, Diliana Draganova, Lothar Wolf, Bernd Hohenstein, Sven Heinrichs, Simone Kulka, Sebahat Sat, Lea Weiland, Thilo Krueger, Gunter Wolf, Christiane Kettner, Mandy Schlosser, Johann Konstantin Herfurth, Annegret Koch, Martin Busch, Stephan Christian Werth, Martin Nitschke, Figen Cakiroglu, Franziska Sarnow, Lisa Schulz, Stefan Weiner, Nikolaus Wirtz, Eric Koester, Marcus Moeller, Eleni Stamellou, Silja Sanden, Hans Schmidt-Guertler, Wanja Bernhardt, Margret Patecki, Georg Schlieper, Kevin Schulte, Annette Girardet, Ulrich Kunzendorf, Lorraine Pui Yuen Kwan, Maggie Ming Yee Mok, Gary Chi Wang Chan, Mingyao Ma, Davina Ngoi Wah Lie, Anthony Ting Pong Chan, Cheuk Chun Szeto, Kit Chung Jack Ng, Siu Fai Cheung, Tak Tai Andrew Yue, Ka Shun Samuel Fung, Hon Tang, Ka Fai Yim, Wai Ping Law, Yick Hei Wong, Chi Kwan Darwin Lam, Sze Ho Sunny Wong, Carmelita Marcantoni, Roberta Aliotta, Francesca Deodato, Gemma Patella, Nicolino Comi, Caterina Vita, Nazareno Carullo, Davide Bolignano, Michela Musolino, Matias Trillini, Norberto Perico, Giuseppe Remuzzi, Erica Daina, Luigi Biancone, Loredana Colla, Manuel Burdese, Chiara Cogno, Elena Boaglio, Isabella Abbasciano, Carlotta Federica Zizzi, Paolo Randone, Pietro Napodano, Anna Ricchiuto, Matthias Cassia, Simone Accarino, Mario Cozzolino, Rocco Baccaro, Stefano Costanzi, Federica Di Maio, Maria Arena, Federica Urciuolo, Sara Vigano, Andrea Cavalli, Monica Limardo, Monica Bordoli, Serena Ponti, Selena Longhi, Andrea Solazzo, Francesco Giaroni, Gabriele Donati, Massimo Torreggiani, Davide Catucci, Marco Colucci, Vittoria Esposito, Ciro Esposito, Loreto Gesualdo, Flavia Capaccio, Emma Diletta Stea, Carmen Sivo, Francesca Annese, Federica Papadia, Piergiorgio Messa, Mirco Belingheri, Patrizia Passerini, Silvia Malvica, Alvita Vickiene, Urte Zakauskiene, Egle Asakiene, Inga Arune Bumblyte', Asta Stankuviene, Lina Santockiene, Ashik Hayat, Allister Williams, Peter Sizeland, Eddie Tan, Gerald Waters, Lai Wan Chan, Andrew Henderson, Angus Turnbull, Andrew McNally, Annie Reynolds, Helen Pilmore, Ian Dittmer, Paul Manley, Elizabeth Stallworthy, Tze Goh, David Semple, Michael Collins, Elizabeth Curry, Jafar Ahmed, Thu Nguyen, Agata Winiarska, Justyna Zbrzezniak, Tomasz Stompor, Magdalena Krajewska, Hanna Augustyniak-Bartosik, Dorota Zielinska, Anna Jander, Malgorzata Stanczyk, Marcin Tkaczyk, Przemyslaw Miarka, Dariusz Aksamit, Piotr Jaskowski, Wladyslaw Sulowicz, Dominik Cieniawski, Julita Gontarek-Kacprzak, Elzbieta Felicjanczuk, Norbert Kwella, Bogna Kwella, Ewa Satora, João Carlos Fernandes, Ana Marta Gomes, Marina Reis, Daniela Lopes, Catarina Almeida, Helena Sá, Ana Carolina Figueiredo, Clara Pardinhas, Edgar Almeida, Mario Raimundo, Ana Cortesão Costa, Luis Pedro Falcao Goncalves, Sara Fernandes, Sónia Silva, Catarina Teixeira, Adriana Fernandes, Fernando Nolasco, Patricia Alves, Mario Gois, Nuno Fonseca, Ana Messias, Maria Menezes, Filipa Cardoso, Helena Sousa, Joana Marques, Rui Barata, Jose Antonio Lopes, Sofia Jorge, Joana Gameiro, Jose Nuno de Almeida Agapito Fonseca, Sara Goncalves, Ana Farinha, Patricia Valerio Santos, Ana Natario, Jose Carlos de Jesus Barreto, Catarina Abrantes, Elsa Sofia Quadrado Soares, Joana de Sousa Soares Felgueiras, Liliana Cunha, Lucia Parreira, Teresa Furtado, Alvaro Vaz, Kook-Hwan Oh, Hajeong Lee, Se Joong Kim, Jong Cheol Jeong, Yeong Hoon Kim, Yunmi Kim, Hyeong Cheon Park, Hoon Young Choi, Hyung Wook Kim, Moon Hyoung Lee, Songuk Yoon, Kyu-Beck Lee, YoungYoul Hyun, Tae-Hyun Yoo, Seung Hyeok Han, Jung Tak Park, Sunggyun Kim, Young Rim Song, Jwa-Kyung Kim, Hyung-seok Lee, Narae Joo, JungEun Lee, Hye Ryoun Jang, Junseok Jeon, Wookyung Chung, HyunHee Lee, Jae Hyun Chang, Ka Yeong Chun, Ji Yong Jung, Han Ro, Aejin Kim, Sang-Kyung Jo, Jihyun Yang, Myung-Gyu Kim, SeWon Oh, Caridad Martinez Villanueva, Ana Vilar Gimeno, Gustavo Andres Useche Bonilla, Esther Tamarit, Antonio Galan Serrano, Eduardo Verde Moreno, Jose Luño Fernandez, Maria Angeles Goicoechea Diezhandino, Ursula Verdalles Guzman, Ana Perez de Jose, Alberto Ortiz Arduan, María Vanessa Pérez Gómez, Catalina Martín Cleary, Raul Fernandez Prado, Elena Goma, Jose Ballarin, Montserrat Diaz Encarnacion, Iara Da Silva Santos, Helena Marco Rusinol, Monica Furlano, Carlos Arias, Clara Barrios, Eva Rodriguez Garcia, Adriana Sierra Ochoa, Belen Vizcaino Castillo, Jonay Pantoja Perez, Mercedes Gonzalez Moya, Mari Sargsyan, Emma Calatayud Aristoy, Ana Avila Bernabeu, Leticia Perez Lluna, Tamara Malek Marin, Maria Antonia Munar Vila, Ivon Maritza Bobadilla Rico, Natalia Allende Burgos, Eduardo Gutierrez Martinez, Elena Gutierrez Solis, Angel Sevillano, Evangelina Merida Herrero, Josep Miquel Blasco Pelicano, Lida Maria Rodas Marin, Luis F Quintana, Maria Antonieta Azancot Rivero, Natalia Ramos Terrades, Clara Garcia Carro, Irene Agraz Pamplona, Mercedes Salgueira Lazo, Francisco de la Prada Alvarez, Fabiola Alonso Garcia, Wenceslao Adrian Aguilera Morales, Salia Virxinia Pol Heres, Angel Forcen, Eduardo Parra Moncasi, Cristina Medrano Villarroya, Alejandro Soria Villen, Olga Gracia Garcia, Mercedes Velo Plaza, Maria Dolores Sánchez de la Nieta, Marta Calvo Arevalo, Antolina Moreno, Secundino Cigarran Guldris, Manuel Pereira de Vicente, Maria Antonia Munar Vila, Ivon Maritza Bobadilla Rico, Natalia Allende Burgos, Bang-Gee Hsu, Chih-Hsien Wang, Cheng-Hsu Chen, Tung-Min Yu, Ming-Ju Wu, Shang-Feng Tsai, Chia-Tien Hsu, Hsien-Fu Chiu, Kang-Ju Chou, Hua-Chang Fang, Po-Tsang Lee, Hsin-Yu Chen, Chien-Liang Chen, Chien-Wei Huang, Shih-Hsiang Ou, Tzung-Yo Ho, Chih-Yang Hsu, Ming-Shan Chang, Yen-Ling Chiu, Yu-Sen Peng, Kai-Hsiang Shu, Szu-Yu Pan, Shih-Ping Hsu, Ju-Yeh Yang, Mei-Fen Pai, Po-Yu Tseng, Hon-Yen Wu, Wan-Chuan Tsai, Kuei-Ting Tung, Hung-Yuan Chen, Hung-Chun Chen, Mei-Chuan Kuo, Daw-Yang Hwang, Yi-Wen Chiu, Chi-Chih Hung, Hung-Tien Kuo, Jer-Chia Tsai, Kieran McCafferty, Suzanne Forbes, Indranil Dasgupta, Mark Thomas, Amar Mahdi, Bamidele Ajayi, Paramit Chowdhury, Theodoros Kasimatis, Dimitrios Moutzouris, Caroline Dudreuilh, Rishi Pruthi, Nick Mansfield, Gabriel Doctor, Sapna Shah, Sui Kon, Priscilla Smith, Patrick Hamilton, Durga Kanigicherla, Omar Sherin Ibrahim Ragy, Bassam Alchi, Oliver Flossmann, Farid Ghalli, Sarah Lawman, Smeeta Sinha, Constantina Chrysochou, Chukwuma Chukwu, Aine Maire De Bhailis, Saif Al Chalabi, Amy Hudson, Arun Gopu, Olivia Wickens, Joshua Storrar, Mona Wahba, Nathan Lorde, Mohammad Rony, Sian Griffin, Farah Latif, Mohammad Ali, Louise DaSilva, Jonathan Ayling-Smith, Eamon Mahdi, Lisa Willcocks, Rachel Jones, Chee Kay Cheung, Haresh Selvaskandan, Dan Pugh, Matthew Sayer, Neeraj Dhaun, Fiona Chapman, Patrick Mark, Colin Geddes, Emily McQuarrie, Rajan Patel, Laurence Solomon, Arvind Ponnusamy, Adam Morris, Pedro Okoh, Lauren Floyd, Ajay Dhaygude, Janson Leung, Christopher Goldsmith, Bhavna Pandya, Didem Tez, Ashraf Mikhail, Karen Brown, Thomas Bucknall, Mark Lambie, Roderick Comunale, Donald Brandon, Stacy Martinez, Amanda Hall, Amy Henderson, Aaron Fearday, Nicole Douthit, Brian Snow, Arnold Silva, Cathylee Sly, Christopher Keller, Robert Davidson, Jerry Meng, Robert Haws, Siddhartha Kattamanchi, Javad Mojarrab, Unnikrishnan Pillai, Richard Lafayette, Michelle O'Shaughnessy, Fahameedah Kamal, Kshama Mehta, Bruce Baker, Mario Ruiz, Praveena Jyothinagaram, Usha Peri, William Paxton, James Tumlin, Kerri McGreal, Ellen McCarthy, Cassandra Kimber, Archana Gautam, Kassem Khalil, Viet Nguyen, Viet Nguyen, Raffi Minasian, Dariush Arfaania, Sam Daneshvari, Michel Zakari, Artashes Patrikyan, Rouzbeh Afsari, Christine Ayvazyan, Faisal Fakih, Mark Lagatta, Faisal Fakih, Alfred Rodriguez, Jorge Enrique Monroy Avella, Ramachandra Patak, Jigar Kadakia, Jai Radhakrishnan, Gerald Appel, Wooin Ahn, Bradley Nelson, Allyson Medina, Syeda Ahmad, Yonatan Peleg, Nisha Clement, Ian Chiu, Elizabeth Hendren, Andrew Bomback, Pietro Canetta, Bruce Spinowitz, Chaim Charytan, Nishita Parikh, Sheng Kuo, Ritesh Raichoudhury, Mirela Dobre, Lavinia Negrea, Aparna Padiyar, Arksarapuk Jittirat, Nishigandha Pradhan, Ranjit Dhelaria, Saravanan Balamuthusamy, Machaiah Madhrira, Thomas Powell, Howard Lifland, Asha Bailey, Sarah Ashley Ford Sightler, Meera Patel Suthar, Heather Green, Samir Parikh, Isabelle Ayoub, Salem Almaani, Gabriel Contreras, Alessia Fornoni, Yelena Drexler, Abdallah Geara, Brittany Sheridan, Gaia Coppock, Jonathan Hogan, Carlos Gonzalez, Shamik Bhadra, Pradip Chowdhury, Kay Kyaw, May Tan, Lathika Raakesh, Elder Mendoza, Veronica Viramontes, Asghar Chaudhry, Juan Carbonell, Rajdeep Gadh, Victor Fernandez, Mohamad Kassem, Radu Jacob, Karen Wilder, Britt Newsome, Kathryn Klamm, Irina Suyumova, Laura Ann Kooienga, Catherine Janko, Dana Rizk, Bruce Julian, Dawn Caster, Erika Perez, Gunjan Garg, Nayan Gowda, Suneel Udani, Sreedhar Mandayam, Biruh Workeneh, Roderick Comunale, Donald Brandon, Unnikrishnan Pillai, Ali Assefi, Barbara Greco, Michael Germain, Jusmin Patel, Sarah Quinn, James Sullivan, Jeffrey Glaze, Phillip Madonia, Kellyn McMahon, Harold Giles, Sharon Adler, Tiane Dai
+**Journal:** The Lancet (2023)
+**DOI:** [10.1016/S0140-6736(23)00569-X](https://doi.org/10.1016/S0140-6736(23)00569-X)
+
+## Content

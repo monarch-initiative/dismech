@@ -1,0 +1,1348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relapsing Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Relapsing Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Relapsing Fever</h1>
+                
+                <p class="report-subtitle">Relapsing Fever (MONDO:0019633): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019633" target="_blank" rel="noopener noreferrer">MONDO:0019633</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Relapsing Fever (<a href="http://purl.obolibrary.org/obo/MONDO_0019633" target="_blank" rel="noopener noreferrer">MONDO:0019633</a>): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Relapsing Fever · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0019633" target="_blank" rel="noopener noreferrer">MONDO:0019633</a> · <strong>Category:</strong> Infectious Disease (vector-borne bacterial zoonosis / epidemic infection)</p>
+<blockquote>
+<p><strong>Evidence-source note:</strong> Relapsing fever (RF) is an <strong>infectious, non-heritable</strong> disease. Template sections that assume a Mendelian/genetic etiology (causal human genes, pathogenic variants, inheritance pattern, penetrance, karyotype/FISH, carrier screening, genetic counseling) are <strong>Not Applicable to the human host</strong>; the relevant "genetics" is that of the <em>pathogen</em> (Borrelia antigenic-variation loci) and of <em>host susceptibility/immune-control genes</em> studied in mice. Evidence below is drawn from aggregated disease-level resources plus primary human-clinical, model-organism, and in-vitro literature (49 papers reviewed; PMIDs cited throughout).</p>
+</blockquote>
+<h2>Summary</h2>
+<p><strong>Relapsing fever (RF)</strong> is an acute, arthropod-borne bacterial infection caused by spirochetes of the genus <em>Borrelia</em>, characterized by recurring waves of high fever separated by afebrile intervals. It is an <strong>infectious, non-heritable disease</strong>; the human genome does not "cause" it. The genetics that matter are those of the <strong>pathogen's antigenic-variation loci</strong> and of <strong>murine host-susceptibility genes</strong> used in experimental models. RF exists in two principal epidemiological forms: <strong>louse-borne relapsing fever (LBRF)</strong>, caused by <em>Borrelia recurrentis</em> and transmitted by the human body louse (<em>Pediculus humanus humanus</em>), and <strong>tick-borne relapsing fever (TBRF)</strong>, caused by numerous species (<em>B. hermsii</em>, <em>B. duttonii</em>, <em>B. crocidurae</em>, <em>B. hispanica</em>, <em>B. persica</em>, <em>B. turicatae</em>, and the emerging hard-tick species <em>B. miyamotoi</em>) transmitted by soft ticks (<em>Ornithodoros</em> spp.) or <em>Ixodes</em> hard ticks.</p>
+<p>The <strong>defining mechanistic feature</strong> of the disease — the relapse phenomenon — is driven by <strong>multiphasic antigenic variation of the variable major proteins (Vmps)</strong> on the spirochete outer surface. Through nonreciprocal gene conversion, one of roughly 60 silent <em>vmp</em> gene archives is placed downstream of a single active promoter, allowing the population to serially switch its dominant surface antigen and repeatedly evade the host antibody response. Each bacteremic wave is cleared by a <strong>T-independent, B1b-lymphocyte-derived IgM</strong> response, but escape variants seed the next relapse. This produces the pathognomonic sawtooth fever curve.</p>
+<p>Clinically, RF causes high fever, chills, headache, myalgia, hepatosplenomegaly, thrombocytopenia and anemia, and — in severe/untreated cases — ARDS, shock, myocarditis, hemorrhage, and death (up to ~70% untreated in LBRF). Diagnosis rests on <strong>direct visualization of spirochetes on stained (Giemsa/Wright) blood films</strong> during febrile peaks, supplemented by 16S rRNA PCR and GlpQ serology. Treatment is with <strong>tetracyclines (doxycycline), penicillin, or ceftriaxone</strong>, and frequently triggers a <strong>Jarisch-Herxheimer reaction (JHR)</strong> — a TNF-α/IL-6/IL-8-driven cytokine storm coincident with antibiotic-induced spirochete lysis. Prevention relies on vector avoidance, delousing (LBRF), and doxycycline post-exposure prophylaxis (TBRF); no vaccine exists.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — Antigenic variation of variable major proteins (Vmps) drives the relapse phenomenon</h3>
+<p>The central molecular mechanism of relapsing fever is the multiphasic antigenic variation of surface-exposed <strong>variable major proteins (Vmps)</strong>, which comprise <strong>variable large proteins (Vlp)</strong> and <strong>variable small proteins (Vsp)</strong>. In <em>B. hermsii</em>, antigenic variation occurs through a <strong>nonreciprocal gene conversion event</strong> that places one of approximately 60 silent <em>vmp</em> genes downstream of a single, transcriptionally active promoter (the "expression site") (<a href="https://pubmed.ncbi.nlm.nih.gov/29250931/">PMID: 29250931</a>). Silent <em>vmp</em> gene archives reside on linear plasmids — for example, the 44-kb linear plasmid of <em>B. duttonii</em> strain Ly preserves ~21 <em>vmp</em> homologues, most rendered non-functional by frameshifts or missing promoters, serving as an archive for serotype switching (<a href="https://pubmed.ncbi.nlm.nih.gov/12008924/">PMID: 12008924</a>). Expression is also controlled by switching between expression sites at the transcriptional level (<a href="https://pubmed.ncbi.nlm.nih.gov/11083837/">PMID: 11083837</a>).</p>
+<p>The functional necessity of this system is demonstrated by loss-of-function experiments: <strong>deletion of the expression site or mutation of the flanking cis-acting UHS/DHS inverted repeats renders spirochetes unable to relapse in immunocompetent mice</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29250931/">PMID: 29250931</a>), and a <strong>Vmp-null mutant could not relapse and had lower blood densities</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/24699793/">PMID: 24699793</a>). As the abstract states: <em>"the spirochetes repeatedly evade the host's acquired immune response by undergoing antigenic variation of the variable major proteins (Vmps) produced on their outer surface. This mechanism prolongs spirochete circulation in blood"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24699793/">PMID: 24699793</a>). The primary defining quote from the mechanism paper: <em>"In Borrelia hermsii, antigenic variation occurs as a result of a nonreciprocal gene conversion event that places one of ~60 silent variable major protein genes downstream of a single, transcriptionally active promoter"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29250931/">PMID: 29250931</a>).</p>
+<h3>Finding 2 — Relapsing fever causes high untreated mortality with anemia, ARDS, shock, and JHR as leading complications</h3>
+<p>A retrospective study of 119 blood-film-confirmed RF patients in a resource-limited Ethiopian setting (mean age 24.1 years, mostly daily laborers and homeless persons) quantified the clinical burden. Leading symptoms were fever (85.5%), chills (67.2%), respiratory distress (54.6%), and altered mental status (46.2%). <strong>Complications occurred in 88.2% of cases</strong> — anemia (74.7%), acute respiratory distress syndrome (69.7%), shock (60.5%), and Jarisch-Herxheimer reaction (36.1%) — with an <strong>in-hospital mortality of 45.4%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41418926/">PMID: 41418926</a>). Untreated mortality may reach <strong>70%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41418926/">PMID: 41418926</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Clinical feature</th>
+<th>Frequency (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>85.5</td>
+</tr>
+<tr>
+<td>Chills</td>
+<td>67.2</td>
+</tr>
+<tr>
+<td>Respiratory distress</td>
+<td>54.6</td>
+</tr>
+<tr>
+<td>Altered mental status</td>
+<td>46.2</td>
+</tr>
+<tr>
+<td><strong>Any complication</strong></td>
+<td><strong>88.2</strong></td>
+</tr>
+<tr>
+<td>Anemia</td>
+<td>74.7</td>
+</tr>
+<tr>
+<td>ARDS</td>
+<td>69.7</td>
+</tr>
+<tr>
+<td>Shock</td>
+<td>60.5</td>
+</tr>
+<tr>
+<td>Jarisch-Herxheimer reaction</td>
+<td>36.1</td>
+</tr>
+<tr>
+<td><strong>In-hospital mortality</strong></td>
+<td><strong>45.4</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Direct quotes: <em>"Complications were observed in 88.2% of cases, most commonly anemia (74.7%), acute respiratory distress syndrome (69.7%), shock (60.5%), and Jarisch-Herxheimer reaction (36.1%). Mortality was 45.4%"</em> and <em>"Mortality may reach 70% without treatment"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41418926/">PMID: 41418926</a>). The Jarisch-Herxheimer reaction is <em>"a transient response that occurs within 24 hours of antibiotic treatment for spirochete infections, such as syphilis, leptospirosis, Lyme disease, and relapsing fever, and can present with nausea, fever, chills, rigors, vomiting, hypotension, and skin lesions"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40624823/">PMID: 40624823</a>).</p>
+<p><strong>HPO term suggestions:</strong> Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>), Recurrent fever (<a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a>), Anemia (<a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a>), Thrombocytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>), Splenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a>), Hepatomegaly (<a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a>), Acute respiratory distress syndrome (<a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" rel="noopener noreferrer">HP:0033677</a>), Shock (<a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" rel="noopener noreferrer">HP:0031273</a>).</p>
+<h3>Finding 3 — Anemia and thrombocytopenia arise from spirochete–erythrocyte interaction and macrophage-mediated clearance</h3>
+<p>In inbred mouse models of <em>B. hermsii</em> infection, susceptibility is genetically controlled, and disease progression is associated with <strong>thrombocytopenia and anemia mirroring human infection</strong>. Histological and fluorescence in situ hybridization (FISH) analyses showed that <strong>red blood cells are removed by tissue-resident macrophages in spleen and liver</strong>, and spirochetes were frequently visualized associated with RBCs, supporting a direct spirochete–RBC interaction that leads to bacterial clearance and anemia (<a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">PMID: 19995898</a>). The study found: <em>"the progression of the disease in mice was associated with thrombocytopenia and anemia. Histological and fluorescence in situ hybridization (FISH) analysis of infected tissues indicated that red blood cells (RBCs) were removed by tissue-resident macrophages, a process that could lead to anemia. Spirochetes in the spleen and liver were often visualized associated with RBCs."</em> Both innate and adaptive immunity contribute to reducing bacterial burden: <em>"we found that innate immunity contributes significantly to the reduction of bacterial burden"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">PMID: 19995898</a>).</p>
+<p><strong>Cell types (CL) / anatomy (UBERON):</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), erythrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>).</p>
+<h3>Finding 4 — <em>Borrelia miyamotoi</em> is an emerging hard-tick relapsing fever spirochete</h3>
+<p><em>B. miyamotoi</em> represents a paradigm shift: unlike classic soft-tick/louse RF, it is transmitted by <em>Ixodes ricinus</em>-complex <strong>hard ticks</strong>, with rodents as reservoirs. It is <em>"an emerging tick-borne pathogen phylogenetically belonging to spirochaetes causing relapsing fever. It is primarily transmitted by ticks from the Ixodes ricinus complex"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34412488/">PMID: 34412488</a>). More than 200 human cases have been described: <em>"To date more than 200 human cases have been described including five cases of meningoencephalitis in immunocompromised patients"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/34412488/">PMID: 34412488</a>). Presentation is nonspecific (fever, fatigue, chills, headache, myalgia, arthralgia), and infection is treatable with antibiotics. A Minnesota meningoencephalitis case was diagnosed by CSF Gram stain plus sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/38916722/">PMID: 38916722</a>). Diagnosis relies on <em>"direct (PCR) and indirect diagnosis (glycerophosphoryldiester-phosphodiesterase (GlpQ) serology)"</em>, and <em>B. miyamotoi</em> was found in 2.2% of <em>I. ricinus</em> ticks in Alsace, France (<a href="https://pubmed.ncbi.nlm.nih.gov/32303256/">PMID: 32303256</a>).</p>
+<h3>Finding 5 — TBRF in pregnancy causes very high perinatal mortality</h3>
+<p>A case-control study in rural Tanzania (137 pregnant vs 120 non-pregnant women with TBRF, 1985–1995) documented severe pregnancy outcomes: <em>"Risk of birth during the attack of TBRF was 58.0%, with an extremely high perinatal mortality of 436 per 1000 births. The total loss of pregnancies including abortions was 475"</em> per 1000 (<a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">PMID: 9351408</a>). Maternal case-fatality was low and similar between groups (1.5% pregnant vs 1.7% non-pregnant), but <strong>pregnant women showed significantly higher spirochete densities</strong>: <em>"Pregnant women with TBRF show higher densities of spirochetes than non-pregnant women (p &lt; 0.001)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">PMID: 9351408</a>). Delivery during an attack correlated with spirochetemia density (p&lt;0.001) and gestational age (p&lt;0.001); perinatal death was related to low birthweight and low gestational age rather than the degree of spirochetemia. The mechanistic driver of perinatal loss is therefore <strong>preterm delivery precipitated by the febrile attack</strong>.</p>
+<h3>Finding 6 — LBRF re-emerged in Europe among East African migrants (2015)</h3>
+<p>Louse-borne relapsing fever (<em>B. recurrentis</em>, transmitted by the <em>Pediculus humanus humanus</em> body louse — <em>"Borrelia recurrentis, transmitted by Pediculus humanus humanus, is the etiological agent of louse-borne relapsing fever (LBRF)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/26938933/">PMID: 26938933</a>) is endemic to the Horn of Africa (Ethiopia, Somalia, Sudan, Eritrea). In 2015, approximately 26–45 imported cases were diagnosed in migrants across Italy, Switzerland, the Netherlands, and Germany — a marked re-emergence after nearly a decade with essentially no imported European cases. A systematic search <em>"identified 26 cases of LBRF between July and October 2015 in migrants recently arrived in Europe"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27340042/">PMID: 27340042</a>). Diagnosis was made by microscopy: <em>"Multiple spirochetes were visualized on stained blood films which were identified as Borrelia recurrentis by 16S rRNA gene sequencing. All patients recovered after antibiotic treatment with ceftriaxone and/or doxycycline"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">PMID: 27188655</a>). Meningeal involvement with neck stiffness, CSF pleocytosis and thrombocytopenia was documented and treated with doxycycline plus ceftriaxone (<a href="https://pubmed.ncbi.nlm.nih.gov/26938933/">PMID: 26938933</a>). Concurrent malaria and tuberculosis co-infections occurred in half of a Swiss case series (<a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">PMID: 27188655</a>).</p>
+<h3>Finding 7 — TBRF is a zoonosis maintained in <em>Ornithodoros</em> soft-tick/small-mammal enzootic cycles</h3>
+<p>Tick-borne relapsing fever spirochetes <em>"of genus Borrelia thrive in enzootic cycles involving Ornithodoros spp. (Argasidae) mainly, and rodents"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38321309/">PMID: 38321309</a>). The disease is highly region-specific in its species/vector pairings:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Region</th>
+<th><em>Borrelia</em> species</th>
+<th>Vector (<em>Ornithodoros</em>)</th>
+<th>Reservoir / evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>West Africa</td>
+<td><em>B. crocidurae</em></td>
+<td><em>O. sonrai</em> (rodent-burrow)</td>
+<td>9.2% (287/3109) small mammals infected where vector present vs 0/1004 where absent; <em>Gerbillus</em> spp. reservoirs (<a href="https://pubmed.ncbi.nlm.nih.gov/26327444/">PMID: 26327444</a>)</td>
+</tr>
+<tr>
+<td>Iberian Peninsula</td>
+<td><em>B. hispanica</em></td>
+<td><em>O. erraticus</em> (pigpen)</td>
+<td>Blood-meal analysis 46.8% pig, 35.4% human (<a href="https://pubmed.ncbi.nlm.nih.gov/23808979/">PMID: 23808979</a>)</td>
+</tr>
+<tr>
+<td>Western North America</td>
+<td><em>B. hermsii</em></td>
+<td><em>O. hermsi</em></td>
+<td>Wild rodents; RF spirochetes in 7.7% Nevada mule deer (<a href="https://pubmed.ncbi.nlm.nih.gov/21995265/">PMID: 21995265</a>)</td>
+</tr>
+<tr>
+<td>Middle East</td>
+<td><em>B. persica</em></td>
+<td><em>O. tholozani</em></td>
+<td>Wildlife reservoirs; mainly transstadial transfer (<a href="https://pubmed.ncbi.nlm.nih.gov/33741637/">PMID: 33741637</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The West African data are especially clear: <em>"In areas with O. sonrai, Borrelia infection was demonstrated in 287 of 3109 (9.2%) small mammals tested, and none was documented in 1004 animals tested from other areas"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26327444/">PMID: 26327444</a>). The Iberian vector pairing: <em>"this tick serves as the vector of human tick-borne relapsing fever caused by the spirochete Borrelia hispanica"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/23808979/">PMID: 23808979</a>).</p>
+<h3>Finding 8 — The Jarisch-Herxheimer reaction is a TNF-α/IL-6/IL-8 cytokine storm suppressible by anti-TNF-α antibody</h3>
+<p>In LBRF (<em>B. recurrentis</em>), penicillin treatment triggers the JHR with fever, rigors, and hypotension, coincident with <strong>7-, 6-, and 4-fold transient rises in plasma TNF, IL-6, and IL-8</strong>, respectively; these cytokine elevations were absent in the 3/17 patients without JHR, and spirochetes cleared from blood ~5 hours after penicillin (<a href="https://pubmed.ncbi.nlm.nih.gov/1569394/">PMID: 1569394</a>). The abstract reports <em>"a seven-, six-, and fourfold elevation of these plasma cytokine concentrations over admission levels was detected, respectively, occurring in transient form coincidental with observed pathophysiological changes of J-HR."</em></p>
+<p>Causality was established by a randomized double-blind placebo-controlled trial (n=49): sheep <strong>anti-TNF-α Fab given before penicillin reduced JHR with rigors</strong> from 26/29 (controls) to 10/20 (P=0.006), and blunted the rises in temperature (0.8 vs 1.5°C, P&lt;0.001), pulse, blood pressure, and peak IL-6 (17 vs 50 µg/L) and IL-8 (205 vs 2000 ng/L) (<a href="https://pubmed.ncbi.nlm.nih.gov/8663853/">PMID: 8663853</a>). As stated: <em>"Ten of the 20 patients given anti-TNF-alpha Fab had Jarisch-Herxheimer reactions with rigors, as compared with 26 of the 29 control patients (P = 0.006)."</em> This provides direct interventional evidence that TNF-α is the proximal mediator of the JHR.</p>
+<h3>Finding 9 — Contemporary epidemiology: <em>B. miyamotoi</em> surveillance in the US and RF burden in West Africa</h3>
+<p>US surveillance across 9 Northeast/Midwest states (2013–2019) identified <strong>300 <em>B. miyamotoi</em> cases</strong> (166 confirmed, 134 possible): <em>"During 2013-2019, a total of 300 cases were identified through surveillance; 166 (55%) were classified as confirmed and 134 (45%) as possible. Median age of case-patients was 52 years (range 1-86 years); 52% were male. Most cases (70%) occurred during June-September"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37610298/">PMID: 37610298</a>). Fever and headache were common, 28% reported recurring fevers, 55% arthralgia, 16% rash, 13% were hospitalized, and there were no deaths. <em>B. miyamotoi</em> is present in questing <em>Ixodes scapularis</em> across all 67 Pennsylvania counties (positive pools in 38 counties) (<a href="https://pubmed.ncbi.nlm.nih.gov/38686844/">PMID: 38686844</a>). In Senegal, metagenomic sequencing of non-malarial febrile illness detected relapsing fever <em>Borrelia</em> in <strong>15.5% of cases — the single most common pathogen</strong>: <em>"Bacteria were the most common, with relapsing fever Borrelia and spotted fever Rickettsia found in 15.5% and 3.8% of cases, respectively"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38272885/">PMID: 38272885</a>).</p>
+<h3>Finding 10 — Resolution of each bacteremic episode requires T-independent IgM produced by B1b lymphocytes</h3>
+<p>The immune clearance of each relapse wave is a T-independent process. SCID or Rag−/− mice cannot resolve <em>B. hermsii</em> infection (they require T/B cells). However, T-cell-deficient TCR−/− and IL-7−/− mice (which lack T cells and follicular B cells but retain B1 and marginal-zone B cells) efficiently cleared the bacterium, and splenectomized mice still cleared it (ruling out a primary marginal-zone B-cell role). <em>xid</em> mice (B1-cell deficient) suffered more severe bacteremia, and a selective expansion of the <strong>B1b subset (IgM-high, IgD−/low, Mac1+, CD23−, CD5−)</strong> coincided with resolution: <em>"a selective expansion of the B1b (i.e., IgM(high), IgD(-/low), Mac1(+) CD23(-), and CD5(-)) cell subset in infected xid mice, which coincided with the eventual resolution of infection"</em>. Critically, <em>"mice selectively incapable of secreting IgM, the dominant isotype produced by B1 cells, were completely unable to clear B. hermsii"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12646649/">PMID: 12646649</a>).</p>
+<p><strong>Cell type (CL):</strong> B-1b B cell (<a href="http://purl.obolibrary.org/obo/CL_0000821" target="_blank" rel="noopener noreferrer">CL:0000821</a>); GO: immunoglobulin production (<a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" rel="noopener noreferrer">GO:0002377</a>), humoral immune response (<a href="http://purl.obolibrary.org/obo/GO_0006959" target="_blank" rel="noopener noreferrer">GO:0006959</a>).</p>
+<h3>Finding 11 — Dissemination via hijacked plasminogen/plasmin and adhesins; TLR signaling required for protective antibody</h3>
+<p>RF spirochetes disseminate through host tissues by exploiting the host fibrinolytic system. <em>B. hermsii</em> and <em>B. recurrentis</em> bind host <strong>plasminogen (Plg)</strong> on their surface and generate <strong>plasmin (Pla)</strong>; spirochetes with Pla activity <em>"have been shown to degrade extracellular matrix (ECM) components, in addition to digesting fibrin, facilitating bacterial invasion and dissemination"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25914944/">PMID: 25914944</a>). Borrelia adhesins mediate attachment to cell-surface molecules and to soluble proteins/ECM, cloaking the surface from immune recognition and facilitating tissue colonization (<a href="https://pubmed.ncbi.nlm.nih.gov/21557056/">PMID: 21557056</a>). On the host side, controlling infection relies on a rapid humoral response, and beyond B-cell receptor signaling, <em>"growing evidence suggests that additional signaling by innate immune receptors such as Toll-like receptors is necessary for optimal T cell-dependent and T cell-independent antibody responses"</em> to Borreliae (<a href="https://pubmed.ncbi.nlm.nih.gov/22202086/">PMID: 22202086</a>).</p>
+<p><strong>GO terms:</strong> plasminogen activation (<a href="http://purl.obolibrary.org/obo/GO_0031639" target="_blank" rel="noopener noreferrer">GO:0031639</a>), proteolysis (<a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" rel="noopener noreferrer">GO:0006508</a>), Toll-like receptor signaling pathway (<a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a>).</p>
+<h3>Finding 12 — Natural rodent reservoirs tolerate RF <em>Borrelia</em>; laboratory mice are the principal disease model</h3>
+<p>North American deer mice <em>Peromyscus leucopus</em> and <em>P. maniculatus</em> are important natural reservoirs for hard-tick relapsing fever (and several other zoonoses); despite high prevalence of persistent infection they display little pathology, exhibiting both <strong>partial resistance</strong> (limiting pathogen burden) and <strong>infection tolerance</strong> (reducing damage): <em>"they appear to have partial resistance, which limits the burden of the pathogen. In addition, they display traits of infection tolerance, which reduces the damage of the infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">PMID: 27381345</a>). <em>Peromyscus</em> are identified as <em>"important natural reservoirs for several zoonotic diseases of humans: Lyme disease, human granulocytic anaplasmosis, babesiosis, erhlichiosis, hard tickborne relapsing fever"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">PMID: 27381345</a>). In West Africa, <em>Gerbillus</em> spp. serve as reservoirs for <em>B. crocidurae</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26327444/">PMID: 26327444</a>). <strong>Inbred laboratory mice</strong> (both immunocompetent and immunodeficient strains) are the standard experimental model, recapitulating relapsing bacteremia, antigenic variation, thrombocytopenia and anemia (<a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">PMID: 19995898</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12646649/">PMID: 12646649</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24699793/">PMID: 24699793</a>); guinea pigs are used for tick-transmission competence studies (<a href="https://pubmed.ncbi.nlm.nih.gov/38321309/">PMID: 38321309</a>).</p>
+<p><strong>NCBI Taxonomy:</strong> <em>Peromyscus leucopus</em> (txid10041), <em>Gerbillus</em> (txid10045), <em>Mus musculus</em> (txid10090).</p>
+<h3>Finding 13 — Prevention rests on vector avoidance/surveillance and doxycycline post-exposure prophylaxis; no vaccine</h3>
+<p>In TBRF-endemic Israel, prevention among at-risk military personnel is based on <em>"heightened awareness and risk stratification by active surveillance of tick bites and selective postexposure prophylaxis (PEP) with doxycycline for tick-bitten individuals"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24107216/">PMID: 24107216</a>). Across three outbreaks (35 exposed), tick-bite recognition was only ~50% and the attack rate 25–50%; 20% of TBRF cases had no recognized tick bite. After a revised cohort-based policy, <em>"24 soldiers (including eight with recognized and 16 with unrecognized tick bites) received antimicrobials following the diagnosis of TBRF among their cohorts, and none of these individuals subsequently developed TBRF"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/24107216/">PMID: 24107216</a>). <strong>No licensed vaccine exists</strong> for relapsing fever; primary prevention is environmental and behavioral (delousing/hygiene for LBRF; tick avoidance and rodent-proofing of dwellings for TBRF).</p>
+<hr />
+<h2>Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Relapsing fever is an acute febrile spirochetal zoonosis/anthroponosis characterized by recurring episodes of fever separated by afebrile intervals, caused by <em>Borrelia</em> species. It presents as an undifferentiated febrile illness that is frequently confused with malaria, typhoid, dengue, and leptospirosis.</p>
+<p><strong>Key identifiers:</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0019633" target="_blank" rel="noopener noreferrer">MONDO:0019633</a> (relapsing fever)
+- <strong>MeSH:</strong> Relapsing Fever (D012061)
+- <strong>ICD-10:</strong> A68 (A68.0 louse-borne; A68.1 tick-borne; A68.9 unspecified)
+- <strong>ICD-11:</strong> 1C1B
+- <strong>Not applicable:</strong> OMIM and Orphanet Mendelian-disease identifiers — RF is an infectious, non-heritable disease, so it is not a classic OMIM/Orphanet genetic entry.</p>
+<p><strong>Synonyms/alternative names:</strong> recurrent fever, famine fever, tick fever, spirochetal fever; louse-borne relapsing fever (LBRF; epidemic relapsing fever); tick-borne relapsing fever (TBRF; endemic relapsing fever); <em>Borrelia miyamotoi</em> disease (hard-tick relapsing fever).</p>
+<p><strong>Information source.</strong> Evidence is drawn from <strong>aggregated disease-level resources</strong> — clinical case series, hospital cohorts, systematic reviews, and experimental animal studies — rather than a single EHR-derived individual-patient dataset.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor: infectious.</strong> RF is caused entirely by <em>Borrelia</em> spirochetes; there is <strong>no genetic (human heritable) etiology</strong>. The primary agents are <em>B. recurrentis</em> (LBRF) and multiple TBRF species (<em>B. hermsii</em>, <em>B. duttonii</em>, <em>B. crocidurae</em>, <em>B. hispanica</em>, <em>B. persica</em>, <em>B. turicatae</em>, <em>B. miyamotoi</em>, and others).</p>
+<p><strong>Environmental / risk factors.</strong> Poverty, overcrowding, homelessness, war, famine, and refugee movements favor body-louse infestation and LBRF (<a href="https://pubmed.ncbi.nlm.nih.gov/27340042/">PMID: 27340042</a>). Occupational/recreational exposure to <em>Ornithodoros</em>-infested rodent burrows, caves, and rustic cabins drives TBRF. <strong>Pregnancy</strong> is a major risk factor for severe outcomes (higher spirochetemia, high perinatal mortality) (<a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">PMID: 9351408</a>). <strong>Immunocompromise</strong> (e.g., rituximab therapy) predisposes to <em>B. miyamotoi</em> meningoencephalitis (<a href="https://pubmed.ncbi.nlm.nih.gov/34412488/">PMID: 34412488</a>).</p>
+<p><strong>Genetic risk / protective factors.</strong> <em>Human</em> — Not established; no validated human susceptibility or protective variants. <em>Model organism</em> — susceptibility to <em>B. hermsii</em> is genetically controlled across inbred mouse strains via innate-immune genes (<a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">PMID: 19995898</a>). Natural reservoir <em>Peromyscus</em> mice carry resistance/tolerance traits that limit pathology (<a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">PMID: 27381345</a>).</p>
+<p><strong>Gene–environment interaction.</strong> Not applicable in the human-heritable sense. The operative interaction is <strong>pathogen antigenic-variation genetics × host adaptive immunity</strong>: host antibody pressure selects for Vmp switch variants, producing the relapse cycle.</p>
+<h3>3. Phenotypes</h3>
+<p>The cardinal phenotype is <strong>relapsing fever</strong> — recurring high-fever episodes (present in ~100% of confirmed cases), each lasting ~3 days with afebrile intervals of ~5–7 days, driven by antigenic variation. Additional phenotypes and their characteristics:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>HPO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recurring fever</td>
+<td>symptom</td>
+<td>~100% (defining)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" rel="noopener noreferrer">HP:0001954</a> (recurrent fever)</td>
+</tr>
+<tr>
+<td>Chills/rigors</td>
+<td>symptom</td>
+<td>~67%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a></td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>symptom</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a></td>
+</tr>
+<tr>
+<td>Myalgia/arthralgia</td>
+<td>symptom</td>
+<td>55% arthralgia (B. miyamotoi)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> / <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>lab abnormality</td>
+<td>most suggestive lab finding</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a></td>
+</tr>
+<tr>
+<td>Anemia</td>
+<td>lab abnormality</td>
+<td>74.7% (severe cohort)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a></td>
+</tr>
+<tr>
+<td>Hepatosplenomegaly</td>
+<td>clinical sign</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" rel="noopener noreferrer">HP:0001433</a></td>
+</tr>
+<tr>
+<td>Altered mental status / neurologic</td>
+<td>clinical sign</td>
+<td>46.2% severe cohort; meningoencephalitis in immunocompromised</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011446" target="_blank" rel="noopener noreferrer">HP:0011446</a></td>
+</tr>
+<tr>
+<td>ARDS / respiratory distress</td>
+<td>complication</td>
+<td>54.6–69.7% (severe cohort)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" rel="noopener noreferrer">HP:0033677</a></td>
+</tr>
+<tr>
+<td>Shock</td>
+<td>complication</td>
+<td>60.5% (severe cohort)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" rel="noopener noreferrer">HP:0031273</a></td>
+</tr>
+<tr>
+<td>Petechial rash / hemorrhage</td>
+<td>physical manifestation</td>
+<td>common in LBRF</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" rel="noopener noreferrer">HP:0000979</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> acute, 2–18 days after exposure. <strong>Severity:</strong> variable — mild self-limiting in <em>B. miyamotoi</em> to severe/fatal in untreated LBRF. <strong>Progression:</strong> episodic/relapsing-remitting by definition. <strong>Quality of life:</strong> acute and self-limited if treated; severe morbidity (anemia, ARDS, perinatal loss) and death in untreated/severe cases.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable to human heritable genetics.</strong> No human causal genes, pathogenic variants, modifier genes, or chromosomal abnormalities are associated with relapsing fever.</p>
+<p><strong>Pathogen molecular genetics (the operative "genetics"):</strong>
+- <strong>Variable major protein (<em>vmp<em>) gene families</em><em> — </em>vlp<em> (variable large protein) and </em>vsp<em> (variable small protein) — provide ~60 silent archival genes on </em><em>linear plasmids</em><em> (<a href="https://pubmed.ncbi.nlm.nih.gov/12008924/">PMID: 12008924</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11083837/">PMID: 11083837</a>).
+- </em><em>Single active expression site</em><em> with flanking </em><em>cis-acting UHS/DHS inverted repeats</em>*; gene conversion into this site produces serotype switching. Deletion/mutation abolishes relapse (<a href="https://pubmed.ncbi.nlm.nih.gov/29250931/">PMID: 29250931</a>).
+- </em></strong>glpQ<strong><em> (glycerophosphoryldiester phosphodiesterase) — a conserved gene absent in Lyme </em>Borrelia*, used as a </strong>serological diagnostic antigen<strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32303256/">PMID: 32303256</a>).
+- </strong>Vtp** (variable tick protein) — expressed in the tick vector, invariable at its locus but diverse between strains, and also elicits host antibody.</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agents (taxonomy):</strong> <em>Borrelia recurrentis</em>, <em>B. hermsii</em>, <em>B. duttonii</em>, <em>B. crocidurae</em>, <em>B. hispanica</em>, <em>B. persica</em>, <em>B. turicatae</em>, <em>B. miyamotoi</em> (genus <em>Borrelia</em>, family Borreliaceae/Spirochaetaceae). <strong>Vectors:</strong> body louse <em>Pediculus humanus humanus</em> (LBRF); soft ticks <em>Ornithodoros</em> spp. and hard ticks <em>Ixodes</em> spp. (TBRF). <strong>Environmental/lifestyle factors:</strong> poverty, crowding, homelessness, poor hygiene, cold climates promoting layered clothing (lice); exposure to rodent-infested dwellings, caves, and burrows (ticks). No chemical toxin or radiation etiology.</p>
+<h3>6. Mechanism / Pathophysiology — Ordered Causal Chain</h3>
+<pre><code>1. Arthropod bite (Ornithodoros soft tick, Ixodes hard tick, or body louse)
+   inoculates Borrelia spirochetes into skin/blood
+│  leads to
+▼
+2. Spirochetes bind host PLASMINOGEN and generate PLASMIN on their surface
+   [F011], and use ADHESINS to attach to ECM/host cells
+│  results in
+▼
+3. Plasmin-mediated degradation of ECM and fibrin → tissue invasion and
+   DISSEMINATION into bloodstream and organs (spleen, liver, CNS)
+│  leads to
+▼
+4. High-density BACTEREMIA → first febrile wave; spirochete-RBC interaction
+│  leads to
+▼
+5. Host mounts a rapid T-INDEPENDENT IgM response from B1b lymphocytes
+   (requires TLR innate signaling for optimal antibody) [F010, F011]
+│  results in
+▼
+6. IgM-mediated clearance of the dominant serotype → afebrile interval;
+   RBCs cleared by tissue-resident MACROPHAGES → ANEMIA/THROMBOCYTOPENIA [F003]
+│
+├── branch A (relapse): rare Vmp SWITCH VARIANTS (gene conversion at the
+│   single expression site) [F001] escape IgM → new bacteremic wave →
+│   RETURN TO STEP 4 (repeats until variant repertoire/immunity exhausts)
+│
+└── branch B (treatment): ANTIBIOTIC (doxycycline/penicillin/ceftriaxone)
+    → rapid spirochete lysis → release of bacterial products →
+    TNF-α/IL-6/IL-8 surge → JARISCH-HERXHEIMER REACTION [F008]
+│  in severe/untreated disease leads to
+▼
+7. Systemic inflammation, myocarditis, ARDS, shock, hemorrhage, hepatic failure
+   → DEATH (up to ~70% untreated LBRF) [F002]
+</code></pre>
+<p><strong>Upstream vs downstream.</strong> The <strong>initiating lesion</strong> is vector inoculation (step 1); the <strong>upstream driver of chronicity</strong> is Vmp antigenic variation (step 6, branch A); <strong>downstream effectors</strong> are macrophage-mediated cytopenias, plasmin-driven dissemination, and — during therapy — the TNF-α cytokine cascade of the JHR. Note that branch A is <em>demonstrated</em> (loss-of-function mutants cannot relapse); the precise trigger of JHR immunopathology in branch B is <em>inferred</em> to be lysis-released bacterial products acting via innate receptors, with TNF-α causality established by the anti-TNF-α RCT.</p>
+<p><strong>Molecular pathways / processes:</strong> plasminogen activation and proteolysis (<a href="http://purl.obolibrary.org/obo/GO_0031639" target="_blank" rel="noopener noreferrer">GO:0031639</a>, <a href="http://purl.obolibrary.org/obo/GO_0006508" target="_blank" rel="noopener noreferrer">GO:0006508</a>); Toll-like receptor signaling (<a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a>); humoral immune response / immunoglobulin production (<a href="http://purl.obolibrary.org/obo/GO_0006959" target="_blank" rel="noopener noreferrer">GO:0006959</a>, <a href="http://purl.obolibrary.org/obo/GO_0002377" target="_blank" rel="noopener noreferrer">GO:0002377</a>); cytokine-mediated inflammatory response (TNF-α, IL-6, IL-8; <a href="http://purl.obolibrary.org/obo/GO_0071356" target="_blank" rel="noopener noreferrer">GO:0071356</a>). <strong>Protein dysfunction:</strong> this is a pathogen-driven disease; the key protein events are surface antigen switching (Vmp) and host immune evasion, not host protein misfolding. <strong>Immune involvement:</strong> dominant — antigenic variation for evasion, B1b IgM for control, TNF-α for JHR immunopathology.</p>
+<p><strong>Cell types (CL):</strong> B-1b B cell (<a href="http://purl.obolibrary.org/obo/CL_0000821" target="_blank" rel="noopener noreferrer">CL:0000821</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), erythrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a>), platelet (<a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a>). <strong>GO biological processes:</strong> antigenic variation / evasion of host immune response, inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organs:</strong> blood/bloodstream (site of bacteremia; <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>).</li>
+<li><strong>Secondary involvement:</strong> central nervous system / meninges (meningoencephalitis, especially <em>B. miyamotoi</em> in immunocompromised; <a href="http://purl.obolibrary.org/obo/UBERON_0001016" target="_blank" rel="noopener noreferrer">UBERON:0001016</a>, <a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>); lungs (ARDS; <a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>); heart (myocarditis; <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>); placenta and fetus (<a href="http://purl.obolibrary.org/obo/UBERON_0001987" target="_blank" rel="noopener noreferrer">UBERON:0001987</a>) in pregnancy.</li>
+<li><strong>Body systems:</strong> hematologic/immune, cardiovascular, respiratory, nervous, hepatobiliary, reproductive.</li>
+<li><strong>Tissue/cell level:</strong> erythrocytes and platelets (cleared by macrophages), reticuloendothelial macrophages of spleen/liver, B1b lymphocytes.</li>
+<li><strong>Subcellular:</strong> spirochete surface (outer membrane); no specific host organelle target.</li>
+<li><strong>Localization:</strong> systemic/bilateral (disseminated bloodborne infection); no lateralization.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> acute, incubation 2–18 days after exposure.</li>
+<li><strong>Course:</strong> episodic / relapsing-remitting — the defining pattern. In LBRF typically 1 relapse (sometimes more); in TBRF multiple relapses (often 3–10) are characteristic. Each febrile episode lasts ~3 days; afebrile intervals ~5–7 days.</li>
+<li><strong>Duration:</strong> self-limited over weeks if untreated survivors clear the infection; curative with antibiotics.</li>
+<li><strong>Critical period:</strong> febrile attacks in pregnancy precipitate preterm delivery — a key window for intervention (<a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">PMID: 9351408</a>). Antibiotic timing determines JHR risk.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance:</strong> Not applicable — infectious, not heritable.</p>
+<p><strong>Epidemiology / geographic distribution:</strong>
+- <strong>LBRF:</strong> endemic focus in the Horn of Africa (Ethiopia, Somalia, Sudan, Eritrea); epidemic potential in war/famine/refugee settings; 26–45 imported European cases in 2015 (<a href="https://pubmed.ncbi.nlm.nih.gov/27340042/">PMID: 27340042</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">PMID: 27188655</a>).
+- <strong>TBRF:</strong> globally distributed enzootic foci (West Africa, Iberia, Middle East, western North America) with region-specific species/vectors (<a href="https://pubmed.ncbi.nlm.nih.gov/38321309/">PMID: 38321309</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26327444/">PMID: 26327444</a>).
+- <strong>Burden:</strong> relapsing fever <em>Borrelia</em> was the most common pathogen (15.5%) in non-malarial febrile illness in Senegal (<a href="https://pubmed.ncbi.nlm.nih.gov/38272885/">PMID: 38272885</a>).
+- <strong>B. miyamotoi (US):</strong> 300 surveillance cases (2013–2019), median age 52, 52% male, 70% June–September (<a href="https://pubmed.ncbi.nlm.nih.gov/37610298/">PMID: 37610298</a>).</p>
+<p><strong>Demographics:</strong> all ages affected; severe outcomes in pregnant women, the malnourished, and immunocompromised. Sex ratio roughly balanced (52% male in US <em>B. miyamotoi</em> series).</p>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Gold standard:</strong> direct microscopy — spirochetes visualized on <strong>Giemsa/Wright-stained thick and thin blood films</strong> drawn during febrile peaks (<a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">PMID: 27188655</a>); thrombocytopenia is the most suggestive laboratory finding.</li>
+<li><strong>Molecular:</strong> <strong>16S rRNA gene PCR/sequencing</strong> for species identification (<a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">PMID: 27188655</a>); qPCR for <em>B. miyamotoi</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/38686844/">PMID: 38686844</a>); metagenomic sequencing (<a href="https://pubmed.ncbi.nlm.nih.gov/38272885/">PMID: 38272885</a>).</li>
+<li><strong>Serology:</strong> <strong>GlpQ (glycerophosphoryldiester-phosphodiesterase) serology</strong> distinguishes RF from Lyme <em>Borrelia</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32303256/">PMID: 32303256</a>).</li>
+<li><strong>CSF:</strong> Gram stain + sequencing for meningoencephalitis (<a href="https://pubmed.ncbi.nlm.nih.gov/38916722/">PMID: 38916722</a>); pleocytosis in meningeal involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/26938933/">PMID: 26938933</a>).</li>
+<li><strong>Differential diagnosis:</strong> malaria (co-infection common), typhoid, dengue, leptospirosis, spotted-fever rickettsiosis.</li>
+<li><strong>Genetic testing / newborn screening / omics diagnostics:</strong> Not applicable (infectious disease).</li>
+</ul>
+<h3>11. Outcome/Prognosis</h3>
+<ul>
+<li><strong>Mortality:</strong> untreated LBRF up to ~70%; severe hospitalized cohort 45.4% in-hospital mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/41418926/">PMID: 41418926</a>); with antibiotic treatment, case-fatality falls to &lt;5%. No deaths in the milder US <em>B. miyamotoi</em> series (<a href="https://pubmed.ncbi.nlm.nih.gov/37610298/">PMID: 37610298</a>).</li>
+<li><strong>Complications:</strong> anemia, ARDS, shock, JHR, myocarditis, hemorrhage, hepatic failure, meningoencephalitis, and — in pregnancy — abortion/preterm birth with perinatal mortality of 436/1000 (<a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">PMID: 9351408</a>).</li>
+<li><strong>Prognostic factors:</strong> promptness of antibiotic therapy, pregnancy, high spirochetemia density, immunocompromise, malnutrition, and co-infection.</li>
+<li><strong>Recovery:</strong> complete recovery is expected with timely treatment; the disease is self-limited/curable rather than chronic.</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>First-line pharmacotherapy:</strong> <strong>tetracyclines — doxycycline</strong> (NCIT:C299); <strong>penicillin</strong> (NCIT:C716); <strong>ceftriaxone</strong> (NCIT:C1638) for severe/CNS disease. Erythromycin/macrolides are alternatives (e.g., in children, pregnancy). Patients recovered after ceftriaxone and/or doxycycline (<a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">PMID: 27188655</a>); doxycycline + ceftriaxone for meningeal involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/26938933/">PMID: 26938933</a>).</li>
+<li><strong>Jarisch-Herxheimer management:</strong> anticipate JHR within 24 h of first dose; supportive care (fluids, antipyretics, hemodynamic monitoring). <strong>Pre-treatment anti-TNF-α antibody reduces JHR severity</strong> in trials (<a href="https://pubmed.ncbi.nlm.nih.gov/8663853/">PMID: 8663853</a>) — a mechanistic proof of concept, not yet standard care.</li>
+<li><strong>Supportive care:</strong> transfusion for anemia, oxygen/ventilation for ARDS, vasopressors for shock.</li>
+<li><strong>Advanced/targeted/gene/cell/RNA therapies; pharmacogenomics:</strong> Not applicable.</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> LBRF — <strong>delousing</strong>, sterilizing/laundering clothing, pediculicides, improved personal hygiene; TBRF — avoidance of rodent-infested/tick-infested dwellings, rodent-proofing, acaricides, permethrin-treated clothing.</li>
+<li><strong>Secondary prevention:</strong> active surveillance of tick bites and early diagnosis in endemic settings.</li>
+<li><strong>Post-exposure prophylaxis:</strong> <strong>doxycycline PEP</strong> effective for TBRF; cohort-based PEP prevented all subsequent cases in an Israeli military study (<a href="https://pubmed.ncbi.nlm.nih.gov/24107216/">PMID: 24107216</a>).</li>
+<li><strong>Immunization:</strong> <strong>no vaccine exists</strong> (antigenic variation is a fundamental barrier to vaccine development).</li>
+<li><strong>Public health:</strong> outbreak control through delousing campaigns, sanitation, health education, and vector control.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Taxonomy of hosts:</strong> <em>Peromyscus leucopus</em> / <em>P. maniculatus</em> (NCBI txid10041/10042), <em>Gerbillus</em> spp. (txid10045), <em>Mus musculus</em> (txid10090), <em>Odocoileus hemionus</em> (mule deer). Reservoir competence with minimal pathology in <em>Peromyscus</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">PMID: 27381345</a>).</li>
+<li><strong>Zoonotic potential:</strong> TBRF is a <strong>true zoonosis</strong> maintained in <em>Ornithodoros</em>/rodent enzootic cycles (<a href="https://pubmed.ncbi.nlm.nih.gov/38321309/">PMID: 38321309</a>); LBRF (<em>B. recurrentis</em>) is essentially an <strong>anthroponosis</strong> (human–louse–human cycle).</li>
+<li><strong>Comparative biology:</strong> RF spirochetes infect wild rodents, deer (7.7% Nevada mule deer; <a href="https://pubmed.ncbi.nlm.nih.gov/21995265/">PMID: 21995265</a>), and — for related species such as <em>B. anserina</em> and <em>B. theileri</em> — birds and cattle. Reservoirs tolerate infection via resistance + tolerance mechanisms (<a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">PMID: 27381345</a>).</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<ul>
+<li><strong>Principal model:</strong> <strong>inbred laboratory mice</strong> (<em>Mus musculus</em>), both immunocompetent and immunodeficient (SCID, Rag−/−, TCR−/−, IL-7−/−, <em>xid</em>), which recapitulate relapsing bacteremia, antigenic variation, thrombocytopenia, and anemia and have been used to dissect the B1b/IgM clearance mechanism and genetic susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/12646649/">PMID: 12646649</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">PMID: 19995898</a>).</li>
+<li><strong>Genetic models:</strong> <em>Borrelia</em> mutants — Vmp-null, expression-site deletions, UHS/DHS repeat mutants — used to prove antigenic-variation necessity (<a href="https://pubmed.ncbi.nlm.nih.gov/29250931/">PMID: 29250931</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/24699793/">PMID: 24699793</a>).</li>
+<li><strong>Other models:</strong> guinea pigs for tick-transmission competence (<a href="https://pubmed.ncbi.nlm.nih.gov/38321309/">PMID: 38321309</a>); <em>Peromyscus</em> reservoir studies for resistance/tolerance biology (<a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">PMID: 27381345</a>).</li>
+<li><strong>Recapitulation/limitations:</strong> mouse models faithfully reproduce the relapse cycle and immune control but do not fully capture human severe complications (ARDS, JHR severity, pregnancy loss).</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The unifying concept of relapsing fever is an <strong>evolutionary arms race between pathogen antigenic variation and host antibody immunity</strong>, played out in cycles measured in days:</p>
+<pre><code>Vmp switch (gene conversion)            IgM from B1b cells
+   ┌──────────────────────────────────┐   ┌──────────────────────────┐
+   │  silent vmp archive (~60 genes)  │   │  T-independent humoral    │
+   │  on linear plasmids              │   │  response (TLR-assisted)  │
+   └──────────────┬───────────────────┘   └────────────┬─────────────┘
+  │ places 1 gene at                    │ clears dominant
+  │ single expression site              │ serotype
+  ▼                                      ▼
+NEW SEROTYPE → bacteremic wave ──────► FEVER ──► clearance ──► afebrile
+  ▲                                                        │
+  └──────────── rare escape variant ◄──────────────────────┘
+                (drives the next RELAPSE)
+</code></pre>
+<p>Every febrile peak corresponds to a high-density bacteremic wave of a single dominant Vmp serotype; every trough corresponds to IgM-mediated clearance of that serotype. Because gene conversion continually generates rare escape variants, the process repeats until the variant repertoire and cumulative immunity exhaust it. Superimposed on this cycle are (i) <strong>plasmin/adhesin-mediated dissemination</strong> enabling organ invasion, (ii) <strong>macrophage-mediated erythrocyte/platelet clearance</strong> producing the characteristic cytopenias, and (iii) the <strong>TNF-α/IL-6/IL-8 Jarisch-Herxheimer cascade</strong> unleashed when antibiotics lyse the spirochetes. This model explains the clinical hallmarks (sawtooth fever, anemia, thrombocytopenia, treatment-associated crises) as direct consequences of a single organizing principle — antigenic variation under antibody selection.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Finding</th>
+<th>Key PMIDs</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Antigenic variation mechanism</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29250931/">29250931</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24699793/">24699793</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/12008924/">12008924</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/11083837/">11083837</a></td>
+<td>Define gene conversion, expression site, cis-elements; loss-of-function proves relapse dependence</td>
+</tr>
+<tr>
+<td>Clinical burden/mortality</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41418926/">41418926</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40624823/">40624823</a></td>
+<td>Quantify complications, 45.4% mortality, define JHR</td>
+</tr>
+<tr>
+<td>Anemia/macrophage clearance</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">19995898</a></td>
+<td>FISH evidence of macrophage RBC clearance; innate + adaptive control</td>
+</tr>
+<tr>
+<td><em>B. miyamotoi</em> emergence</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34412488/">34412488</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38916722/">38916722</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32303256/">32303256</a></td>
+<td>Hard-tick RF, CNS disease, PCR/GlpQ diagnosis</td>
+</tr>
+<tr>
+<td>Pregnancy outcomes</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">9351408</a></td>
+<td>Perinatal mortality 436/1000; higher spirochetemia</td>
+</tr>
+<tr>
+<td>LBRF re-emergence</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27340042/">27340042</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27188655/">27188655</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26938933/">26938933</a></td>
+<td>2015 European migrant cases, diagnosis, treatment</td>
+</tr>
+<tr>
+<td>Enzootic cycle</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38321309/">38321309</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/26327444/">26327444</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/23808979/">23808979</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21995265/">21995265</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/33741637/">33741637</a></td>
+<td>Region-specific <em>Ornithodoros</em>/rodent cycles</td>
+</tr>
+<tr>
+<td>JHR cytokine mechanism</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8663853/">8663853</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/1569394/">1569394</a></td>
+<td>RCT anti-TNF-α suppresses JHR; TNF/IL-6/IL-8 surge</td>
+</tr>
+<tr>
+<td>Epidemiology</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37610298/">37610298</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38686844/">38686844</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38272885/">38272885</a></td>
+<td>US surveillance; West African burden</td>
+</tr>
+<tr>
+<td>B1b/IgM clearance</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12646649/">12646649</a></td>
+<td>IgM essential; B1b expansion resolves bacteremia</td>
+</tr>
+<tr>
+<td>Dissemination/TLR</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25914944/">25914944</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21557056/">21557056</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/22202086/">22202086</a></td>
+<td>Plasmin/adhesins; TLR required for antibody</td>
+</tr>
+<tr>
+<td>Reservoirs/models</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27381345/">27381345</a></td>
+<td><em>Peromyscus</em> resistance + tolerance</td>
+</tr>
+<tr>
+<td>Prevention/PEP</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24107216/">24107216</a></td>
+<td>Doxycycline PEP; no vaccine</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> human clinical (case series, cohorts, RCT of anti-TNF-α, surveillance); model organism (mouse genetics, <em>Borrelia</em> mutants, <em>Peromyscus</em>, guinea pigs); molecular/in vitro (plasmin binding, gene-conversion genetics).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No primary dataset was analyzed</strong> — this report synthesizes published literature; no de novo statistical testing of raw data was performed. Effect sizes are those reported by source studies.</li>
+<li><strong>Severe-cohort mortality (45.4%) is not generalizable</strong> — it derives from a single resource-limited hospital cohort of the sickest, blood-film-positive patients and overestimates population case-fatality where treatment is available.</li>
+<li><strong>Species heterogeneity</strong> — RF spans many <em>Borrelia</em> species with differing virulence (e.g., mild <em>B. miyamotoi</em> vs lethal <em>B. recurrentis</em>); pooling clinical features across species obscures species-specific behavior.</li>
+<li><strong>Human host genetics unexplored</strong> — no GWAS or candidate-gene studies define human susceptibility/protective loci; all host genetic evidence is murine.</li>
+<li><strong>Anti-TNF-α for JHR</strong> remains a proof-of-concept from one RCT and is not standard practice; optimal clinical JHR mitigation is unresolved.</li>
+<li><strong>Global burden is underestimated</strong> — RF is frequently misdiagnosed as malaria; true incidence/prevalence figures are lacking for most endemic regions.</li>
+<li><strong>Vaccine development</strong> is fundamentally hampered by antigenic variation; no candidate has advanced.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Species-stratified clinical meta-analysis</strong> — pool case series by <em>Borrelia</em> species to derive species-specific complication rates, JHR risk, and case-fatality with confidence intervals.</li>
+<li><strong>Human immunogenetic study</strong> — investigate whether human variants in innate-immunity genes (TLRs, complement) or hemoglobinopathies modulate RF severity, mirroring the murine susceptibility findings (<a href="https://pubmed.ncbi.nlm.nih.gov/19995898/">PMID: 19995898</a>).</li>
+<li><strong>Prospective anti-cytokine JHR trial</strong> — evaluate targeted TNF-α (or IL-6) blockade at antibiotic initiation in LBRF, building on <a href="https://pubmed.ncbi.nlm.nih.gov/8663853/">PMID: 8663853</a>, with hemodynamic and cytokine endpoints.</li>
+<li><strong>Conserved-antigen vaccine screen</strong> — target invariant surface molecules (e.g., GlpQ, Vtp-conserved regions, factor-H-binding proteins) to circumvent Vmp antigenic variation.</li>
+<li><strong>Enhanced surveillance &amp; rapid diagnostics</strong> — deploy multiplex PCR/metagenomic panels and GlpQ point-of-care serology in malaria-endemic Africa to correctly attribute non-malarial febrile illness (<a href="https://pubmed.ncbi.nlm.nih.gov/38272885/">PMID: 38272885</a>).</li>
+<li><strong>Pregnancy-focused management protocol</strong> — study fetal monitoring and prophylactic strategies to reduce attack-triggered preterm delivery (<a href="https://pubmed.ncbi.nlm.nih.gov/9351408/">PMID: 9351408</a>).</li>
+<li><strong>One Health reservoir mapping</strong> — characterize <em>Ornithodoros</em>/rodent enzootic foci and <em>B. miyamotoi</em> hard-tick range expansion to predict emergence risk.</li>
+</ol>
+<hr />
+<h2>Conclusion</h2>
+<p>Relapsing fever is an infectious, non-heritable, arthropod-borne spirochetosis whose defining relapse phenomenon is produced by multiphasic <strong>Vmp antigenic variation via gene conversion</strong>, which repeatedly evades a <strong>T-independent, B1b-cell IgM</strong> response that clears each bacteremic wave. It is diagnosed by blood-smear microscopy (with PCR and GlpQ serology) and cured with doxycycline, penicillin, or ceftriaxone — treatment that frequently provokes a <strong>TNF-α-driven Jarisch-Herxheimer reaction</strong>. Untreated louse-borne disease can be highly lethal (up to ~70%). All human-heritable genetics sections are Not Applicable; the operative genetics are those of the pathogen's antigenic-variation loci and of murine host-susceptibility genes.</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Relapsing_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Relapsing_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>11</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001903</code> (2 mentions) - the report calls it "74.7% (severe cohort)"; HP calls it <strong>Anemia</strong></li>
+<li><code>HP:0001873</code> (2 mentions) - the report calls it "most suggestive lab finding"; HP calls it <strong>Thrombocytopenia</strong></li>
+<li><code>HP:0033677</code> (2 mentions) - the report calls it "54.6–69.7% (severe cohort)"; HP calls it <strong>Acute respiratory distress syndrome</strong></li>
+<li><code>HP:0031273</code> (2 mentions) - the report calls it "60.5% (severe cohort)"; HP calls it <strong>Shock</strong></li>
+<li><code>HP:0002315</code> (1 mention) - the report calls it "common"; HP calls it <strong>Headache</strong></li>
+<li><code>HP:0001433</code> (1 mention) - the report calls it "common"; HP calls it <strong>Hepatosplenomegaly</strong></li>
+<li><code>HP:0011446</code> (1 mention) - the report calls it "46.2% severe cohort; meningoencephalitis in immunocompromised"; HP calls it <strong>Abnormality of mental function</strong></li>
+<li><code>HP:0000979</code> (1 mention) - the report calls it "common in LBRF"; HP calls it <strong>Purpura</strong></li>
+<li><code>NCIT:C299</code> (1 mention) - the report calls it "tetracyclines — doxycycline", "First-line pharmacotherapy:<strong> </strong>tetracyclines — doxycycline"; NCIT calls it <strong>Beclomethasone Dipropionate</strong></li>
+<li><code>NCIT:C716</code> (1 mention) - the report calls it "penicillin"; NCIT calls it <strong>Omeprazole</strong></li>
+<li><code>NCIT:C1638</code> (1 mention) - the report calls it "ceftriaxone"; NCIT calls it <strong>Carbon C-14</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCIT:C299</code> - called "tetracyclines — doxycycline", "First-line pharmacotherapy:<strong> </strong>tetracyclines — doxycycline"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Refeeding_Syndrome-falcon.html">← Refeeding Syndrome (Falcon)</a>
+                
+                
+                <a href="Relapsing_Polychondritis-falcon.html">Relapsing Polychondritis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Relapsing_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Relapsing_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

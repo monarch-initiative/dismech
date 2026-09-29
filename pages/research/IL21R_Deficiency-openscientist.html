@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IL21R Deficiency · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>IL21R Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>IL21R Deficiency</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-06</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0014082" target="_blank" rel="noopener noreferrer">MONDO:0014082</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> A monogenic inborn error of immunity in the "combined immunodeficiency (CID)" category, defined by absent/non-functional IL-21 receptor signaling. It affects both adaptive (B and T cell) and innate (NK) immunity and characteristically predisposes to opportunistic <em>Cryptosporidium</em> infection of the biliary tree. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 33929673)</p>
+<p><strong>Key identifiers (computational/database):</strong>
+- <strong>OMIM:</strong> #615207 — "Immunodeficiency 56" (IMD56)
+- <strong>Gene:</strong> <em>IL21R</em>, OMIM <em>605383; </em><em><a href="https://bioregistry.io/HGNC:6006" target="_blank" rel="noopener noreferrer">HGNC:6006</a></em><em>; NCBI Gene 50615; Ensembl ENSG00000159374; UniProt Q9HBE5 (IL21R_HUMAN); cytoband 16p12.1
+- </em><em>Orphanet:</em><em> Listed under combined immunodeficiencies / IL-21R-related; no widely used dedicated ORPHAcode—commonly grouped with "Combined immunodeficiency."
+- </em><em>MONDO:</em><em> Suggested <a href="http://purl.obolibrary.org/obo/MONDO_0014219" target="_blank" rel="noopener noreferrer">MONDO:0014219</a> ("immunodeficiency 56") — </em>to be verified against current MONDO release.<em>
+- </em><em>ICD-10:</em><em> D81.8 / D81.9 (other/unspecified combined immunodeficiencies). </em><em>ICD-11:</em><em> 4A01.3Y (combined immunodeficiencies, other).
+- </em><em>MeSH:</em>* No dedicated descriptor; indexed under "Severe Combined Immunodeficiency"/"Primary Immunodeficiency Diseases" + "Receptors, Interleukin-21."</p>
+<p><strong>Synonyms / alternative names:</strong> IL-21R deficiency; Interleukin-21 receptor deficiency; Immunodeficiency 56 (IMD56); IL21R-related combined immunodeficiency.</p>
+<p><strong>Information source.</strong> Aggregated disease-level knowledge derived from <strong>individual patient case series</strong> (≈20+ patients worldwide) synthesized in cohort papers and reviews—not from large registries/EHR. <strong>[human clinical]</strong></p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> <em>Monogenic/genetic.</em> Biallelic (homozygous or compound-heterozygous) loss-of-function variants in <em>IL21R</em> are necessary and sufficient. An <strong>infectious trigger</strong> (chronic <em>Cryptosporidium parvum/hominis</em> biliary infection) is the principal driver of the signature organ pathology (cholangitis/liver disease) in the setting of the genetic immune defect—an obligate gene × pathogen interaction. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>: <em>"cryptosporidial infections associated with chronic cholangitis and liver disease"</em>)</p>
+<p><strong>Genetic risk factors.</strong>
+- <em>Causal variants:</em> e.g., c.G602T (p.Arg201Leu, missense causing receptor mistrafficking/loss of ligand binding); c.240_245delCTGCCA (p.C81_H82del, in-frame deletion). 8 unique mutations reported across 8 families by 2021 (missense, in-frame indels, and other LOF classes). <strong>[human clinical/in vitro]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 33929673)
+- <em>Modifier genes:</em> None established (cohort too small).</p>
+<p><strong>Environmental risk factors.</strong> <strong>Consanguinity</strong> (parental relatedness) is the dominant epidemiologic risk factor, increasing homozygosity for rare recessive alleles. Exposure to <em>Cryptosporidium</em> (contaminated water/food) converts the immune defect into life-threatening cholangiopathy. No sex, occupational, or toxin risk factors. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>)</p>
+<p><strong>Protective factors.</strong> No genetic protective/modifier alleles identified. Environmentally, <strong>avoidance of <em>Cryptosporidium</em> exposure</strong> (water precautions/filtration) and early curative HSCT are protective against the worst outcomes. <strong>[human clinical]</strong> (inferred)</p>
+<p><strong>Gene–environment interactions.</strong> The core GxE interaction: <em>IL21R</em>-null immune state + <em>Cryptosporidium</em> exposure → sclerosing cholangitis. Restoration of immune competence (HSCT) enables clearance of the parasite, halting the environmental driver. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30850087/" target="_blank" rel="noopener noreferrer">PMID 30850087</a>: cholangiopathy improvement <em>"following establishment of immune competence"</em>)</p>
+<hr />
+<h2>3. Phenotypes (with HPO suggestions &amp; frequencies)</h2>
+<p>Frequencies from the 13-patient cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>) unless noted. <strong>[human clinical]</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype (type)</th>
+<th>Frequency</th>
+<th>HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Recurrent bacterial infections (clinical sign)</td>
+<td>84.6%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" rel="noopener noreferrer">HP:0002718</a></td>
+</tr>
+<tr>
+<td>Recurrent fungal infections</td>
+<td>46.2%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" rel="noopener noreferrer">HP:0009098</a></td>
+</tr>
+<tr>
+<td>Recurrent viral infections (incl. CMV)</td>
+<td>38.5%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004429" target="_blank" rel="noopener noreferrer">HP:0004429</a></td>
+</tr>
+<tr>
+<td>Cryptosporidiosis (protozoan infection)</td>
+<td>~46%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002726" target="_blank" rel="noopener noreferrer">HP:0002726</a> (recurrent protozoan infection)</td>
+</tr>
+<tr>
+<td>Sclerosing cholangitis / cholangitis (sign)</td>
+<td>46.2%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100574" target="_blank" rel="noopener noreferrer">HP:0100574</a></td>
+</tr>
+<tr>
+<td>Chronic diarrhea (symptom)</td>
+<td>frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" rel="noopener noreferrer">HP:0002028</a> / <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a></td>
+</tr>
+<tr>
+<td>Chronic liver disease / cirrhosis (sign)</td>
+<td>frequent, progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001394" target="_blank" rel="noopener noreferrer">HP:0001394</a></td>
+</tr>
+<tr>
+<td>Failure to thrive (sign)</td>
+<td>common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+</tr>
+<tr>
+<td>Asthma (sign)</td>
+<td>23.1%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" rel="noopener noreferrer">HP:0002099</a></td>
+</tr>
+<tr>
+<td>Inflammatory/eczematous skin disease</td>
+<td>15.3%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" rel="noopener noreferrer">HP:0000964</a> / <a href="http://purl.obolibrary.org/obo/HP_0011123" target="_blank" rel="noopener noreferrer">HP:0011123</a></td>
+</tr>
+<tr>
+<td>Recurrent anaphylaxis</td>
+<td>7.9%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100845" target="_blank" rel="noopener noreferrer">HP:0100845</a></td>
+</tr>
+<tr>
+<td>Lymphadenopathy</td>
+<td>reported</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a></td>
+</tr>
+<tr>
+<td>Marginal zone B-cell lymphoma (malignancy)</td>
+<td>reported (<a href="https://pubmed.ncbi.nlm.nih.gov/33966600/" target="_blank" rel="noopener noreferrer">PMID 33966600</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012190" target="_blank" rel="noopener noreferrer">HP:0012190</a></td>
+</tr>
+<tr>
+<td>Hypogammaglobulinemia (lab)</td>
+<td>most</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" rel="noopener noreferrer">HP:0004313</a></td>
+</tr>
+<tr>
+<td>Elevated serum IgE (lab)</td>
+<td>~50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" rel="noopener noreferrer">HP:0003212</a></td>
+</tr>
+<tr>
+<td>Decreased memory B cells (lab)</td>
+<td>most</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002850" target="_blank" rel="noopener noreferrer">HP:0002850</a></td>
+</tr>
+<tr>
+<td>Reduced circulating Tfh (lab)</td>
+<td>most</td>
+<td>(Abnormal Tfh; <a href="http://purl.obolibrary.org/obo/HP_0410276" target="_blank" rel="noopener noreferrer">HP:0410276</a>-family)</td>
+</tr>
+<tr>
+<td>Reduced MAIT cells (lab)</td>
+<td>most</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Abnormal/reduced terminally differentiated NK cells (lab)</td>
+<td>most</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040218" target="_blank" rel="noopener noreferrer">HP:0040218</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics.</strong> Onset pediatric — <strong>median 2.5 years (range 0.5–7)</strong>. Severity variable but the hepatobiliary component is typically <strong>progressive</strong> and life-limiting. Infections are <strong>recurrent/chronic</strong>; atopy (IgE, asthma, anaphylaxis) is <strong>episodic</strong>.</p>
+<p><strong>Quality-of-life impact.</strong> No formal EQ-5D/SF-36/PROMIS data. Qualitatively severe: chronic diarrhea/malabsorption → growth failure; progressive cholangiopathy → cholestasis, portal hypertension, end-stage liver disease; recurrent infections and hospitalizations; transplant-related morbidity. <strong>[human clinical]</strong></p>
+<p>Key quote (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>): <em>"The main clinical manifestations were recurrent bacterial (84.6%), fungal (46.2%), and viral (38.5%) infections; cryptosporidiosis-associated cholangitis (46.2%); and asthma (23.1%). Inflammatory skin diseases (15.3%) and recurrent anaphylaxis (7.9%) constitute novel phenotypes."</em></p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Causal gene:</strong> <strong><em>IL21R</em></strong> (<a href="https://bioregistry.io/HGNC:6006" target="_blank" rel="noopener noreferrer">HGNC:6006</a>; 16p12.1; NCBI 50615; UniProt Q9HBE5). Type I cytokine receptor; heterodimerizes with the common gamma chain (γc / IL2RG / CD132). <strong>[computational/database]</strong></li>
+<li><strong>Pathogenic variants (ACMG):</strong> classified pathogenic/likely pathogenic. Reported types: <strong>missense</strong> (p.Arg201Leu), <strong>in-frame deletion</strong> (p.C81_H82del), and additional LOF alleles (8 unique across 8 families). Loss-of-function is the uniform functional consequence—no gain-of-function or dominant-negative disease described; heterozygous carriers are healthy (recessive). <strong>[human clinical/in vitro]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 33929673)</li>
+<li><strong>Allele frequency:</strong> Biallelic <em>IL21R</em> LOF is essentially absent in gnomAD; individual pathogenic alleles are ultra-rare/private. <strong>[computational/database]</strong></li>
+<li><strong>Somatic vs germline:</strong> <strong>Germline.</strong> No somatic/oncogenic <em>IL21R</em> role in this disease.</li>
+<li><strong>Functional consequences:</strong> p.Arg201Leu → <strong>aberrant receptor trafficking to the plasma membrane, loss of IL-21 ligand binding, and abrogated STAT1/STAT3/STAT5 phosphorylation</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>: <em>"aberrant trafficking of the IL-21R to the plasma membrane, abrogates IL-21 ligand binding, and leads to defective phosphorylation of ... STAT1, STAT3, and STAT5"</em>). <strong>[in vitro]</strong></li>
+<li><strong>Modifier genes / epigenetics / chromosomal abnormalities:</strong> None reported; disease is a point-mutation/small-indel monogenic disorder, not a structural/aneuploidy syndrome.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> No toxin/radiation/pollution etiology. The critical environmental element is <strong>exposure to the waterborne protozoan <em>Cryptosporidium</em></strong>.</li>
+<li><strong>Lifestyle factors:</strong> Not applicable as risk drivers; hygiene/water safety are relevant for preventing opportunistic infection.</li>
+<li><strong>Infectious agents (NCBI Taxonomy):</strong> <strong><em>Cryptosporidium parvum</em></strong> (NCBI:txid5807) / <strong><em>C. hominis</em></strong> (NCBI:txid237895) — biliary/intestinal; <strong>Cytomegalovirus</strong> (HHV-5, NCBI:txid10359); plus recurrent pyogenic bacteria and fungi (incl. <em>Pneumocystis</em>). These are <strong>opportunistic consequences</strong> of the immunodeficiency, not primary causes. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 33966600)</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic <em>IL21R</em> loss-of-function mutation</strong> (e.g., p.Arg201Leu) → <strong>leads to</strong> absent or mistrafficked IL-21R protein that fails to reach/function at the plasma membrane and cannot bind IL-21. <strong>[in vitro, demonstrated]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>)</li>
+<li>Loss of surface IL-21R → <strong>prevents</strong> assembly of the IL-21R/γc receptor complex and <strong>abrogates</strong> JAK1/JAK3 activation → <strong>results in</strong> failed phosphorylation of STAT3 (and STAT1/STAT5). <strong>[in vitro, demonstrated]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>; pathway review <a href="https://pubmed.ncbi.nlm.nih.gov/24126614/" target="_blank" rel="noopener noreferrer">PMID 24126614</a>)</li>
+<li>Absent STAT3 signaling → <strong>fails to up-regulate the plasma-cell master regulator BLIMP1/PRDM1 (and to down-regulate BCL6)</strong> → <strong>impairs</strong> IL-21-driven B-cell activation, immunoglobulin class-switch recombination, and differentiation into plasmablasts/plasma cells → <strong>causes</strong> hypogammaglobulinemia, poor specific-antibody responses, and reduced memory B cells. <strong>[in vitro + human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 24126614, 18354204 — the latter: <em>"stimulation with IL-21 ... induced robust and prolonged STAT3 activation in primary human B cells"</em> and STAT3 <em>"triggered BLIMP1 mRNA and protein up-regulation, plasma cell phenotypic features, and Ig secretion"</em>)</li>
+<li><strong>Branch A (humoral/atopy):</strong> Loss of IL-21's normal restraint on IgE, unopposed IL-4/Th2 activity → <strong>leads to</strong> elevated IgE, asthma, eczema, anaphylaxis. <strong>[model organism + human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/12446913/" target="_blank" rel="noopener noreferrer">PMID 12446913</a>: high IgE/low IgG1 in Il21r-/- mice; <a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>: IgE elevated in 50%)</li>
+<li><strong>Branch B (cellular cytotoxicity):</strong> Absent STAT3 downstream of IL-21R → <strong>reduces</strong> CD8+ T-cell memory and lytic-machinery induction, NK-cell cytotoxicity, and MAIT/NKT-cell numbers → <strong>impairs</strong> control of intracellular/opportunistic pathogens. <strong>[human clinical/in vitro]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23830147/" target="_blank" rel="noopener noreferrer">PMID 23830147</a>, 25941256, 23440042)</li>
+<li>Combined humoral + cytotoxic failure + reduced Tfh help → <strong>permits</strong> chronic <strong>Cryptosporidium</strong> infection of intestinal and <strong>biliary epithelium</strong>. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>)</li>
+<li>Persistent biliary <em>Cryptosporidium</em> → <strong>drives</strong> chronic inflammation of bile ducts → <strong>causes</strong> sclerosing cholangitis, fibrosis, cirrhosis, portal hypertension, end-stage liver disease (and rare cholangiocarcinoma risk by analogy to other cryptosporidial-cholangitis PIDs). <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 30850087)</li>
+<li>Chronic immune dysregulation/impaired tumor surveillance → <strong>contributes to</strong> lymphoproliferation/lymphoma (e.g., marginal zone lymphoma). <strong>[human clinical, inferred]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33966600/" target="_blank" rel="noopener noreferrer">PMID 33966600</a>)</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> IL-21 → IL-21R/γc → <strong>JAK1/JAK3 → STAT3</strong> (canonical), with STAT1/STAT5 and PI3K–AKT and MAPK as secondary arms (Reactome "Interleukin-21 signaling"; KEGG "Jak-STAT signaling pathway hsa04630"). <strong><a href="http://purl.obolibrary.org/obo/GO_0038114" target="_blank" rel="noopener noreferrer">GO:0038114</a></strong> IL-21-mediated signaling pathway; <strong><a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" rel="noopener noreferrer">GO:0007259</a></strong> JAK-STAT signaling.</li>
+<li><strong>Cellular processes:</strong> B-cell differentiation (<strong><a href="http://purl.obolibrary.org/obo/GO_0030183" target="_blank" rel="noopener noreferrer">GO:0030183</a></strong>), isotype/class switching (<strong><a href="http://purl.obolibrary.org/obo/GO_0045190" target="_blank" rel="noopener noreferrer">GO:0045190</a></strong>), plasma-cell differentiation (<strong><a href="http://purl.obolibrary.org/obo/GO_0002317" target="_blank" rel="noopener noreferrer">GO:0002317</a></strong>), germinal-center/Tfh help, NK-mediated cytotoxicity (<strong><a href="http://purl.obolibrary.org/obo/GO_0042267" target="_blank" rel="noopener noreferrer">GO:0042267</a></strong>), CD8 memory formation.</li>
+<li><strong>Protein dysfunction:</strong> Receptor <strong>misfolding/mistrafficking and loss of ligand binding</strong> (not aggregation); pure loss of function.</li>
+<li><strong>Immune system involvement:</strong> Combined immunodeficiency + immune dysregulation (atopy, lymphoproliferation).</li>
+<li><strong>Tissue damage:</strong> Immune-mediated + infection-driven <strong>biliary fibrosis/sclerosis</strong> and hepatocellular injury.</li>
+<li><strong>Cell types (CL):</strong> B cells <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" rel="noopener noreferrer">CL:0000236</a> (memory B, plasmablast <a href="http://purl.obolibrary.org/obo/CL_0000980" target="_blank" rel="noopener noreferrer">CL:0000980</a>), Tfh <a href="http://purl.obolibrary.org/obo/CL_0002038" target="_blank" rel="noopener noreferrer">CL:0002038</a>, CD8 memory T <a href="http://purl.obolibrary.org/obo/CL_0000909" target="_blank" rel="noopener noreferrer">CL:0000909</a>, NK <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a>, MAIT <a href="http://purl.obolibrary.org/obo/CL_0000940" target="_blank" rel="noopener noreferrer">CL:0000940</a>, NKT cells; biliary epithelial (cholangiocyte) as the injured target.</li>
+<li><strong>Omics:</strong> No dedicated transcriptomic/proteomic/metabolomic disease signatures published (ultra-rare). Mechanistic data are from targeted immunophenotyping and STAT-phosphorylation flow assays. <strong>[human clinical/in vitro]</strong></li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Organ level (primary):</strong> <strong>Bile ducts</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002394" target="_blank" rel="noopener noreferrer">UBERON:0002394</a>; intra- and extrahepatic — sclerosing cholangitis, bilateral/diffuse), <strong>liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), <strong>intestine/GI tract</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a>), <strong>immune/lymphoid organs</strong> (bone marrow <a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>, lymph node <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>, spleen <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>, thymus). <strong>[human clinical]</strong></li>
+<li><strong>Secondary/complications:</strong> lung/respiratory tract (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>; recurrent pneumonia incl. CMV/<em>Pneumocystis</em>), skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>; eczema), portal hypertension complications.</li>
+<li><strong>Body systems:</strong> immune/hematolymphoid, hepatobiliary/digestive, respiratory, integumentary.</li>
+<li><strong>Tissue/cell level:</strong> biliary/intestinal <strong>epithelium</strong> (infection target); lymphoid cell populations (B/T/NK as above).</li>
+<li><strong>Subcellular (GO CC):</strong> plasma membrane (<strong><a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a></strong>) — site of the receptor-localization defect; secretory pathway/ER involved in receptor mistrafficking.</li>
+<li><strong>Localization/lateralization:</strong> Cholangitis is typically <strong>diffuse/bilateral intrahepatic ± extrahepatic</strong>; systemic immune involvement.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Pediatric/early childhood; <strong>median 2.5 y (0.5–7 y)</strong>; onset often <strong>insidious</strong> (chronic diarrhea, recurrent infections) (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>). <strong>[human clinical]</strong></li>
+<li><strong>Progression:</strong> Hepatobiliary disease is <strong>chronic and progressive</strong> (cholangitis → fibrosis → cirrhosis → end-stage liver disease). Infections are recurrent; atopy episodic. Rate variable between patients.</li>
+<li><strong>Course/duration:</strong> Chronic, lifelong without curative HSCT; frequently fatal in childhood if untreated or if transplant occurs after advanced organ damage.</li>
+<li><strong>Critical period:</strong> A key <strong>therapeutic window</strong> exists — HSCT before advanced cholangiopathy/liver damage markedly improves outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/30850087/" target="_blank" rel="noopener noreferrer">PMID 30850087</a>). <strong>[human clinical]</strong></li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> <strong>Ultra-rare;</strong> ~20+ patients reported worldwide by 2021; no reliable prevalence/incidence figures. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>)</li>
+<li><strong>Inheritance:</strong> <strong>Autosomal recessive</strong>; biallelic <em>IL21R</em> mutations. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>)</li>
+<li><strong>Penetrance/expressivity:</strong> Immunodeficiency penetrance appears <strong>complete</strong> in biallelic-null individuals; <strong>expressivity variable</strong> (onset age, presence of cholangitis/atopy/lymphoma).</li>
+<li><strong>Anticipation / germline mosaicism:</strong> Not applicable/none reported.</li>
+<li><strong>Founder effects:</strong> None established (8 distinct mutations/8 families).</li>
+<li><strong>Consanguinity:</strong> Strong association — most families consanguineous.</li>
+<li><strong>Carrier frequency:</strong> Not defined; alleles are private/ultra-rare in gnomAD → cascade (family-specific) rather than population carrier screening.</li>
+<li><strong>Demographics:</strong> Reported across multiple ethnic groups (Middle Eastern, Turkish, European and others via 7 centers); <strong>no sex predilection</strong> (autosomal); age distribution skewed pediatric.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Genetic testing (definitive):</strong> <strong>Whole-exome sequencing or NGS inborn-errors-of-immunity gene panels</strong> identify biallelic <em>IL21R</em> variants; targeted single-gene/Sanger for cascade testing. WGS useful for non-coding/structural variants. CMA/karyotype/FISH not indicated. <strong>[human clinical]</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>: 5 novel patients found by <em>"exome or NGS panel sequencing"</em>)</li>
+<li><strong>Functional confirmation (in vitro):</strong> absent surface IL-21R expression; <strong>abrogated IL-21-induced STAT3 phosphorylation</strong> by flow cytometry; impaired IL-21-driven B-cell class switch/Ig secretion (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>). <strong>[in vitro]</strong></li>
+<li><strong>Laboratory (LOINC-type):</strong> serum immunoglobulins (hypogammaglobulinemia; <strong>high IgE</strong>), specific antibody titers, lymphocyte subsets (low memory B, low Tfh/MAIT, altered NK), liver function/cholestatic panel.</li>
+<li><strong>Microbiology:</strong> <strong>Cryptosporidium stool/bile PCR (more sensitive than microscopy)</strong> — critical and often missed (<a href="https://pubmed.ncbi.nlm.nih.gov/12690272/" target="_blank" rel="noopener noreferrer">PMID 12690272</a>: <em>"Cryptosporidium could be detected by PCR but not by microscopy"</em>).</li>
+<li><strong>Imaging:</strong> <strong>MRI/MRCP</strong> or cholangiography for sclerosing cholangitis (ductal strictures/beading, dilatation); ultrasound.</li>
+<li><strong>Biopsy/pathology:</strong> liver biopsy showing sclerosing cholangiopathy/fibrosis.</li>
+<li><strong>Clinical criteria / differential:</strong> No disease-specific criteria; diagnosed under IUIS CID framework. <strong>Differential:</strong> IL-21 (ligand) deficiency (phenocopy; <a href="https://pubmed.ncbi.nlm.nih.gov/24746753/" target="_blank" rel="noopener noreferrer">PMID 24746753</a>), CD40L/CD40 (hyper-IgM), MHC class II deficiency, DOCK8 deficiency, STAT3-LOF hyper-IgE syndrome, CVID — distinguished by genetics + the IL-21-signaling assay.</li>
+<li><strong>Screening:</strong> Not on newborn-screening TREC panels (patients usually have T cells). Carrier/cascade testing and prenatal/PGD available for known familial variants. <strong>[human clinical]</strong></li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> Poor without early curative therapy. In the largest cohort, <strong>post-HSCT overall survival was only 33.3% (2/6)</strong>, and mortality among non-transplanted patients was high (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>). In a broader PID sclerosing-cholangitis cohort, <strong>7/13 (53.8%) died a median 4 months post-HSCT</strong>, while 6/13 with milder cholangiopathy survived and improved (<a href="https://pubmed.ncbi.nlm.nih.gov/30850087/" target="_blank" rel="noopener noreferrer">PMID 30850087</a>). <strong>[human clinical]</strong></li>
+<li><strong>Prognostic factors:</strong> <strong>Pre-existing organ (liver/biliary) damage is the key negative prognostic factor</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>: <em>"pre-existing organ damage constituting a negative prognostic factor"</em>); earlier diagnosis/transplant improves outcome.</li>
+<li><strong>Morbidity/QoL:</strong> growth failure, chronic liver disease/portal hypertension, transplant-related complications; substantial disability.</li>
+<li><strong>Complications:</strong> end-stage liver disease, portal hypertension, disseminated/opportunistic infection, lymphoma/lymphoproliferation, post-transplant <em>Cryptosporidium</em> recrudescence.</li>
+<li><strong>Recovery potential:</strong> Immune reconstitution and cholangiopathy reversal possible if HSCT precedes advanced fibrosis.</li>
+<li><strong>Prognostic biomarkers:</strong> severity/stage of cholangiopathy on imaging/histology; persistent <em>Cryptosporidium</em> positivity.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>Definitive (curative):</strong> <strong>Allogeneic hematopoietic stem cell transplantation (HSCT)</strong> — NCIT:C15431; ideally with <strong>reduced-intensity conditioning</strong>, performed <strong>before</strong> advanced liver disease (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a> recommends <em>"early diagnosis and allogeneic hematopoietic stem cell transplantation"</em>; <a href="https://pubmed.ncbi.nlm.nih.gov/30850087/" target="_blank" rel="noopener noreferrer">PMID 30850087</a>). <strong>[human clinical]</strong></li>
+<li><strong>Sequential liver + HSCT (NCIT:C15393 liver transplantation):</strong> for end-stage liver disease with combined immunodeficiency; curative in analogous PID cryptosporidial cirrhosis (<a href="https://pubmed.ncbi.nlm.nih.gov/29377874/" target="_blank" rel="noopener noreferrer">PMID 29377874</a>). <strong>[human clinical]</strong></li>
+<li><strong>Supportive pharmacotherapy:</strong></li>
+<li><strong>Immunoglobulin replacement therapy</strong> (IVIG/SCIG) — NCIT:C603 — for hypogammaglobulinemia.</li>
+<li><strong>Anti-<em>Cryptosporidium</em> agents:</strong> <strong>nitazoxanide</strong> (<a href="http://purl.obolibrary.org/obo/CHEBI_189102" target="_blank" rel="noopener noreferrer">CHEBI:189102</a>/NCIT), <strong>paromomycin</strong>; often only partially effective without immune reconstitution.</li>
+<li><strong>Antimicrobial prophylaxis:</strong> e.g., trimethoprim-sulfamethoxazole for <em>Pneumocystis</em>; antivirals/antifungals as indicated.</li>
+<li><strong>Atopy management:</strong> asthma controllers, anaphylaxis precautions.</li>
+<li><strong>Advanced/experimental:</strong> No approved gene therapy or targeted molecular therapy; <em>IL21R</em> is a plausible future <strong>gene-addition/gene-editing</strong> target by analogy to other γc-family SCID gene therapies (<a href="https://pubmed.ncbi.nlm.nih.gov/20660403/" target="_blank" rel="noopener noreferrer">PMID 20660403</a>). No IL21R-specific clinical trials (NCT) identified. <strong>[human clinical/inferred]</strong></li>
+<li><strong>Pharmacogenomics:</strong> none specific.</li>
+<li><strong>Strategy:</strong> Diagnose early → prevent/treat <em>Cryptosporidium</em> + IgG replacement + prophylaxis → <strong>proceed to HSCT before liver damage</strong>; combined liver+HSCT if cirrhotic.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> Not preventable at the genetic level; <strong>genetic counseling</strong> for consanguineous/at-risk families; <strong>preimplantation/prenatal genetic diagnosis</strong> for known familial variants.</li>
+<li><strong>Secondary prevention:</strong> Early molecular diagnosis (NGS) in infants with recurrent infection/chronic diarrhea; <strong>surveillance for <em>Cryptosporidium</em></strong> (PCR) and hepatobiliary monitoring (MRCP/LFTs).</li>
+<li><strong>Tertiary prevention:</strong> IgG replacement, antimicrobial prophylaxis, timely HSCT to prevent progression; post-transplant vigilance against <em>Cryptosporidium</em> recrudescence.</li>
+<li><strong>Environmental/public-health:</strong> <strong>Water safety/filtration and hygiene</strong> to avoid <em>Cryptosporidium</em> exposure (boil/filter water, avoid recreational water risk).</li>
+<li><strong>Immunization:</strong> standard non-live vaccines as able; <strong>avoid live vaccines</strong> in combined immunodeficiency.</li>
+<li><strong>Counseling:</strong> autosomal-recessive 25% recurrence risk per pregnancy; cascade carrier testing. <strong>[human clinical/guideline-inferred]</strong></li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy/orthologs:</strong> <em>IL21R</em> is conserved in mammals. <strong>Mouse</strong> <em>Il21r</em> (NCBI Gene 60504; chr 7; NCBI:txid10090); rat, zebrafish orthologs exist.</li>
+<li><strong>Natural disease:</strong> No well-characterized naturally occurring IL21R-deficiency disease in companion animals/wildlife (OMIA — none prominent). Veterinary relevance is chiefly as engineered research models.</li>
+<li><strong>Comparative biology:</strong> IL-21/IL-21R humoral-regulatory function is evolutionarily conserved; the γc-cytokine receptor family (IL-2/4/7/9/15/21) shares CD132 across species (structural conservation, <a href="https://pubmed.ncbi.nlm.nih.gov/37535730/" target="_blank" rel="noopener noreferrer">PMID 37535730</a>). <strong>[computational/model organism]</strong></li>
+<li><strong>Transmission/zoonosis:</strong> Not applicable to the genetic disease (though <em>Cryptosporidium</em> itself is zoonotic).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (mammalian) — <em>Il21r</em>-knockout</strong> (Ozaki et al. 2002, <em>Science</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/12446913/" target="_blank" rel="noopener noreferrer">PMID 12446913</a>): normal lymphoid development but, after immunization, <strong>higher IgE and lower IgG1</strong>; <strong>Il4/Il21r double-KO → dysgammaglobulinemia with severely impaired IgG</strong>. <strong>[model organism]</strong></li>
+<li><em>Phenotype recapitulation:</em> reproduces human antibody dysregulation (IgE-high/IgG-low, impaired specific antibody) and demonstrates IL-21/IL-4 cooperation.</li>
+<li><em>Limitations:</em> mice have grossly normal lymphoid development and <strong>do not spontaneously develop cryptosporidial sclerosing cholangitis</strong> (redundancy + differing pathogen exposure), so the hepatobiliary phenotype is not captured.</li>
+<li><em>Applications:</em> dissecting IL-21 control of B-cell class switching, Tfh/germinal-center biology, CD8/NK function.</li>
+<li><strong>Other models:</strong> γc-family biology also modeled in zebrafish/other systems (e.g., IL-2Rγc SCID models, <a href="https://pubmed.ncbi.nlm.nih.gov/35216498/" target="_blank" rel="noopener noreferrer">PMID 35216498</a>), informing the shared-receptor mechanism though not IL21R-specific.</li>
+<li><strong>Genetic model types available:</strong> knockout (constitutive); conditional/humanized IL21R models feasible but not disease-defining. Resources: MGI (mouse), Alliance of Genome Resources.</li>
+</ul>
+<hr />
+<h2>Supported vs. Refuted Hypotheses</h2>
+<p><strong>Supported (evidence-backed):</strong>
+- Biallelic <em>IL21R</em> LOF causes an autosomal-recessive combined immunodeficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 33929673).
+- Mechanism is failed IL-21R→JAK/STAT3 signaling affecting B, Tfh, CD8-memory, NK, MAIT/NKT compartments (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 24126614, 23830147, 25941256).
+- <em>Cryptosporidium</em>-driven sclerosing cholangitis/liver disease is the prognosis-defining complication (<a href="https://pubmed.ncbi.nlm.nih.gov/23440042/" target="_blank" rel="noopener noreferrer">PMID 23440042</a>, 30850087).
+- HSCT is curative but timing-dependent; organ damage worsens outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/33929673/" target="_blank" rel="noopener noreferrer">PMID 33929673</a>, 30850087).
+- Il21r-/- mice model the antibody dysregulation (<a href="https://pubmed.ncbi.nlm.nih.gov/12446913/" target="_blank" rel="noopener noreferrer">PMID 12446913</a>).</p>
+<p><strong>Refuted / not applicable:</strong>
+- Not X-linked (distinct from γc/IL2RG SCID); heterozygotes unaffected → not dominant/dominant-negative.
+- No environmental/toxin primary etiology; no founder mutation; no somatic/oncogenic driver role.</p>
+<h2>Limitations &amp; Future Directions</h2>
+<ul>
+<li>Evidence rests on <strong>&lt;25 patients</strong>; frequencies/prognosis have wide uncertainty. No prevalence, QoL (EQ-5D/SF-36), or omics datasets exist.</li>
+<li>MONDO/Orphanet identifiers should be verified against current releases.</li>
+<li>Future needs: international registry/natural-history study; standardized <em>Cryptosporidium</em> surveillance; evaluation of gene-editing/gene-addition therapy; optimized reduced-intensity conditioning and combined liver+HSCT protocols.</li>
+</ul>
+<hr />
+<h3>Key References (PMIDs)</h3>
+<p>23440042 (Kotlarz 2013, original description) · 33929673 (Cagdas 2021, cohort n=13) · 33966600 (Edeer Karaca 2021, marginal zone lymphoma) · 24746753 (Salzer 2014, IL-21 ligand deficiency) · 12446913 (Ozaki 2002, Il21r-/- mouse) · 24126614 (Desjardins 2013, IL-21/B-cell memory review) · 23830147 (Ives 2013, CD8 memory) · 25941256 (Wilson 2015, MAIT/NKT via STAT3) · 30850087 (Hadžić 2019, HSCT for PID cholangitis) · 29377874 (sequential liver+HSCT) · 12690272 (Cryptosporidium PCR diagnosis) · 18354204 (Diehl 2008, IL-21/STAT3→BLIMP1 plasma-cell differentiation) · 37535730 (γc receptor structure) · 20660403 (γc-family gene therapy).</p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/IL21R_Deficiency-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/IL21R_Deficiency-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>47</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0014219</code> (1 mention) - the report calls it "immunodeficiency 56"; MONDO calls it <strong>alacrima, achalasia, and intellectual disability syndrome</strong></li>
+<li><code>HP:0001394</code> (1 mention) - the report calls it "frequent, progressive"; HP calls it <strong>Cirrhosis</strong></li>
+<li><code>HP:0001508</code> (1 mention) - the report calls it "common"; HP calls it <strong>Failure to thrive</strong></li>
+<li><code>HP:0004313</code> (1 mention) - the report calls it "most"; HP calls it <strong>Decreased circulating immunoglobulin concentration</strong></li>
+<li><code>HP:0002850</code> (1 mention) - the report calls it "most"; HP calls it <strong>Decreased circulating IgM concentration</strong></li>
+<li><code>HP:0040218</code> (1 mention) - the report calls it "most"; HP calls it <strong>Reduced total natural killer cell count</strong></li>
+<li><code>NCIT:C603</code> (1 mention) - the report calls it "for hypogammaglobulinemia"; NCIT calls it <strong>Isotretinoin</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002726</code> (1 mention) - the report calls it "recurrent protozoan infection"; HP calls it <strong>Recurrent Staphylococcus aureus infection</strong></li>
+<li><code>UBERON:0000160</code> (1 mention) - the report calls it "intestine/GI tract"; UBERON calls it <strong>intestine</strong>, and lists "intestinal tract" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="IKK2_Deficiency-perplexity.html">← IKK2 Deficiency (Perplexity)</a>
+                
+                
+                <a href="IMAGe_Syndrome-claude_code.html">IMAGe Syndrome (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/IL21R_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/IL21R_Deficiency-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

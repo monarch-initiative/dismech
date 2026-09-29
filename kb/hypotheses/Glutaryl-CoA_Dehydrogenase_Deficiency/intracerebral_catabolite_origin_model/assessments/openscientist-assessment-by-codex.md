@@ -154,12 +154,7 @@ hypothesis and record this sidecar's `PARTIALLY_SUPPORTED` verdict separately.
 Represent local astrocyte production and limited free-acid transport as
 supported components, while avoiding an absolute BBB claim.
 
-The current disorder YAML cites a sentence from the 2023 paper describing
-“current literature” as if it were experimental support for the historical
-model. It also describes the competing hepatic transport edge using known
-intermediates despite the transported species being unresolved. Those should be
-corrected in a separate disease-curation PR; this assessment-only change does
-not edit disease YAML or reference caches.
+The accompanying disease review now represents local production and hepatic contribution separately, with an unresolved-intermediate hepatic-to-brain edge. It replaces the predominance claim, adds measured limited efflux and astrocyte evidence, corrects treatment and biomarker semantics, and distinguishes preclinical rescue from registered clinical research.
 
 ## Most discriminating next evidence
 
@@ -169,3 +164,9 @@ measure plasma, liver, CSF, and brain pools at baseline and during stress and
 distinguish free GA, 3-OHGA, glutarylcarnitine, upstream precursors, and local
 glutaryl-CoA. That design can quantify source fractions while directly testing
 what the liver study left unresolved.
+
+## Updated design and provenance assessment (2026-09-04)
+
+The provider report is a literature synthesis. Its publication counts and negative search claims are not reproducible from the committed files; there are no query exports, raw-data tables, scripts, environments or computational results. All proposed follow-up analyses are marked `SKIPPED` in the YAML. Curator retrieval of references does not establish provider access.
+
+Intravenously delivered labeled lysine can enter brain and be metabolized locally. Thus IV lysine followed by labeled brain GA does not prove hepatic product transport. Tissue-specific perturbations, precursor enrichment and time-course measurements are needed. CSF/plasma gradients also depend on transport and clearance and cannot alone identify the source fraction. Astrocyte dependence is supported in a particular mouse co-culture, not as a universal requirement across every metabolite and neuronal system.

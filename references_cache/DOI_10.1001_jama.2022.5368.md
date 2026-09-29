@@ -1,0 +1,384 @@
+---
+reference_id: DOI:10.1001/jama.2022.5368
+title: Effect of Oral Methylprednisolone on Decline in Kidney Function or Kidney Failure in Patients With IgA Nephropathy
+authors:
+- Jicheng Lv
+- Muh Geot Wong
+- Michelle A. Hladunewich
+- Vivekanand Jha
+- Lai Seong Hooi
+- Helen Monaghan
+- Minghui Zhao
+- Sean Barbour
+- Meg J. Jardine
+- Heather N. Reich
+- Daniel Cattran
+- Richard Glassock
+- Adeera Levin
+- David C. Wheeler
+- Mark Woodward
+- Laurent Billot
+- Sandrine Stepien
+- Kris Rogers
+- Tak Mao Chan
+- Zhi-Hong Liu
+- David W. Johnson
+- Alan Cass
+- John Feehally
+- Jürgen Floege
+- Giuseppe Remuzzi
+- Yangfeng Wu
+- Rajiv Agarwal
+- Hong Zhang
+- Vlado Perkovic
+- Mona Razavian
+- Martin Gallagher
+- Frances Daley
+- Samantha Hand
+- Helen Knight
+- Sarah Gallagher
+- Bhadran Bose
+- Craig Lawlor
+- Junie McCourt
+- Chen Au Peh
+- Eileen Scott
+- Robert Carroll
+- Toby Coates
+- Bronwyn Hockley
+- Megan Hockley
+- Jenny Latte
+- Kathy Nicholls
+- Michael Cai
+- Paul Champion de Crespigny
+- Therese Cronin
+- Maria Farrell
+- Peter Hughes
+- Rosemary Masterson
+- Gloria Sepe
+- Sven-Jean Tan
+- Nigel Toussaint
+- Rachel Wollstencroft
+- Bruce Cooper
+- Marjorie Chang
+- Helen Clayton
+- Stephanie Tan
+- Heidi Tsang
+- Joanna Sudak
+- Louis P Laurin
+- Vincent Pichette
+- Karine Chausse
+- Martine Comeau
+- Lucy Lepine
+- Marie Soliel
+- Stephanie Beauchemin
+- Emilie René
+- Marceline Quach
+- Karine Daoust
+- Ariane Lessard
+- Maude Bachand-Fournier
+- Marysa Bétournay
+- Marie-Soleil Paradis
+- Mukelda Mikye Castor
+- Susan Huang
+- Louise Moist
+- Kerri Gallo
+- Rachel VanWesenbeeck
+- Teresa Longfield
+- Faith Norris
+- Amy Moyer
+- Zabrina Bailey Lozon
+- Matthew Miller
+- Catherine Clase
+- Christian Rabbat
+- Madison Salisbury
+- Andrea Mazzetti  Vieira
+- Faraz Lalji
+- Cathy Moreau
+- Neesh Pannu
+- Ainslie Hildebrand
+- Nancy Ruholl
+- Nasreen Ahmad
+- Maliha Muneer
+- Louise Girard
+- Michelle Catherine Mann
+- Brenda Hemmelgarn
+- Braden Manns
+- Pietro Ravani
+- Shelia Li
+- Janice Mackay
+- Sharon Gulewich
+- Zainab Sheriff
+- Jack Ferera
+- Katy Vela
+- Anny Gonzalez
+- Arti Bhasin
+- Ping Lam
+- Fatima Haji
+- Sufang Shi
+- Lijun Liu
+- Yunfei Bao
+- Guilli Sui
+- Caili Wang
+- Zengyan Li
+- Li Lv
+- Lan Yang
+- Haitao Li
+- Zhangsuo Liu
+- Junjun Zhang
+- Bo Huang
+- Yang Yang
+- Shuxia Fu
+- Shaomei Li
+- Huaying Pei
+- Limin Zhang
+- Ning Lu
+- Jifang Xu
+- Longyun Xu
+- Qian Yang
+- Jingwei Jin
+- Nan Chen
+- Weiming Wang
+- lili Xu
+- Ziru Xia
+- Huan Xu
+- Wei Huang
+- Yiwen Mo
+- Weihong Chen
+- Lihua Wang
+- Rongshan Li
+- Shulei Yao
+- Xiaoxia Li
+- Zhaohui Ni
+- Ling Wang
+- Leyi Gu
+- Huihua Pang
+- Yin Zhou
+- Yan Jin
+- Haitao Zhang
+- Xia Wang
+- Weibo Le
+- Jinhua Hou
+- Xia Song
+- Ling Zhu
+- Jinghong Zhao
+- Weiping Hou
+- Jing Wu
+- Yu Shi
+- Jianshe Liu
+- Chun Zhang
+- Cheng Wan
+- Shan Chen
+- Hongyan Zhu
+- Fang Tang
+- Hui Li
+- Xuan Jiang
+- Mei Wang
+- Li Zuo
+- Yu Yan
+- Bao Dong
+- Yina Wang
+- Xuan Zhang
+- Li Bai
+- Peng Li
+- Dong Qi
+- Zhiying Cai
+- Guisen Li
+- Li Wang
+- Kung Peng
+- Daqing Hong
+- Daqing Yao
+- Aihua Jiang
+- Qiong Luo
+- Shuang Hou
+- Fan Zhang
+- Lei Zheng
+- Yuanchang Luo
+- Guangyan Cai
+- Shuwei Duan
+- Yan Zhang
+- Shuang Liang
+- Xiaolei Shao
+- Rong Wang
+- Xiang Liu
+- Ying Xu
+- Jing Zhang
+- Jianghua Chen
+- Jun Cheng
+- Lingfei Zhao
+- Xiaoying Du
+- Hongyu Chen
+- Bin Zhu
+- Weili Pan
+- Yalong Ma
+- Chenmin Cui
+- Qingxiao Zhang
+- Jiawei Zhang
+- Ping Fu
+- Xi Tang
+- Wei Qin
+- Yaping Liang
+- Detian Li
+- Guangping Sun
+- Xiaoxiao Su
+- Baixue Zhao
+- Qiang He
+- Xiaogang Shen
+- Danna Zheng
+- Yi Sun
+- Hua Zheng
+- Wei Zheng
+- Fuming Lu
+- Lingyun Lai
+- Minmin Zhang
+- Ningxin Xu
+- Huizhu Shi
+- Wangsheng Chen
+- Xinling Liang
+- Zhiming Ye
+- Lixia Xu
+- Ruijing Zhang
+- Yiming Tao
+- Dongmei Xu
+- Lijun Tang
+- Xiuhua Lian
+- Guohua Ding
+- Huiming Wang
+- Lihua Yang
+- Zhengkang Li
+- Zhao Hu
+- Bei Jiang
+- Zhiling Guo
+- Jie Chang
+- Qingmiao Wang
+- Nan Li
+- Aiping Zhang
+- Shumei Shi
+- Zhen Li
+- Hong Xu
+- Beiyan Bao
+- Yu Zhao
+- Zhuan Nie
+- Ting Liu
+- Yue Wang
+- Zhen Cui
+- Chunyan Su
+- Li Gong
+- Guoping Liu
+- Lei Yu
+- Bo Wang
+- Dan Xu
+- Ying Li
+- Qiongzhen Lin
+- Ke Yu
+- Yipu Shen
+- Hong Cheng
+- Xiaoyi Xu
+- Yu Wang
+- Rong Liu
+- Gang Xu
+- Min Han
+- Le Wang
+- Changying Xing
+- Chengning Zhang
+- Zhiming Huang
+- Guang Yang
+- Xueqiang Xu
+- Xiaolin Lv
+- Huiping Hong
+- Bing Liu
+- Lin Tao
+- Xiaoxuan Zhang
+- Huijie Yang
+- Xiaochun Yang
+- Xiaodong Zhang
+- H Yang
+- Yonghui Mao
+- Hua Wu
+- Tianhui Li
+- Haitao Wang
+- Ban Zhao
+- Hongli Lin
+- Ning Yang
+- K Samuel Fung
+- R Chan
+- Rebecca Law
+- Sreelatha Melemadathil
+- Hijaz PT
+- Rahila Razak
+- K C Sinta
+- Gopalakrishnan Natarajan
+- Junaith Mohammed
+- Dinesh K Thanigachalam
+- Sreebhushan R Devaraju
+- Satheesh Reddy Alavala
+- Anvesh Golla
+- Vamsi Nagalla
+- Raju Nallagasu
+- Manisha Sahay
+- Sravani Borra
+- Rakesh Sahay
+- LV Krishna Suri Dasyam
+- Mounika Kumbagiri
+- Prasad MSLN
+- Arfa Nazneen
+- KVL Prathyusha
+- Raja Ramachandran
+- Krishan L Gupta
+- Thakaur Sain
+- Narayan Prasad
+- Dharmendra S Bhaduria
+- Ashok K Pandy
+- Pratik Singh
+- Mohamad Z Abdul Wahab
+- Zurina Che Rohani
+- Haiyuni Mohd Yassim
+- Siti Nur Omaira Razali
+- Norhaslinda Saaidi
+- Wan Mohamad Wan Hazlina
+- Rosnawati Yahya
+- Seow Yeing Yee
+- Nurul Zaynah
+- Nurul Hizwani Azahar
+- Hui Foong Tan
+- Chek Loong Loh
+- Saliza Hashim
+- Yee Yan Lee
+- Xin Jie Lim
+- Norlia Mohd Khairi
+- Sridhar Ramanaidu
+- Kah Mean Thong
+- Wen Jiun Liu
+- Lik Wee Ee
+- Yuana Mohd Yusoff
+- Laura Lui Sian Ngu
+- Nyuk Suan Chai
+- Lawrence Wei Soon Hii
+- Clare Hui Hong Tan
+- Sharifah Hatijah Wan Japar
+- Lily Mushahar
+- Siti Hawa Md Yusuff
+- Maisarah Noor
+- Kok Peng Ng
+- Soo Kun Lim
+- Wan Ahmad Faizal Alaidin Razali
+- Wan Ahmad Hafiz Wan Md Adnan
+- David Jayne
+- Tom Greene
+- Michael Walsh
+- Angela Yee-Moon Wang
+- Amanda Mather
+- Amanda Y Wang
+journal: JAMA
+year: '2022'
+doi: 10.1001/jama.2022.5368
+content_type: unavailable
+is_preprint: false
+full_text_attempted: true
+---
+
+# Effect of Oral Methylprednisolone on Decline in Kidney Function or Kidney Failure in Patients With IgA Nephropathy
+**Authors:** Jicheng Lv, Muh Geot Wong, Michelle A. Hladunewich, Vivekanand Jha, Lai Seong Hooi, Helen Monaghan, Minghui Zhao, Sean Barbour, Meg J. Jardine, Heather N. Reich, Daniel Cattran, Richard Glassock, Adeera Levin, David C. Wheeler, Mark Woodward, Laurent Billot, Sandrine Stepien, Kris Rogers, Tak Mao Chan, Zhi-Hong Liu, David W. Johnson, Alan Cass, John Feehally, Jürgen Floege, Giuseppe Remuzzi, Yangfeng Wu, Rajiv Agarwal, Hong Zhang, Vlado Perkovic, Mona Razavian, Martin Gallagher, Frances Daley, Samantha Hand, Helen Knight, Sarah Gallagher, Bhadran Bose, Craig Lawlor, Junie McCourt, Chen Au Peh, Eileen Scott, Robert Carroll, Toby Coates, Bronwyn Hockley, Megan Hockley, Jenny Latte, Kathy Nicholls, Michael Cai, Paul Champion de Crespigny, Therese Cronin, Maria Farrell, Peter Hughes, Rosemary Masterson, Gloria Sepe, Sven-Jean Tan, Nigel Toussaint, Rachel Wollstencroft, Bruce Cooper, Marjorie Chang, Helen Clayton, Stephanie Tan, Heidi Tsang, Joanna Sudak, Louis P Laurin, Vincent Pichette, Karine Chausse, Martine Comeau, Lucy Lepine, Marie Soliel, Stephanie Beauchemin, Emilie René, Marceline Quach, Karine Daoust, Ariane Lessard, Maude Bachand-Fournier, Marysa Bétournay, Marie-Soleil Paradis, Mukelda Mikye Castor, Susan Huang, Louise Moist, Kerri Gallo, Rachel VanWesenbeeck, Teresa Longfield, Faith Norris, Amy Moyer, Zabrina Bailey Lozon, Matthew Miller, Catherine Clase, Christian Rabbat, Madison Salisbury, Andrea Mazzetti  Vieira, Faraz Lalji, Cathy Moreau, Neesh Pannu, Ainslie Hildebrand, Nancy Ruholl, Nasreen Ahmad, Maliha Muneer, Louise Girard, Michelle Catherine Mann, Brenda Hemmelgarn, Braden Manns, Pietro Ravani, Shelia Li, Janice Mackay, Sharon Gulewich, Zainab Sheriff, Jack Ferera, Katy Vela, Anny Gonzalez, Arti Bhasin, Ping Lam, Fatima Haji, Sufang Shi, Lijun Liu, Yunfei Bao, Guilli Sui, Caili Wang, Zengyan Li, Li Lv, Lan Yang, Haitao Li, Zhangsuo Liu, Junjun Zhang, Bo Huang, Yang Yang, Shuxia Fu, Shaomei Li, Huaying Pei, Limin Zhang, Ning Lu, Jifang Xu, Longyun Xu, Qian Yang, Jingwei Jin, Nan Chen, Weiming Wang, lili Xu, Ziru Xia, Huan Xu, Wei Huang, Yiwen Mo, Weihong Chen, Lihua Wang, Rongshan Li, Shulei Yao, Xiaoxia Li, Zhaohui Ni, Ling Wang, Leyi Gu, Huihua Pang, Yin Zhou, Yan Jin, Haitao Zhang, Xia Wang, Weibo Le, Jinhua Hou, Xia Song, Ling Zhu, Jinghong Zhao, Weiping Hou, Jing Wu, Yu Shi, Jianshe Liu, Chun Zhang, Cheng Wan, Shan Chen, Hongyan Zhu, Fang Tang, Hui Li, Xuan Jiang, Mei Wang, Li Zuo, Yu Yan, Bao Dong, Yina Wang, Xuan Zhang, Li Bai, Peng Li, Dong Qi, Zhiying Cai, Guisen Li, Li Wang, Kung Peng, Daqing Hong, Daqing Yao, Aihua Jiang, Qiong Luo, Shuang Hou, Fan Zhang, Lei Zheng, Yuanchang Luo, Guangyan Cai, Shuwei Duan, Yan Zhang, Shuang Liang, Xiaolei Shao, Rong Wang, Xiang Liu, Ying Xu, Jing Zhang, Jianghua Chen, Jun Cheng, Lingfei Zhao, Xiaoying Du, Hongyu Chen, Bin Zhu, Weili Pan, Yalong Ma, Chenmin Cui, Qingxiao Zhang, Jiawei Zhang, Ping Fu, Xi Tang, Wei Qin, Yaping Liang, Detian Li, Guangping Sun, Xiaoxiao Su, Baixue Zhao, Qiang He, Xiaogang Shen, Danna Zheng, Yi Sun, Hua Zheng, Wei Zheng, Fuming Lu, Lingyun Lai, Minmin Zhang, Ningxin Xu, Huizhu Shi, Wangsheng Chen, Xinling Liang, Zhiming Ye, Lixia Xu, Ruijing Zhang, Yiming Tao, Dongmei Xu, Lijun Tang, Xiuhua Lian, Guohua Ding, Huiming Wang, Lihua Yang, Zhengkang Li, Zhao Hu, Bei Jiang, Zhiling Guo, Jie Chang, Qingmiao Wang, Nan Li, Aiping Zhang, Shumei Shi, Zhen Li, Hong Xu, Beiyan Bao, Yu Zhao, Zhuan Nie, Ting Liu, Yue Wang, Zhen Cui, Chunyan Su, Li Gong, Guoping Liu, Lei Yu, Bo Wang, Dan Xu, Ying Li, Qiongzhen Lin, Ke Yu, Yipu Shen, Hong Cheng, Xiaoyi Xu, Yu Wang, Rong Liu, Gang Xu, Min Han, Le Wang, Changying Xing, Chengning Zhang, Zhiming Huang, Guang Yang, Xueqiang Xu, Xiaolin Lv, Huiping Hong, Bing Liu, Lin Tao, Xiaoxuan Zhang, Huijie Yang, Xiaochun Yang, Xiaodong Zhang, H Yang, Yonghui Mao, Hua Wu, Tianhui Li, Haitao Wang, Ban Zhao, Hongli Lin, Ning Yang, K Samuel Fung, R Chan, Rebecca Law, Sreelatha Melemadathil, Hijaz PT, Rahila Razak, K C Sinta, Gopalakrishnan Natarajan, Junaith Mohammed, Dinesh K Thanigachalam, Sreebhushan R Devaraju, Satheesh Reddy Alavala, Anvesh Golla, Vamsi Nagalla, Raju Nallagasu, Manisha Sahay, Sravani Borra, Rakesh Sahay, LV Krishna Suri Dasyam, Mounika Kumbagiri, Prasad MSLN, Arfa Nazneen, KVL Prathyusha, Raja Ramachandran, Krishan L Gupta, Thakaur Sain, Narayan Prasad, Dharmendra S Bhaduria, Ashok K Pandy, Pratik Singh, Mohamad Z Abdul Wahab, Zurina Che Rohani, Haiyuni Mohd Yassim, Siti Nur Omaira Razali, Norhaslinda Saaidi, Wan Mohamad Wan Hazlina, Rosnawati Yahya, Seow Yeing Yee, Nurul Zaynah, Nurul Hizwani Azahar, Hui Foong Tan, Chek Loong Loh, Saliza Hashim, Yee Yan Lee, Xin Jie Lim, Norlia Mohd Khairi, Sridhar Ramanaidu, Kah Mean Thong, Wen Jiun Liu, Lik Wee Ee, Yuana Mohd Yusoff, Laura Lui Sian Ngu, Nyuk Suan Chai, Lawrence Wei Soon Hii, Clare Hui Hong Tan, Sharifah Hatijah Wan Japar, Lily Mushahar, Siti Hawa Md Yusuff, Maisarah Noor, Kok Peng Ng, Soo Kun Lim, Wan Ahmad Faizal Alaidin Razali, Wan Ahmad Hafiz Wan Md Adnan, David Jayne, Tom Greene, Michael Walsh, Angela Yee-Moon Wang, Amanda Mather, Amanda Y Wang
+**Journal:** JAMA (2022)
+**DOI:** [10.1001/jama.2022.5368](https://doi.org/10.1001/jama.2022.5368)
+
+## Content

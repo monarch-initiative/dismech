@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4172,6 +4249,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4193,6 +4271,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4242,6 +4321,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vps51-garp-earp-tethering-complex-deficiency" data-dismech-node="VPS51 GARP/EARP tethering-complex deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">VPS51 GARP/EARP tethering-complex deficiency</div>
+
 
                 <div class="item-desc">Biallelic VPS51 variants reduce functional assembly of both GARP and EARP complexes. This impairs tethering/fusion of endosome-derived transport carriers at the trans-Golgi network and recycling endosomes.</div>
 
@@ -4431,6 +4511,7 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4452,6 +4533,7 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4477,6 +4559,7 @@ This pathophysiological event occurs in Golgi apparatus (GO:0005794). GO:0005794
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endosome-golgi-cargo-sorting-failure" data-dismech-node="Endosome-Golgi cargo-sorting failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Endosome-Golgi cargo-sorting failure</div>
+
 
                 <div class="item-desc">Impaired VPS51-containing tethering disrupts recycling or sorting of endosome-derived cargo to the Golgi and lysosomal system, producing endolysosomal stress in patient cells.</div>
 
@@ -4634,6 +4717,7 @@ This pathophysiological event involves abnormal lysosome organization (GO:000704
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4655,6 +4739,7 @@ This pathophysiological event involves abnormal lysosome organization (GO:000704
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4680,6 +4765,7 @@ This pathophysiological event involves abnormal lysosome organization (GO:000704
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-cellular-and-serum-glycoprotein-glycosylation" data-dismech-node="Abnormal cellular and serum glycoprotein glycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal cellular and serum glycoprotein glycosylation</div>
+
 
                 <div class="item-desc">GARP dysfunction impairs retention and stability of Golgi glycosylation machinery, producing abnormal N-linked and O-linked glycoprotein processing in the VPS51 disease context.</div>
 
@@ -4790,6 +4876,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4812,6 +4899,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurologic-and-multisystem-dysfunction" data-dismech-node="Neurologic and multisystem dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurologic and multisystem dysfunction</div>
+
 
                 <div class="item-desc">The cellular trafficking and glycosylation defects are associated with a severe neurodevelopmental syndrome with pontocerebellar, seizure, feeding, growth, hepatic, sensory, and hypotonia manifestations.</div>
 
@@ -4850,6 +4938,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4871,6 +4960,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4919,7 +5009,7 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal cellular and serum glycoprotein glycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GARP dysfunction impairs retention and stability of Golgi glycosylation machinery, producing abnormal N-linked and O-linked glycoprotein processing in the VPS51 disease context.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Endosome-Golgi cargo-sorting failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired VPS51-containing tethering disrupts recycling or sorting of endosome-derived cargo to the Golgi and lysosomal system, producing endolysosomal stress in patient cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"retrograde transport, endosome to Golgi\", \"lysosome organization\"]}}, {\"id\": \"VPS51 GARP/EARP tethering-complex deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic VPS51 variants reduce functional assembly of both GARP and EARP complexes. This impairs tethering/fusion of endosome-derived transport carriers at the trans-Golgi network and recycling endosomes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"vesicle-mediated transport\", \"retrograde transport, endosome to Golgi\"], \"genes\": [\"VPS51\"], \"gene_terms\": [{\"label\": \"VPS51\", \"id\": \"hgnc:1172\"}], \"locations\": [\"Golgi apparatus\"]}}, {\"id\": \"VPS51 biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"VPS51\"], \"gene_terms\": [{\"label\": \"VPS51\", \"id\": \"hgnc:1172\"}], \"presence\": \"Pathogenic\", \"association\": \"Loss of function mutation\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"VPS51 GARP/EARP tethering-complex deficiency\", \"target\": \"Endosome-Golgi cargo-sorting failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GARP/EARP assembly alters endosome-derived cargo sorting, including mannose-6-phosphate receptor distribution.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endosome-Golgi cargo-sorting failure\", \"target\": \"Abnormal cellular and serum glycoprotein glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired GARP-dependent maintenance of Golgi glycosylation enzymes\"]}, {\"source\": \"VPS51 biallelic pathogenic variants\", \"target\": \"VPS51 GARP/EARP tethering-complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal cellular and serum glycoprotein glycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GARP dysfunction impairs retention and stability of Golgi glycosylation machinery, producing abnormal N-linked and O-linked glycoprotein processing in the VPS51 disease context.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"protein N-linked glycosylation\", \"protein O-linked glycosylation\"]}}, {\"id\": \"Endosome-Golgi cargo-sorting failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired VPS51-containing tethering disrupts recycling or sorting of endosome-derived cargo to the Golgi and lysosomal system, producing endolysosomal stress in patient cells.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"retrograde transport, endosome to Golgi\", \"lysosome organization\"]}}, {\"id\": \"VPS51 GARP/EARP tethering-complex deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic VPS51 variants reduce functional assembly of both GARP and EARP complexes. This impairs tethering/fusion of endosome-derived transport carriers at the trans-Golgi network and recycling endosomes.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"vesicle-mediated transport\", \"retrograde transport, endosome to Golgi\"], \"genes\": [\"VPS51\"], \"gene_terms\": [{\"label\": \"VPS51\", \"id\": \"hgnc:1172\"}], \"locations\": [\"Golgi apparatus\"]}}, {\"id\": \"VPS51 biallelic pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"VPS51\"], \"gene_terms\": [{\"label\": \"VPS51\", \"id\": \"hgnc:1172\"}], \"presence\": \"Pathogenic\", \"association\": \"Loss of function mutation\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"VPS51 GARP/EARP tethering-complex deficiency\", \"target\": \"Endosome-Golgi cargo-sorting failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced GARP/EARP assembly alters endosome-derived cargo sorting, including mannose-6-phosphate receptor distribution.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endosome-Golgi cargo-sorting failure\", \"target\": \"Abnormal cellular and serum glycoprotein glycosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired GARP-dependent maintenance of Golgi glycosylation enzymes\"]}, {\"source\": \"VPS51 biallelic pathogenic variants\", \"target\": \"VPS51 GARP/EARP tethering-complex deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4938,19 +5028,21 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4960,8 +5052,80 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-liver" data-dismech-node="Abnormality of the liver" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of the liver
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"failure to thrive, liver dysfunction, lower extremity edema"</div>
+
+
+                <div class="evidence-explanation">Liver dysfunction is captured with the generic HPO liver abnormality term because the cached abstract does not specify a narrower hepatic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dysphagia" data-dismech-node="Dysphagia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -4977,15 +5141,18 @@ This pathophysiological event involves abnormal protein O-linked glycosylation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5005,6 +5172,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5054,15 +5222,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5082,6 +5253,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5113,6 +5285,87 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral visual impairment" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral visual impairment
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0100704</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"epilepsy, cortical vision impairment, pontocerebellar abnormalities"</div>
+
+
+                <div class="evidence-explanation">Cortical vision impairment is represented by the HPO cerebral visual impairment term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
                     <span class="cat-count">2</span>
                 </summary>
@@ -5131,15 +5384,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5159,6 +5415,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5199,15 +5456,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5227,6 +5487,7 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5255,7 +5516,88 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pedal-edema" data-dismech-node="Pedal edema" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pedal edema
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010741</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"liver dysfunction, lower extremity edema and dysmorphic features."</div>
+
+
+                <div class="evidence-explanation">Lower-extremity edema maps to the HPO pedal edema term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5276,15 +5618,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5304,6 +5649,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5332,11 +5678,11 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
@@ -5353,15 +5699,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5381,6 +5730,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5421,15 +5771,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5449,6 +5802,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5475,92 +5829,6 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pontocerebellar abnormalities, failure to thrive, liver dysfunction"</div>
-
-
-                <div class="evidence-explanation">The initial case report explicitly includes failure to thrive.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
                     <div class="item-name">
                         Thin corpus callosum
@@ -5575,15 +5843,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0033725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5603,6 +5874,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5629,9 +5901,18 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-visual-impairment" data-dismech-node="Cerebral visual impairment" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cerebral visual impairment
+                        Failure to thrive
 
 
 
@@ -5643,151 +5924,18 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100704" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100704</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral visual impairment (HP:0100704). HP:0100704 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"epilepsy, cortical vision impairment, pontocerebellar abnormalities"</div>
-
-
-                <div class="evidence-explanation">Cortical vision impairment is represented by the HPO cerebral visual impairment term.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-the-liver" data-dismech-node="Abnormality of the liver" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormality of the liver
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001392</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"failure to thrive, liver dysfunction, lower extremity edema"</div>
-
-
-                <div class="evidence-explanation">Liver dysfunction is captured with the generic HPO liver abnormality term because the cached abstract does not specify a narrower hepatic feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pedal-edema" data-dismech-node="Pedal edema" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pedal edema
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010741" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010741</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001508</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5810,14 +5958,15 @@ This clinical feature is Pedal edema (HP:0010741). HP:0010741 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"liver dysfunction, lower extremity edema and dysmorphic features."</div>
+                <div class="evidence-snippet">"pontocerebellar abnormalities, failure to thrive, liver dysfunction"</div>
 
 
-                <div class="evidence-explanation">Lower-extremity edema maps to the HPO pedal edema term.</div>
+                <div class="evidence-explanation">The initial case report explicitly includes failure to thrive.</div>
 
 
 
@@ -5905,6 +6054,9 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -5915,7 +6067,7 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5930,7 +6082,33 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By exome sequencing, we have identified compound heterozygous mutations in the gene encoding the shared GARP/EARP subunit VPS51 in a 6-year-old patient with severe global developmental delay, microcephaly, hypotonia, epilepsy, cortical vision impairment, pontocerebellar abnormalities, failure to..."</div>
+
+
+                <div class="evidence-explanation">Names VPS51, compound heterozygosity and the patient&#39;s neurodevelopmental/pontocerebellar phenotype. The behaviour of the two mutant proteins is graded IN_VITRO in the items below. The separate homozygous p.Thr504Met family is supported by the other citation, not this excerpt.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30624672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30624672" target="_blank">PMID:30624672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -5951,6 +6129,7 @@ This disease-associated gene is VPS51 (hgnc:1172). hgnc:1172 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6621,6 +6800,21 @@ genetic:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
+      By exome sequencing, we have identified compound heterozygous mutations in the gene encoding
+      the shared GARP/EARP subunit VPS51 in a 6-year-old patient with severe global developmental
+      delay, microcephaly, hypotonia, epilepsy, cortical vision impairment, pontocerebellar
+      abnormalities, failure to thrive, liver dysfunction, lower extremity edema and dysmorphic
+      features.
+    explanation: &gt;-
+      Names VPS51, compound heterozygosity and the patient&#39;s neurodevelopmental/pontocerebellar
+      phenotype. The behaviour of the two mutant proteins is graded IN_VITRO in the items below.
+      The separate homozygous p.Thr504Met family is supported by the other citation, not this
+      excerpt.
+  - reference: PMID:30624672
+    reference_title: &#34;A neurodevelopmental disorder caused by mutations in the VPS51 subunit of the GARP and EARP complexes.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
       The mutation in one allele causes a frameshift that produces a longer but
       highly unstable protein that is degraded by the proteasome.
     explanation: &gt;-
@@ -6654,6 +6848,8 @@ genetic:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6752,7 +6948,7 @@ hearing, and swallowing features reported in the cached literature.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "VPS51-Related Pontocerebellar Hypoplasia-CDG", "mondoId": "MONDO:0032831", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "VPS51-Related_Pontocerebellar_Hypoplasia-CDG", "yamlRevision": "cb7d07aa5ae8"};
+        const OS_CONFIG = {"diseaseName": "VPS51-Related Pontocerebellar Hypoplasia-CDG", "mondoId": "MONDO:0032831", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "VPS51-Related_Pontocerebellar_Hypoplasia-CDG", "yamlRevision": "5e53a1a293d3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

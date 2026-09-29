@@ -48,6 +48,56 @@ enums:
         description: Not supported by the cited evidence or materially misleading.
       NEEDS_VERIFICATION:
         description: Requires further source checking before a conclusion.
+  HypothesisDataSourceTypeEnum:
+    description: Kind of data source a provider searched, accessed, or cited.
+    permissible_values:
+      PUBLIC_DATASET:
+        description: A deposited dataset with a stable public accession.
+      DATABASE:
+        description: A versioned database or knowledgebase queried by the provider.
+      API:
+        description: A service endpoint queried directly by the provider.
+      PUBLICATION_SUPPLEMENT:
+        description: Data distributed as supplementary material with a publication.
+      LOCAL_FILE:
+        description: A local input file supplied to or produced outside the provider.
+      OTHER:
+        description: A data source that does not fit the other categories.
+  HypothesisDataAccessStatusEnum:
+    description: Whether and how the provider actually interacted with a data source.
+    permissible_values:
+      ACCESSED:
+        description: The provider directly retrieved or queried the source.
+      SEARCHED_NO_RESULT:
+        description: A documented search completed but returned no usable result.
+      CITED_NOT_ACCESSED:
+        description: The source was mentioned or cited but not directly accessed.
+      UNVERIFIABLE:
+        description: The available artifacts cannot establish whether access occurred.
+  HypothesisAnalysisStatusEnum:
+    description: Execution outcome of a provider-side data analysis.
+    permissible_values:
+      SUCCEEDED:
+        description: The analysis completed and has a reproducible committed record.
+      PARTIAL:
+        description: The analysis ran but completed only part of its intended work.
+      FAILED:
+        description: Execution was attempted but produced no usable analysis result.
+      SKIPPED:
+        description: The intended analysis was deliberately not executed.
+      REPORTED_ONLY:
+        description: >-
+          The report claims a computation, but no committed execution record can
+          establish that it ran as described.
+  HypothesisAnalysisAuditabilityEnum:
+    description: How completely a provider-side analysis can be audited or rerun.
+    permissible_values:
+      REPRODUCIBLE:
+        description: Inputs, versioned software, code, environment, and outputs are recorded.
+      PARTIALLY_AUDITABLE:
+        description: Some execution artifacts exist, but an end-to-end rerun is not possible.
+      UNVERIFIABLE:
+        description: No committed execution artifacts substantiate the claimed computation.
 
 slots:
   schema_version:
@@ -81,6 +131,22 @@ slots:
   artifacts:
     description: Optional human-readable artifacts, relative to this assessment YAML.
     multivalued: true
+  artifact_root:
+    description: >-
+      Provider-specific artifact directory, relative to this assessment YAML.
+      When structured data-source or analysis artifacts are declared, this must
+      resolve to `../<provider>_artifacts/`, and every structured artifact must
+      be contained beneath it.
+  data_sources:
+    description: Data sources the provider searched, accessed, or cited during the run.
+    range: HypothesisDataSource
+    multivalued: true
+    inlined_as_list: true
+  analyses:
+    description: Provider-side computational analyses assessed with the report.
+    range: HypothesisAnalysis
+    multivalued: true
+    inlined_as_list: true
   claim_id:
     description: Stable local identifier for one assessed claim.
     identifier: true
@@ -98,6 +164,109 @@ slots:
   citations:
     description: Literature identifiers consulted by the assessor; not disease-YAML evidence.
     multivalued: true
+  analysis_ids:
+    description: >-
+      analysis_id values that ground this claim or provider position. These are
+      local provenance links, not disease-YAML evidence.
+    multivalued: true
+  data_source_id:
+    description: Stable local identifier for one data source record.
+    identifier: true
+  source_type:
+    description: Kind of dataset, database, API, supplement, or local source.
+    range: HypothesisDataSourceTypeEnum
+  name:
+    description: Human-readable name of a data source.
+  identifier:
+    description: Stable accession or database identifier, including its prefix.
+  version:
+    description: Source release, snapshot, or other version identifier.
+  uri:
+    description: Canonical external location of the data source.
+    range: uri
+  retrieved_at:
+    description: When the provider retrieved or searched the source.
+    range: datetime
+  access_status:
+    description: Whether the provider accessed, searched, cited, or could not verify the source.
+    range: HypothesisDataAccessStatusEnum
+  query:
+    description: Query string or search expression used against the source.
+  cohort:
+    description: Cohort, population, or sample group selected from the source.
+  subset:
+    description: Additional inclusion, exclusion, feature, or record subset applied.
+  organism:
+    description: Organism represented by the selected data.
+  tissue:
+    description: Tissue, anatomical source, or biospecimen represented by the data.
+  assay:
+    description: Assay, measurement modality, or data-generation platform.
+  checksum:
+    description: Content checksum written as `sha256:` plus 64 hexadecimal characters.
+    pattern: ^sha256:[0-9a-fA-F]{64}$
+  byte_count:
+    description: Size of the retrieved or selected data in bytes.
+    range: integer
+    minimum_value: 0
+  source_artifacts:
+    description: >-
+      Committed manifests, query responses, or input snapshots, relative to the
+      assessment YAML.
+    multivalued: true
+  analysis_id:
+    description: Stable local identifier for one provider-side analysis.
+    identifier: true
+  status:
+    description: Execution outcome of the analysis.
+    range: HypothesisAnalysisStatusEnum
+  auditability:
+    description: Completeness of the committed record needed to audit or rerun the analysis.
+    range: HypothesisAnalysisAuditabilityEnum
+  method:
+    description: Computational method or procedure performed.
+  comparison:
+    description: Groups, conditions, contrasts, or hypotheses compared by the analysis.
+  input_data_source_ids:
+    description: data_source_id values used as inputs to the analysis.
+    multivalued: true
+  software:
+    description: Software, provider tools, or libraries used by the analysis.
+    range: HypothesisAnalysisSoftware
+    multivalued: true
+    inlined_as_list: true
+  software_name:
+    description: Name of one software package, service, or provider tool.
+  software_version:
+    description: Exact software, service, model, or tool version used.
+  software_uri:
+    description: Canonical documentation, source, or image location for the software.
+    range: uri
+  parameters:
+    description: Explicit analysis settings, written as stable name-value strings.
+    multivalued: true
+  code_artifacts:
+    description: Committed scripts or notebooks, relative to the assessment YAML.
+    multivalued: true
+  environment_artifact:
+    description: >-
+      Committed lockfile, container recipe, or environment manifest, relative to
+      the assessment YAML.
+  output_artifacts:
+    description: Committed result tables, logs, or figures, relative to the assessment YAML.
+    multivalued: true
+  status_reason:
+    description: >-
+      Why an analysis was partial, failed, skipped, only reported, or used as a
+      fallback after another analysis did not complete as intended.
+  fallback_from_analysis_id:
+    description: >-
+      Earlier analysis_id whose partial, failed, or skipped execution caused this
+      retry or fallback analysis to be used.
+  limitations:
+    description: Material limits on interpretation or reproduction of the analysis.
+  notes:
+    description: Free-text provenance or review notes.
 
 classes:
   HypothesisAssessment:
@@ -114,6 +283,9 @@ classes:
       - summary
       - claims
       - artifacts
+      - artifact_root
+      - data_sources
+      - analyses
   HypothesisAssessmentClaim:
     description: A source-anchored review of one claim or inference in the report.
     slots:
@@ -123,6 +295,7 @@ classes:
       - report_quote
       - rationale
       - citations
+      - analysis_ids
     slot_usage:
       claim_id:
         required: true
@@ -131,4 +304,70 @@ classes:
       disposition:
         required: true
       rationale:
+        required: true
+
+  HypothesisDataSource:
+    description: One external or local data source considered by a provider run.
+    slots:
+      - data_source_id
+      - source_type
+      - name
+      - identifier
+      - version
+      - uri
+      - retrieved_at
+      - access_status
+      - query
+      - cohort
+      - subset
+      - organism
+      - tissue
+      - assay
+      - checksum
+      - byte_count
+      - source_artifacts
+      - notes
+    slot_usage:
+      data_source_id:
+        required: true
+      source_type:
+        required: true
+      name:
+        required: true
+      access_status:
+        required: true
+
+  HypothesisAnalysis:
+    description: One computational analysis attempted or claimed by a provider run.
+    slots:
+      - analysis_id
+      - status
+      - auditability
+      - method
+      - comparison
+      - input_data_source_ids
+      - software
+      - parameters
+      - code_artifacts
+      - environment_artifact
+      - output_artifacts
+      - status_reason
+      - fallback_from_analysis_id
+      - limitations
+    slot_usage:
+      analysis_id:
+        required: true
+      status:
+        required: true
+      auditability:
+        required: true
+
+  HypothesisAnalysisSoftware:
+    description: One versioned software dependency or provider tool used in an analysis.
+    slots:
+      - software_name
+      - software_version
+      - software_uri
+    slot_usage:
+      software_name:
         required: true

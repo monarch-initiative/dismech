@@ -46,7 +46,7 @@
 
 ```bash
 # Validate a single file
-just validate-references kb/disorders/FILENAME.yaml
+just validate-kb-references kb/disorders/FILENAME.yaml
 
 # Or directly:
 uv run linkml-reference-validator validate data kb/disorders/FILENAME.yaml \

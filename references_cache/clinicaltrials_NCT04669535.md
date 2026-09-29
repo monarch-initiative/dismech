@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04669535"
+reference_id: clinicaltrials:NCT04669535
 title: "A Two-Stage, Dose-Escalation and Safety & Efficacy Study of Bilateral Intraparenchymal Thalamic and Intracisternal/Intrathecal Administration of AXO-AAV-GM2 in Tay-Sachs or Sandhoff Disease"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Two-Stage, Dose-Escalation and Safety & Efficacy Study of Bilateral Intraparenchymal Thalamic and Intracisternal/Intrathecal Administration of AXO-AAV-GM2 in Tay-Sachs or Sandhoff Disease

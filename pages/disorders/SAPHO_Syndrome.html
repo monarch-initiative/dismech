@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4160,6 +4237,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4184,6 +4262,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4205,6 +4284,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4297,6 +4377,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4318,6 +4399,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4410,6 +4492,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4431,6 +4514,7 @@ None of these criteria sets has been validated, and the contrast with the paedia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4889,6 +4973,7 @@ Two results cut against a clean dissociation and are curated rather than set asi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-immune-dysregulation" data-dismech-node="Innate Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate Immune Dysregulation</div>
 
+
                 <div class="item-desc">The upstream lesion, and the least well characterised. What is reproducibly reported is a set of innate abnormalities - neutrophil hyperactivity, reduced natural killer cell numbers, high IL-1 - together with a therapeutic response to IL-1 blockade. That combination is why contemporary reviews classify SAPHO as autoinflammatory rather than autoimmune. No causal gene underlies it: this node describes a functional state, not a genotype.</div>
 
 
@@ -5011,6 +5096,7 @@ This pathophysiological event involves increased interleukin-1 beta production (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5032,6 +5118,7 @@ This pathophysiological event involves increased interleukin-1 beta production (
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5059,6 +5146,7 @@ This pathophysiological event involves increased interleukin-1 beta production (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5081,6 +5169,7 @@ This pathophysiological event involves increased interleukin-1 beta production (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutibacterium-acnes-intraosseous-persistence" data-dismech-node="Cutibacterium acnes Intraosseous Persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Cutibacterium acnes Intraosseous Persistence</div>
+
 
                 <div class="item-desc">A candidate initiating step, curated as a hypothesis rather than as established mechanism. Cutibacterium (formerly Propionibacterium) acnes is recovered from a proportion of SAPHO bone biopsies, and it is a potent activator of the NLRP3 inflammasome, which would supply the IL-1beta the rest of the chain depends on. The case against it is equally concrete: overt infection is absent in many patients and antibiotics produce only transient, incomplete benefit. The proposal that survives both observations is low-grade intracellular persistence rather than infection.</div>
 
@@ -5194,6 +5283,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5215,6 +5305,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5240,6 +5331,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pro-inflammatory-cytokine-amplification" data-dismech-node="Pro-Inflammatory Cytokine Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Pro-Inflammatory Cytokine Amplification</div>
+
 
                 <div class="item-desc">The hub of the disease. TNF-alpha, IL-1beta, IL-6, IL-8, IL-18 and the IL-23/IL-17 axis converge on NF-kappaB and MAPK signalling, each amplifying the others. This is a self-sustaining loop rather than a linear cascade, which is the mechanistic reason single-cytokine blockade helps many patients without curing any, and the reason different agents work in the bone and the skin compartments.</div>
 
@@ -5467,6 +5559,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5488,6 +5581,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5513,6 +5607,7 @@ This pathophysiological event involves increased positive regulation of canonica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-recruitment-and-activation" data-dismech-node="Neutrophil Recruitment and Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Recruitment and Activation</div>
+
 
                 <div class="item-desc">IL-8 recruits neutrophils to bone and skin and promotes their adherence and transendothelial migration; once there they degranulate and release reactive oxygen species. Neutrophils from patients are themselves hyperactive, secreting IL-8 and TNF-alpha and so feeding the upstream loop. This node is the reason the cutaneous lesions are neutrophilic pseudoabscesses and the bone lesions are neutrophil-rich.</div>
 
@@ -5676,6 +5771,7 @@ This pathophysiological event involves increased interleukin-8 production (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5697,6 +5793,7 @@ This pathophysiological event involves increased interleukin-8 production (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5724,6 +5821,7 @@ This pathophysiological event involves increased interleukin-8 production (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5746,6 +5844,7 @@ This pathophysiological event involves increased interleukin-8 production (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-remodeling-imbalance" data-dismech-node="Bone Remodeling Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Remodeling Imbalance</div>
+
 
                 <div class="item-desc">The node that makes SAPHO bone disease distinctive. IL-1beta, IL-17, IL-6 and TNF-alpha each stimulate osteoclastogenesis while inhibiting osteoblast differentiation and function, so both arms of remodelling are deranged at once. The clinical consequence is not a single direction of bone change: lytic and sclerotic lesions coexist, and the net proliferative outcome at the anterior chest wall is what the acronym records as hyperostosis.</div>
 
@@ -5933,6 +6032,7 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5954,6 +6054,7 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5979,6 +6080,7 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sterile-osteitis" data-dismech-node="Sterile Osteitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Sterile Osteitis</div>
+
 
                 <div class="item-desc">Inflammatory bone lesions with no causative organism. As in chronic nonbacterial osteomyelitis, this node is established by exclusion - by failing to isolate a pathogen, and by lesions that do not behave like infection over time - which is why diagnosis of the whole syndrome rests on ruling differentials out rather than on any positive test.</div>
 
@@ -6056,6 +6158,7 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6077,6 +6180,7 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6102,6 +6206,7 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperostosis-and-osteosclerosis" data-dismech-node="Hyperostosis and Osteosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperostosis and Osteosclerosis</div>
+
 
                 <div class="item-desc">The proliferative bone response, and the feature that separates SAPHO from purely lytic sterile osteitis. Histologically the lesion evolves from an acute inflammatory infiltrate to marrow fibrosis and sclerosis of the bone trabeculae; radiologically it produces bone proliferation and hypertrophy of adjacent soft tissue, with a marked predilection for the sternum and clavicle and extension to the cervical spine and sacroiliac joints.</div>
 
@@ -6191,6 +6296,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6212,6 +6318,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6237,6 +6344,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synovitis" data-dismech-node="Synovitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Synovitis</div>
+
 
                 <div class="item-desc">Joint inflammation adjacent to affected bone, the S of the acronym. It is grouped with osteitis and hyperostosis as a musculoskeletal hallmark rather than treated as a separate arthropathy, and adjacent bone proliferation can itself impair joint function.</div>
 
@@ -6288,6 +6396,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6310,6 +6419,7 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophilic-skin-inflammation" data-dismech-node="Neutrophilic Skin Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophilic Skin Inflammation</div>
+
 
                 <div class="item-desc">The cutaneous arm, and the half of the syndrome that is often what brings a patient to attention. Lesions are neutrophilic - dermatoses characterised by neutrophilic pseudoabscesses - and the dominant forms are palmoplantar pustulosis and severe acne. Which of the two predominates is population-dependent rather than intrinsic to the disease. Skin lesions may precede, accompany or follow the skeletal ones, and can be absent altogether.</div>
 
@@ -6395,6 +6505,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6416,6 +6527,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6441,6 +6553,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-relapsing-osteoarticular-and-cutaneous-disease" data-dismech-node="Chronic Relapsing Osteoarticular and Cutaneous Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Relapsing Osteoarticular and Cutaneous Disease</div>
+
 
                 <div class="item-desc">The clinical endpoint. The course is chronic and relapsing rather than monophasic or steadily progressive, and both the skeletal and dermatological arms are frequently the most debilitating features. Systemic inflammation adds constitutional symptoms - fever, weight loss, fatigue - and management is multidisciplinary because no single specialty sees the whole syndrome.</div>
 
@@ -6479,6 +6592,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6500,6 +6614,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6567,11 +6682,15 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6580,8 +6699,116 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inflammatory-bowel-disease" data-dismech-node="Inflammatory Bowel Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inflammatory Bowel Disease
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Inflammation of the large intestine</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002037</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inflammatory bowel disease, annotated with Inflammation of the large intestine (HP:0002037). HP:0002037 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40004896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004896" target="_blank">PMID:40004896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An association with IBD—which are also associated to neutrophilic dermatoses and SpA—has been known since SAPHO’s description"</div>
+
+
+                <div class="evidence-explanation">Establishes the IBD association as recognised since the syndrome was first described.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40004896" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004896" target="_blank">PMID:40004896</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"is also part of the modified 2003 Kahn’s criteria"</div>
+
+
+                <div class="evidence-explanation">Places the IBD association inside the diagnostic criteria, which is why it is curated as a phenotype rather than left to notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sterile-osteitis" data-dismech-node="Sterile Osteitis" data-dismech-type="phenotype">
@@ -6600,15 +6827,18 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002754</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sterile osteitis, annotated with Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6631,6 +6861,7 @@ This clinical feature is Sterile osteitis, annotated with Osteomyelitis (HP:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6639,400 +6870,6 @@ This clinical feature is Sterile osteitis, annotated with Osteomyelitis (HP:0002
 
 
                 <div class="evidence-explanation">Names sterile bone inflammation as a defining clinical feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-acne" data-dismech-node="Severe Acne" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe Acne
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001061</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe acne, annotated with Acne (HP:0001061), qualified as severity severe. HP:0001061 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: SEVERE</span>
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39286247" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39286247" target="_blank">PMID:39286247</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"acne (severe acneiform eruptions, often resistant to conventional treatments)"</div>
-
-
-                <div class="evidence-explanation">Gives the definitional description of the acne component of the acronym.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-pain" data-dismech-node="Bone Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002653</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bone pain (HP:0002653), qualified as temporality chronic. HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39286247" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39286247" target="_blank">PMID:39286247</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skeletal symptoms typically include pain and swelling in the anterior chest wall and chronic pain, often associated with bone proliferation and inflammation near joints."</div>
-
-
-                <div class="evidence-explanation">Documents chronic bone pain and its anterior chest wall distribution.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperostosis" data-dismech-node="Hyperostosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperostosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100774</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperostosis (HP:0100774). HP:0100774 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34967407" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34967407" target="_blank">PMID:34967407</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Musculoskeletal manifestations, including osteitis, synovitis, and hyperostosis, are the hallmarks of the SAPHO syndrome and affect a variety of regions of the body."</div>
-
-
-                <div class="evidence-explanation">Establishes hyperostosis as a hallmark manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-synovitis" data-dismech-node="Synovitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Synovitis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100769</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Synovitis (HP:0100769). HP:0100769 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34967407" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34967407" target="_blank">PMID:34967407</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Musculoskeletal manifestations, including osteitis, synovitis, and hyperostosis, are the hallmarks of the SAPHO syndrome and affect a variety of regions of the body."</div>
-
-
-                <div class="evidence-explanation">Establishes synovitis as a hallmark manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sacroiliac-arthritis" data-dismech-node="Sacroiliac Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sacroiliac Arthritis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012317</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sacroiliac arthritis (HP:0012317). HP:0012317 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39286247" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39286247" target="_blank">PMID:39286247</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Commonly, these bone alterations manifest in the anterior chest wall, including the sternum and clavicle, and extend to the cervical vertebrae and sacroiliac joints."</div>
-
-
-                <div class="evidence-explanation">Establishes sacroiliac joint involvement as part of the skeletal distribution.</div>
 
 
 
@@ -7062,15 +6899,18 @@ This clinical feature is Sacroiliac arthritis (HP:0012317). HP:0012317 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100847" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100847</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100847" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100847</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Palmoplantar pustulosis (HP:0100847). HP:0100847 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7090,6 +6930,7 @@ This clinical feature is Palmoplantar pustulosis (HP:0100847). HP:0100847 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7117,6 +6958,7 @@ This clinical feature is Palmoplantar pustulosis (HP:0100847). HP:0100847 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7125,6 +6967,96 @@ This clinical feature is Palmoplantar pustulosis (HP:0100847). HP:0100847 is a p
 
 
                 <div class="evidence-explanation">Quantifies the population dependence of which cutaneous form predominates, which is why no single frequency band is asserted for either.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-acne" data-dismech-node="Severe Acne" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe Acne
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe acne, annotated with Acne (HP:0001061), qualified as severity severe. HP:0001061 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: SEVERE</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39286247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39286247" target="_blank">PMID:39286247</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"acne (severe acneiform eruptions, often resistant to conventional treatments)"</div>
+
+
+                <div class="evidence-explanation">Gives the definitional description of the acne component of the acronym.</div>
 
 
 
@@ -7156,15 +7088,18 @@ This clinical feature is Palmoplantar pustulosis (HP:0100847). HP:0100847 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003765</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003765</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Psoriasis, annotated with Psoriasiform dermatitis (HP:0003765). HP:0003765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7184,6 +7119,7 @@ This clinical feature is Psoriasis, annotated with Psoriasiform dermatitis (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7226,15 +7162,18 @@ This clinical feature is Psoriasis, annotated with Psoriasiform dermatitis (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0040154</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0040154</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hidradenitis suppurativa, annotated with Acne inversa (HP:0040154). HP:0040154 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7254,6 +7193,7 @@ This clinical feature is Hidradenitis suppurativa, annotated with Acne inversa (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7280,6 +7220,15 @@ This clinical feature is Hidradenitis suppurativa, annotated with Acne inversa (
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-acute-phase-reactants" data-dismech-node="Elevated Acute Phase Reactants" data-dismech-type="phenotype">
                     <div class="item-name">
                         Elevated Acute Phase Reactants
@@ -7296,15 +7245,18 @@ This clinical feature is Hidradenitis suppurativa, annotated with Acne inversa (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003565</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003565" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003565</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). HP:0003565 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7324,6 +7276,7 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7350,9 +7303,18 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inflammatory-bowel-disease" data-dismech-node="Inflammatory Bowel Disease" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperostosis" data-dismech-node="Hyperostosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Inflammatory Bowel Disease
+                        Hyperostosis
 
 
 
@@ -7361,17 +7323,15 @@ This clinical feature is Elevated erythrocyte sedimentation rate (HP:0003565). H
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Inflammation of the large intestine</span>
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0100774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100774</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002037" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002037</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Inflammatory bowel disease, annotated with Inflammation of the large intestine (HP:0002037). HP:0002037 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hyperostosis (HP:0100774). HP:0100774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7380,16 +7340,19 @@ This clinical feature is Inflammatory bowel disease, annotated with Inflammation
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40004896" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:34967407" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004896" target="_blank">PMID:40004896</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34967407" target="_blank">PMID:34967407</a>
                     </span>
 
 
@@ -7397,23 +7360,71 @@ This clinical feature is Inflammatory bowel disease, annotated with Inflammation
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"An association with IBD—which are also associated to neutrophilic dermatoses and SpA—has been known since SAPHO’s description"</div>
+                <div class="evidence-snippet">"Musculoskeletal manifestations, including osteitis, synovitis, and hyperostosis, are the hallmarks of the SAPHO syndrome and affect a variety of regions of the body."</div>
 
 
-                <div class="evidence-explanation">Establishes the IBD association as recognised since the syndrome was first described.</div>
+                <div class="evidence-explanation">Establishes hyperostosis as a hallmark manifestation.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40004896" data-dismech-supports="SUPPORT">
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-synovitis" data-dismech-node="Synovitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Synovitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100769" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100769</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Synovitis (HP:0100769). HP:0100769 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34967407" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40004896" target="_blank">PMID:40004896</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34967407" target="_blank">PMID:34967407</a>
                     </span>
 
 
@@ -7421,14 +7432,186 @@ This clinical feature is Inflammatory bowel disease, annotated with Inflammation
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"is also part of the modified 2003 Kahn’s criteria"</div>
+                <div class="evidence-snippet">"Musculoskeletal manifestations, including osteitis, synovitis, and hyperostosis, are the hallmarks of the SAPHO syndrome and affect a variety of regions of the body."</div>
 
 
-                <div class="evidence-explanation">Places the IBD association inside the diagnostic criteria, which is why it is curated as a phenotype rather than left to notes.</div>
+                <div class="evidence-explanation">Establishes synovitis as a hallmark manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sacroiliac-arthritis" data-dismech-node="Sacroiliac Arthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sacroiliac Arthritis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012317" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012317</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sacroiliac arthritis (HP:0012317). HP:0012317 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39286247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39286247" target="_blank">PMID:39286247</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Commonly, these bone alterations manifest in the anterior chest wall, including the sternum and clavicle, and extend to the cervical vertebrae and sacroiliac joints."</div>
+
+
+                <div class="evidence-explanation">Establishes sacroiliac joint involvement as part of the skeletal distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-pain" data-dismech-node="Bone Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002653</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone pain (HP:0002653), qualified as temporality chronic. HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39286247" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39286247" target="_blank">PMID:39286247</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skeletal symptoms typically include pain and swelling in the anterior chest wall and chronic pain, often associated with bone proliferation and inflammation near joints."</div>
+
+
+                <div class="evidence-explanation">Documents chronic bone pain and its anterior chest wall distribution.</div>
 
 
 
@@ -7554,6 +7737,31 @@ This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonstero
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line, together with analgesics. As in chronic nonbacterial osteomyelitis, no agent is licensed for SAPHO and every treatment below is used off-label; there are no prospective randomised controlled trials in this disease at all, because there are no externally validated diagnostic criteria or outcome measures to run them against.</div>
 
 
@@ -7584,6 +7792,7 @@ This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonstero
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7627,6 +7836,7 @@ This treatment uses nonsteroidal anti-inflammatory drug, annotated with Nonstero
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7729,6 +7939,31 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The biologic of first choice in conventional-treatment-refractory disease. In a systematic review of 66 biologic-treated cases, anti-TNF agents gave the highest response rate in bone and joint manifestations of any class. The caveat is compartment-specific and paradoxical: anti-TNF treatment can itself provoke skin lesions in some patients.</div>
 
 
@@ -7759,6 +7994,7 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7805,6 +8041,7 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7826,6 +8063,7 @@ This treatment uses adalimumab (NCIT:C65216). NCIT:C65216 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7911,6 +8149,31 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Protein replacement</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Effective in the musculoskeletal compartment and, on the available data, not in the skin. That dissociation is mechanistically informative rather than a limitation of the evidence: it argues that the bone and skin arms of the syndrome do not depend on the same cytokine to the same degree.</div>
 
 
@@ -7941,6 +8204,7 @@ This treatment uses anakinra (NCIT:C38717). NCIT:C38717 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8052,6 +8316,31 @@ This treatment uses ustekinumab (NCIT:C84237). NCIT:C84237 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The mirror image of IL-1 blockade: efficacy concentrated in the skin, with little consistent osteoarticular benefit. Two independent sources report the same asymmetry, and both note paradoxical psoriasis flares as a class effect.</div>
 
 
@@ -8082,6 +8371,7 @@ This treatment uses ustekinumab (NCIT:C84237). NCIT:C84237 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8128,6 +8418,7 @@ This treatment uses ustekinumab (NCIT:C84237). NCIT:C84237 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8152,6 +8443,7 @@ This treatment uses ustekinumab (NCIT:C84237). NCIT:C84237 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8173,6 +8465,7 @@ This treatment uses ustekinumab (NCIT:C84237). NCIT:C84237 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8275,6 +8568,31 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A treatment chosen for the specific shape of this disease. SAPHO combines increased bone remodelling with inflammatory osteitis, and bisphosphonates act on both - an antiosteoclastic effect and an anti-inflammatory one - which is why they are used here rather than as generic bone-protective agents.</div>
 
 
@@ -8305,6 +8623,7 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8355,6 +8674,7 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8379,6 +8699,7 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8400,6 +8721,7 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8446,6 +8768,7 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8467,6 +8790,7 @@ This treatment uses zoledronic acid (CHEBI:46557). CHEBI:46557 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8586,6 +8910,31 @@ This treatment uses sulfasalazine (CHEBI:9334). CHEBI:9334 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Escalation between NSAIDs and biologics. The honest summary of this tier is that it helps some patients and not others, which is itself the evidence cited for the pathogenesis being multifactorial.</div>
 
 
@@ -8610,6 +8959,7 @@ This treatment uses sulfasalazine (CHEBI:9334). CHEBI:9334 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8631,6 +8981,7 @@ This treatment uses sulfasalazine (CHEBI:9334). CHEBI:9334 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8733,6 +9084,31 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Used on the reasoning that C. acnes drives the disease. It is curated because its partial failure is mechanistically informative: benefit is transient and incomplete, which is a substantial part of the argument against overt infection as the cause. A corollary in the clinical literature runs the other way - recognising SAPHO promptly prevents patients being given long-term antibiotics they do not need.</div>
 
 
@@ -8763,6 +9139,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8806,6 +9183,7 @@ This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8891,6 +9269,31 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The newest class in use, and the one that most complicates the compartment story. Two pilot studies of tofacitinib disagree about bone: one reported a bone response in 9 of 12 patients alongside skin improvement, the other found significant benefit for nail and palmoplantar lesions with no clear osteoarticular efficacy - reduced pain but no MRI improvement. Both are small, open-label and unrandomised. Curated because a class with published prospective data belongs in the entry, and because the disagreement bears directly on whether the bone and skin compartments are separable.</div>
 
 
@@ -8921,6 +9324,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8967,6 +9371,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8991,6 +9396,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9012,6 +9418,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9115,6 +9522,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9136,6 +9544,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9226,6 +9635,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9247,6 +9657,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9337,6 +9748,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9358,6 +9770,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9448,6 +9861,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9535,6 +9949,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9556,6 +9971,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9638,6 +10054,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9688,6 +10105,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9752,6 +10170,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9776,6 +10195,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9797,6 +10217,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9849,6 +10270,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9870,6 +10292,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9967,6 +10390,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10037,6 +10461,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10102,6 +10527,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10175,6 +10601,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10242,6 +10669,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10315,6 +10743,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10336,6 +10765,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10485,6 +10915,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10544,6 +10975,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10583,6 +11015,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10627,6 +11060,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

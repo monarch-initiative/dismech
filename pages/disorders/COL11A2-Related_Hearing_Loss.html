@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4105,6 +4182,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4176,6 +4254,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4197,6 +4276,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4266,6 +4346,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                COL11A2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2187</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL11A2 (hgnc:2187). hgnc:2187 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Non-progressive, predominantly mid-frequency sensorineural hearing loss caused by heterozygous missense mutations in the triple-helix domain of COL11A2. Onset is typically prelingual, and hearing loss is stable over time.
@@ -4289,6 +4388,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4331,6 +4431,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                COL11A2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2187</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL11A2 (hgnc:2187). hgnc:2187 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Prelingual, severe-to-profound sensorineural hearing loss across all frequencies, caused by biallelic COL11A2 mutations. Often identified in consanguineous families with homozygous mutations. No syndromic features.
@@ -4354,6 +4473,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4450,6 +4570,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4485,6 +4606,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-col11a2-disruption-of-tectorial-membrane" data-dismech-node="Dominant COL11A2 Disruption of Tectorial Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant COL11A2 Disruption of Tectorial Membrane</div>
 
+
                 <div class="item-desc">In DFNA13, heterozygous variants predicted to affect the collagen triple-helix domain disrupt COL11A2 function. Model-organism evidence links Col11a2 disruption to loss of organized collagen fibrils in the cochlear tectorial membrane, providing a structural route to the characteristic mid-frequency hearing loss.
 </div>
 
@@ -4500,11 +4622,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000202</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000202</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Cochlear hair cell, annotated with auditory hair cell (CL:0000202). CL:0000202 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4540,11 +4662,11 @@ This pathophysiological event involves Cochlear hair cell, annotated with audito
         COL11A2
 
 
-    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2187</a>
+    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2187</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves abnormal COL11A2 (hgnc:2187). hgnc:2187 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4586,11 +4708,11 @@ This pathophysiological event involves abnormal COL11A2 (hgnc:2187). hgnc:2187 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030199</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4655,6 +4777,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4676,6 +4799,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4702,6 +4826,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col11a2-biallelic-disruption-of-tectorial-membrane" data-dismech-node="COL11A2 Biallelic Disruption of Tectorial Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">COL11A2 Biallelic Disruption of Tectorial Membrane</div>
 
+
                 <div class="item-desc">In DFNB53, biallelic damaging COL11A2 variants impair alpha-2(XI) collagen function. Disruption of type XI collagen in the tectorial membrane is associated with profound hearing loss across all frequencies, although the exact effect of each reported allele on collagen abundance or assembly is not fully resolved.
 </div>
 
@@ -4717,11 +4842,11 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000202</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000202" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000202</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Cochlear hair cell, annotated with auditory hair cell (CL:0000202). CL:0000202 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4757,11 +4882,11 @@ This pathophysiological event involves Cochlear hair cell, annotated with audito
         COL11A2
 
 
-    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2187</a>
+    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:2187</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves abnormal COL11A2 (hgnc:2187). hgnc:2187 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4803,11 +4928,11 @@ This pathophysiological event involves abnormal COL11A2 (hgnc:2187). hgnc:2187 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030199</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030199</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Collagen fibril organization (GO:0030199). GO:0030199 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4872,6 +4997,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4893,6 +5019,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4918,6 +5045,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-progressive-mid-frequency-sensorineural-hearing-loss" data-dismech-node="Non-Progressive Mid-Frequency Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Progressive Mid-Frequency Sensorineural Hearing Loss</div>
+
 
                 <div class="item-desc">The characteristic audiometric pattern of DFNA13 is a non-progressive, prelingual sensorineural hearing loss that predominantly affects middle frequencies. This pattern likely reflects the frequency-specific mechanical properties of the tectorial membrane, which relies on collagen XI for its gradient of stiffness along the cochlear spiral.
 </div>
@@ -4957,6 +5085,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4978,6 +5107,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5003,6 +5133,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prelingual-profound-sensorineural-hearing-loss" data-dismech-node="Prelingual Profound Sensorineural Hearing Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Prelingual Profound Sensorineural Hearing Loss</div>
+
 
                 <div class="item-desc">DFNB53 causes prelingual, severe-to-profound sensorineural hearing loss affecting all frequencies.
 </div>
@@ -5039,6 +5170,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5087,7 +5219,7 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In DFNB53, biallelic damaging COL11A2 variants impair alpha-2(XI) collagen function. Disruption of type XI collagen in the tectorial membrane is associated with profound hearing loss across all frequencies, although the exact effect of each reported allele on collagen abundance or assembly is not fully resolved.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cochlear hair cell\"], \"biological_processes\": [\"Collagen fibril organization\"], \"genes\": [\"COL11A2\"], \"gene_terms\": [{\"label\": \"COL11A2\", \"id\": \"hgnc:2187\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"COL11A2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL11A2\"], \"gene_terms\": [{\"label\": \"COL11A2\", \"id\": \"hgnc:2187\"}], \"association\": \"Causative\"}}, {\"id\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In DFNA13, heterozygous variants predicted to affect the collagen triple-helix domain disrupt COL11A2 function. Model-organism evidence links Col11a2 disruption to loss of organized collagen fibrils in the cochlear tectorial membrane, providing a structural route to the characteristic mid-frequency hearing loss.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cochlear hair cell\"], \"biological_processes\": [\"Collagen fibril organization\"], \"genes\": [\"COL11A2\"], \"gene_terms\": [{\"label\": \"COL11A2\", \"id\": \"hgnc:2187\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Non-Progressive Mid-Frequency Sensorineural Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The characteristic audiometric pattern of DFNA13 is a non-progressive, prelingual sensorineural hearing loss that predominantly affects middle frequencies. This pattern likely reflects the frequency-specific mechanical properties of the tectorial membrane, which relies on collagen XI for its gradient of stiffness along the cochlear spiral.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prelingual Profound Sensorineural Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DFNB53 causes prelingual, severe-to-profound sensorineural hearing loss affecting all frequencies.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is the defining feature of both DFNA13 and DFNB53. In DFNA13, hearing loss is non-progressive and predominantly affects mid-frequencies. In DFNB53, hearing loss is prelingual, severe-to-profound, and affects all frequencies.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"target\": \"Non-Progressive Mid-Frequency Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"target\": \"Prelingual Profound Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL11A2 Mutations\", \"target\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL11A2 Mutations\", \"target\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In DFNB53, biallelic damaging COL11A2 variants impair alpha-2(XI) collagen function. Disruption of type XI collagen in the tectorial membrane is associated with profound hearing loss across all frequencies, although the exact effect of each reported allele on collagen abundance or assembly is not fully resolved.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cochlear hair cell\"], \"biological_processes\": [\"Collagen fibril organization\"], \"genes\": [\"COL11A2\"], \"gene_terms\": [{\"label\": \"COL11A2\", \"id\": \"hgnc:2187\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"COL11A2 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL11A2\"], \"gene_terms\": [{\"label\": \"COL11A2\", \"id\": \"hgnc:2187\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In DFNA13, heterozygous variants predicted to affect the collagen triple-helix domain disrupt COL11A2 function. Model-organism evidence links Col11a2 disruption to loss of organized collagen fibrils in the cochlear tectorial membrane, providing a structural route to the characteristic mid-frequency hearing loss.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cochlear hair cell\"], \"biological_processes\": [\"Collagen fibril organization\"], \"genes\": [\"COL11A2\"], \"gene_terms\": [{\"label\": \"COL11A2\", \"id\": \"hgnc:2187\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Non-Progressive Mid-Frequency Sensorineural Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The characteristic audiometric pattern of DFNA13 is a non-progressive, prelingual sensorineural hearing loss that predominantly affects middle frequencies. This pattern likely reflects the frequency-specific mechanical properties of the tectorial membrane, which relies on collagen XI for its gradient of stiffness along the cochlear spiral.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Prelingual Profound Sensorineural Hearing Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DFNB53 causes prelingual, severe-to-profound sensorineural hearing loss affecting all frequencies.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing loss is the defining feature of both DFNA13 and DFNB53. In DFNA13, hearing loss is non-progressive and predominantly affects mid-frequencies. In DFNB53, hearing loss is prelingual, severe-to-profound, and affects all frequencies.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"target\": \"Non-Progressive Mid-Frequency Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"target\": \"Prelingual Profound Sensorineural Hearing Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL11A2 Mutations\", \"target\": \"COL11A2 Biallelic Disruption of Tectorial Membrane\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL11A2 Mutations\", \"target\": \"Dominant COL11A2 Disruption of Tectorial Membrane\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5117,15 +5249,18 @@ This pathophysiological event involves Collagen fibril organization (GO:0030199)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5145,6 +5280,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5169,6 +5305,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5226,17 +5363,22 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                         Gene: COL11A2
 
 
-    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2187</a>
+    <a href="https://bioregistry.io/hgnc:2187" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:2187</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COL11A2 (hgnc:2187). hgnc:2187 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -5255,6 +5397,7 @@ This disease-associated gene is COL11A2 (hgnc:2187). hgnc:2187 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5279,6 +5422,7 @@ This disease-associated gene is COL11A2 (hgnc:2187). hgnc:2187 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5330,6 +5474,31 @@ This disease-associated gene is COL11A2 (hgnc:2187). hgnc:2187 is a gene from th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hearing aids provide access to sound for individuals with aidable COL11A2-related hearing loss; benefit depends on the severity and audiometric pattern.</div>
 
 
@@ -5351,6 +5520,7 @@ This disease-associated gene is COL11A2 (hgnc:2187). hgnc:2187 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5382,7 +5552,7 @@ This disease-associated gene is COL11A2 (hgnc:2187). hgnc:2187 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-9">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-9">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-11">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5415,6 +5585,31 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cochlear implantation can be considered for profound DFNB53 hearing loss when conventional amplification provides inadequate access to sound; COL11A2-specific implant outcome data have not been established.</div>
 
 
@@ -5436,6 +5631,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5467,7 +5663,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-10">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-10">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5499,6 +5695,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling clarifies whether a family&#39;s COL11A2-related hearing loss follows dominant or recessive inheritance and supports recurrence-risk and reproductive discussions.</div>
 
 
@@ -5520,6 +5730,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5651,6 +5862,11 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We found two families (one American and one Dutch) with autosomal dominant, non-syndromic hearing loss to have mutations in COL11A2 that are predicted to affect the triple-helix domain of the collagen protein.&#34;
     explanation: Two families establish the autosomal dominant DFNA13 subtype.
+  genes:
+  - preferred_term: COL11A2
+    term:
+      id: hgnc:2187
+      label: COL11A2
 - name: DFNB53
   display_name: DFNB53 (Autosomal Recessive)
   subtype_term:
@@ -5669,6 +5885,11 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All homozygous individuals in those families had early onset profound hearing loss across all frequencies without syndromic findings.&#34;
     explanation: Homozygous affected individuals establish the recessive DFNB53 subtype.
+  genes:
+  - preferred_term: COL11A2
+    term:
+      id: hgnc:2187
+      label: COL11A2
 inheritance:
 - name: Autosomal Dominant (DFNA13)
   inheritance_term:
@@ -5862,6 +6083,7 @@ pathophysiology:
 genetic:
 - name: COL11A2 Mutations
   association: Causative
+  relationship_type: CAUSATIVE
   features: &gt;
     DFNA13 is caused by heterozygous missense mutations affecting the triple-helix
     domain (Gly-X-Y repeats). DFNB53 is caused by homozygous or compound
@@ -6037,6 +6259,65 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: COL11A2-Related Hearing Loss (Changes required)</strong> · 2026-05-30T02:49:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/COL11A2_Hearing_Loss/2026-05-30T024946Z-github-review-3399.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3399
+Issue state: OPEN
+Issue created: 2026-05-30T02:49:46Z
+Issue updated: 2026-05-30T02:52:29Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **COL11A2-Related Hearing Loss**
+- Entry: `kb/disorders/COL11A2_Hearing_Loss.yaml`
+- Selection basis: #12 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **Disease scope needs to separate dominant and recessive forms more clearly.** The YAML has DFNA13 and DFNB53 subtypes and both inheritance modes, which is good. But the disease title and one-phenotype structure flatten clinically distinct presentations: dominant DFNA13 classically involves nonsyndromic sensorineural hearing loss, while recessive DFNB53 can present with congenital/prelingual profound hearing loss.
+2. **Phenotype coverage is too thin.** The entire phenotype section contains only `Sensorineural Hearing Impairment`. The pathophysiology includes non-progressive mid-frequency hearing loss and prelingual profound hearing loss, but those distinctions are not represented in the phenotype section. Audiometric pattern, onset, severity, and progression should be subtype-specific.
+3. **Diagnosis is missing.** The entry should include audiologic evaluation and molecular testing for COL11A2, with subtype-specific interpretation. Genetic hearing loss entries should not rely only on treatment labels and causal pathophysiology.
+4. **Management is reasonable but incomplete.** Hearing aids, cochlear implantation, and genetic counseling are present. They should be connected to severity/onset and subtype context rather than modeled generically.
+5. **Syndromic COL11A2 conditions should be explicitly out of scope.** COL11A2 is also associated with Stickler/otospondylomegaepiphyseal-spectrum disease. The entry should state that this file is restricted to nonsyndromic DFNA13/DFNB53 hearing loss if that is intended.
+
+## Research-artifact cross-check
+
+Checked `research/COL11A2_Hearing_Loss-deep-research-falcon.md` and `.citations.md`. The artifact supports separate DFNA13/DFNB53 framing and the tectorial-membrane/type XI collagen mechanism, but the YAML under-consumes onset/severity/audiometric distinctions in the clinical phenotype layer.
+
+## Content-completeness summary
+
+- **Phenotypes:** gap: add subtype-specific onset, severity, audiogram pattern, and progression.
+- **Subtype/lumping:** DFNA13/DFNB53 present but need stronger clinical separation and syndromic exclusion.
+- **Pathophysiology:** adequate directionally; connect dominant-negative versus biallelic loss mechanisms to phenotype.
+- **Treatments/diagnosis:** add audiologic/molecular diagnosis and tie hearing aids/cochlear implantation to clinical severity.
+- **References:** verify any subtype-specific additions against cached PMIDs.
+
+## Suggested remediation
+
+Make DFNA13 and DFNB53 clinically separable in phenotypes, add diagnosis, and explicitly scope out syndromic COL11A2 disorders.
+
+## Sources used
+
+- MedlinePlus COL11A2: https://medlineplus.gov/genetics/gene/col11a2
+- DFNB53 COL11A2 literature: https://pmc.ncbi.nlm.nih.gov/articles/PMC4707654/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6436,7 +6717,7 @@ COL11A2 pathogenic variant or loss → abnormal type XI collagen contribution to
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "COL11A2-Related Hearing Loss", "mondoId": "MONDO:0011159", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COL11A2-Related_Hearing_Loss", "yamlRevision": "b032eaee1448"};
+        const OS_CONFIG = {"diseaseName": "COL11A2-Related Hearing Loss", "mondoId": "MONDO:0011159", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "COL11A2-Related_Hearing_Loss", "yamlRevision": "b1f8b2d91cf7"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

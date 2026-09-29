@@ -1,0 +1,1534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sennetsu Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sennetsu Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sennetsu Fever</h1>
+                
+                <p class="report-subtitle">Sennetsu Fever (Sennetsu Neorickettsiosis): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000332" target="_blank" rel="noopener noreferrer">MONDO:0000332</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">36 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Sennetsu Fever (Sennetsu Neorickettsiosis): A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Sennetsu Fever | <strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000332" target="_blank" rel="noopener noreferrer">MONDO:0000332</a> | <strong>Category:</strong> Infectious Disease
+<strong>Etiologic agent:</strong> <em>Neorickettsia sennetsu</em> (formerly <em>Rickettsia sennetsu</em> / <em>Ehrlichia sennetsu</em>)</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Sennetsu fever is an acute, self-limited, infectious-mononucleosis-like febrile illness caused by <em>Neorickettsia sennetsu</em>, a Gram-negative obligate intracellular bacterium of the family Anaplasmataceae (order Rickettsiales, α-Proteobacteria) that replicates within cytoplasmic vacuoles (morulae) of host monocytes and macrophages.</strong> Unlike the tick-borne human ehrlichioses (human monocytic ehrlichiosis caused by <em>E. chaffeensis</em>, human granulocytic anaplasmosis caused by <em>A. phagocytophilum</em>), Sennetsu fever has <strong>no arthropod vector</strong>. It is a <strong>fish-borne zoonosis</strong>: <em>N. sennetsu</em> is a bacterial endosymbiont of digenean trematodes (flukes), and humans are believed to acquire infection by ingesting raw or undercooked fish that harbor metacercariae of infected flukes. The disease is <strong>not genetic</strong> — there are no causal human genes, pathogenic variants, or heritable susceptibility loci; the "molecular/genetic" story of this disease is entirely that of the pathogen's genome and its host–pathogen interaction.</p>
+<p>The illness was first recognized in western/southern Japan in the 1950s under the names "Hyuga fever," "Kagami fever," and "glandular fever," epidemiologically linked to raw consumption of grey mullet (<em>Mugil cephalus</em>). It presents after roughly a two-week incubation with <strong>fever, chills, headache, malaise, myalgia, generalized (especially postauricular and cervical) lymphadenopathy, hepatosplenomegaly, and peripheral-blood atypical lymphocytosis</strong>. Diagnosis rests on <strong>indirect fluorescent antibody (IFA) serology, PCR/16S rRNA sequencing, and culture</strong>, with intracytoplasmic morulae occasionally visible in monocytes on Giemsa-stained smears. Treatment is with <strong>tetracyclines (doxycycline of choice)</strong>, to which the organism responds rapidly; notably, <em>N. sennetsu</em> also retains natural fluoroquinolone susceptibility (GyrA Ser83), unlike resistant <em>Ehrlichia</em> species.</p>
+<p>Epidemiologically the disease is <strong>rare and under-recognized</strong> — fewer than 100 patients reported globally over ~50 years — yet <strong>subclinical exposure is common</strong> in endemic areas: IgG seroprevalence reaches ~17% among blood donors and febrile patients in Laos, contrasted with only 0.2% of febrile Lao inpatients showing acute PCR-confirmed infection. This gap between high seroprevalence and rare severe disease indicates that most infections are mild or self-resolving. <strong>Prognosis is favorable</strong> — an acutely incapacitating but self-limited, treatable illness with very low mortality and no documented chronic carriage in humans.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Sennetsu fever (Sennetsu neorickettsiosis; Sennetsu rickettsiosis) is an acute zoonotic bacterial infection of monocytes and macrophages producing a mononucleosis-like syndrome. It is described in the literature as "a special type of infectious mononucleosis found in western Japan" (<a href="https://pubmed.ncbi.nlm.nih.gov/1165122/">PMID: 1165122</a>) and "a little-known human mononucleosis-like disease" unique historically to southern Japan (<a href="https://pubmed.ncbi.nlm.nih.gov/6425420/">PMID: 6425420</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier / status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0000332" target="_blank" rel="noopener noreferrer">MONDO:0000332</a> (Sennetsu fever)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>"Sennetsu fever" indexed under Ehrlichiosis / Rickettsiaceae infections</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (infectious, non-Mendelian disease)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Not a classic Orphanet rare-genetic-disease entry</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A79.8 (Other specified rickettsioses) — no specific dedicated code</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>1C30-range (Rickettsioses) — no dedicated specific stem code</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (agent)</td>
+<td><em>Neorickettsia sennetsu</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> Sennetsu neorickettsiosis; Sennetsu rickettsiosis; Sennetsu ehrlichiosis; Hyuga fever; Kagami fever; glandular fever (historical Japanese names); infectious mononucleosis of western Japan.</p>
+<p><strong>Source of information:</strong> All information is derived from <strong>aggregated disease-level resources</strong> — case reports, seroepidemiological surveys, experimental animal/cell-culture studies, and microbiological/genomic characterization — rather than from individual-patient EHR data. Given fewer than 100 globally reported cases (<a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">PMID: 26158273</a>), the evidence base is small and heavily weighted toward microbiology and seroepidemiology.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> The disease is caused solely by infection with <strong><em>Neorickettsia sennetsu</em></strong>. As stated directly: "<em>Neorickettsia sennetsu</em> is an obligate intracellular bacterium of monocytes and macrophages and is the etiologic agent of human Sennetsu neorickettsiosis" (<a href="https://pubmed.ncbi.nlm.nih.gov/20833807/">PMID: 20833807</a>). There is <strong>no genetic etiology, no pathogenic human variant, and no inheritance</strong> — Section 4 (human genetics), and the genetic portions of Sections 9, 10, and 12–13 are <strong>not applicable</strong> to this disease.</p>
+<p><strong>Transmission / risk factors (environmental).</strong> The dominant risk factor is <strong>dietary — consumption of raw or undercooked freshwater/brackish fish</strong> carrying Neorickettsia-infected fluke metacercariae. <em>N. sennetsu</em> DNA was detected by PCR "for the first time, in a fish (<em>Anabas testudineus</em>)" (climbing perch) in Laos (<a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>). Flukes are the reservoir/vector: "<em>Neorickettsia</em> spp. are bacterial endosymbionts of parasitic flukes (Digenea) that also have the potential to infect and cause disease (e.g., Sennetsu fever) in the vertebrate hosts of the fluke" (<a href="https://pubmed.ncbi.nlm.nih.gov/26873314/">PMID: 26873314</a>). Historically, "metacercariae found in the muscles of grey mullets (<em>Mugil cephalus</em>) ingested raw by most 'Hyuga' fever patients" implicated raw grey mullet as the vehicle (<a href="https://pubmed.ncbi.nlm.nih.gov/7311106/">PMID: 7311106</a>).</p>
+<p>Additional risk considerations: residence in or travel to endemic regions (western/southern Japan, Laos, Thailand, Malaysia); occupational or cultural exposure to raw fish dishes. <strong>No arthropod vector</strong> is involved, distinguishing Sennetsu fever from all other human ehrlichioses/anaplasmoses.</p>
+<p><strong>Protective factors:</strong> Thorough <strong>cooking of fish</strong> is the logical primary protective measure (inferred; not formally trialed). No genetic protective variants are relevant. <strong>Gene–environment interactions:</strong> Not applicable — there is no human genetic component.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>Sennetsu fever produces a stereotyped <strong>infectious-mononucleosis-like</strong> clinical picture. Members of the tribe Ehrlichieae including <em>E. sennetsu</em> "reside primarily in the cytoplasmic vacuoles of monocytes or granulocytes and cause hematologic abnormalities, lymphadenopathy, and other pathologic changes in the host" (<a href="https://pubmed.ncbi.nlm.nih.gov/1889044/">PMID: 1889044</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Onset / course</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom/sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+<td>Acute, ~2 wk after exposure</td>
+<td>Cardinal feature</td>
+</tr>
+<tr>
+<td>Chills</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> (Chills)</td>
+<td>Acute</td>
+<td>Common prodrome</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+<td>Acute</td>
+<td>Nonspecific</td>
+</tr>
+<tr>
+<td>Malaise / fatigue</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033834" target="_blank" rel="noopener noreferrer">HP:0033834</a> (Malaise)</td>
+<td>Acute</td>
+<td>Acutely incapacitating</td>
+</tr>
+<tr>
+<td>Myalgia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia)</td>
+<td>Acute</td>
+<td>Flu-like</td>
+</tr>
+<tr>
+<td>Generalized lymphadenopathy (postauricular, cervical)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (Lymphadenopathy)</td>
+<td>Acute</td>
+<td>"Glandular fever" naming reflects this</td>
+</tr>
+<tr>
+<td>Hepatomegaly</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> (Hepatomegaly)</td>
+<td>Acute</td>
+<td>Hepatosplenomegaly</td>
+</tr>
+<tr>
+<td>Splenomegaly</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a> (Splenomegaly)</td>
+<td>Acute</td>
+<td>Hepatosplenomegaly</td>
+</tr>
+<tr>
+<td>Atypical lymphocytosis</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001915" target="_blank" rel="noopener noreferrer">HP:0001915</a> / <a href="http://purl.obolibrary.org/obo/HP_0031409" target="_blank" rel="noopener noreferrer">HP:0031409</a> (abnormal lymphocyte morphology/count)</td>
+<td>Acute</td>
+<td>Mononucleosis-like; peripheral smear</td>
+</tr>
+<tr>
+<td>Leukopenia / lymphopenia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" rel="noopener noreferrer">HP:0001882</a> (Leukopenia)</td>
+<td>Acute</td>
+<td>Reported for ehrlichioses generally</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> (Thrombocytopenia)</td>
+<td>Acute</td>
+<td>Reported for ehrlichioses generally</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong> Age of onset — any age with dietary exposure (adult-predominant given diet). Severity — generally <strong>mild to moderate and self-limited</strong>, occasionally "acutely incapacitating" (<a href="https://pubmed.ncbi.nlm.nih.gov/19635866/">PMID: 19635866</a>). Progression — <strong>acute, self-limited</strong>, resolving spontaneously or rapidly with antibiotics. Frequency — fever and lymphadenopathy are near-universal in symptomatic cases; hematologic abnormalities (leukopenia, thrombocytopenia) are described for ehrlichioses broadly (<a href="https://pubmed.ncbi.nlm.nih.gov/16786789/">PMID: 16786789</a>).</p>
+<p><strong>Quality-of-life impact:</strong> Acute incapacitation during the febrile phase, but full recovery is expected; no documented long-term disability.</p>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Human genetics: NOT APPLICABLE.</strong> Sennetsu fever is an infectious disease with <strong>no causal genes, no pathogenic germline/somatic variants, no modifier genes, no epigenetic disease mechanism, and no chromosomal abnormalities</strong> in the human host.</p>
+<p>The "molecular information" of relevance concerns the <strong>pathogen genome</strong>:</p>
+<ul>
+<li><strong><em>N. sennetsu</em> has a small, reduced genome</strong> typical of obligate intracellular Anaplasmataceae: ~878.5 kb by pulsed-field gel electrophoresis (<a href="https://pubmed.ncbi.nlm.nih.gov/10418133/">PMID: 10418133</a>) and ~881 kb (<a href="https://pubmed.ncbi.nlm.nih.gov/10765728/">PMID: 10765728</a>); the complete genome (~936 ORFs) was sequenced in comparative genomics of ehrlichiosis agents (<a href="https://pubmed.ncbi.nlm.nih.gov/16482227/">PMID: 16482227</a>).</li>
+<li><strong>High conservation with its sister species:</strong> "758 (88.2%) of protein-coding genes are conserved between <em>N. risticii</em> and <em>N. sennetsu</em>" (<a href="https://pubmed.ncbi.nlm.nih.gov/19661282/">PMID: 19661282</a>).</li>
+<li><strong>Retained biosynthetic capacity:</strong> "Unlike members of the Rickettsiaceae family, these pathogenic Anaplasmataceae are capable of making all major vitamins, cofactors, and nucleotides" (<a href="https://pubmed.ncbi.nlm.nih.gov/16482227/">PMID: 16482227</a>), though with diminished amino-acid biosynthesis.</li>
+<li><strong>Encoded virulence/interaction machinery:</strong> a type IV secretion system (T4SS), two-component regulatory systems, and expanded outer-membrane protein families; the major surface antigen <strong>P51</strong> functions as a porin and, with Nsp3, is a dominant surface antigen (<a href="https://pubmed.ncbi.nlm.nih.gov/20833807/">PMID: 20833807</a>).</li>
+</ul>
+<p><strong>Taxonomy of the agent</strong> was reorganized on molecular phylogeny (16S rRNA, groESL): <em>Rickettsia sennetsu</em> → <em>Ehrlichia sennetsu</em> → <strong><em>Neorickettsia sennetsu</em></strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11760958/">PMID: 11760958</a>; minimum 94.9% intra-clade 16S similarity for the Neorickettsia clade).</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p><strong>Infectious agent:</strong> <em>Neorickettsia sennetsu</em> — Gram-negative, obligate intracellular α-proteobacterium (family Anaplasmataceae). Reference strain <strong>ATCC VR-367 (Miyayama strain)</strong>.</p>
+<p><strong>Reservoir/vector:</strong> Digenean trematodes (flukes). <em>Neorickettsia</em> spp. localize within virtually all fluke life-cycle stages (sporocysts, cercariae, metacercariae, adults) and are maintained by <strong>vertical transmission through vitelline cells into eggs</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26873314/">PMID: 26873314</a>). A related genome, the <em>Fasciola hepatica</em> endobacterium (nFh, 859,205 bp), is "closely related to the etiological agents of human Sennetsu and Potomac horse fevers" and was localized to the fluke's reproductive tract, eggs, Mehlis' gland, seminal vesicle, and oral suckers — "suggesting putative routes for fluke-to-fluke and fluke-to-host transmission" (<a href="https://pubmed.ncbi.nlm.nih.gov/28060841/">PMID: 28060841</a>).</p>
+<p><strong>Environmental / lifestyle factor:</strong> the single dominant exposure is <strong>eating raw/undercooked fish</strong> carrying infected metacercariae. No toxins, radiation, pollution, smoking, alcohol, or other lifestyle factors are implicated.</p>
+<p><strong>Chemical entities (CHEBI):</strong> iron/Fe(3+) (<a href="http://purl.obolibrary.org/obo/CHEBI_29034" target="_blank" rel="noopener noreferrer">CHEBI:29034</a>) — central to pathogen nutrition; doxycycline (<a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" rel="noopener noreferrer">CHEBI:50845</a>), tetracycline (<a href="http://purl.obolibrary.org/obo/CHEBI_27902" target="_blank" rel="noopener noreferrer">CHEBI:27902</a>), minocycline (<a href="http://purl.obolibrary.org/obo/CHEBI_50694" target="_blank" rel="noopener noreferrer">CHEBI:50694</a>), deferoxamine (<a href="http://purl.obolibrary.org/obo/CHEBI_4356" target="_blank" rel="noopener noreferrer">CHEBI:4356</a>) as pharmacological entities of relevance.</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating exposure → clinical manifestation)</h3>
+<ol>
+<li>A human <strong>ingests raw/undercooked fish</strong> harboring digenean-fluke metacercariae that contain <em>N. sennetsu</em> → <strong>introduces the bacterium</strong> into the host (inferred transmission route; direct fish-to-human proof is indirect — fish PCR positivity, <a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>).</li>
+<li>Released <em>N. sennetsu</em> <strong>enters and is taken up by monocytes/macrophages</strong>, its obligatory host cells → <strong>establishes intracellular residence</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/20833807/">PMID: 20833807</a>).</li>
+<li>Inside the cell, the bacterium <strong>resides in a membrane-bound phagosome/vacuole and inhibits phagosome–lysosome fusion</strong> → <strong>evades lysosomal killing</strong> ("unlike rickettsiae, ehrlichiae and chlamydiae multiply in the phagosome of their host cells," <a href="https://pubmed.ncbi.nlm.nih.gov/1884777/">PMID: 1884777</a>).</li>
+<li>The bacterium <strong>delivers signals that disable host microbicidal alarm systems</strong> → <strong>creates a "safe haven"</strong> conditioning the leukocyte to share space and nutrients (<a href="https://pubmed.ncbi.nlm.nih.gov/12860688/">PMID: 12860688</a>).</li>
+<li>To fuel replication, it <strong>up-regulates host transferrin receptor (TfR) by activating iron-responsive protein 1 (IRP1)</strong> → <strong>increases intracellular iron acquisition</strong> (TfR mRNA rises by 6 h, peaks 24 h; growth blocked by iron chelator deferoxamine — <a href="https://pubmed.ncbi.nlm.nih.gov/10225882/">PMID: 10225882</a>).</li>
+<li>Adequately supplied with iron and nutrients (P51 porin admits L-glutamine/sugars), the bacterium <strong>replicates by binary fission into intracytoplasmic microcolonies (morulae)</strong> → <strong>expands the infected monocyte/macrophage population</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/6274798/">PMID: 6274798</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/9511829/">PMID: 9511829</a>).</li>
+<li>Infected macrophages <strong>disseminate to spleen, liver, lymph nodes, and bone marrow</strong> → <strong>produce lymphoreticular activation and organ enlargement</strong> (hepatosplenomegaly, lymphadenopathy) (spleen/macrophage tropism in mice — <a href="https://pubmed.ncbi.nlm.nih.gov/1165122/">PMID: 1165122</a>).</li>
+<li>The host mounts a <strong>cell-mediated / reactive lymphocytic response</strong> → produces <strong>atypical lymphocytosis and the mononucleosis-like syndrome</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/1889044/">PMID: 1889044</a>).</li>
+<li><strong>Systemic cytokine/inflammatory response</strong> → <strong>fever, chills, headache, malaise, myalgia</strong>, plus hematologic abnormalities (leukopenia, thrombocytopenia) (branch: overlapping with other ehrlichioses — <a href="https://pubmed.ncbi.nlm.nih.gov/16786789/">PMID: 16786789</a>).</li>
+<li><strong>Host immunity (importantly cell-mediated) controls infection</strong> → <strong>self-limited resolution</strong>; immunosuppression removes this brake (cyclophosphamide enhances splenic bacterial titers &gt;100-fold in mice — <a href="https://pubmed.ncbi.nlm.nih.gov/1165122/">PMID: 1165122</a>).</li>
+</ol>
+<h3>Supporting detail</h3>
+<ul>
+<li><strong>Molecular pathways / biochemical abnormalities:</strong> IRP1-mediated stabilization of TfR mRNA (iron-response pathway) is the best-characterized host-manipulation node; blocking it (deferoxamine) or arresting bacterial protein synthesis (oxytetracycline, added 6 h post-infection returned TfR mRNA toward baseline) halts replication (<a href="https://pubmed.ncbi.nlm.nih.gov/10225882/">PMID: 10225882</a>).</li>
+<li><strong>Metabolic strategy:</strong> the bacterium derives ATP from its <strong>own catabolic activities</strong> (unlike energy-parasitic chlamydiae) and is biosynthetically competent for vitamins/cofactors/nucleotides (<a href="https://pubmed.ncbi.nlm.nih.gov/1884777/">PMID: 1884777</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16482227/">PMID: 16482227</a>).</li>
+<li><strong>Cellular processes:</strong> phagosome maturation arrest, intracellular parasitism, macrophage activation, reactive lymphocyte proliferation.</li>
+<li><strong>Ultrastructure:</strong> the <em>E. sennetsu</em>–<em>E. risticii</em> genogroup "usually developed in small individual vacuoles that did not fuse with each other and divided along with the ehrlichiae" (<a href="https://pubmed.ncbi.nlm.nih.gov/9511829/">PMID: 9511829</a>).</li>
+</ul>
+<p><strong>GO term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0030260" target="_blank" rel="noopener noreferrer">GO:0030260</a> (entry into host cell); <a href="http://purl.obolibrary.org/obo/GO_0051673" target="_blank" rel="noopener noreferrer">GO:0051673</a> (disruption of host cell); <a href="http://purl.obolibrary.org/obo/GO_0006826" target="_blank" rel="noopener noreferrer">GO:0006826</a> (iron ion transport); <a href="http://purl.obolibrary.org/obo/GO_0006879" target="_blank" rel="noopener noreferrer">GO:0006879</a> (intracellular iron ion homeostasis); <a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" rel="noopener noreferrer">GO:0090382</a> (phagosome maturation) — inhibited; <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response). <strong>CL term suggestions:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> (monocyte); <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage); <a href="http://purl.obolibrary.org/obo/CL_0000842" target="_blank" rel="noopener noreferrer">CL:0000842</a> (mononuclear cell).</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary target cell:</strong> monocytes and macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>, <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>).</li>
+<li><strong>Primary organs / body systems (lymphoreticular / hematopoietic):</strong></li>
+<li>Lymph nodes — generalized, postauricular, cervical lymphadenopathy (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>, lymph node)</li>
+<li>Spleen — splenomegaly (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>)</li>
+<li>Liver — hepatomegaly (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>)</li>
+<li>Bone marrow / blood — hematologic abnormalities (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>)</li>
+<li><strong>Body systems:</strong> hematopoietic/immune (lymphoreticular) system; hepatobiliary involvement (hepatomegaly).</li>
+<li><strong>Tissue/cell level:</strong> mononuclear phagocyte lineage; reactive lymphocytes in peripheral blood.</li>
+<li><strong>Subcellular level:</strong> the pathogen resides in a <strong>membrane-bound cytoplasmic vacuole/phagosome</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005768" target="_blank" rel="noopener noreferrer">GO:0005768</a> endosome / <a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a> phagocytic vesicle); it up-regulates surface <strong>transferrin receptor</strong> and co-opts endosomal iron trafficking (<a href="http://purl.obolibrary.org/obo/GO_0005905" target="_blank" rel="noopener noreferrer">GO:0005905</a> clathrin-coated pit; <a href="http://purl.obolibrary.org/obo/GO_0055037" target="_blank" rel="noopener noreferrer">GO:0055037</a> recycling endosome).</li>
+<li><strong>Lateralization:</strong> not applicable — systemic/bilateral lymphoreticular involvement.</li>
+</ul>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>Acute</strong>, following an incubation of roughly <strong>~2 weeks</strong> after ingestion of contaminated raw fish. Any age with dietary exposure; adult-predominant.</li>
+<li><strong>Course:</strong> <strong>Self-limited, acute</strong>. Described as an acute, self-limiting mononucleosis-like illness that responds rapidly to tetracyclines (<a href="https://pubmed.ncbi.nlm.nih.gov/10756846/">PMID: 10756846</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16786789/">PMID: 16786789</a>).</li>
+<li><strong>Progression rate:</strong> Rapid onset, then resolution over days to a few weeks; antibiotics accelerate defervescence.</li>
+<li><strong>Disease pattern:</strong> Monophasic/self-limited; <strong>no documented relapsing-remitting course and no chronic human carriage</strong>.</li>
+<li><strong>Remission:</strong> Spontaneous or treatment-induced.</li>
+<li><strong>Critical period:</strong> The acute febrile phase is the window for antibiotic intervention; early doxycycline shortens illness.</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population (Epidemiology)</h2>
+<p><strong>Inheritance:</strong> <strong>NOT APPLICABLE</strong> — infectious, non-heritable disease. No penetrance/expressivity/anticipation/founder-effect/consanguinity/carrier-frequency parameters apply.</p>
+<p><strong>Epidemiology.</strong> Sennetsu fever is <strong>rare and under-recognized but with high subclinical seroprevalence</strong> in parts of Southeast Asia:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Population / setting</th>
+<th>Metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Global, ~50 years</td>
+<td>Recognized cases</td>
+<td>&lt; 100</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">PMID: 26158273</a></td>
+</tr>
+<tr>
+<td>Laos (donors/febrile/hepatitis/jaundice, N=1,132)</td>
+<td>IgG seroprevalence</td>
+<td>~17%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a></td>
+</tr>
+<tr>
+<td>Thailand (febrile, N=848)</td>
+<td>IgG seroprevalence</td>
+<td>4%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a></td>
+</tr>
+<tr>
+<td>Malaysia (febrile)</td>
+<td>IgG seroprevalence</td>
+<td>0%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a></td>
+</tr>
+<tr>
+<td>Laos febrile inpatients</td>
+<td>Acute PCR-confirmed</td>
+<td>4/1,637 (0.2%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">PMID: 26158273</a></td>
+</tr>
+<tr>
+<td>Thailand febrile patients (N=2,225)</td>
+<td>Seroprevalence / acute infection</td>
+<td>0.2% / 0.1%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27139448/">PMID: 27139448</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Direct quote: Lao patients "had a high prevalence (17%) of immunofluorescence assay IgG anti–<em>N. sennetsu</em> antibodies compared with 4% and 0% from febrile patients (N = 848) in Thailand and Malaysia, respectively" (<a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>). The <strong>discordance between ~17% seroprevalence and 0.2% acute hospitalized infection</strong> strongly implies most infections are mild/subclinical and self-resolving.</p>
+<p><strong>Geographic distribution:</strong> Historically western/southern Japan ("Hyuga fever," first described 1950s — <a href="https://pubmed.ncbi.nlm.nih.gov/6425420/">PMID: 6425420</a>); more recently Laos, Thailand, Malaysia. <strong>Sex ratio / age distribution:</strong> determined by dietary exposure to raw fish rather than by host biology; no strong intrinsic sex predilection documented.</p>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Serology (mainstay):</strong> Indirect fluorescent antibody (IFA) using cultured <em>E./N. sennetsu</em> antigen detects anti–<em>N. sennetsu</em> IgG/IgM: "The antigen derived from our <em>E. sennetsu</em> cultures was used to develop an indirect fluorescent antibody test for detection and titration of serum antibodies to the organism" (<a href="https://pubmed.ncbi.nlm.nih.gov/2985504/">PMID: 2985504</a>).</p>
+<p><strong>Molecular (confirmatory):</strong> PCR amplification and sequencing of <strong>16S rRNA</strong> and species-specific genes. In Laos, "A buffy coat from 1 of 91 patients with undifferentiated fever was positive by 16S rRNA amplification and sequencing and real-time polymerase chain reactions (PCR) targeting two <em>N. sennetsu</em> genes" (<a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>). A <strong>PCR-RFLP</strong> approach differentiates <em>N. sennetsu</em> from <em>E. chaffeensis</em> and <em>A. phagocytophilum</em>; the <strong>gltA (citrate synthase)</strong> gene with RcaI RFLP identifies the Neorickettsia genogroup (<a href="https://pubmed.ncbi.nlm.nih.gov/11526124/">PMID: 11526124</a>); a 23S rRNA qPCR also detects <em>N. sennetsu</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/25748051/">PMID: 25748051</a>); species-specific <strong>p51/P51</strong> supports differentiation among Neorickettsia species (<a href="https://pubmed.ncbi.nlm.nih.gov/15297539/">PMID: 15297539</a>).</p>
+<p><strong>Microscopy:</strong> Giemsa-stained blood/tissue may reveal <strong>intracytoplasmic morulae in monocytes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/6274798/">PMID: 6274798</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16786789/">PMID: 16786789</a>).</p>
+<p><strong>Culture:</strong> Isolation in monocyte/macrophage cell lines (e.g., canine DH82; murine P388D1/RAW 264; human/canine primary monocytes).</p>
+<p><strong>Caveat — cross-reactivity:</strong> Convalescent sera from Sennetsu patients react with <strong><em>Ehrlichia canis</em></strong> antigen ("convalescent sera from patients with sennetsu fever reacted with <em>Ehrlichia canis</em> antigen"; direct FA staining of <em>E. canis</em> morulae by patient immunoglobulins), which can aid or confound serodiagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/7034563/">PMID: 7034563</a>).</p>
+<p><strong>Clinical criteria / differential diagnosis:</strong> Consider in a patient with acute fever, lymphadenopathy, hepatosplenomegaly, and atypical lymphocytosis <strong>plus a raw-fish exposure history</strong> in an endemic area. Differential includes: EBV/CMV infectious mononucleosis, other ehrlichioses/anaplasmosis, scrub typhus (<em>Orientia tsutsugamushi</em>), murine and epidemic typhus, dengue, acute viral hepatitis, leptospirosis, and toxoplasmosis. <strong>Genetic testing / newborn screening: NOT APPLICABLE.</strong></p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<p><strong>Prognosis is favorable.</strong> Sennetsu fever is an acute, self-limiting mononucleosis-like illness that responds rapidly to tetracyclines (<a href="https://pubmed.ncbi.nlm.nih.gov/10756846/">PMID: 10756846</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16786789/">PMID: 16786789</a>). Walker framed it as "a potentially prevalent, treatable, acutely incapacitating tropical infectious disease" — emphasizing <strong>morbidity (incapacitation) over mortality</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/19635866/">PMID: 19635866</a>). With fewer than 100 recognized cases over 50 years and a high subclinical seroprevalence versus rare hospitalization, <strong>most infections are mild/self-resolving</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">PMID: 26158273</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>).</p>
+<ul>
+<li><strong>Mortality:</strong> Very low; deaths are rarely if ever reported — in contrast to <em>E. chaffeensis</em> (human monocytic ehrlichiosis), which can be fatal.</li>
+<li><strong>Recovery:</strong> Complete recovery is expected; no documented chronic carriage or long-term disability.</li>
+<li><strong>Complications:</strong> Uncommon; potential for more severe/prolonged course in immunosuppressed hosts (analogous to enhanced bacterial growth under immunosuppression in the mouse model, <a href="https://pubmed.ncbi.nlm.nih.gov/1165122/">PMID: 1165122</a>).</li>
+<li><strong>Prognostic factors:</strong> Host immune competence (cell-mediated immunity) and timeliness of antibiotic therapy.</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>First-line pharmacotherapy — tetracyclines.</strong> "The specific treatment consists in tetracycline administration (doxycycline, minocycline) for up to seven days" (<a href="https://pubmed.ncbi.nlm.nih.gov/10756846/">PMID: 10756846</a>). <strong>Doxycycline is the drug of choice</strong> for the human ehrlichioses/anaplasmoses generally (<a href="https://pubmed.ncbi.nlm.nih.gov/20077398/">PMID: 20077398</a>). Tetracyclines act by inhibiting bacterial protein synthesis; the pharmacodynamic link to pathogenesis is illustrated by oxytetracycline reversing the infection-driven host TfR mRNA up-regulation (<a href="https://pubmed.ncbi.nlm.nih.gov/10225882/">PMID: 10225882</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug (NCIT)</th>
+<th>Class</th>
+<th>Role</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Doxycycline (NCIT:C692)</td>
+<td>Tetracycline</td>
+<td>First-line</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/10756846/" target="_blank" rel="noopener noreferrer">PMID: 10756846</a>], [<a href="https://pubmed.ncbi.nlm.nih.gov/20077398/" target="_blank" rel="noopener noreferrer">PMID: 20077398</a>]</td>
+</tr>
+<tr>
+<td>Minocycline (NCIT:C61815)</td>
+<td>Tetracycline</td>
+<td>Alternative</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/10756846/" target="_blank" rel="noopener noreferrer">PMID: 10756846</a>]</td>
+</tr>
+<tr>
+<td>Tetracycline (NCIT:C844)</td>
+<td>Tetracycline</td>
+<td>Effective</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/10756846/" target="_blank" rel="noopener noreferrer">PMID: 10756846</a>]</td>
+</tr>
+<tr>
+<td>Oxytetracycline</td>
+<td>Tetracycline</td>
+<td>Effective in vitro/experimental</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/10225882/" target="_blank" rel="noopener noreferrer">PMID: 10225882</a>]</td>
+</tr>
+<tr>
+<td>Fluoroquinolones</td>
+<td>DNA gyrase inhibitor</td>
+<td>Naturally susceptible (GyrA Ser83), not first-line</td>
+<td>[<a href="https://pubmed.ncbi.nlm.nih.gov/11408229/" target="_blank" rel="noopener noreferrer">PMID: 11408229</a>]</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Notable pharmacology — natural fluoroquinolone susceptibility.</strong> Unlike fluoroquinolone-resistant <em>Ehrlichia</em> (e.g., <em>E. chaffeensis</em>, <em>E. canis</em>), <em>N. sennetsu</em> retains a <strong>serine at GyrA position 83</strong> (the susceptible genotype): "A serine residue in position 83 (<em>Escherichia coli</em> numbering) in the susceptible species is replaced by an alanine residue in fluoroquinolone-resistant species" (<a href="https://pubmed.ncbi.nlm.nih.gov/11408229/">PMID: 11408229</a>). This gives a theoretical second-line option, though tetracyclines remain standard.</p>
+<p><strong>Ineffective agents:</strong> Penicillins and sulfonamides are ineffective against this genogroup (demonstrated for a closely related mouse ehrlichial isolate — <a href="https://pubmed.ncbi.nlm.nih.gov/8380184/">PMID: 8380184</a>).</p>
+<p><strong>Supportive care:</strong> Antipyretics, fluids, rest during the acute phase. <strong>Advanced therapeutics (gene/cell/RNA/immunotherapy), surgery, pharmacogenomics: NOT APPLICABLE.</strong></p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention (dominant lever):</strong> <strong>Avoid eating raw/undercooked fish</strong> in endemic areas; adequately cook fish to kill fluke metacercariae. Public-health education on food preparation, and improved fish-farming/sanitation to reduce fluke burdens (inferred from the fish-borne, fluke-associated transmission model — <a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26873314/">PMID: 26873314</a>).</li>
+<li><strong>Secondary prevention:</strong> Early clinical recognition and prompt doxycycline in febrile patients with compatible exposure; awareness among clinicians in endemic regions given under-recognition (<a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">PMID: 26158273</a>).</li>
+<li><strong>Immunization:</strong> <strong>No vaccine exists.</strong></li>
+<li><strong>Prophylaxis / chemoprophylaxis:</strong> None established.</li>
+<li><strong>Genetic counseling / carrier screening: NOT APPLICABLE.</strong></li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Agent taxonomy:</strong> <em>Neorickettsia sennetsu</em> (NCBI Taxonomy). Closely related to <em>Neorickettsia risticii</em> (agent of <strong>Potomac horse fever</strong>) and <em>Neorickettsia helminthoeca</em> (agent of <strong>salmon poisoning disease</strong> in dogs).</li>
+<li><strong>Fluke reservoirs (Digenea):</strong> <em>Stellantchasmus falcatus</em> (source of the "SF agent," <a href="https://pubmed.ncbi.nlm.nih.gov/7311106/">PMID: 7311106</a>); <em>Plagiorchis elegans</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26873314/">PMID: 26873314</a>); <em>Fasciola hepatica</em> harbors the closely related endobacterium nFh (<a href="https://pubmed.ncbi.nlm.nih.gov/28060841/">PMID: 28060841</a>).</li>
+<li><strong>Fish hosts:</strong> <em>Anabas testudineus</em> (climbing perch, Laos — <a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">PMID: 19635868</a>); <em>Mugil cephalus</em> (grey mullet, historic — <a href="https://pubmed.ncbi.nlm.nih.gov/7311106/">PMID: 7311106</a>); an <em>E. sennetsu</em>-genogroup agent was detected in rainbow trout (<em>Oncorhynchus mykiss</em>) and their fluke parasites (<a href="https://pubmed.ncbi.nlm.nih.gov/10962157/">PMID: 10962157</a>).</li>
+<li><strong>Comparative pathology:</strong> The Neorickettsia genogroup causes analogous monocytotropic disease across mammals — Potomac horse fever in horses (fever, leukopenia, ~30% fatal — <a href="https://pubmed.ncbi.nlm.nih.gov/3880925/">PMID: 3880925</a>) and salmon poisoning disease in dogs — sharing macrophage tropism, morula formation, and fluke-borne transmission.</li>
+<li><strong>Zoonotic potential:</strong> Yes — a fish/fluke-borne zoonosis; cross-species serologic relatedness (e.g., with <em>E. canis</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/7034563/">PMID: 7034563</a>).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Findings</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mouse (lab)</td>
+<td>Mammalian in vivo</td>
+<td>Multiplies in spleen/peritoneal macrophages; cyclophosphamide immunosuppression enhances splenic titers &gt;100-fold (to ~10^8.5 MLD)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1165122/">PMID: 1165122</a></td>
+</tr>
+<tr>
+<td>Human monocyte cultures</td>
+<td>In vitro</td>
+<td>Growth cycle resembling <em>E. canis</em>; morulae; mouse-infectious</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6274798/">PMID: 6274798</a></td>
+</tr>
+<tr>
+<td>Non-human primate (monkey)</td>
+<td>Mammalian in vivo</td>
+<td>Reproduced infectious mononucleosis clinically and pathologically</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14322603/">PMID: 14322603</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/14319489/">PMID: 14319489</a></td>
+</tr>
+<tr>
+<td>Dog</td>
+<td>Mammalian in vivo</td>
+<td>Culture-adapted <em>E. sennetsu</em> infected dogs; seroconversion, reisolation; no overt disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2985504/">PMID: 2985504</a></td>
+</tr>
+<tr>
+<td>Murine macrophage lines P388D1, RAW 264</td>
+<td>Cell line</td>
+<td>Continuous propagation</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/4025693/">PMID: 4025693</a></td>
+</tr>
+<tr>
+<td>Canine macrophage line DH82</td>
+<td>Cell line</td>
+<td>Propagation/isolation</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">PMID: 26158273</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype recapitulation:</strong> The <strong>non-human primate model faithfully reproduces the human mononucleosis-like disease</strong>; the <strong>mouse model</strong> reproduces macrophage/splenic infection and demonstrates the central role of host immunity in control (via the cyclophosphamide experiment). <strong>Limitations:</strong> rodent models do not fully replicate the human clinical syndrome, and no genetically engineered (knockout/transgenic) model is applicable since this is an infectious, non-genetic disease. Reference strain: <strong>ATCC VR-367 (Miyayama)</strong>.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   Raw/undercooked fish with fluke metacercariae  (dietary exposure)
+       |  ingested (transmission INFERRED)
+       v
+N. sennetsu released -&gt; uptake by MONOCYTES / MACROPHAGES
+       |
+       v
+     Resides in membrane-bound vacuole -&gt; INHIBITS phagosome-lysosome fusion
+       |                         (evades killing)
+       v
+     Disables host &quot;alarm&quot;/microbicidal systems  --&gt; SAFE HAVEN
+       |
+       v
+     Activates IRP1 -&gt; up Transferrin Receptor mRNA -&gt; up iron import
+       |  (blocked by deferoxamine; reversed by tetracycline)
+       v
+     Binary fission -&gt; MORULAE (intracytoplasmic microcolonies)
+       |
+  +------------+-------------+
+  v                          v
+  Dissemination to spleen/       Reactive lymphocyte
+  liver/lymph nodes              proliferation
+  -&gt; hepatosplenomegaly,         -&gt; ATYPICAL LYMPHOCYTOSIS
+     lymphadenopathy                (mononucleosis-like)
+  |                          |
+  +------------+-------------+
+       v
+Systemic inflammatory/cytokine response
+-&gt; FEVER, chills, headache, malaise, myalgia
+(+/- leukopenia, thrombocytopenia)
+       |
+       v
+     Host cell-mediated immunity controls infection
+     -&gt; SELF-LIMITED RESOLUTION (accelerated by doxycycline)
+     [immunosuppression removes this brake -&gt; enhanced growth]
+</code></pre>
+<p>The pathophysiology is a coherent story of <strong>intracellular immune evasion coupled to host iron piracy</strong>. The <strong>upstream</strong> lesion is macrophage infection and phagosome-maturation arrest; the <strong>central</strong> engine is IRP1-driven transferrin-receptor up-regulation supplying iron for replication; the <strong>downstream</strong> manifestation is lymphoreticular activation producing the mononucleosis-like syndrome. Two therapeutically important nodes are directly demonstrated: (i) <strong>iron dependence</strong> (deferoxamine blocks growth) and (ii) <strong>protein-synthesis dependence</strong> (tetracyclines both cure the disease and reverse the TfR manipulation). Host <strong>cell-mediated immunity</strong> is the natural terminator of infection, explaining both the self-limited course and the enhanced disease seen under immunosuppression.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20833807/">20833807</a></td>
+<td>Agent = obligate intracellular bacterium of monocytes/macrophages; P51 porin</td>
+<td>Supports F001, F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11760958/">11760958</a></td>
+<td>Reclassification into genus <em>Neorickettsia</em> (16S)</td>
+<td>Supports taxonomy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19635868/">19635868</a></td>
+<td>Fish PCR positivity; 17% Lao seroprevalence; PCR diagnosis</td>
+<td>Supports F002, F005, F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26873314/">26873314</a></td>
+<td>Flukes as endosymbiont reservoir/vector</td>
+<td>Supports F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28060841/">28060841</a></td>
+<td><em>F. hepatica</em> endobacterium related to Sennetsu agent; fluke tissue localization</td>
+<td>Supports transmission model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10225882/">10225882</a></td>
+<td>TfR up-regulation via IRP1; iron dependence; tetracycline reversal</td>
+<td>Supports F004, mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1884777/">1884777</a></td>
+<td>Phagosomal replication, own ATP metabolism</td>
+<td>Supports F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12860688/">12860688</a></td>
+<td>"Safe haven" immune-evasion strategy</td>
+<td>Supports F011</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9511829/">9511829</a></td>
+<td>Ultrastructure; small non-fusing vacuoles for Sennetsu genogroup</td>
+<td>Supports morphology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1165122/">1165122</a></td>
+<td>Mouse model; cyclophosphamide enhancement; mononucleosis of western Japan</td>
+<td>Supports F007, F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1889044/">1889044</a></td>
+<td>Monocyte/granulocyte tropism -&gt; lymphadenopathy, hematologic changes</td>
+<td>Supports F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6425420/">6425420</a></td>
+<td>Historical southern-Japan mononucleosis-like disease</td>
+<td>Supports F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7311106/">7311106</a></td>
+<td>Raw grey mullet; SF fluke agent</td>
+<td>Supports F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26158273/">26158273</a></td>
+<td>&lt;100 global cases; 0.2% acute Lao inpatients; DH82</td>
+<td>Supports F005, F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27139448/">27139448</a></td>
+<td>Thailand seroprevalence 0.2% / acute 0.1%</td>
+<td>Supports F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10756846/">10756846</a></td>
+<td>Tetracyclines = specific treatment</td>
+<td>Supports F006, F012</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20077398/">20077398</a></td>
+<td>Doxycycline drug of choice; morula biology</td>
+<td>Supports F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11408229/">11408229</a></td>
+<td>GyrA Ser83 natural fluoroquinolone susceptibility</td>
+<td>Supports F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2985504/">2985504</a></td>
+<td>IFA serodiagnosis; canine model</td>
+<td>Supports F009, F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7034563/">7034563</a></td>
+<td>Serologic cross-reactivity with <em>E. canis</em></td>
+<td>Supports F010 caveat</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19661282/">19661282</a></td>
+<td>88.2% gene conservation with <em>N. risticii</em>; T4SS</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16482227/">16482227</a></td>
+<td>Biosynthetic capacity; comparative genomics</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10418133/">10418133</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/10765728/">10765728</a></td>
+<td>Genome size ~878-881 kb (PFGE)</td>
+<td>Supports F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14322603/">14322603</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/14319489/">14319489</a></td>
+<td>Monkey model reproduces mononucleosis</td>
+<td>Supports F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/4025693/">4025693</a></td>
+<td>Murine macrophage cell-line propagation</td>
+<td>Supports F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15297539/">15297539</a></td>
+<td>p51/P51-based species differentiation</td>
+<td>Supports F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11526124/">11526124</a></td>
+<td>gltA RFLP identifies Neorickettsia genogroup</td>
+<td>Supports F010</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/3880925/">3880925</a></td>
+<td>Potomac horse fever comparative disease</td>
+<td>Supports Section 14</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10962157/">10962157</a></td>
+<td><em>E. sennetsu</em>-genogroup agent in trout/flukes</td>
+<td>Supports Section 14</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Small evidence base.</strong> Fewer than 100 recognized cases over 50 years means clinical descriptions rest on old case series and experimental (animal/cell-culture) work rather than large modern cohorts; frequencies of individual symptoms are qualitative, not precisely quantified.</li>
+<li><strong>Transmission not directly proven.</strong> Fish-to-human transmission is <em>inferred</em> from fish PCR positivity, seroprevalence patterns, and the fluke-endosymbiont biology; a completed experimental fish→human transmission chain has not been demonstrated, and the exact fish species/fluke species responsible in each endemic focus remain incompletely mapped.</li>
+<li><strong>Human pathophysiology extrapolated.</strong> Much of the mechanistic detail (phagosome–lysosome fusion inhibition, IRP1/TfR iron piracy, "safe haven") derives from in vitro cell lines and related Anaplasmataceae; direct human tissue data are limited.</li>
+<li><strong>No modern omics on human disease.</strong> No human transcriptomic/proteomic/metabolomic profiling of Sennetsu fever patients exists; molecular profiling is confined to the pathogen genome.</li>
+<li><strong>Epidemiology geographically narrow.</strong> Robust seroprevalence data exist mainly for Laos, Thailand, Malaysia and historic Japan; true global distribution, incidence, sex/age structure, and burden are unknown.</li>
+<li><strong>Prognosis inferred, not registry-derived.</strong> The "low mortality / self-limited" conclusion follows from rarity of reported severe outcomes and the seroprevalence–hospitalization gap rather than from prospective outcome cohorts.</li>
+<li><strong>Not applicable sections.</strong> Human genetics, inheritance, gene therapy, pharmacogenomics, newborn/carrier screening, and oncologic staging are genuinely not applicable to this infectious disease and are marked as such.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Complete the transmission chain experimentally:</strong> feed <em>N. sennetsu</em>-positive metacercariae-bearing fish to a permissive animal model (e.g., non-human primate or dog) with molecular tracking to formally prove fish→vertebrate transmission and identify the responsible fluke/fish species per endemic focus.</li>
+<li><strong>Prospective clinical cohort with modern diagnostics:</strong> enroll febrile patients in Laos/Thailand with paired IFA serology + multiplex PCR (16S, gltA, p51) to quantify true incidence, symptom frequencies, severity distribution, and outcomes.</li>
+<li><strong>Host-response omics:</strong> perform RNA-seq/proteomics on infected human monocytes/macrophages (and patient blood where available) to map the cytokine and iron-metabolism pathways beyond IRP1/TfR.</li>
+<li><strong>Mechanistic dissection of iron piracy:</strong> test whether iron-chelation adjuncts (e.g., deferoxamine) potentiate tetracycline killing in vitro and in the mouse model, and characterize the T4SS effectors mediating phagosome-maturation arrest.</li>
+<li><strong>Food-safety intervention study:</strong> evaluate community education on cooking fish and improved aquaculture sanitation as primary prevention, using seroincidence as an endpoint.</li>
+<li><strong>Fluoroquinolone confirmation:</strong> empirically validate in vitro fluoroquinolone efficacy against <em>N. sennetsu</em> (predicted from GyrA Ser83) as a potential alternative for tetracycline-intolerant patients.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 52 reviewed papers and 12 confirmed findings across a 5-iteration autonomous investigation. Evidence types span human clinical/seroepidemiological studies, model-organism (mouse, non-human primate, dog) experiments, in vitro cell-culture work, and comparative/genomic analyses.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Sennetsu_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Sennetsu_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>36</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMID:19635866</code>: "acutely incapacitating"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>GO:0030260</code> (1 mention) - the report calls it "entry into host cell"; GO calls it <strong>GO_0030260</strong></li>
+<li><code>NCIT:C692</code> (1 mention) - the report calls it "Doxycycline"; NCIT calls it <strong>Nimodipine</strong></li>
+<li><code>NCIT:C61815</code> (1 mention) - the report calls it "Minocycline"; NCIT calls it <strong>Loracarbef Anhydrous</strong></li>
+<li><code>NCIT:C844</code> (1 mention) - the report calls it "Tetracycline"; NCIT calls it <strong>Streptonigrin</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0030260</code> (GO_0030260) (1 mention) - replaced by <code>GO:0044409</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0001882</code> (1 mention) - the report calls it "Leukopenia"; HP calls it <strong>Decreased total leukocyte count</strong>, and lists "Leukopenia" among its other names</li>
+<li><code>GO:0051673</code> (1 mention) - the report calls it "disruption of host cell"; GO calls it <strong>disruption of plasma membrane integrity in another organism</strong>, and lists "disruption by virus of host cell membrane" among its other names</li>
+<li><code>CL:0000842</code> (1 mention) - the report calls it "mononuclear cell"; CL calls it <strong>mononuclear leukocyte</strong>, and lists "mononuclear cell" among its other names</li>
+<li><code>UBERON:0002106</code> (1 mention) - the report calls it "Spleen — splenomegaly"; UBERON calls it <strong>spleen</strong></li>
+<li><code>UBERON:0002107</code> (1 mention) - the report calls it "Liver — hepatomegaly"; UBERON calls it <strong>liver</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sengers_syndrome-falcon.html">← Sengers syndrome (Falcon)</a>
+                
+                
+                <a href="Sensory_Ataxic_Neuropathy_Dysarthria_Ophthalmoparesis-falcon.html">Sensory Ataxic Neuropathy, Dysarthria, and Ophthalmoparesis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sennetsu_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sennetsu_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

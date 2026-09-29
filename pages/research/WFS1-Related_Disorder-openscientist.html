@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WFS1-Related Disorder · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>WFS1-Related Disorder</span>
+            </div>
+
+            <header class="report-header">
+                <h1>WFS1-Related Disorder</h1>
+                
+                <p class="report-subtitle">WFS1-Related Disorder (Wolfram Syndrome / DIDMOAD): Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0700293" target="_blank" rel="noopener noreferrer">MONDO:0700293</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>WFS1-Related Disorder (Wolfram Syndrome / DIDMOAD): Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> WFS1-Related Disorder (Wolfram syndrome type 1; DIDMOAD)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0700293" target="_blank" rel="noopener noreferrer">MONDO:0700293</a> · <strong>OMIM:</strong> #222300 · <strong>Category:</strong> Mendelian (monogenic)
+<strong>Report basis:</strong> 17 confirmed findings, 41 papers reviewed across 5 investigative iterations</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>WFS1-Related Disorder — clinically known as Wolfram syndrome or by the acronym DIDMOAD (Diabetes Insipidus, early-onset Diabetes Mellitus, Optic Atrophy, and Deafness) — is a rare, predominantly autosomal recessive, progressive neurodegenerative and neuro-endocrine disorder caused by loss-of-function variants in the <em>WFS1</em> gene, which encodes the endoplasmic reticulum (ER) membrane protein wolframin.</strong> Wolframin regulates ER calcium homeostasis and the unfolded protein response (UPR); its loss produces chronic, unresolvable ER stress that drives apoptosis of highly secretory and metabolically demanding cell types. The result is a stereotyped but variable clinical sequence: childhood-onset, insulin-dependent, autoantibody-negative diabetes mellitus (~age 6), followed by optic atrophy, central diabetes insipidus (~age 10), and sensorineural hearing loss (~age 8), with later neurological, urological, and psychiatric involvement (<a href="https://pubmed.ncbi.nlm.nih.gov/25764693/">PMID: 25764693</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>).</p>
+<p>The disease mechanism is now well characterized as a coherent causal chain: biallelic <em>WFS1</em> loss → chronic ER stress with activation of all three UPR arms (PERK, IRE1α/XBP1, ATF6) → inositol-1,4,5-trisphosphate receptor (IP3R)-mediated cytosolic Ca²⁺ dysregulation → mitochondrial dysfunction and impaired proinsulin processing → apoptosis of pancreatic β-cells, retinal ganglion cells, hypothalamic vasopressin neurons, and cochlear/brainstem neurons, with non-cell-autonomous oligodendroglial white-matter loss contributing to neurodegeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/27434582/">PMID: 27434582</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/28271591/">PMID: 28271591</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41896889/">PMID: 41896889</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39198924/">PMID: 39198924</a>).</p>
+<p>Prognosis is poor: median age at death is approximately 39 years, most often from respiratory failure secondary to brainstem atrophy (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>). There is currently <strong>no disease-modifying therapy</strong>. Management is multidisciplinary and supportive — the ER-calcium stabilizer dantrolene was safe but ineffective in a phase Ib/IIa trial, and GLP-1 receptor agonists give glycemic benefit in some patients but no proven neuroprotection (<a href="https://pubmed.ncbi.nlm.nih.gov/34185708/">PMID: 34185708</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42597412/">PMID: 42597412</a>). The first international clinical consensus (Delphi) management guidelines were recently published (<a href="https://pubmed.ncbi.nlm.nih.gov/42428113/">PMID: 42428113</a>). The broader "wolframinopathy" spectrum includes a milder autosomal dominant Wolfram-like syndrome and allelic dominant deafness/optic atrophy, while a distinct Wolfram syndrome type 2 is caused by <em>CISD2</em> and operates through mitochondrial iron/ROS toxicity (<a href="https://pubmed.ncbi.nlm.nih.gov/36764396/">PMID: 36764396</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">PMID: 42339507</a>).</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p>Wolfram syndrome (WFS; OMIM #222300) is a rare recessive neuro-endocrine degenerative disorder, historically named <strong>DIDMOAD</strong> for its cardinal features: <strong>D</strong>iabetes <strong>I</strong>nsipidus, early-onset <strong>D</strong>iabetes <strong>M</strong>ellitus, <strong>O</strong>ptic <strong>A</strong>trophy, and <strong>D</strong>eafness (<a href="https://pubmed.ncbi.nlm.nih.gov/25764693/">PMID: 25764693</a>). It is an ultra-rare, progressive neurodegenerative disease characterized by early-onset diabetes mellitus and irreversible loss of vision secondary to optic nerve degeneration (<a href="https://pubmed.ncbi.nlm.nih.gov/37181110/">PMID: 37181110</a>).</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0700293" target="_blank" rel="noopener noreferrer">MONDO:0700293</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>#222300 (Wolfram syndrome type 1)</td>
+</tr>
+<tr>
+<td>Gene (WFS1)</td>
+<td>OMIM *606201</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:3463" target="_blank" rel="noopener noreferrer">ORPHA:3463</a> (Wolfram syndrome)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>E13.x (other specified diabetes) with syndromic coding; cross-referenced to E23.2 (diabetes insipidus)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D014929 (Wolfram Syndrome)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> DIDMOAD syndrome; Wolfram syndrome type 1 (WFS1); the "wolframinopathies" spectrum. Allelic dominant disorders include DFNA6/14/38 (low-frequency sensorineural hearing loss) and WFS1-related dominant optic atrophy.</p>
+<p><strong>Source type:</strong> The information here derives predominantly from <strong>aggregated disease-level resources</strong> (OMIM, Orphanet, systematic reviews, natural-history cohorts) and primary literature, supplemented by individual case reports illustrating diagnostic pathways. Cohort data (e.g., the Washington University natural-history study) provide individual-patient-derived aggregate statistics (<a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>).</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause — genetic.</strong> WFS1-Related Disorder is a purely monogenic disease. Classic Wolfram syndrome is caused by <strong>biallelic (recessive) loss-of-function variants in <em>WFS1</em></strong>, encoding wolframin, an ER-embedded transmembrane protein functioning in ER calcium homeostasis and the unfolded protein response (<a href="https://pubmed.ncbi.nlm.nih.gov/25764693/">PMID: 25764693</a>). There is <strong>no environmental, lifestyle, toxic, or infectious cause</strong> — the disease is entirely genetically determined, though glycemic control and complication management modify morbidity (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>).</p>
+<p><strong>Genetic risk factors.</strong> Causal variants lie in <em>WFS1</em> (chromosome 4p16.1). A distinct allelic gene, <em>CISD2</em> (4q24), causes Wolfram syndrome type 2 (see Sections 4 and 15). Consanguinity and founder effects are the principal population-level risk amplifiers: a genetically confirmed Ecuadorian coastal cluster (Santa Elena) reported the highest local prevalence worldwide (~1/12,000), with ~50% consanguinity and 23/26 patients homozygous (<a href="https://pubmed.ncbi.nlm.nih.gov/41998697/">PMID: 41998697</a>).</p>
+<p><strong>Genetic modifiers.</strong> Genotype itself is the principal modifier of severity: variant type (in-frame vs out-of-frame/truncating) and location relative to transmembrane domains predict onset (<a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">PMID: 42524523</a>).</p>
+<p><strong>Protective factors.</strong> No environmental protective factors are established. The primary "protective" genetic influence is milder variant class — in-frame variants outside transmembrane domains (notably the Ashkenazi Jewish founder allele c.1672C&gt;T, p.Arg558Cys) produce a milder phenotype with later onset (<a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">PMID: 42524523</a>).</p>
+<p><strong>Gene–environment interactions.</strong> No true gene–environment interactions are documented for disease causation. The dominant environmental modifier of <em>outcome</em> (not risk) is quality of glycemic control and multidisciplinary complication management.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The phenotype spectrum has been quantified in a Washington University cross-sectional cohort (n=18, ages 5.9–25.8) and longitudinal audiology studies (<a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29945639/">PMID: 29945639</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Mean age of onset</th>
+<th>Progression</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diabetes mellitus (insulin-dependent, autoantibody-negative)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000819" target="_blank" rel="noopener noreferrer">HP:0000819</a></td>
+<td>Lab/endocrine</td>
+<td>~94%</td>
+<td>6.3 ± 3.5 yr</td>
+<td>Progressive, lifelong</td>
+</tr>
+<tr>
+<td>Optic atrophy / disc pallor, color-vision defect</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" rel="noopener noreferrer">HP:0000648</a></td>
+<td>Clinical sign</td>
+<td>~94%</td>
+<td>Childhood</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Central diabetes insipidus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000873" target="_blank" rel="noopener noreferrer">HP:0000873</a></td>
+<td>Endocrine</td>
+<td>~72%</td>
+<td>10.6 ± 3.3 yr</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Sensorineural hearing loss</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" rel="noopener noreferrer">HP:0000407</a></td>
+<td>Clinical sign</td>
+<td>~75–78%</td>
+<td>8.3 ± 5.1 yr</td>
+<td>Progressive (high-frequency first)</td>
+</tr>
+<tr>
+<td>Olfactory defect</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" rel="noopener noreferrer">HP:0000458</a></td>
+<td>Sensory</td>
+<td>~72%</td>
+<td>Variable</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Impaired vibration sensation (peripheral neuropathy)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002495" target="_blank" rel="noopener noreferrer">HP:0002495</a></td>
+<td>Neurological</td>
+<td>~44%</td>
+<td>Variable</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Neurogenic bladder / elevated post-void residual</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" rel="noopener noreferrer">HP:0000011</a></td>
+<td>Urologic</td>
+<td>~45% (of tested)</td>
+<td>Adolescence+</td>
+<td>Progressive</td>
+</tr>
+<tr>
+<td>Enuresis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000805" target="_blank" rel="noopener noreferrer">HP:0000805</a></td>
+<td>Urologic</td>
+<td>~22%</td>
+<td>Childhood</td>
+<td>Variable</td>
+</tr>
+<tr>
+<td>Psychiatric features (depression, anxiety)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" rel="noopener noreferrer">HP:0000708</a></td>
+<td>Behavioral</td>
+<td>Common</td>
+<td>Variable</td>
+<td>Fluctuating</td>
+</tr>
+<tr>
+<td>Brainstem atrophy / neurodegeneration</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002508" target="_blank" rel="noopener noreferrer">HP:0002508</a></td>
+<td>Neurological</td>
+<td>Late</td>
+<td>Adult</td>
+<td>Progressive (life-limiting)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Quantitative evidence: "Seventeen (94%) had diabetes mellitus with the average age of diabetes onset of 6.3 ± 3.5 years. Diabetes insipidus was diagnosed in 13 (72%) at an average age of 10.6 ± 3.3 years. Seventeen (94%) had optic disc pallor and defects in color vision, 14 (78%) had hearing loss and 13 (72%) had olfactory defects, eight (44%) had impaired vibration sensation" (<a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>). Longitudinal audiology (n=40): "Mean age of diagnosis for SNHL was 8.3 years (SD = 5.1) with 75% prevalence. HFA worsened over time for both ears" (<a href="https://pubmed.ncbi.nlm.nih.gov/29945639/">PMID: 29945639</a>).</p>
+<p><strong>Quality-of-life impact.</strong> Progressive, irreversible vision and hearing loss, insulin-dependent diabetes, and neurogenic bladder impose severe cumulative disability. Psychiatric morbidity and, in advanced disease, brainstem-mediated bulbar/respiratory dysfunction dominate late quality of life. Formal per-phenotype QOL instrument data (EQ-5D/SF-36) are limited in this ultra-rare disease.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal genes.</strong>
+- <strong><em>WFS1</em></strong> (<a href="https://bioregistry.io/HGNC:12762" target="_blank" rel="noopener noreferrer">HGNC:12762</a>; OMIM <em>606201; chromosome 4p16.1) — encodes wolframin, an 890-amino-acid ER transmembrane glycoprotein. Cause of Wolfram syndrome type 1 (OMIM #222300).
+- </em><strong>CISD2</strong><em> (<a href="https://bioregistry.io/HGNC:24212" target="_blank" rel="noopener noreferrer">HGNC:24212</a>; OMIM </em>611507; chromosome 4q24) — cause of Wolfram syndrome type 2 (WFS2; OMIM #604928).</p>
+<p><strong>Pathogenic variant landscape.</strong> Variant types span the full loss-of-function spectrum: missense, nonsense, frameshift (out-of-frame indels), and splice-site variants. Classification follows ACMG/AMP guidelines (pathogenic, likely pathogenic, VUS). A representative novel VUS — heterozygous <em>WFS1</em> c.1550G&gt;C (p.Arg517Pro) — was classified using PM2_Supporting (allele frequency 0.000077) and PP3_Moderate (REVEL deleterious prediction) (<a href="https://pubmed.ncbi.nlm.nih.gov/41613956/">PMID: 41613956</a>).</p>
+<p><strong>Genotype–phenotype / severity correlation.</strong> A severity scoring system based on variant type (in-frame vs out-of-frame) and location relative to transmembrane domains (six severity classes) was applied to 324 patients: score correlated with earlier onset of diabetes mellitus and, less consistently, optic atrophy, but not hearing loss or central DI. "Patients with in-frame variants outside transmembrane domains showed milder disease, especially the WFS1 c.1672C&gt;T (p.Arg558Cys) variant... whereas out-of-frame variants showed the earliest onset" (<a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">PMID: 42524523</a>). Consistently, the systematic review of dominant Wolfram-like syndrome found "Patients with missense mutations in WFS1 had a lower number of clinical manifestations, less chance of developing diabetes insipidus, but a younger age at onset of hearing impairment compared to patients with nonsense mutations or deletions causing frameshift" (<a href="https://pubmed.ncbi.nlm.nih.gov/36764396/">PMID: 36764396</a>).</p>
+<p><strong>Functional consequences.</strong> Recessive <em>WFS1</em> variants are <strong>loss of function</strong> (reduced/absent functional wolframin → ER stress). Certain heterozygous dominant <em>WFS1</em> variants act via <strong>dominant-negative or gain-of-toxic-function</strong> mechanisms producing constitutive ER stress: "A novel heterozygous mutation of the WFS1 gene leading to constitutive endoplasmic reticulum stress is the cause of Wolfram syndrome" (<a href="https://pubmed.ncbi.nlm.nih.gov/28271591/">PMID: 28271591</a>).</p>
+<p><strong>Origin.</strong> Germline; no somatic/oncologic role in the Mendelian disorder (a separate literature implicates WFS1 as a transcriptional hub in prostate cancer, unrelated to the inherited syndrome — <a href="https://pubmed.ncbi.nlm.nih.gov/40345286/">PMID: 40345286</a>).</p>
+<p><strong>Allele frequency.</strong> Pathogenic <em>WFS1</em> variants are individually rare (e.g., p.Arg517Pro at 0.000077 in gnomAD); founder alleles are regionally enriched (Ashkenazi p.Arg558Cys; Ecuadorian exon-8 variants; Palestinian <em>CISD2</em> c.109G&gt;C with carrier rate 1:40) (<a href="https://pubmed.ncbi.nlm.nih.gov/41613956/">PMID: 41613956</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41998697/">PMID: 41998697</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">PMID: 42339507</a>).</p>
+<p><strong>Modifier genes / epigenetics / chromosomal abnormalities.</strong> No specific modifier genes beyond the primary genotype are established. No epigenetic mechanism or large-scale chromosomal abnormality is characterized as causal; the disease is driven by point mutations and small indels in <em>WFS1</em>/<em>CISD2</em>.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Not applicable as a cause.</strong> WFS1-Related Disorder has no environmental, toxic, radiation, occupational, lifestyle, or infectious etiology. The disease is entirely genetic (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>). Environmental factors influence only the <em>management/outcome</em> dimension — chiefly glycemic control, which modifies diabetic complication burden but does not alter the underlying neurodegenerative trajectory.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic loss-of-function <em>WFS1</em> variants</strong> reduce or abolish functional wolframin, an ER-membrane protein → <strong>loss of ER calcium homeostasis and UPR regulation</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25764693/">PMID: 25764693</a>).</li>
+<li>Wolframin deficiency → <strong>chronic, unresolvable ER stress</strong>, because WFS1 is itself a UPR component; "Because WFS1 is a UPR component, mutant WFS1 might cause unresolvable ER stress conditions and cell apoptosis, the major causes underlying WS symptoms" (<a href="https://pubmed.ncbi.nlm.nih.gov/28271591/">PMID: 28271591</a>).</li>
+<li>ER stress <strong>activates all three UPR arms</strong> — PERK (↑p-PERK, ATF4), IRE1α (↑XBP1s, phospho-IRE1α), and ATF6 (<a href="https://pubmed.ncbi.nlm.nih.gov/41896889/">PMID: 41896889</a>).</li>
+<li>ER stress → <strong>IP3R dysfunction → disturbed cytosolic Ca²⁺ homeostasis</strong>, which "in turn, alters mitochondrial dynamics" (inhibited fusion, altered trafficking, augmented mitophagy) → delayed neuronal development (<a href="https://pubmed.ncbi.nlm.nih.gov/27434582/">PMID: 27434582</a>).</li>
+<li>In parallel, ER stress <strong>impairs proinsulin-to-insulin processing</strong>, with accumulation of proinsulin and an increased proinsulin/insulin ratio → <strong>β-cell secretory failure</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41896889/">PMID: 41896889</a>).</li>
+<li>Combined ER-stress, Ca²⁺, and mitochondrial insults → <strong>apoptosis of high-secretory / high-metabolic cells</strong>: pancreatic β-cells, retinal ganglion cells, hypothalamic arginine-vasopressin (AVP) neurons, cochlear and brainstem neurons (<a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">PMID: 16215705</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35452662/">PMID: 35452662</a>).</li>
+<li><strong>Branch — non-cell-autonomous injury:</strong> white-matter/myelin loss implicates oligodendroglia in optic neuropathy and brain neurodegeneration, indicating the process is not purely neuron-autonomous (<a href="https://pubmed.ncbi.nlm.nih.gov/39198924/">PMID: 39198924</a>).</li>
+<li>Cumulative cell loss → <strong>clinical DIDMOAD</strong> (β-cell loss → DM; RGC/optic nerve loss → optic atrophy; AVP neuron loss → central DI; cochlear loss → SNHL) → progressive neurodegeneration → <strong>brainstem atrophy → respiratory failure → death (~39 yr)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>).</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> Unfolded protein response (PERK–eIF2α–ATF4, IRE1α–XBP1, ATF6). ER Ca²⁺ signaling via IP3R and ryanodine receptors. Suggested GO terms: <strong><a href="http://purl.obolibrary.org/obo/GO_0030968" target="_blank" rel="noopener noreferrer">GO:0030968</a></strong> (ER unfolded protein response); <strong><a href="http://purl.obolibrary.org/obo/GO_0006816" target="_blank" rel="noopener noreferrer">GO:0006816</a></strong> (calcium ion transport); <strong><a href="http://purl.obolibrary.org/obo/GO_0034976" target="_blank" rel="noopener noreferrer">GO:0034976</a></strong> (response to endoplasmic reticulum stress).</li>
+<li><strong>Cellular processes:</strong> Apoptosis (<strong><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a></strong>), autophagy/mitophagy (<strong><a href="http://purl.obolibrary.org/obo/GO_0000422" target="_blank" rel="noopener noreferrer">GO:0000422</a></strong>), impaired mitochondrial fusion/dynamics (<strong><a href="http://purl.obolibrary.org/obo/GO_0008053" target="_blank" rel="noopener noreferrer">GO:0008053</a></strong>), impaired regulated secretion.</li>
+<li><strong>Protein dysfunction:</strong> Loss of function of wolframin (recessive) or dominant-negative constitutive ER stress (some heterozygous variants). Wolframin also localizes to insulin secretory granules and contributes to intragranular acidification.</li>
+<li><strong>Metabolic changes:</strong> Impaired glucose-stimulated insulin secretion; accumulated proinsulin; energy-metabolism compromise from mitochondrial dysfunction.</li>
+<li><strong>Immune system:</strong> Not autoimmune — diabetes is autoantibody-negative. However, elevated inflammatory cytokines (IFN-γ, IL-1β, TNF-α) and the oxidative-stress marker isoprostane were observed in trial subjects, suggesting a secondary inflammatory/oxidative component (<a href="https://pubmed.ncbi.nlm.nih.gov/34185708/">PMID: 34185708</a>).</li>
+<li><strong>Tissue damage:</strong> Oxidative stress and apoptosis; in WFS2, mitochondrial iron overload and ROS toxicity (<a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">PMID: 42339507</a>).</li>
+<li><strong>Subcellular compartments:</strong> ER (<strong><a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a></strong>), mitochondria (<strong><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></strong>), secretory granules.</li>
+<li><strong>Cell types (CL):</strong> pancreatic β-cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a></strong>), retinal ganglion cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a></strong>), oligodendrocyte (<strong><a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a></strong>), neuron (<strong><a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a></strong>).</li>
+</ul>
+<h3>Upstream vs downstream</h3>
+<p><strong>Upstream:</strong> <em>WFS1</em> mutation → wolframin loss → ER stress. <strong>Midstream:</strong> UPR activation, IP3R/Ca²⁺ dysregulation, mitochondrial dysfunction, impaired proinsulin processing. <strong>Downstream:</strong> apoptosis of target cells → organ-specific clinical manifestations → brainstem neurodegeneration.</p>
+<pre><code>WFS1 LoF ─► wolframin loss ─► chronic ER stress ─► UPR (PERK/IRE1α/ATF6)
+                     │                     │
+                     ▼                     ▼
+        IP3R ─► cytosolic Ca2+↑    impaired proinsulin
+                     │              processing (β-cell)
+                     ▼                     │
+        mitochondrial dysfunction ◄────────┘
+                     │
+                     ▼
+ APOPTOSIS: β-cells, RGCs, AVP neurons, cochlear/brainstem
+     + oligodendroglial white-matter loss (branch)
+                     │
+                     ▼
+DM(~6yr) ─ Optic atrophy ─ DI(~10yr) ─ SNHL(~8yr) ─► brainstem
+                                atrophy ─► respiratory failure (~39yr)
+</code></pre>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structure</th>
+<th>Ontology</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Organ</td>
+<td>Endocrine pancreas (islets)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000006" target="_blank" rel="noopener noreferrer">UBERON:0000006</a></td>
+<td>β-cell loss → DM (<a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">PMID: 16215705</a>)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Optic nerve</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000941" target="_blank" rel="noopener noreferrer">UBERON:0000941</a></td>
+<td>Optic atrophy, RGC loss (<a href="https://pubmed.ncbi.nlm.nih.gov/35452662/">PMID: 35452662</a>)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Hypothalamus (AVP neurons)</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001898" target="_blank" rel="noopener noreferrer">UBERON:0001898</a></td>
+<td>Central DI (<a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Cochlea / inner ear</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001844" target="_blank" rel="noopener noreferrer">UBERON:0001844</a></td>
+<td>SNHL (<a href="https://pubmed.ncbi.nlm.nih.gov/29945639/">PMID: 29945639</a>)</td>
+</tr>
+<tr>
+<td>Organ</td>
+<td>Brainstem</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002298" target="_blank" rel="noopener noreferrer">UBERON:0002298</a></td>
+<td>Atrophy → respiratory failure (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>)</td>
+</tr>
+<tr>
+<td>Organ (secondary)</td>
+<td>Urinary bladder</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" rel="noopener noreferrer">UBERON:0001255</a></td>
+<td>Neurogenic bladder (<a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>)</td>
+</tr>
+<tr>
+<td>Tissue</td>
+<td>CNS white matter / myelin</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0002316" target="_blank" rel="noopener noreferrer">UBERON:0002316</a></td>
+<td>Demyelinating lesions, oligodendroglial loss (<a href="https://pubmed.ncbi.nlm.nih.gov/39198924/">PMID: 39198924</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41245872/">PMID: 41245872</a>)</td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>Pancreatic β-cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000169" target="_blank" rel="noopener noreferrer">CL:0000169</a></td>
+<td>ER-stress apoptosis</td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>Retinal ganglion cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000740" target="_blank" rel="noopener noreferrer">CL:0000740</a></td>
+<td>Distinct-from-mitochondrial loss pattern</td>
+</tr>
+<tr>
+<td>Cell</td>
+<td>Oligodendrocyte</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" rel="noopener noreferrer">CL:0000128</a></td>
+<td>White-matter contribution</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Endoplasmic reticulum</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a></td>
+<td>Primary site of wolframin action</td>
+</tr>
+<tr>
+<td>Subcellular</td>
+<td>Mitochondria</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a></td>
+<td>Altered dynamics, downstream dysfunction</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Body systems:</strong> endocrine, nervous (central + autonomic + sensory), special sensory (visual, auditory, olfactory), genitourinary. <strong>Lateralization:</strong> manifestations are characteristically <strong>bilateral</strong> (bilateral optic atrophy, bilateral SNHL).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong> pediatric/childhood, insidious and progressive. Diabetes mellitus is typically the first manifestation (~age 6), followed over years by optic atrophy, central DI (~age 10), and SNHL (~age 8) (<a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">PMID: 23981289</a>).</p>
+<p><strong>Progression:</strong> chronically progressive across all domains — high-frequency hearing worsens over time with greater decline in younger patients (<a href="https://pubmed.ncbi.nlm.nih.gov/29945639/">PMID: 29945639</a>); visual acuity declines steadily (<a href="https://pubmed.ncbi.nlm.nih.gov/42597412/">PMID: 42597412</a>). No remission occurs; the course is monotonic and life-limiting.</p>
+<p><strong>Stages:</strong> (early) childhood diabetes + emerging optic atrophy → (intermediate) DI, SNHL, urologic and neurologic involvement → (advanced/end-stage) brainstem atrophy, bulbar/respiratory compromise.</p>
+<p><strong>Disease duration:</strong> chronic, lifelong. <strong>Critical intervention window:</strong> the early-childhood period around/before β-cell and neuronal loss is the presumed therapeutic window for ER-stress-modulating or regenerative approaches (inferred from mechanism; not yet clinically validated).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Ultra-rare. Commonly cited prevalence estimates are on the order of 1/500,000–1/770,000 in outbred populations; consanguineous founder clusters reach far higher local prevalence — a genetically confirmed Ecuadorian coastal cluster reported ~1/12,000, the highest worldwide, with WFS1 positive in 26 (69%) patients and 23 homozygous (<a href="https://pubmed.ncbi.nlm.nih.gov/41998697/">PMID: 41998697</a>). In a Pan-India monogenic diabetes study, Wolfram syndrome (n=15) was the most common syndromic form among youth-onset monogenic diabetes (<a href="https://pubmed.ncbi.nlm.nih.gov/40466744/">PMID: 40466744</a>).</p>
+<p><strong>Inheritance pattern.</strong> Predominantly <strong>autosomal recessive</strong> (biallelic <em>WFS1</em> or <em>CISD2</em>). "The transmission of the disease takes place in an autosomal recessive mode but autosomal dominant mutations responsible for WS-related disorders have been described" (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>). A milder <strong>autosomal dominant</strong> Wolfram-like spectrum exists — "autosomal dominantly inherited WFLS has a relatively mild phenotype compared to autosomal recessive WS" (<a href="https://pubmed.ncbi.nlm.nih.gov/36764396/">PMID: 36764396</a>).</p>
+<p><strong>Penetrance / expressivity.</strong> High/near-complete penetrance for the recessive form but <strong>highly variable expressivity</strong> — variable organ involvement and onset ages even within families. <strong>Anticipation:</strong> not a feature (not a repeat-expansion disorder). <strong>Founder effects / consanguinity:</strong> major drivers of regional prevalence (Ecuadorian exon-8 variants; Ashkenazi p.Arg558Cys; Palestinian <em>CISD2</em> c.109G&gt;C, carrier rate 1:40) (<a href="https://pubmed.ncbi.nlm.nih.gov/41998697/">PMID: 41998697</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">PMID: 42339507</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">PMID: 42524523</a>).</p>
+<p><strong>Demographics.</strong> No strong sex predilection reported for classic recessive WFS. Enriched in populations with high consanguinity. Age distribution skews pediatric-onset with adult progression.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical diagnosis</strong> rests on the <strong>DM + optic atrophy dyad</strong>, classically coexisting juvenile-onset diabetes mellitus and optic atrophy, confirmed molecularly (<a href="https://pubmed.ncbi.nlm.nih.gov/41411089/">PMID: 41411089</a>). Recognition of bilateral optic atrophy in an autoantibody-negative diabetic child prompts genetic testing: "Identifying the presence of bilateral optic atrophy in him during an ophthalmological evaluation led to a closer clinical assessment for Wolfram syndrome" (<a href="https://pubmed.ncbi.nlm.nih.gov/42392675/">PMID: 42392675</a>). Central diabetes insipidus (AVP deficiency) can serve as an <strong>early symptom-based screening indicator</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41080637/">PMID: 41080637</a>).</p>
+<p><strong>Laboratory features:</strong> early-onset, insulin-dependent, <strong>pancreatic-autoantibody-negative</strong> diabetes (distinguishes from autoimmune type 1); water-deprivation testing / low copeptin for central DI; audiometry (high-frequency SNHL first).</p>
+<p><strong>Imaging:</strong> MRI shows brainstem/cerebellar atrophy and white-matter abnormalities, including progressive, seemingly inflammatory demyelinating lesions in a subset (7/17; 41% with ≥1 MS-evocative lesion) (<a href="https://pubmed.ncbi.nlm.nih.gov/41245872/">PMID: 41245872</a>). OCT shows RNFL/ganglion-cell-layer thinning with a pattern distinct from mitochondrial optic neuropathies (<a href="https://pubmed.ncbi.nlm.nih.gov/35452662/">PMID: 35452662</a>).</p>
+<p><strong>Genetic testing (confirmatory).</strong> Biallelic <em>WFS1</em> variants on next-generation/whole-exome sequencing establish diagnosis; single-gene <em>WFS1</em> testing, targeted panels (monogenic diabetes / optic atrophy / hearing loss panels), WES, and WGS are all applicable. <em>CISD2</em> testing for WFS2.</p>
+<p><strong>Biomarkers.</strong> Serum/plasma <strong>neurofilament light chain (NfL)</strong> is elevated, reflecting ongoing slow neurodegeneration, though it does not correlate with current clinical/neuroimaging metrics and has limited utility as a progression monitor (<a href="https://pubmed.ncbi.nlm.nih.gov/35495027/">PMID: 35495027</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41929703/">PMID: 41929703</a>). <strong>Pancreatic stone protein/regenerating protein (PSP/reg)</strong> is a candidate circulating marker of ER-stressed β-cells: "PSP/reg levels are elevated in cell culture and mouse models of Wolfram syndrome, a prototype of ER stress-induced diabetes" (<a href="https://pubmed.ncbi.nlm.nih.gov/30914711/">PMID: 30914711</a>). Brain metabolites and mitochondrial DNA copy number are under investigation (<a href="https://pubmed.ncbi.nlm.nih.gov/42042926/">PMID: 42042926</a>).</p>
+<p><strong>Differential diagnosis:</strong> type 1 diabetes (autoimmune, autoantibody-positive); genetic optic neuropathies — OPA1-related dominant optic atrophy, Leber hereditary optic neuropathy (LHON), POLG-related optic neuropathy ("mutations in OPA1 (n=9), WFS1 (n=7), POLG (n=3)... LHON (n=17)") (<a href="https://pubmed.ncbi.nlm.nih.gov/41411089/">PMID: 41411089</a>); other monogenic/syndromic diabetes (MODY, mitochondrial MIDD).</p>
+<p><strong>Screening:</strong> cascade genetic testing of relatives; carrier screening in founder populations; consider <em>WFS1</em> in the genetic evaluation of autoantibody-negative early-onset diabetes even without full syndromic features (<a href="https://pubmed.ncbi.nlm.nih.gov/41613956/">PMID: 41613956</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Prognosis is poor and life-limiting.</strong> "Prognosis is poor, death occurs at the median age of 39 years with a major cause represented by respiratory failure as a consequence of brain stem atrophy and neurodegeneration" (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>).</p>
+<p><strong>Morbidity/disability:</strong> progressive blindness, deafness, insulin-dependent diabetes, neurogenic bladder, peripheral neuropathy, and neuropsychiatric burden accumulate to severe multi-domain disability. <strong>Complications:</strong> diabetic complications, recurrent urinary tract infections (neurogenic bladder), aspiration and respiratory compromise from bulbar/brainstem involvement.</p>
+<p><strong>Prognostic factors:</strong> genotype (out-of-frame/truncating variants → earliest onset, presumptively worse trajectory; in-frame extramembrane variants → milder course) (<a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">PMID: 42524523</a>). Prompt diagnosis and multidisciplinary management decrease morbidity/mortality via prevention/treatment of complications (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>). Candidate prognostic biomarkers (NfL, PSP/reg) remain investigational.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>No disease-modifying therapy exists.</strong> "There is currently no treatment to delay, halt, or reverse the progression of Wolfram syndrome, raising the urgency for innovative therapeutics for this disease" (<a href="https://pubmed.ncbi.nlm.nih.gov/31420094/">PMID: 31420094</a>). Care is <strong>multidisciplinary and supportive</strong>, now guided by the first international consensus: all 35 Delphi statements reached ≥80% agreement across diagnosis/genetics, neuro-ophthalmology, neurology, endocrinology, urology, gastroenterology, and psychiatry (<a href="https://pubmed.ncbi.nlm.nih.gov/42428113/">PMID: 42428113</a>).</p>
+<p><strong>Pharmacotherapy / supportive (NCIT-suggested):</strong>
+- <strong>Insulin</strong> (NCIT:C2271) — all WFS patients with DM require insulin.
+- <strong>Desmopressin/DDAVP</strong> for central diabetes insipidus.
+- Hearing aids / cochlear implants; low-vision rehabilitation; bladder management (intermittent catheterization, anticholinergics); psychiatric care.</p>
+<p><strong>GLP-1 receptor agonists (NCIT:C98005 class):</strong> improve glycemia in some patients (a New Zealand cohort reported HbA1c fall and insulin-dose reduction — <a href="https://pubmed.ncbi.nlm.nih.gov/42324630/">PMID: 42324630</a>), but the largest evaluation (n=84; 35.7% on GLP-1 RA) found "No statistically significant changes in HbA1c or body mass index... at one or two years. Best-corrected visual acuity (LogMAR) declined significantly at two years, consistent with expected disease progression" — i.e., <strong>no proven neuroprotective/visual benefit</strong>, with GI adverse effects in 56.7% (<a href="https://pubmed.ncbi.nlm.nih.gov/42597412/">PMID: 42597412</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41959758/">PMID: 41959758</a>).</p>
+<p><strong>Experimental / disease-modifying (investigational):</strong>
+- <strong>Dantrolene sodium</strong> (ryanodine-receptor/ER-Ca²⁺ stabilizer): first-ever Wolfram interventional trial (phase Ib/IIa, open-label). "Dantrolene sodium was well tolerated by Wolfram syndrome patients. Overall, β cell functions were not significantly improved"; visual and neurological functions were not improved at 6 months (<a href="https://pubmed.ncbi.nlm.nih.gov/34185708/">PMID: 34185708</a>).
+- Pipeline strategies under development: ER-homeostasis/chemical-chaperone modulators, gene therapy, and regenerative/β-cell replacement approaches (<a href="https://pubmed.ncbi.nlm.nih.gov/37181110/">PMID: 37181110</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/31420094/">PMID: 31420094</a>).</p>
+<p><strong>Pharmacogenomics / personalized medicine:</strong> genotype-guided prognostication (severity scoring) is emerging; no established pharmacogenomic dosing rules.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p>There is <strong>no primary prevention</strong> for this monogenic disease other than reproductive genetic counseling. Key measures:</p>
+<ul>
+<li><strong>Genetic counseling</strong> (autosomal recessive; 25% recurrence risk for carrier couples), especially important in consanguineous and founder populations (<a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">PMID: 31337416</a>).</li>
+<li><strong>Carrier screening</strong> in founder populations (e.g., Ashkenazi p.Arg558Cys; Palestinian <em>CISD2</em>).</li>
+<li><strong>Prenatal / preimplantation genetic testing</strong> available once familial variants are known.</li>
+<li><strong>Cascade genetic testing</strong> of at-risk relatives.</li>
+<li><strong>Secondary prevention (early detection):</strong> consider <em>WFS1</em> in autoantibody-negative early-onset diabetes; symptom-based screening using DI as an early indicator (<a href="https://pubmed.ncbi.nlm.nih.gov/41080637/">PMID: 41080637</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41613956/">PMID: 41613956</a>).</li>
+<li><strong>Tertiary prevention:</strong> multidisciplinary management to prevent/treat complications and reduce morbidity/mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/42428113/">PMID: 42428113</a>).</li>
+</ul>
+<p>Immunization and public-health/environmental interventions are <strong>not applicable</strong> (non-infectious, non-environmental).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy / orthologs:</strong> <em>WFS1</em> is conserved across mammals; mouse <em>Wfs1</em> (NCBI Gene 22393) and rat orthologs exist, plus zebrafish orthologs used in modeling. <em>CISD2</em> (WFS2) is likewise conserved.</li>
+<li><strong>Natural disease:</strong> No well-characterized naturally occurring companion-animal Wolfram syndrome analog is established in the reviewed literature; the disease is studied primarily through engineered models rather than spontaneous animal disease.</li>
+<li><strong>Comparative biology:</strong> Rodent <em>Wfs1</em> models recapitulate ER-stress-driven β-cell apoptosis and diabetes and white-matter/RGC phenotypes, supporting evolutionary conservation of the disease mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">PMID: 16215705</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39198924/">PMID: 39198924</a>).</li>
+<li><strong>Transmission:</strong> Not applicable (genetic, non-zoonotic).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Key phenotype recapitulation</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>β-cell-conditional <em>Wfs1</em> KO mouse (RIP2-Cre; floxed exon 8)</td>
+<td>Mammalian, conditional KO</td>
+<td>Progressive glucose intolerance &amp; insulin deficiency by ~12 wk; ↓β-cell mass, ↑apoptosis, ↑BiP, dilated ER, fewer secretory granules</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">PMID: 16215705</a></td>
+</tr>
+<tr>
+<td><em>Wfs1</em>-knockdown MIN6 insulinoma line</td>
+<td>In vitro cellular</td>
+<td>↑apoptosis, ↑BiP and CHOP (UPR/ER-stress markers)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">PMID: 16215705</a></td>
+</tr>
+<tr>
+<td>Mutant-<em>WFS1</em>-transfected MIN6</td>
+<td>In vitro cellular</td>
+<td>↑p-PERK, XBP1s, ATF4, pIRE1α; proinsulin accumulation, ↑proinsulin/insulin ratio</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41896889/">PMID: 41896889</a></td>
+</tr>
+<tr>
+<td>Whole-body <em>Wfs1</em> rodent &amp; patient iPSC-derived models</td>
+<td>Mammalian / cellular</td>
+<td>White-matter/oligodendroglial and retinal-ganglion-cell phenotypes; optic neuropathy/neurodegeneration</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39198924/">PMID: 39198924</a></td>
+</tr>
+<tr>
+<td>β-cell-specific <em>Cisd2</em> KO mouse (WFS2 model)</td>
+<td>Mammalian, conditional KO</td>
+<td>Impaired insulin secretion, disrupted Ca²⁺ handling</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40189101/">PMID: 40189101</a></td>
+</tr>
+<tr>
+<td>WFS2 patient fibroblasts</td>
+<td>In vitro cellular</td>
+<td>↑mitochondrial labile iron (+25%), ↑mitochondrial ROS (+28%); ER/mito damage partially reversible with deferiprone + N-acetylcysteine</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">PMID: 42339507</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Documented evidence: "Analysis of islets from betaWfs(-/-) mice revealed a reduction in beta cell mass, enhanced apoptosis, elevation of a marker of endoplasmic reticulum stress (immunoglobulin heavy chain-binding protein [BiP]), and dilated endoplasmic reticulum with decreased secretory granules by electron microscopy" and "WfsKD cell lines had significantly increased apoptosis and elevated expression of the genes encoding BiP and C/EBP-homologous protein (CHOP)" (<a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">PMID: 16215705</a>).</p>
+<p><strong>Recapitulation &amp; limitations:</strong> Mouse and cellular <em>Wfs1</em> models faithfully reproduce ER-stress-driven β-cell failure and key neurodegenerative features (RGC/white-matter), making them strong platforms for β-cell and optic-neuropathy studies. Limitations include incomplete modeling of the full human multi-system temporal sequence and of the late brainstem/respiratory endpoint. iPSC-derived neurons/organoids enable patient-specific, human-context study of neurodegeneration.</p>
+<p><strong>Wolfram syndrome type 2 (CISD2/WFS2) — a distinct allelic disease.</strong> WFS2 is caused by recessive <em>CISD2</em> mutations and operates through <strong>mitochondrial iron and ROS toxicity</strong> rather than the primary ER-stress/UPR mechanism of WFS1: "Patient fibroblasts exhibited profound mitochondrial and endoplasmic reticulum damage, with increased mLI (+25%, p &lt; 0.0001) and mROS (+28%, p &lt; 0.0001)" (<a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">PMID: 42339507</a>). WFS2 features "childhood-onset, autoantibody-negativity and insulin-deficiency" diabetes (<a href="https://pubmed.ncbi.nlm.nih.gov/40189101/">PMID: 40189101</a>) plus GI bleeding, platelet dysfunction, psychiatric morbidity, and congenital heart defects; a Palestinian founder mutation (<em>CISD2</em> c.109G&gt;C, carrier rate 1:40) exemplifies its founder epidemiology.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The 17 confirmed findings converge on a single, internally consistent model of an <strong>ER-stress neurodegenerative/neuro-endocrine disease</strong>. The unifying logic is that wolframin normally buffers ER calcium and resolves the UPR; without it, the cells with the greatest secretory/metabolic ER load — insulin-secreting β-cells, AVP-secreting hypothalamic neurons, and high-firing/high-metabolic retinal ganglion, cochlear, and brainstem neurons — cannot cope with chronic ER stress and die by apoptosis. This elegantly explains the otherwise disparate DIDMOAD tetrad as tissue-specific readouts of a shared subcellular lesion. The oligodendroglial/white-matter branch adds a non-cell-autonomous dimension that helps account for the broader neurodegenerative and MRI findings.</p>
+<p>The genotype–severity data (<a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">PMID: 42524523</a>) reinforce a dose-of-function model: truncating variants abolishing wolframin cause the earliest, most severe disease, whereas in-frame variants that preserve partial function (Ashkenazi p.Arg558Cys) are milder. The therapeutic corollary — and the field's central challenge — is that by the time of diagnosis, irreversible cell loss has occurred, and both dantrolene (ER-Ca²⁺ stabilization) and GLP-1 RAs (β-cell support) have failed to alter the neurodegenerative trajectory. This motivates earlier intervention windows and mechanistically upstream strategies (chaperones, gene therapy, regenerative β-cell approaches).</p>
+<hr />
+<h2>Evidence Base — Key Literature</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25764693/">25764693</a></td>
+<td>Defines disorder, DIDMOAD, OMIM 222300, recessive <em>WFS1</em>, wolframin ER function</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37181110/">37181110</a></td>
+<td>Ultra-rare progressive neurodegeneration; pathophysiology &amp; therapeutic strategies</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27434582/">27434582</a></td>
+<td>ER stress → IP3R/Ca²⁺ → mitochondrial dynamics causal chain</td>
+<td>In vitro/model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28271591/">28271591</a></td>
+<td>Constitutive ER stress &amp; apoptosis from mutant WFS1</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41896889/">41896889</a></td>
+<td>Multi-arm UPR activation + impaired proinsulin processing; isolated diabetes</td>
+<td>In vitro/clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36764396/">36764396</a></td>
+<td>Dominant Wolfram-like spectrum; phenotype frequencies; genotype-phenotype</td>
+<td>Systematic review (n=86)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41998697/">41998697</a></td>
+<td>Ecuadorian founder cluster; recessive/consanguineous epidemiology</td>
+<td>Cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23981289/">23981289</a></td>
+<td>Phenotype frequencies &amp; ages of onset</td>
+<td>Natural-history cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29945639/">29945639</a></td>
+<td>Longitudinal SNHL prevalence/progression</td>
+<td>Natural-history cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42524523/">42524523</a></td>
+<td>Genotype-based severity scoring (n=324); Ashkenazi allele</td>
+<td>Cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42597412/">42597412</a></td>
+<td>GLP-1 RA: no glycemic/visual benefit (largest cohort)</td>
+<td>Cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42428113/">42428113</a></td>
+<td>First international Delphi consensus management guidelines</td>
+<td>Consensus</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42339507/">42339507</a></td>
+<td>WFS2/CISD2 mitochondrial iron/ROS toxicity</td>
+<td>Cohort/in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40189101/">40189101</a></td>
+<td>CISD2 Ca²⁺ handling; WFS2 diabetes</td>
+<td>Model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31337416/">31337416</a></td>
+<td>Prognosis (median death ~39 yr, respiratory failure); AR inheritance</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35452662/">35452662</a></td>
+<td>RGC loss pattern distinct from mitochondrial optic neuropathies</td>
+<td>Clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39198924/">39198924</a></td>
+<td>Oligodendroglial/white-matter role</td>
+<td>Mouse+iPSC</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16215705/">16215705</a></td>
+<td>β-cell-conditional KO mouse &amp; MIN6 knockdown models</td>
+<td>Model/in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35495027/">35495027</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41929703/">41929703</a></td>
+<td>Elevated NfL biomarker (limited monitoring utility)</td>
+<td>Clinical</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30914711/">30914711</a></td>
+<td>PSP/reg ER-stress β-cell biomarker</td>
+<td>Model/in vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34185708/">34185708</a></td>
+<td>Dantrolene phase Ib/IIa: safe but ineffective</td>
+<td>Clinical trial</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31420094/">31420094</a></td>
+<td>No disease-modifying therapy; treatment landscape</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41411089/">41411089</a></td>
+<td>Optic-atrophy genetic differential (OPA1/POLG/LHON)</td>
+<td>Case-control</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42392675/">42392675</a></td>
+<td>Diagnostic dyad triggering genetic testing</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41245872/">41245872</a></td>
+<td>Expanded white-matter/demyelinating MRI spectrum</td>
+<td>Retrospective</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40466744/">40466744</a></td>
+<td>WFS most common syndromic monogenic diabetes (Pan-India)</td>
+<td>Cohort</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Ultra-rarity limits cohort size and statistical power.</strong> Most phenotype-frequency figures derive from single-center cohorts (n≈18–40); confidence intervals are wide and generalizability across ancestries is uncertain.</li>
+<li><strong>Prevalence estimates are imprecise</strong> and heavily influenced by founder/consanguineous clusters; true global incidence remains poorly quantified.</li>
+<li><strong>Biomarker validation incomplete.</strong> NfL is elevated but does not correlate with clinical/imaging metrics, limiting its use as a progression monitor; PSP/reg data are largely preclinical. Robust surrogate endpoints for trials are lacking.</li>
+<li><strong>Mechanistic gaps in cell-type selectivity.</strong> Why specific neuronal populations (RGC, AVP, brainstem) and β-cells are preferentially vulnerable is not fully explained beyond secretory/metabolic load; the oligodendroglial contribution is newly recognized and incompletely mapped.</li>
+<li><strong>No effective therapy.</strong> Two rational strategies (dantrolene; GLP-1 RAs) failed to modify neurodegeneration, and the therapeutic window/optimal intervention timing is undefined.</li>
+<li><strong>Quality-of-life and long-term natural-history data are sparse</strong>, particularly per-phenotype QOL instruments and adult/end-stage trajectories.</li>
+<li><strong>Modifier genetics beyond primary genotype</strong> and any epigenetic contributions are essentially unstudied.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective multinational natural-history registry</strong> with harmonized OCT, audiometry, MRI (including white-matter/demyelination protocols), and serial NfL/PSP-reg to define progression rates and validate surrogate endpoints.</li>
+<li><strong>Trial-ready biomarker qualification:</strong> longitudinal NfL, PSP/reg, brain metabolites, and mtDNA copy number as treatment-response markers; test whether combined panels correlate with imaging progression.</li>
+<li><strong>Earlier-window interventional trials:</strong> ER chaperones/UPR modulators (e.g., chemical chaperones), and <em>WFS1</em> gene therapy / gene editing, initiated before substantial cell loss (childhood), using genotype (severity score) for stratification.</li>
+<li><strong>Regenerative/β-cell approaches:</strong> iPSC-derived, gene-corrected β-cell or neuron transplantation studies to test cell replacement in the ER-stress context.</li>
+<li><strong>Mechanistic dissection of oligodendroglial vulnerability</strong> using patient iPSC-derived oligodendrocyte and organoid co-culture models to test whether myelin protection slows optic/CNS neurodegeneration.</li>
+<li><strong>WFS2-specific translation:</strong> evaluate iron chelation (deferiprone) + antioxidant (N-acetylcysteine) combinations clinically, given partial reversibility of mitochondrial iron/ROS toxicity in fibroblasts.</li>
+<li><strong>Expand carrier/cascade screening</strong> in founder populations and integrate <em>WFS1</em> into monogenic-diabetes and optic-atrophy gene panels to improve early diagnosis and counseling.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 17 confirmed findings and 41 reviewed papers over 5 investigative iterations. Evidence types span human clinical cohorts, model organism (mouse/iPSC) studies, in vitro experiments, and systematic reviews, as annotated throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/WFS1-Related_Disorder-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/WFS1-Related_Disorder-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>33</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>11</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0700293</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>WFS1-related disorder</strong></li>
+<li><code>HP:0000819</code> (1 mention) - the report calls it "Diabetes mellitus (insulin-dependent, autoantibody-negative)"; HP calls it <strong>Diabetes mellitus</strong></li>
+<li><code>HP:0000648</code> (1 mention) - the report calls it "Optic atrophy / disc pallor, color-vision defect"; HP calls it <strong>Optic atrophy</strong></li>
+<li><code>HP:0000458</code> (1 mention) - the report calls it "Olfactory defect"; HP calls it <strong>Anosmia</strong></li>
+<li><code>HP:0002508</code> (1 mention) - the report calls it "Brainstem atrophy / neurodegeneration"; HP calls it <strong>Brainstem dysplasia</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000873</code> (1 mention) - the report calls it "Central diabetes insipidus"; HP calls it <strong>Diabetes insipidus</strong></li>
+<li><code>HP:0002495</code> (1 mention) - the report calls it "Impaired vibration sensation (peripheral neuropathy)"; HP calls it <strong>Impaired vibratory sensation</strong></li>
+<li><code>HP:0000011</code> (1 mention) - the report calls it "Neurogenic bladder / elevated post-void residual"; HP calls it <strong>Neurogenic bladder</strong></li>
+<li><code>HP:0000708</code> (1 mention) - the report calls it "Psychiatric features (depression, anxiety)"; HP calls it <strong>Atypical behavior</strong>, and lists "Psychiatric disorders" among its other names</li>
+<li><code>GO:0005739</code> (2 mentions) - the report calls it "Mitochondria"; GO calls it <strong>mitochondrion</strong>, and lists "mitochondria" among its other names</li>
+<li><code>CL:0000169</code> (2 mentions) - the report calls it "Pancreatic β-cell"; CL calls it <strong>type B pancreatic cell</strong>, and lists "pancreatic B-cell" among its other names</li>
+<li><code>UBERON:0000006</code> (1 mention) - the report calls it "Endocrine pancreas (islets)"; UBERON calls it <strong>islet of Langerhans</strong>, and lists "pancreatic islet" among its other names</li>
+<li><code>UBERON:0000941</code> (1 mention) - the report calls it "Optic nerve"; UBERON calls it <strong>cranial nerve II</strong>, and lists "optic nerve" among its other names</li>
+<li><code>UBERON:0001898</code> (1 mention) - the report calls it "Hypothalamus (AVP neurons)"; UBERON calls it <strong>hypothalamus</strong></li>
+<li><code>UBERON:0001844</code> (1 mention) - the report calls it "Cochlea / inner ear"; UBERON calls it <strong>cochlea</strong>, and lists "cochlear organ" among its other names</li>
+<li><code>UBERON:0002316</code> (1 mention) - the report calls it "CNS white matter / myelin"; UBERON calls it <strong>white matter</strong>, and lists "CNS white matter" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Weiss-Kruszka_Syndrome-perplexity.html">← Weiss-Kruszka Syndrome (Perplexity)</a>
+                
+                
+                <a href="WHIM_Syndrome_1-openscientist.html">WHIM Syndrome 1 (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/WFS1-Related_Disorder.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/WFS1-Related_Disorder-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

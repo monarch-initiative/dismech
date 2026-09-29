@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4273,6 +4350,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4294,6 +4372,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4386,6 +4465,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4445,6 +4525,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4595,6 +4676,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4730,6 +4812,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4764,6 +4847,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hspg2-hypomorphic-variation" data-dismech-node="HSPG2 Hypomorphic Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">HSPG2 Hypomorphic Variation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic partial loss-of-function variants distributed across the 97 exons of HSPG2 are the initiating lesion. Two molecularly distinct routes reduce the amount of functional perlecan reaching the extracellular space: truncating alleles destabilize HSPG2 mRNA through nonsense-mediated decay, while missense alleles affecting cysteine residues cause intracellular retention of the mutant core protein by ER quality control. Crucially, these are hypomorphic rather than null alleles — the same gene&#39;s functional null alleles cause dyssegmental dysplasia, Silverman-Handmaker type.</div>
 
@@ -4860,6 +4950,8 @@ This genetic context concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4872,6 +4964,9 @@ This genetic context concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous or compound heterozygous hypomorphic germline HSPG2 alleles; compound heterozygosity is common because almost all reported mutations are private.</div>
 
@@ -4921,6 +5016,7 @@ This genetic context concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4942,6 +5038,7 @@ This genetic context concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4969,6 +5066,7 @@ This genetic context concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4991,6 +5089,13 @@ This genetic context concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the HU
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-perlecan-secretion-into-basement-membranes" data-dismech-node="Reduced Perlecan Secretion into Basement Membranes" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Perlecan Secretion into Basement Membranes</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Perlecan is the major heparan sulfate proteoglycan of basement membranes and of the cartilage pericellular matrix. Reduced secretion lowers its concentration in basement membranes throughout the body, and the residual level sets disease severity: perlecan abundance and phenotype severity are inversely correlated in allelic mouse lines, and complete absence produces the lethal DDSH phenotype instead. From this single molecular deficit the pathograph branches into an ECM/cartilage arm and a synaptic/neuromuscular arm.</div>
 
@@ -5156,6 +5261,7 @@ This pathophysiological event involves decreased basement membrane (GO:0005604).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5177,6 +5283,7 @@ This pathophysiological event involves decreased basement membrane (GO:0005604).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5204,6 +5311,7 @@ This pathophysiological event involves decreased basement membrane (GO:0005604).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5226,6 +5334,13 @@ This pathophysiological event involves decreased basement membrane (GO:0005604).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fiber-type-specific-myostatin-and-akt-mtorc1-dysregulation" data-dismech-node="Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A signalling account of the muscle-bulk changes in perlecan deficiency that is separate from, and potentially additive to, the neuromuscular-hyperactivity account of hypertrophy. Perlecan is a myostatin-binding basement-membrane proteoglycan, so its loss reduces myostatin (TGF-beta family) growth restraint and drives hypertrophy selectively in fast-twitch muscle; in slow-twitch muscle the same deficit is associated instead with reduced Akt/mTORC1 signalling and disinhibited autophagy, producing atrophy. The entry records this as PROVISIONAL and the atrophy arm explicitly as hypothesised, because the source itself hedges the Akt/mTORC1-autophagy limb (&#34;possibly through&#34;) and because the fibre-type dissection rests on mouse work rather than on SJS patient muscle. Curated so the entry does not silently assert only the weaker of the two available explanations for the Skeletal Muscle Hypertrophy phenotype.</div>
 
@@ -5438,6 +5553,7 @@ This pathophysiological event involves increased autophagy (disinhibited in slow
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5460,6 +5576,13 @@ This pathophysiological event involves increased autophagy (disinhibited in slow
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endplate-acetylcholinesterase-deficiency" data-dismech-node="Endplate Acetylcholinesterase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Endplate Acetylcholinesterase Deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Perlecan tethers acetylcholinesterase in the synaptic basal lamina of the neuromuscular junction. In SJS the postsynaptic apparatus is structurally well formed, but synaptic AChE is deficient, so acetylcholine released at the endplate is cleared too slowly and its action is prolonged. This is a synapse-specific consequence of the same basement-membrane perlecan deficit, and is the mechanism that distinguishes SJS from the muscle chloride- and sodium-channel myotonias.</div>
 
@@ -5647,6 +5770,7 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5668,6 +5792,7 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5693,6 +5818,13 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-peripheral-nerve-hyperexcitability-and-junctional-remodeling" data-dismech-node="Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The neuromuscular arm of SJS behaves as a congenital distal peripheral nerve hyperexcitability rather than as a myopathy or a nerve-trunk neuropathy. Nerve conduction along the trunk, neuromuscular transmission and compound nerve action potentials are normal, while the preterminal axon shows long non-myelinated segments and the synaptic gutters are denervated and reinnervated by terminal sprouting. Needle EMG detects complex repetitive discharges without transmission failure.</div>
 
@@ -5831,6 +5963,7 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5852,6 +5985,7 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5879,6 +6013,7 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5901,6 +6036,13 @@ This pathophysiological event occurs in neuromuscular junction (GO:0031594). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-continuous-muscle-fiber-hyperactivity" data-dismech-node="Continuous Muscle Fiber Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Continuous Muscle Fiber Hyperactivity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sustained involuntary activity of skeletal muscle fibers produces the permanent myotonia (prolonged failure of muscle relaxation), generalized stiffness and percussion myotonia that define the disorder clinically, and contributes with the skeletal arm to fixed joint contractures and the characteristic facial appearance.</div>
 
@@ -6031,6 +6173,7 @@ This pathophysiological event involves increased skeletal muscle contraction (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6052,6 +6195,7 @@ This pathophysiological event involves increased skeletal muscle contraction (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6077,6 +6221,13 @@ This pathophysiological event involves increased skeletal muscle contraction (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-pericellular-matrix-failure-and-impaired-chondrocyte-condensation" data-dismech-node="Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Perlecan is deposited in the pericellular matrix surrounding chondrocytes, where domain IV of the core protein drives prechondrocyte clustering — the condensation step that initiates cartilage formation — through deactivation of FAK/Src and reduced ERK signaling, with induction of Sox9, N-cadherin, collagen II and aggrecan. An SJS-associated domain IV missense change (R3452Q) limits this clustering activity, and SJS-associated mutations in the disulfide-rich region 3 destabilize the protein.</div>
 
@@ -6253,6 +6404,7 @@ This pathophysiological event involves abnormal chondrocyte differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6274,6 +6426,7 @@ This pathophysiological event involves abnormal chondrocyte differentiation (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6301,6 +6454,7 @@ This pathophysiological event involves abnormal chondrocyte differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6323,6 +6477,13 @@ This pathophysiological event involves abnormal chondrocyte differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chondrodysplasia-and-skeletal-deformity" data-dismech-node="Chondrodysplasia and Skeletal Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Chondrodysplasia and Skeletal Deformity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The skeletal arm of the disorder: reduced stature, kyphoscoliosis, bowing of the diaphyses, irregular epiphyses and joint contractures, with growth-plate disorganization. In perlecan-hypomorphic mice the same reduction produces smaller size, impaired mineralization, misshapen bones, a flat face and joint dysplasia, together with transient expansion of hypertrophic cartilage in the growth plate.</div>
 
@@ -6500,6 +6661,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6524,6 +6686,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6545,6 +6708,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6593,7 +6757,7 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATDC5 prechondrocyte clustering assay with perlecan domain IV constructs\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"ATDC5 cells, a model of early chondrogenesis, exposed to recombinant perlecan domain IV subdomain (HSPG2 IV-3) with and without the SJS-associated R3452Q substitution, reading out prechondrocyte clustering and condensation markers.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:30203597\"}}, {\"id\": \"Blepharospasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary eyelid closure that can significantly limit daily activities and is a principal target of botulinum toxin treatment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000643\"}}, {\"id\": \"Botulinum Toxin Type A Injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Local chemodenervation of overactive facial muscles. Reported to produce significant clinical improvement in a patient with SJS type 1A whose difficulty opening the eyes and mouth was limiting daily activity; dose and interval must be individually tailored, and pediatric dosing kept minimal.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"botulinum toxin type A\"]}}, {\"id\": \"Carbamazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking antiepileptic used off-label as an antimyotonic; a reported case showed reduced muscle rigidity and improved motor skills within about six weeks of starting oral therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perlecan is deposited in the pericellular matrix surrounding chondrocytes, where domain IV of the core protein drives prechondrocyte clustering \\u2014 the condensation step that initiates cartilage formation \\u2014 through deactivation of FAK/Src and reduced ERK signaling, with induction of Sox9, N-cadherin, collagen II and aggrecan. An SJS-associated domain IV missense change (R3452Q) limits this clustering activity, and SJS-associated mutations in the disulfide-rich region 3 destabilize the protein.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"cartilage development\", \"chondrocyte differentiation\"], \"experimental_models\": [{\"name\": \"ATDC5 prechondrocyte clustering assay with perlecan domain IV constructs\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Introducing the SJS patient allele into the domain IV construct reduces its clustering activity, connecting the mutation to the condensation step.\"}]}}, {\"id\": \"Chondrodysplasia and Skeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal arm of the disorder: reduced stature, kyphoscoliosis, bowing of the diaphyses, irregular epiphyses and joint contractures, with growth-plate disorganization. In perlecan-hypomorphic mice the same reduction produces smaller size, impaired mineralization, misshapen bones, a flat face and joint dysplasia, together with transient expansion of hypertrophic cartilage in the growth plate.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hypertrophic chondrocyte\"], \"biological_processes\": [\"ossification\", \"bone development\"], \"animal_models\": [{\"name\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in retaining the Neo selection cassette (C1532Yneo)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced perlecan secretion produces a skeletal phenotype characteristic of SJS patients, with growth-plate changes.\"}, {\"name\": \"Perlecan C1532Y point-mutation-only mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in without the Neo cassette (C1532Y)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Mice carrying only the SJS-associated C1532Y substitution show a mild phenotype inconsistent with SJS.\"}]}}, {\"id\": \"Continuous Muscle Fiber Hyperactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained involuntary activity of skeletal muscle fibers produces the permanent myotonia (prolonged failure of muscle relaxation), generalized stiffness and percussion myotonia that define the disorder clinically, and contributes with the skeletal arm to fixed joint contractures and the characteristic facial appearance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"skeletal muscle contraction\"], \"animal_models\": [{\"name\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in retaining the Neo selection cassette (C1532Yneo)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The line reproduces SJS neuromyotonia with spontaneous EMG activity.\"}]}}, {\"id\": \"Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neuromuscular arm of SJS behaves as a congenital distal peripheral nerve hyperexcitability rather than as a myopathy or a nerve-trunk neuropathy. Nerve conduction along the trunk, neuromuscular transmission and compound nerve action potentials are normal, while the preterminal axon shows long non-myelinated segments and the synaptic gutters are denervated and reinnervated by terminal sprouting. Needle EMG detects complex repetitive discharges without transmission failure.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\", \"Schwann cell\"], \"locations\": [\"neuromuscular junction\"]}}, {\"id\": \"Endplate Acetylcholinesterase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perlecan tethers acetylcholinesterase in the synaptic basal lamina of the neuromuscular junction. In SJS the postsynaptic apparatus is structurally well formed, but synaptic AChE is deficient, so acetylcholine released at the endplate is cleared too slowly and its action is prolonged. This is a synapse-specific consequence of the same basement-membrane perlecan deficit, and is the mechanism that distinguishes SJS from the muscle chloride- and sodium-channel myotonias.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"molecular_functions\": [\"acetylcholinesterase activity\"], \"locations\": [\"neuromuscular junction\"], \"animal_models\": [{\"name\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in retaining the Neo selection cassette (C1532Yneo)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Endplate AChE is reduced as a direct consequence of synaptic perlecan deficiency, with an otherwise intact junction.\"}]}}, {\"id\": \"Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A signalling account of the muscle-bulk changes in perlecan deficiency that is separate from, and potentially additive to, the neuromuscular-hyperactivity account of hypertrophy. Perlecan is a myostatin-binding basement-membrane proteoglycan, so its loss reduces myostatin (TGF-beta family) growth restraint and drives hypertrophy selectively in fast-twitch muscle; in slow-twitch muscle the same deficit is associated instead with reduced Akt/mTORC1 signalling and disinhibited autophagy, producing atrophy. The entry records this as PROVISIONAL and the atrophy arm explicitly as hypothesised, because the source itself hedges the Akt/mTORC1-autophagy limb (\\\"possibly through\\\") and because the fibre-type dissection rests on mouse work rather than on SJS patient muscle. Curated so the entry does not silently assert only the weaker of the two available explanations for the Skeletal Muscle Hypertrophy phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"myostatin (TGF-beta family) receptor signaling\", \"Akt/mTORC1 signaling in slow-twitch muscle\", \"TOR signaling\", \"autophagy (disinhibited in slow-twitch muscle)\"]}}, {\"id\": \"Flecainide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Class Ic sodium-channel-blocking antiarrhythmic listed among the pharmacologic agents commonly used to reduce myotonic symptoms in SJS.\", \"meta\": {\"therapeutic_agents\": [\"flecainide\"]}}, {\"id\": \"HSPG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSPG2\"], \"gene_terms\": [{\"label\": \"HSPG2\", \"id\": \"hgnc:5273\"}], \"frequency\": \"The only gene known to cause Schwartz-Jampel syndrome; almost all reported alleles are private, with no founder effect identified.\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HSPG2 Hypomorphic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic partial loss-of-function variants distributed across the 97 exons of HSPG2 are the initiating lesion. Two molecularly distinct routes reduce the amount of functional perlecan reaching the extracellular space: truncating alleles destabilize HSPG2 mRNA through nonsense-mediated decay, while missense alleles affecting cysteine residues cause intracellular retention of the mutant core protein by ER quality control. Crucially, these are hypomorphic rather than null alleles \\u2014 the same gene\u0027s functional null alleles cause dyssegmental dysplasia, Silverman-Handmaker type.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSPG2\"], \"gene_terms\": [{\"label\": \"HSPG2\", \"id\": \"hgnc:5273\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous hypomorphic germline HSPG2 alleles; compound heterozygosity is common because almost all reported mutations are private.\", \"gene_terms\": [{\"label\": \"HSPG2\", \"id\": \"hgnc:5273\"}]}}}, {\"id\": \"Lamotrigine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking antiepileptic listed among the pharmacologic agents commonly used to reduce myotonic symptoms in SJS.\", \"meta\": {\"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mexiletine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking antiarrhythmic used as an antimyotonic agent, one of the pharmacologic options commonly used to reduce myotonic symptoms in SJS.\", \"meta\": {\"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"Non-Pharmacologic Physical Modalities\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warming, massage, pre-exercise warm-up and gradual stretching, used in combination with antimyotonic medication to reduce stiffness. Reported in the SJS management literature rather than trialed.\"}, {\"id\": \"Oculoplastic Surgery for Blepharophimosis and Blepharospasm\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Myectomy, levator resection and lateral canthopexy for the eyelid anomalies and facial spasm, reported to give excellent and long-lasting relief. Outcomes in SJS specifically are mixed \\u2014 one molecularly confirmed patient underwent blepharophimosis surgery without significant improvement. Anesthetic and surgical risk is materially raised in SJS (see the Malignant Hyperthermia phenotype), which is why this is not a first-line option.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Perlecan C1532Y point-mutation-only mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The control arm of the same knock-in series, carrying only the human SJS missense change. Its mild phenotype is a substantive negative result: it implies that the point mutation alone is not sufficient to produce the SJS skeletal phenotype in mouse, and that transcriptional down-regulation of perlecan is what drives disease in this system.\"}, {\"id\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in of a human SJS missense allele with the Neo cassette retained, which down-regulates Hspg2 transcription and so lowers secreted perlecan further than the point mutation alone. The line reproduces both arms of the human disease and was the first animal model of SJS neuromyotonia.\"}, {\"id\": \"Perlecan-null (Hspg2 knockout) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The complete-null end of the perlecan dosage series. It models the allelic lethal disorder DDSH rather than SJS, and is included here because the contrast is what establishes SJS as a hypomorphic, dosage-dependent condition.\"}, {\"id\": \"Phenytoin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking anticonvulsant used as an antimyotonic. In a genetically confirmed SJS type 1A case it was given with carbamazepine from age 3 and effectively alleviated the myotonic symptoms before the myotonia later worsened.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"phenytoin\"]}}, {\"id\": \"Reduced Perlecan Secretion into Basement Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perlecan is the major heparan sulfate proteoglycan of basement membranes and of the cartilage pericellular matrix. Reduced secretion lowers its concentration in basement membranes throughout the body, and the residual level sets disease severity: perlecan abundance and phenotype severity are inversely correlated in allelic mouse lines, and complete absence produces the lethal DDSH phenotype instead. From this single molecular deficit the pathograph branches into an ECM/cartilage arm and a synaptic/neuromuscular arm.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"extracellular matrix organization\"], \"experimental_models\": [{\"name\": \"SJS patient-derived primary dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Directly quantifies secreted perlecan from cells carrying a patient genotype.\"}], \"animal_models\": [{\"name\": \"Perlecan-null (Hspg2 knockout) mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 null (knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Complete absence of perlecan produces a severe chondrodysplasia with dyssegmental ossification, delimiting the null end of the dosage series that this node models.\"}]}}, {\"id\": \"SJS patient-derived primary dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts from a patient homozygous for HSPG2 c.1125C\u003eG (p.Cys375Trp), used to test the functional consequence of the variant. Secreted perlecan and migration were reduced while proliferation was unaffected, giving a cell-level readout of the hypomorphic effect.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:33767660\"}}], \"edges\": [{\"source\": \"HSPG2 Hypomorphic Variation\", \"target\": \"Reduced Perlecan Secretion into Basement Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both truncating (NMD) and cysteine-missense (intracellular retention) alleles converge on less perlecan being secreted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Perlecan Secretion into Basement Membranes\", \"target\": \"Endplate Acetylcholinesterase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perlecan is the basement-membrane anchor that concentrates acetylcholinesterase in the synaptic cleft, so synaptic perlecan loss lowers endplate AChE.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Perlecan Secretion into Basement Membranes\", \"target\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perlecan deposited in the pericellular matrix around chondrocytes is required for prechondrocyte condensation and growth-plate organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Perlecan Secretion into Basement Membranes\", \"target\": \"Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A third, cell-autonomous consequence of the perlecan deficit, independent of the endplate AChE route: perlecan loss releases myostatin restraint in fast-twitch muscle and lowers Akt/mTORC1 tone in slow-twitch muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endplate Acetylcholinesterase Deficiency\", \"target\": \"Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged cholinergic action at a structurally remodeled, partly amyelinated preterminal axon generates ectopic distal nerve activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic distal discharges drive sustained involuntary muscle-fiber activity, clinically expressed as myotonia/neuromyotonia and stiffness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"target\": \"Chondrodysplasia and Skeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the condensation and growth-plate program yields the chondrodysplastic skeleton.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Carbamazepine\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mexiletine\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lamotrigine\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Flecainide\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenytoin\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Non-Pharmacologic Physical Modalities\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oculoplastic Surgery for Blepharophimosis and Blepharospasm\", \"target\": \"Blepharospasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin Type A Injection\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin Type A Injection\", \"target\": \"Blepharospasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SJS patient-derived primary dermal fibroblasts\", \"target\": \"Reduced Perlecan Secretion into Basement Membranes\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Directly quantifies secreted perlecan from cells carrying a patient genotype.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Dermal fibroblasts are not the disease-relevant chondrocyte or neuromuscular-junction compartment, so they report the secretion defect but not its tissue-specific consequences; n = 1 genotype.\"}, {\"source\": \"ATDC5 prechondrocyte clustering assay with perlecan domain IV constructs\", \"target\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Introducing the SJS patient allele into the domain IV construct reduces its clustering activity, connecting the mutation to the condensation step.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"An immortalized murine cell line exposed to an isolated recombinant subdomain, not full-length perlecan in native pericellular matrix; the assay also required thermal unfolding to maximize activity, so the relationship between assay activity and in vivo function is indirect.\"}, {\"source\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"target\": \"Endplate Acetylcholinesterase Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Endplate AChE is reduced as a direct consequence of synaptic perlecan deficiency, with an otherwise intact junction.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The reduction is partial and, on its own, was not sufficient to generate resting spontaneous EMG activity in the diaphragm, so the model shows that AChE deficiency is necessary but leaves the sufficiency question open.\"}, {\"source\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The line reproduces SJS neuromyotonia with spontaneous EMG activity.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Spontaneous activity was absent at rest in the diaphragm despite the AChE deficiency, indicating that additional changes contribute in vivo.\"}, {\"source\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"target\": \"Chondrodysplasia and Skeletal Deformity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced perlecan secretion produces a skeletal phenotype characteristic of SJS patients, with growth-plate changes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The skeletal readouts include joint changes described as reminiscent of osteoarthritis and osteonecrosis, which are not the way the human phenotype is characterized, and the hypertrophic-cartilage expansion is transient.\"}, {\"source\": \"Perlecan C1532Y point-mutation-only mouse\", \"target\": \"Chondrodysplasia and Skeletal Deformity\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Mice carrying only the SJS-associated C1532Y substitution show a mild phenotype inconsistent with SJS.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a species/allele-level mismatch rather than a technical failure: the same substitution is associated with disease in the human family in which it was found. It leaves open whether the human allele acts through an additional transcriptional effect not reproduced in mouse, or whether the human family carries a second contributing lesion.\"}, {\"source\": \"Perlecan-null (Hspg2 knockout) mouse\", \"target\": \"Reduced Perlecan Secretion into Basement Membranes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Complete absence of perlecan produces a severe chondrodysplasia with dyssegmental ossification, delimiting the null end of the dosage series that this node models.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The null genotype models DDSH, not SJS: it overshoots the partial reduction that characterizes SJS, so it bounds the mechanism rather than reproducing the disease.\"}, {\"source\": \"HSPG2\", \"target\": \"HSPG2 Hypomorphic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATDC5 prechondrocyte clustering assay with perlecan domain IV constructs\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"ATDC5 cells, a model of early chondrogenesis, exposed to recombinant perlecan domain IV subdomain (HSPG2 IV-3) with and without the SJS-associated R3452Q substitution, reading out prechondrocyte clustering and condensation markers.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:30203597\"}}, {\"id\": \"Blepharospasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Involuntary eyelid closure that can significantly limit daily activities and is a principal target of botulinum toxin treatment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000643\"}}, {\"id\": \"Botulinum Toxin Type A Injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Local chemodenervation of overactive facial muscles. Reported to produce significant clinical improvement in a patient with SJS type 1A whose difficulty opening the eyes and mouth was limiting daily activity; dose and interval must be individually tailored, and pediatric dosing kept minimal.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"botulinum toxin type A\"]}}, {\"id\": \"Carbamazepine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking antiepileptic used off-label as an antimyotonic; a reported case showed reduced muscle rigidity and improved motor skills within about six weeks of starting oral therapy.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"carbamazepine\"]}}, {\"id\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perlecan is deposited in the pericellular matrix surrounding chondrocytes, where domain IV of the core protein drives prechondrocyte clustering \\u2014 the condensation step that initiates cartilage formation \\u2014 through deactivation of FAK/Src and reduced ERK signaling, with induction of Sox9, N-cadherin, collagen II and aggrecan. An SJS-associated domain IV missense change (R3452Q) limits this clustering activity, and SJS-associated mutations in the disulfide-rich region 3 destabilize the protein.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"chondrocyte\"], \"biological_processes\": [\"cartilage development\", \"chondrocyte differentiation\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"ATDC5 prechondrocyte clustering assay with perlecan domain IV constructs\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"description\": \"Introducing the SJS patient allele into the domain IV construct reduces its clustering activity, connecting the mutation to the condensation step.\"}]}}, {\"id\": \"Chondrodysplasia and Skeletal Deformity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The skeletal arm of the disorder: reduced stature, kyphoscoliosis, bowing of the diaphyses, irregular epiphyses and joint contractures, with growth-plate disorganization. In perlecan-hypomorphic mice the same reduction produces smaller size, impaired mineralization, misshapen bones, a flat face and joint dysplasia, together with transient expansion of hypertrophic cartilage in the growth plate.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hypertrophic chondrocyte\"], \"biological_processes\": [\"ossification\", \"bone development\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in retaining the Neo selection cassette (C1532Yneo)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reduced perlecan secretion produces a skeletal phenotype characteristic of SJS patients, with growth-plate changes.\"}, {\"name\": \"Perlecan C1532Y point-mutation-only mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in without the Neo cassette (C1532Y)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"Mice carrying only the SJS-associated C1532Y substitution show a mild phenotype inconsistent with SJS.\"}]}}, {\"id\": \"Continuous Muscle Fiber Hyperactivity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained involuntary activity of skeletal muscle fibers produces the permanent myotonia (prolonged failure of muscle relaxation), generalized stiffness and percussion myotonia that define the disorder clinically, and contributes with the skeletal arm to fixed joint contractures and the characteristic facial appearance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"skeletal muscle contraction\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in retaining the Neo selection cassette (C1532Yneo)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The line reproduces SJS neuromyotonia with spontaneous EMG activity.\"}]}}, {\"id\": \"Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neuromuscular arm of SJS behaves as a congenital distal peripheral nerve hyperexcitability rather than as a myopathy or a nerve-trunk neuropathy. Nerve conduction along the trunk, neuromuscular transmission and compound nerve action potentials are normal, while the preterminal axon shows long non-myelinated segments and the synaptic gutters are denervated and reinnervated by terminal sprouting. Needle EMG detects complex repetitive discharges without transmission failure.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"motor neuron\", \"Schwann cell\"], \"locations\": [\"neuromuscular junction\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Endplate Acetylcholinesterase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perlecan tethers acetylcholinesterase in the synaptic basal lamina of the neuromuscular junction. In SJS the postsynaptic apparatus is structurally well formed, but synaptic AChE is deficient, so acetylcholine released at the endplate is cleared too slowly and its action is prolonged. This is a synapse-specific consequence of the same basement-membrane perlecan deficit, and is the mechanism that distinguishes SJS from the muscle chloride- and sodium-channel myotonias.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"skeletal muscle fiber\"], \"molecular_functions\": [\"acetylcholinesterase activity\"], \"locations\": [\"neuromuscular junction\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 p.C1532Y knock-in retaining the Neo selection cassette (C1532Yneo)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Endplate AChE is reduced as a direct consequence of synaptic perlecan deficiency, with an otherwise intact junction.\"}]}}, {\"id\": \"Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A signalling account of the muscle-bulk changes in perlecan deficiency that is separate from, and potentially additive to, the neuromuscular-hyperactivity account of hypertrophy. Perlecan is a myostatin-binding basement-membrane proteoglycan, so its loss reduces myostatin (TGF-beta family) growth restraint and drives hypertrophy selectively in fast-twitch muscle; in slow-twitch muscle the same deficit is associated instead with reduced Akt/mTORC1 signalling and disinhibited autophagy, producing atrophy. The entry records this as PROVISIONAL and the atrophy arm explicitly as hypothesised, because the source itself hedges the Akt/mTORC1-autophagy limb (\\\"possibly through\\\") and because the fibre-type dissection rests on mouse work rather than on SJS patient muscle. Curated so the entry does not silently assert only the weaker of the two available explanations for the Skeletal Muscle Hypertrophy phenotype.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"skeletal muscle fiber\"], \"biological_processes\": [\"myostatin (TGF-beta family) receptor signaling\", \"Akt/mTORC1 signaling in slow-twitch muscle\", \"TOR signaling\", \"autophagy (disinhibited in slow-twitch muscle)\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Flecainide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Class Ic sodium-channel-blocking antiarrhythmic listed among the pharmacologic agents commonly used to reduce myotonic symptoms in SJS.\", \"meta\": {\"therapeutic_agents\": [\"flecainide\"]}}, {\"id\": \"HSPG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSPG2\"], \"gene_terms\": [{\"label\": \"HSPG2\", \"id\": \"hgnc:5273\"}], \"frequency\": \"The only gene known to cause Schwartz-Jampel syndrome; almost all reported alleles are private, with no founder effect identified.\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"HSPG2 Hypomorphic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic partial loss-of-function variants distributed across the 97 exons of HSPG2 are the initiating lesion. Two molecularly distinct routes reduce the amount of functional perlecan reaching the extracellular space: truncating alleles destabilize HSPG2 mRNA through nonsense-mediated decay, while missense alleles affecting cysteine residues cause intracellular retention of the mutant core protein by ER quality control. Crucially, these are hypomorphic rather than null alleles \\u2014 the same gene\u0027s functional null alleles cause dyssegmental dysplasia, Silverman-Handmaker type.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"HSPG2\"], \"gene_terms\": [{\"label\": \"HSPG2\", \"id\": \"hgnc:5273\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous or compound heterozygous hypomorphic germline HSPG2 alleles; compound heterozygosity is common because almost all reported mutations are private.\", \"gene_terms\": [{\"label\": \"HSPG2\", \"id\": \"hgnc:5273\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lamotrigine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking antiepileptic listed among the pharmacologic agents commonly used to reduce myotonic symptoms in SJS.\", \"meta\": {\"therapeutic_agents\": [\"lamotrigine\"]}}, {\"id\": \"Mexiletine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking antiarrhythmic used as an antimyotonic agent, one of the pharmacologic options commonly used to reduce myotonic symptoms in SJS.\", \"meta\": {\"therapeutic_agents\": [\"mexiletine\"]}}, {\"id\": \"Non-Pharmacologic Physical Modalities\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Warming, massage, pre-exercise warm-up and gradual stretching, used in combination with antimyotonic medication to reduce stiffness. Reported in the SJS management literature rather than trialed.\"}, {\"id\": \"Oculoplastic Surgery for Blepharophimosis and Blepharospasm\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Myectomy, levator resection and lateral canthopexy for the eyelid anomalies and facial spasm, reported to give excellent and long-lasting relief. Outcomes in SJS specifically are mixed \\u2014 one molecularly confirmed patient underwent blepharophimosis surgery without significant improvement. Anesthetic and surgical risk is materially raised in SJS (see the Malignant Hyperthermia phenotype), which is why this is not a first-line option.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Perlecan C1532Y point-mutation-only mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The control arm of the same knock-in series, carrying only the human SJS missense change. Its mild phenotype is a substantive negative result: it implies that the point mutation alone is not sufficient to produce the SJS skeletal phenotype in mouse, and that transcriptional down-regulation of perlecan is what drives disease in this system.\"}, {\"id\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Knock-in of a human SJS missense allele with the Neo cassette retained, which down-regulates Hspg2 transcription and so lowers secreted perlecan further than the point mutation alone. The line reproduces both arms of the human disease and was the first animal model of SJS neuromyotonia.\"}, {\"id\": \"Perlecan-null (Hspg2 knockout) mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The complete-null end of the perlecan dosage series. It models the allelic lethal disorder DDSH rather than SJS, and is included here because the contrast is what establishes SJS as a hypomorphic, dosage-dependent condition.\"}, {\"id\": \"Phenytoin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Sodium-channel-blocking anticonvulsant used as an antimyotonic. In a genetically confirmed SJS type 1A case it was given with carbamazepine from age 3 and effectively alleviated the myotonic symptoms before the myotonia later worsened.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"phenytoin\"]}}, {\"id\": \"Reduced Perlecan Secretion into Basement Membranes\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Perlecan is the major heparan sulfate proteoglycan of basement membranes and of the cartilage pericellular matrix. Reduced secretion lowers its concentration in basement membranes throughout the body, and the residual level sets disease severity: perlecan abundance and phenotype severity are inversely correlated in allelic mouse lines, and complete absence produces the lethal DDSH phenotype instead. From this single molecular deficit the pathograph branches into an ECM/cartilage arm and a synaptic/neuromuscular arm.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"extracellular matrix organization\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"SJS patient-derived primary dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Directly quantifies secreted perlecan from cells carrying a patient genotype.\"}], \"animal_models\": [{\"name\": \"Perlecan-null (Hspg2 knockout) mouse\", \"species\": \"Mouse\", \"genotype\": \"Hspg2 null (knockout)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Complete absence of perlecan produces a severe chondrodysplasia with dyssegmental ossification, delimiting the null end of the dosage series that this node models.\"}]}}, {\"id\": \"SJS patient-derived primary dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Primary fibroblasts from a patient homozygous for HSPG2 c.1125C\u003eG (p.Cys375Trp), used to test the functional consequence of the variant. Secreted perlecan and migration were reduced while proliferation was unaffected, giving a cell-level readout of the hypomorphic effect.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:33767660\"}}], \"edges\": [{\"source\": \"HSPG2 Hypomorphic Variation\", \"target\": \"Reduced Perlecan Secretion into Basement Membranes\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Both truncating (NMD) and cysteine-missense (intracellular retention) alleles converge on less perlecan being secreted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Perlecan Secretion into Basement Membranes\", \"target\": \"Endplate Acetylcholinesterase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perlecan is the basement-membrane anchor that concentrates acetylcholinesterase in the synaptic cleft, so synaptic perlecan loss lowers endplate AChE.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Perlecan Secretion into Basement Membranes\", \"target\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Perlecan deposited in the pericellular matrix around chondrocytes is required for prechondrocyte condensation and growth-plate organization.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Perlecan Secretion into Basement Membranes\", \"target\": \"Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A third, cell-autonomous consequence of the perlecan deficit, independent of the endplate AChE route: perlecan loss releases myostatin restraint in fast-twitch muscle and lowers Akt/mTORC1 tone in slow-twitch muscle.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Endplate Acetylcholinesterase Deficiency\", \"target\": \"Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged cholinergic action at a structurally remodeled, partly amyelinated preterminal axon generates ectopic distal nerve activity.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Distal Peripheral Nerve Hyperexcitability and Junctional Remodeling\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ectopic distal discharges drive sustained involuntary muscle-fiber activity, clinically expressed as myotonia/neuromyotonia and stiffness.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"target\": \"Chondrodysplasia and Skeletal Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of the condensation and growth-plate program yields the chondrodysplastic skeleton.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Carbamazepine\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Mexiletine\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Lamotrigine\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Flecainide\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenytoin\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Non-Pharmacologic Physical Modalities\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Oculoplastic Surgery for Blepharophimosis and Blepharospasm\", \"target\": \"Blepharospasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin Type A Injection\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Botulinum Toxin Type A Injection\", \"target\": \"Blepharospasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"SJS patient-derived primary dermal fibroblasts\", \"target\": \"Reduced Perlecan Secretion into Basement Membranes\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Directly quantifies secreted perlecan from cells carrying a patient genotype.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Dermal fibroblasts are not the disease-relevant chondrocyte or neuromuscular-junction compartment, so they report the secretion defect but not its tissue-specific consequences; n = 1 genotype.\"}, {\"source\": \"ATDC5 prechondrocyte clustering assay with perlecan domain IV constructs\", \"target\": \"Cartilage Pericellular Matrix Failure and Impaired Chondrocyte Condensation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Introducing the SJS patient allele into the domain IV construct reduces its clustering activity, connecting the mutation to the condensation step.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"MODERATE\", \"limitations\": \"An immortalized murine cell line exposed to an isolated recombinant subdomain, not full-length perlecan in native pericellular matrix; the assay also required thermal unfolding to maximize activity, so the relationship between assay activity and in vivo function is indirect.\"}, {\"source\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"target\": \"Endplate Acetylcholinesterase Deficiency\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Endplate AChE is reduced as a direct consequence of synaptic perlecan deficiency, with an otherwise intact junction.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The reduction is partial and, on its own, was not sufficient to generate resting spontaneous EMG activity in the diaphragm, so the model shows that AChE deficiency is necessary but leaves the sufficiency question open.\"}, {\"source\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"target\": \"Continuous Muscle Fiber Hyperactivity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The line reproduces SJS neuromyotonia with spontaneous EMG activity.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Spontaneous activity was absent at rest in the diaphragm despite the AChE deficiency, indicating that additional changes contribute in vivo.\"}, {\"source\": \"Perlecan C1532Yneo hypomorphic knock-in mouse\", \"target\": \"Chondrodysplasia and Skeletal Deformity\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reduced perlecan secretion produces a skeletal phenotype characteristic of SJS patients, with growth-plate changes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The skeletal readouts include joint changes described as reminiscent of osteoarthritis and osteonecrosis, which are not the way the human phenotype is characterized, and the hypertrophic-cartilage expansion is transient.\"}, {\"source\": \"Perlecan C1532Y point-mutation-only mouse\", \"target\": \"Chondrodysplasia and Skeletal Deformity\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"Mice carrying only the SJS-associated C1532Y substitution show a mild phenotype inconsistent with SJS.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"This is a species/allele-level mismatch rather than a technical failure: the same substitution is associated with disease in the human family in which it was found. It leaves open whether the human allele acts through an additional transcriptional effect not reproduced in mouse, or whether the human family carries a second contributing lesion.\"}, {\"source\": \"Perlecan-null (Hspg2 knockout) mouse\", \"target\": \"Reduced Perlecan Secretion into Basement Membranes\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Complete absence of perlecan produces a severe chondrodysplasia with dyssegmental ossification, delimiting the null end of the dosage series that this node models.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The null genotype models DDSH, not SJS: it overshoots the partial reduction that characterizes SJS, so it bounds the mechanism rather than reproducing the disease.\"}, {\"source\": \"HSPG2\", \"target\": \"HSPG2 Hypomorphic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6618,17 +6782,15 @@ This pathophysiological event involves abnormal bone development (GO:0060348). G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(11)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6669,6 +6831,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6683,6 +6848,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6746,6 +6912,9 @@ This clinical feature is Abnormal pinna morphology (HP:0000377). HP:0000377 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6760,6 +6929,7 @@ This clinical feature is Abnormal pinna morphology (HP:0000377). HP:0000377 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6823,6 +6993,9 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6837,6 +7010,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6891,6 +7065,9 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6905,6 +7082,7 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6937,12 +7115,12 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-mouth" data-dismech-node="Narrow Mouth" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-mask-like-facies" data-dismech-node="Mask-Like Facies" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Narrow Mouth
+                        Mask-Like Facies
 
 
 
@@ -6954,15 +7132,162 @@ This clinical feature is Ectopia lentis (HP:0001083). HP:0001083 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000298</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37761893" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37761893" target="_blank">PMID:37761893</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a distinctive facial appearance with a pointed mouth and narrowed eye fissures"</div>
+
+
+                <div class="evidence-explanation">Describes the characteristic facial appearance recorded here.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-blepharophimosis" data-dismech-node="Blepharophimosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Blepharophimosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000581</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38285320" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38285320" target="_blank">PMID:38285320</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"is characterized by congenital blepharophimosis, distinctive facies, muscle stiffness, and joint deformities"</div>
+
+
+                <div class="evidence-explanation">Records congenital blepharophimosis as a characteristic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-blepharospasm" data-dismech-node="Blepharospasm" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Blepharospasm
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000643</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blepharospasm (HP:0000643). HP:0000643 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -6982,6 +7307,79 @@ This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bilateral blepharospasm, posterior cleft palate, microstomia, pursed lips, kyphoscoliosis, contracture in the elbows, long thin fingers and campodactyly in the bilateral 5th fingers were present."</div>
+
+
+                <div class="evidence-explanation">Case-level documentation of blepharospasm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-mouth" data-dismech-node="Narrow Mouth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Narrow Mouth
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000160</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32134596" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32134596" target="_blank">PMID:32134596</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7022,15 +7420,18 @@ This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7050,6 +7451,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7090,15 +7492,18 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7118,6 +7523,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7167,15 +7573,18 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0006487</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7195,6 +7604,7 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7244,15 +7654,18 @@ This clinical feature is Bowing of the long bones (HP:0006487). HP:0006487 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7272,6 +7685,7 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7296,6 +7710,7 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7328,7 +7743,7 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">10</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-myotonia" data-dismech-node="Myotonia" data-dismech-type="phenotype">
@@ -7345,15 +7760,18 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7373,6 +7791,7 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,15 +7832,18 @@ This clinical feature is Myotonia (HP:0002486). HP:0002486 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0003552</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7441,6 +7863,7 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7481,15 +7904,18 @@ This clinical feature is Muscle stiffness (HP:0003552). HP:0003552 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002751</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002751</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7509,6 +7935,7 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7549,15 +7976,18 @@ This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002656</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002656" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002656</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7577,6 +8007,7 @@ This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7619,15 +8050,18 @@ This clinical feature is Epiphyseal dysplasia (HP:0002656). HP:0002656 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001371</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001371" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001371</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7647,6 +8081,7 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7687,15 +8122,18 @@ This clinical feature is Flexion contracture (HP:0001371). HP:0001371 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7715,6 +8153,7 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7755,15 +8194,18 @@ This clinical feature is Camptodactyly (HP:0012385). HP:0012385 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000768</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000768" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000768</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7786,6 +8228,7 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7794,6 +8237,128 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
                 <div class="evidence-explanation">Lists pigeon breast (pectus carinatum) in the SJS1 clinical spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-hypertrophy" data-dismech-node="Skeletal Muscle Hypertrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skeletal Muscle Hypertrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0003712</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle hypertrophy (HP:0003712). HP:0003712 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33767660" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33767660" target="_blank">PMID:33767660</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuromuscular hyperactivity leads to muscle cramps, blepharospasm, pursed lip, mask face, and muscle hypertrophy"</div>
+
+
+                <div class="evidence-explanation">Attributes muscle hypertrophy directly to the neuromuscular hyperactivity that this entry models, placing it downstream of the same mechanism as the myotonia and blepharospasm.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33767660" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33767660" target="_blank">PMID:33767660</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, perlecan deficiency causes hypertrophy in fast-twitch muscles by reducing myostatin signaling (1) and also can cause atrophy in the slow-twitch muscles, possibly through disinhibition of autophagy related to reduced Akt/mTORC1 signaling (2)."</div>
+
+
+                <div class="evidence-explanation">The competing molecular account from the same review, curated as PARTIAL because it applies specifically to fast-twitch fibres and predicts the opposite change in slow-twitch fibres, and MODEL_ORGANISM because the sentence relays mouse work cited by this human case report. Modeled at the &#34;Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation&#34; node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37761893" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37761893" target="_blank">PMID:37761893</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Global hypertrophy was evident and motility was completed but clumsy and limited by stiffness."</div>
+
+
+                <div class="evidence-explanation">Independent case-level observation of the hypertrophy in a molecularly confirmed SJS1 patient.</div>
 
 
 
@@ -7823,15 +8388,18 @@ This clinical feature is Pectus carinatum (HP:0000768). HP:0000768 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000926</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7851,6 +8419,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7891,15 +8460,18 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003417</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003417</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7919,6 +8491,7 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7959,15 +8532,18 @@ This clinical feature is Coronal cleft vertebrae (HP:0003417). HP:0003417 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001385</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001385</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7987,6 +8563,7 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8036,15 +8613,18 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8064,6 +8644,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8075,335 +8656,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">States short stature as a skeletal feature of SJS1.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-mask-like-facies" data-dismech-node="Mask-Like Facies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Mask-Like Facies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000298</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Mask-like facies (HP:0000298). HP:0000298 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37761893" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37761893" target="_blank">PMID:37761893</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a distinctive facial appearance with a pointed mouth and narrowed eye fissures"</div>
-
-
-                <div class="evidence-explanation">Describes the characteristic facial appearance recorded here.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-blepharophimosis" data-dismech-node="Blepharophimosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Blepharophimosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000581</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38285320" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38285320" target="_blank">PMID:38285320</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"is characterized by congenital blepharophimosis, distinctive facies, muscle stiffness, and joint deformities"</div>
-
-
-                <div class="evidence-explanation">Records congenital blepharophimosis as a characteristic feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-blepharospasm" data-dismech-node="Blepharospasm" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Blepharospasm
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000643" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000643</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Blepharospasm (HP:0000643). HP:0000643 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32134596" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32134596" target="_blank">PMID:32134596</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Bilateral blepharospasm, posterior cleft palate, microstomia, pursed lips, kyphoscoliosis, contracture in the elbows, long thin fingers and campodactyly in the bilateral 5th fingers were present."</div>
-
-
-                <div class="evidence-explanation">Case-level documentation of blepharospasm.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-hypertrophy" data-dismech-node="Skeletal Muscle Hypertrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Skeletal Muscle Hypertrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0003712</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Skeletal muscle hypertrophy (HP:0003712). HP:0003712 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33767660" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33767660" target="_blank">PMID:33767660</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neuromuscular hyperactivity leads to muscle cramps, blepharospasm, pursed lip, mask face, and muscle hypertrophy"</div>
-
-
-                <div class="evidence-explanation">Attributes muscle hypertrophy directly to the neuromuscular hyperactivity that this entry models, placing it downstream of the same mechanism as the myotonia and blepharospasm.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33767660" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33767660" target="_blank">PMID:33767660</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition, perlecan deficiency causes hypertrophy in fast-twitch muscles by reducing myostatin signaling (1) and also can cause atrophy in the slow-twitch muscles, possibly through disinhibition of autophagy related to reduced Akt/mTORC1 signaling (2)."</div>
-
-
-                <div class="evidence-explanation">The competing molecular account from the same review, curated as PARTIAL because it applies specifically to fast-twitch fibres and predicts the opposite change in slow-twitch fibres, and MODEL_ORGANISM because the sentence relays mouse work cited by this human case report. Modeled at the &#34;Fiber-Type-Specific Myostatin and Akt-mTORC1 Dysregulation&#34; node.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37761893" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37761893" target="_blank">PMID:37761893</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Global hypertrophy was evident and motility was completed but clumsy and limited by stiffness."</div>
-
-
-                <div class="evidence-explanation">Independent case-level observation of the hypertrophy in a molecularly confirmed SJS1 patient.</div>
 
 
 
@@ -8491,6 +8743,9 @@ This disease-associated gene is HSPG2 (hgnc:5273). hgnc:5273 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -8513,6 +8768,7 @@ This disease-associated gene is HSPG2 (hgnc:5273). hgnc:5273 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8540,6 +8796,7 @@ This disease-associated gene is HSPG2 (hgnc:5273). hgnc:5273 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8561,6 +8818,7 @@ This disease-associated gene is HSPG2 (hgnc:5273). hgnc:5273 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8665,6 +8923,31 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium-channel-blocking antiepileptic used off-label as an antimyotonic; a reported case showed reduced muscle rigidity and improved motor skills within about six weeks of starting oral therapy.</div>
 
 
@@ -8695,6 +8978,7 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8738,6 +9022,7 @@ This treatment uses carbamazepine (CHEBI:3387). CHEBI:3387 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8823,6 +9108,31 @@ This treatment uses mexiletine (CHEBI:6916). CHEBI:6916 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium-channel-blocking antiarrhythmic used as an antimyotonic agent, one of the pharmacologic options commonly used to reduce myotonic symptoms in SJS.</div>
 
 
@@ -8853,6 +9163,7 @@ This treatment uses mexiletine (CHEBI:6916). CHEBI:6916 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8947,6 +9258,31 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium-channel-blocking antiepileptic listed among the pharmacologic agents commonly used to reduce myotonic symptoms in SJS.</div>
 
 
@@ -8977,6 +9313,7 @@ This treatment uses lamotrigine (CHEBI:6367). CHEBI:6367 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9071,6 +9408,31 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Class Ic sodium-channel-blocking antiarrhythmic listed among the pharmacologic agents commonly used to reduce myotonic symptoms in SJS.</div>
 
 
@@ -9101,6 +9463,7 @@ This treatment uses flecainide (CHEBI:75984). CHEBI:75984 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9195,6 +9558,31 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium-channel-blocking anticonvulsant used as an antimyotonic. In a genetically confirmed SJS type 1A case it was given with carbamazepine from age 3 and effectively alleviated the myotonic symptoms before the myotonia later worsened.</div>
 
 
@@ -9225,6 +9613,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9268,6 +9657,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9331,6 +9721,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Warming, massage, pre-exercise warm-up and gradual stretching, used in combination with antimyotonic medication to reduce stiffness. Reported in the SJS management literature rather than trialed.</div>
 
 
@@ -9361,6 +9776,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9433,6 +9849,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Myectomy, levator resection and lateral canthopexy for the eyelid anomalies and facial spasm, reported to give excellent and long-lasting relief. Outcomes in SJS specifically are mixed — one molecularly confirmed patient underwent blepharophimosis surgery without significant improvement. Anesthetic and surgical risk is materially raised in SJS (see the Malignant Hyperthermia phenotype), which is why this is not a first-line option.</div>
 
 
@@ -9479,6 +9920,7 @@ This treatment targets Blepharospasm (HP:0000643). HP:0000643 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9503,6 +9945,7 @@ This treatment targets Blepharospasm (HP:0000643). HP:0000643 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9524,6 +9967,7 @@ This treatment targets Blepharospasm (HP:0000643). HP:0000643 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9609,6 +10053,31 @@ This treatment uses botulinum toxin type A (CHEBI:3160). CHEBI:3160 is a therape
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Local chemodenervation of overactive facial muscles. Reported to produce significant clinical improvement in a patient with SJS type 1A whose difficulty opening the eyes and mouth was limiting daily activity; dose and interval must be individually tailored, and pediatric dosing kept minimal.</div>
 
 
@@ -9639,6 +10108,7 @@ This treatment uses botulinum toxin type A (CHEBI:3160). CHEBI:3160 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9707,6 +10177,7 @@ This treatment targets Blepharospasm (HP:0000643). HP:0000643 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9767,6 +10238,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Care is directed at symptom control rather than at the underlying perlecan deficiency; several drugs have been used with variable efficacy, and management is otherwise supportive.</div>
 
 
@@ -9788,6 +10284,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9857,6 +10354,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9878,6 +10376,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9929,6 +10428,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10033,6 +10533,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10054,6 +10555,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10144,6 +10646,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10165,6 +10668,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10242,6 +10746,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10292,6 +10797,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10392,6 +10898,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10462,6 +10969,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10483,6 +10991,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10640,6 +11149,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10679,6 +11189,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10830,6 +11341,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10869,6 +11381,7 @@ This experimental model is built in mouse, annotated with Mus musculus (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11072,6 +11585,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11111,6 +11625,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11190,6 +11705,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11229,6 +11745,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11308,6 +11825,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11347,6 +11865,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11534,6 +12053,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11573,6 +12093,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11760,6 +12281,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11799,6 +12321,7 @@ This experimental model concerns HSPG2 (hgnc:5273). hgnc:5273 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

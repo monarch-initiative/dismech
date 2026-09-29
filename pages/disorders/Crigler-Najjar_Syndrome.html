@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Crigler-Najjar%20Syndrome"
@@ -3976,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3990,6 +4067,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4087,6 +4172,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4153,6 +4239,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                UGT1A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:12530" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:12530</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in UGT1A1 (hgnc:12530). hgnc:12530 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">The severe form, caused by UGT1A1 mutations abolishing enzyme activity entirely. Severe unconjugated hyperbilirubinaemia appears in the neonatal period and carries a high risk of kernicterus. Management requires aggressive containment - prolonged daily phototherapy, exchange transfusion or plasmapheresis for crises - and liver transplantation is the only definitive cure. Phenobarbital does not work, because there is no residual enzyme to induce.</div>
@@ -4178,6 +4283,25 @@
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                UGT1A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:12530" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12530</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in UGT1A1 (hgnc:12530). hgnc:12530 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4313,6 +4437,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complete-or-severe-loss-of-ugt1a1-glucuronidation-activity" data-dismech-node="Complete or Severe Loss of UGT1A1 Glucuronidation Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Complete or Severe Loss of UGT1A1 Glucuronidation Activity</div>
 
+
                 <div class="item-desc">Biallelic mutations in UGT1A1, on chromosome 2q37, impair or abolish the activity of bilirubin UDP-glucuronosyltransferase, the enzyme that conjugates unconjugated bilirubin with glucuronic acid to make it water-soluble and excretable in bile. The extent of activity loss sets the disease type: complete absence gives type 1, partial retention gives type 2. This is the same enzyme whose mildly reduced expression causes Gilbert&#39;s syndrome, and the three conditions form one activity-loss spectrum rather than distinct mechanisms.</div>
 
 
@@ -4327,11 +4452,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000182</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000182" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4369,11 +4494,11 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
         UGT1A1
 
 
-    <a href="https://bioregistry.io/hgnc:12530" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:12530</a>
+    <a href="https://bioregistry.io/hgnc:12530" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:12530</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves UGT1A1 (hgnc:12530). hgnc:12530 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4411,11 +4536,11 @@ This pathophysiological event involves UGT1A1 (hgnc:12530). hgnc:12530 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006789" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006789</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006789" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006789</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased bilirubin conjugation (GO:0006789). GO:0006789 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4450,11 +4575,11 @@ This pathophysiological event involves decreased bilirubin conjugation (GO:00067
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015020" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0015020</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015020" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0015020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this molecular function
 This pathophysiological event involves decreased glucuronosyltransferase activity (GO:0015020). GO:0015020 is a molecular function from the Gene Ontology.</span>
                     </span>
@@ -4518,6 +4643,7 @@ This pathophysiological event involves decreased glucuronosyltransferase activit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4539,6 +4665,7 @@ This pathophysiological event involves decreased glucuronosyltransferase activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4566,6 +4693,7 @@ This pathophysiological event involves decreased glucuronosyltransferase activit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4589,6 +4717,7 @@ This pathophysiological event involves decreased glucuronosyltransferase activit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-unconjugated-hyperbilirubinaemia" data-dismech-node="Severe Unconjugated Hyperbilirubinaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Unconjugated Hyperbilirubinaemia</div>
 
+
                 <div class="item-desc">Unconjugated bilirubin accumulates in plasma to concentrations far above those seen in Gilbert&#39;s syndrome, producing persistent non-haemolytic jaundice from the first days of life. The defining biochemical picture is an isolated unconjugated elevation: conjugated bilirubin, transaminases, synthetic function, and liver imaging are normal, and there is no haemolysis. This distinguishes Crigler-Najjar syndrome from liver disease and from the conjugated hereditary hyperbilirubinaemias.</div>
 
 
@@ -4610,11 +4739,11 @@ This pathophysiological event involves decreased glucuronosyltransferase activit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0015723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0015723</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0015723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0015723</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated bilirubin transport (GO:0015723). GO:0015723 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4679,6 +4808,7 @@ This pathophysiological event involves dysregulated bilirubin transport (GO:0015
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4700,6 +4830,7 @@ This pathophysiological event involves dysregulated bilirubin transport (GO:0015
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4726,6 +4857,7 @@ This pathophysiological event involves dysregulated bilirubin transport (GO:0015
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bilirubin-induced-neurological-dysfunction-and-kernicterus" data-dismech-node="Bilirubin-Induced Neurological Dysfunction and Kernicterus" data-dismech-type="pathophysiology">
                 <div class="item-name">Bilirubin-Induced Neurological Dysfunction and Kernicterus</div>
 
+
                 <div class="item-desc">When plasma unconjugated bilirubin exceeds albumin binding capacity, the free pigment crosses the blood-brain barrier and binds to specific brain tissues, causing acute bilirubin encephalopathy and its chronic sequela, kernicterus. This is the complication the whole management strategy exists to prevent, and it is what makes type 1 a neonatal emergency. The risk is strongly graded by subtype: it is high in type 1, where no enzyme activity remains, and little to none in type 2. Once brain damage occurs it is irreversible, which is why the timing of liver transplantation is critical.</div>
 
 
@@ -4740,11 +4872,11 @@ This pathophysiological event involves dysregulated bilirubin transport (GO:0015
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4784,11 +4916,11 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002420</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002420" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002420</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:0002420 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -4818,6 +4950,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4842,6 +4975,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4863,6 +4997,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4911,7 +5046,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilirubin-Induced Neurological Dysfunction and Kernicterus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When plasma unconjugated bilirubin exceeds albumin binding capacity, the free pigment crosses the blood-brain barrier and binds to specific brain tissues, causing acute bilirubin encephalopathy and its chronic sequela, kernicterus. This is the complication the whole management strategy exists to prevent, and it is what makes type 1 a neonatal emergency. The risk is strongly graded by subtype: it is high in type 1, where no enzyme activity remains, and little to none in type 2. Once brain damage occurs it is irreversible, which is why the timing of liver transplantation is critical.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"role\": \"consequence\", \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic mutations in UGT1A1, on chromosome 2q37, impair or abolish the activity of bilirubin UDP-glucuronosyltransferase, the enzyme that conjugates unconjugated bilirubin with glucuronic acid to make it water-soluble and excretable in bile. The extent of activity loss sets the disease type: complete absence gives type 1, partial retention gives type 2. This is the same enzyme whose mildly reduced expression causes Gilbert\u0027s syndrome, and the three conditions form one activity-loss spectrum rather than distinct mechanisms.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bilirubin conjugation\"], \"molecular_functions\": [\"glucuronosyltransferase activity\"], \"genes\": [\"UGT1A1\"], \"gene_terms\": [{\"label\": \"UGT1A1\", \"id\": \"hgnc:12530\"}], \"role\": \"trigger\"}}, {\"id\": \"Intensive Phototherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prolonged daily phototherapy photoisomerises unconjugated bilirubin in the skin into water-soluble products excretable without glucuronidation, bypassing the missing enzyme. In type 1 it is containment rather than cure - 16-20 hours daily may be needed - and its efficacy declines with age as the surface-area-to-mass ratio falls. It does not restore UGT1A1 activity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthotopic liver transplantation replaces the enzyme-deficient hepatocyte population and is the only definitive cure for type 1 disease. It corrects the lesion at its source rather than containing its downstream product, and bilirubin normalises after transplantation. Timing is the critical variable: it must precede irreversible kernicterus. The costs are the standard ones - graft rejection and lifelong immunosuppression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Phenobarbital\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phenobarbital induces residual UGT1A1 expression and so lowers serum bilirubin in type 2 disease. It is ineffective in type 1, where no enzyme activity remains to be induced - a therapeutic distinction that follows directly from the subtype\u0027s underlying enzymatic lesion, and one that makes the response to phenobarbital diagnostically informative.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"phenobarbital\"]}}, {\"id\": \"Severe Unconjugated Hyperbilirubinaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unconjugated bilirubin accumulates in plasma to concentrations far above those seen in Gilbert\u0027s syndrome, producing persistent non-haemolytic jaundice from the first days of life. The defining biochemical picture is an isolated unconjugated elevation: conjugated bilirubin, transaminases, synthetic function, and liver imaging are normal, and there is no haemolysis. This distinguishes Crigler-Najjar syndrome from liver disease and from the conjugated hereditary hyperbilirubinaemias.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bilirubin transport\"], \"role\": \"central_effector\"}}, {\"id\": \"UGT1A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UGT1A1\"], \"gene_terms\": [{\"label\": \"UGT1A1\", \"id\": \"hgnc:12530\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Unconjugated Bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"term_id\": \"CHEBI:16990\", \"term_label\": \"bilirubin IXalpha\", \"readouts\": [{\"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The isolated unconjugated elevation, with normal conjugated bilirubin and normal hepatic function, reports loss of the UGT1A1 conjugation step rather than liver disease or a transport defect.\"}]}}], \"edges\": [{\"source\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"target\": \"Severe Unconjugated Hyperbilirubinaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilirubin that cannot be glucuronidated cannot be excreted in bile and accumulates in plasma in the unconjugated form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Unconjugated Hyperbilirubinaemia\", \"target\": \"Bilirubin-Induced Neurological Dysfunction and Kernicterus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unconjugated bilirubin in excess of albumin binding capacity crosses the blood-brain barrier and binds brain tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intensive Phototherapy\", \"target\": \"Severe Unconjugated Hyperbilirubinaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenobarbital\", \"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"target\": \"Unconjugated Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The isolated unconjugated elevation, with normal conjugated bilirubin and normal hepatic function, reports loss of the UGT1A1 conjugation step rather than liver disease or a transport defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"UGT1A1\", \"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Alleles abolishing UGT1A1 activity\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Genotypes leaving no measurable bilirubin-glucuronidating activity produce type 1 disease. Because the residual activity is nil, phenobarbital has nothing to induce, which is why enzyme induction separates the two types clinically as well as biochemically.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Bilirubin-Induced Neurological Dysfunction and Kernicterus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"When plasma unconjugated bilirubin exceeds albumin binding capacity, the free pigment crosses the blood-brain barrier and binds to specific brain tissues, causing acute bilirubin encephalopathy and its chronic sequela, kernicterus. This is the complication the whole management strategy exists to prevent, and it is what makes type 1 a neonatal emergency. The risk is strongly graded by subtype: it is high in type 1, where no enzyme activity remains, and little to none in type 2. Once brain damage occurs it is irreversible, which is why the timing of liver transplantation is critical.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"role\": \"consequence\", \"locations\": [\"basal ganglion\"]}}, {\"id\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic mutations in UGT1A1, on chromosome 2q37, impair or abolish the activity of bilirubin UDP-glucuronosyltransferase, the enzyme that conjugates unconjugated bilirubin with glucuronic acid to make it water-soluble and excretable in bile. The extent of activity loss sets the disease type: complete absence gives type 1, partial retention gives type 2. This is the same enzyme whose mildly reduced expression causes Gilbert\u0027s syndrome, and the three conditions form one activity-loss spectrum rather than distinct mechanisms.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"bilirubin conjugation\"], \"molecular_functions\": [\"glucuronosyltransferase activity\"], \"genes\": [\"UGT1A1\"], \"gene_terms\": [{\"label\": \"UGT1A1\", \"id\": \"hgnc:12530\"}], \"role\": \"trigger\"}}, {\"id\": \"Intensive Phototherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prolonged daily phototherapy photoisomerises unconjugated bilirubin in the skin into water-soluble products excretable without glucuronidation, bypassing the missing enzyme. In type 1 it is containment rather than cure - 16-20 hours daily may be needed - and its efficacy declines with age as the surface-area-to-mass ratio falls. It does not restore UGT1A1 activity.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Liver Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Orthotopic liver transplantation replaces the enzyme-deficient hepatocyte population and is the only definitive cure for type 1 disease. It corrects the lesion at its source rather than containing its downstream product, and bilirubin normalises after transplantation. Timing is the critical variable: it must precede irreversible kernicterus. The costs are the standard ones - graft rejection and lifelong immunosuppression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Missense alleles retaining partial UGT1A1 activity\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Type 2 genotypes retain measurable enzyme activity. In vitro characterisation of Crigler-Najjar missense alleles shows that residual activity is both allele-dependent and substrate-dependent, ranging in one series from undetectable to most of wild-type activity depending on which substrate is measured.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Phenobarbital\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Phenobarbital induces residual UGT1A1 expression and so lowers serum bilirubin in type 2 disease. It is ineffective in type 1, where no enzyme activity remains to be induced - a therapeutic distinction that follows directly from the subtype\u0027s underlying enzymatic lesion, and one that makes the response to phenobarbital diagnostically informative.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"phenobarbital\"]}}, {\"id\": \"Severe Unconjugated Hyperbilirubinaemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Unconjugated bilirubin accumulates in plasma to concentrations far above those seen in Gilbert\u0027s syndrome, producing persistent non-haemolytic jaundice from the first days of life. The defining biochemical picture is an isolated unconjugated elevation: conjugated bilirubin, transaminases, synthetic function, and liver imaging are normal, and there is no haemolysis. This distinguishes Crigler-Najjar syndrome from liver disease and from the conjugated hereditary hyperbilirubinaemias.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"bilirubin transport\"], \"role\": \"central_effector\"}}, {\"id\": \"UGT1A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"UGT1A1\"], \"gene_terms\": [{\"label\": \"UGT1A1\", \"id\": \"hgnc:12530\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"UGT1A1*28 promoter TA-repeat polymorphism in cis\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The Gilbert-syndrome promoter allele (an extra TA in the TATA box, UGT1A1*28) reduces UGT1A1 expression and was shown to be linked in cis to structural Crigler-Najjar alleles in this cohort. It is a modifier of expressed bilirubin level rather than an independent cause of Crigler-Najjar syndrome, and is the reason the same gene spans Crigler-Najjar and Gilbert\u0027s syndrome.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Unconjugated Bilirubin\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"presence\": \"INCREASED\", \"term_id\": \"CHEBI:16990\", \"term_label\": \"bilirubin IXalpha\", \"readouts\": [{\"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The isolated unconjugated elevation, with normal conjugated bilirubin and normal hepatic function, reports loss of the UGT1A1 conjugation step rather than liver disease or a transport defect.\"}]}}], \"edges\": [{\"source\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"target\": \"Severe Unconjugated Hyperbilirubinaemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bilirubin that cannot be glucuronidated cannot be excreted in bile and accumulates in plasma in the unconjugated form.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Severe Unconjugated Hyperbilirubinaemia\", \"target\": \"Bilirubin-Induced Neurological Dysfunction and Kernicterus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Unconjugated bilirubin in excess of albumin binding capacity crosses the blood-brain barrier and binds brain tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intensive Phototherapy\", \"target\": \"Severe Unconjugated Hyperbilirubinaemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Phenobarbital\", \"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Liver Transplantation\", \"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"target\": \"Unconjugated Bilirubin\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The isolated unconjugated elevation, with normal conjugated bilirubin and normal hepatic function, reports loss of the UGT1A1 conjugation step rather than liver disease or a transport defect.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"UGT1A1\", \"target\": \"Complete or Severe Loss of UGT1A1 Glucuronidation Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Alleles abolishing UGT1A1 activity\", \"target\": \"UGT1A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Missense alleles retaining partial UGT1A1 activity\", \"target\": \"UGT1A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"UGT1A1*28 promoter TA-repeat polymorphism in cis\", \"target\": \"UGT1A1\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4934,7 +5069,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4963,15 +5098,18 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0006579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0006579</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4991,6 +5129,7 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5042,15 +5181,18 @@ This clinical feature is Prolonged neonatal jaundice (HP:0006579). HP:0006579 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0008282</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008282" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0008282</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Unconjugated hyperbilirubinemia (HP:0008282). HP:0008282 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5070,6 +5212,7 @@ This clinical feature is Unconjugated hyperbilirubinemia (HP:0008282). HP:000828
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5101,7 +5244,7 @@ This clinical feature is Unconjugated hyperbilirubinemia (HP:0008282). HP:000828
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Nervous System
                     <span class="cat-count">1</span>
                 </summary>
 
@@ -5119,15 +5262,18 @@ This clinical feature is Unconjugated hyperbilirubinemia (HP:0008282). HP:000828
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001343</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Kernicterus (HP:0001343). HP:0001343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5147,6 +5293,7 @@ This clinical feature is Kernicterus (HP:0001343). HP:0001343 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5228,10 +5375,10 @@ This clinical feature is Kernicterus (HP:0001343). HP:0001343 is a phenotype fro
                         Gene: UGT1A1
 
 
-    <a href="https://bioregistry.io/hgnc:12530" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:12530</a>
+    <a href="https://bioregistry.io/hgnc:12530" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:12530</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5241,6 +5388,9 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -5262,6 +5412,7 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5280,6 +5431,231 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (3)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-alleles-abolishing-ugt1a1-activity" data-dismech-node="Alleles abolishing UGT1A1 activity" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Alleles abolishing UGT1A1 activity
+
+    </div>
+
+
+
+
+
+
+
+
+    <div class="item-desc">Genotypes leaving no measurable bilirubin-glucuronidating activity produce type 1 disease. Because the residual activity is nil, phenobarbital has nothing to induce, which is why enzyme induction separates the two types clinically as well as biochemically.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39456788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39456788" target="_blank">PMID:39456788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CNS presents in the following forms: CNS type 1 (CNS1), the more severe form with the complete absence of UGT1A1 activity, and CNS type 2 (CNS2), with partial enzyme activity."</div>
+
+
+                <div class="evidence-explanation">States that the type 1 / type 2 distinction is a distinction between complete absence and partial retention of UGT1A1 activity. Evidence source is OTHER because this is a scoping review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-missense-alleles-retaining-partial-ugt1a1-activity" data-dismech-node="Missense alleles retaining partial UGT1A1 activity" data-dismech-type="genetic">
+
+    <div class="item-name">
+        Missense alleles retaining partial UGT1A1 activity
+
+    </div>
+
+
+
+
+
+
+
+
+    <div class="item-desc">Type 2 genotypes retain measurable enzyme activity. In vitro characterisation of Crigler-Najjar missense alleles shows that residual activity is both allele-dependent and substrate-dependent, ranging in one series from undetectable to most of wild-type activity depending on which substrate is measured.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19830808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19830808" target="_blank">PMID:19830808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We demonstrate that five mutants have residual activity that, depending on the substrate, varies from not detectable to 94% of wild-type UGT1A1 activity."</div>
+
+
+                <div class="evidence-explanation">Quantifies residual activity of Crigler-Najjar missense alleles in a cell-based assay, the molecular basis of the partial-deficiency type 2 phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19830808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19830808" target="_blank">PMID:19830808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we have analyzed 19 CN patients diagnosed in The Netherlands (18) and in Belgium (1), and have identified 14 different UGT1A1 mutations, four of which are novel"</div>
+
+
+                <div class="evidence-explanation">Gives the allelic heterogeneity of the cohort these functional data came from; there is no single recurrent Crigler-Najjar allele.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-ugt1a1-28-promoter-ta-repeat-polymorphism-in-cis" data-dismech-node="UGT1A1*28 promoter TA-repeat polymorphism in cis" data-dismech-type="genetic">
+
+    <div class="item-name">
+        UGT1A1*28 promoter TA-repeat polymorphism in cis
+
+    </div>
+
+
+
+
+
+
+
+
+    <div class="item-desc">The Gilbert-syndrome promoter allele (an extra TA in the TATA box, UGT1A1*28) reduces UGT1A1 expression and was shown to be linked in cis to structural Crigler-Najjar alleles in this cohort. It is a modifier of expressed bilirubin level rather than an independent cause of Crigler-Najjar syndrome, and is the reason the same gene spans Crigler-Najjar and Gilbert&#39;s syndrome.</div>
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19830808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19830808" target="_blank">PMID:19830808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we show linkage of the UGT1A1 *28 promoter polymorphism (rs5719145insTA) to three structural mutations"</div>
+
+
+                <div class="evidence-explanation">Documents the promoter polymorphism occurring in cis with structural Crigler-Najjar alleles, which is the observation behind treating it as a modifier rather than a separate cause.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
 
             </div>
 
@@ -5309,7 +5685,7 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">Phototherapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Phototherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Phototherapy (NCIT:C15301). NCIT:C15301 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5336,6 +5712,31 @@ This treatment is Phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5371,6 +5772,7 @@ This treatment is Phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5819,7 @@ This treatment is Phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5445,7 +5848,7 @@ This treatment is Phototherapy (NCIT:C15301). NCIT:C15301 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5486,16 +5889,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_8069" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-14">CHEBI:8069</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_8069" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:8069</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -5529,6 +5957,7 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5575,6 +6004,7 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5603,7 +6033,7 @@ This treatment uses phenobarbital (CHEBI:8069). CHEBI:8069 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">Organ Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">Organ Transplantation<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5630,6 +6060,31 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -5665,6 +6120,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5708,6 +6164,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5799,6 +6256,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5862,7 +6320,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <span class="tag" style="background: #dcfce7; color: #166534;">0.06&ndash;0.1 per 100,000
                     </span>
 
-                    <span class="tag">&lt;1 in 1,000,000</span>
+                    <span class="tag">&lt;1 in 1,000,000 (births)</span>
 
                 </div>
 
@@ -5884,6 +6342,7 @@ This treatment is Organ Transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5992,6 +6451,11 @@ has_subtypes:
     term:
       id: MONDO:0021020
       label: Crigler-Najjar syndrome type 1
+  genes:
+  - preferred_term: UGT1A1
+    term:
+      id: hgnc:12530
+      label: UGT1A1
 - name: Type 2
   display_name: Crigler-Najjar syndrome type 2 (partial UGT1A1 deficiency, Arias syndrome)
   description: &gt;-
@@ -6005,6 +6469,11 @@ has_subtypes:
     term:
       id: MONDO:0011725
       label: Crigler-Najjar syndrome type 2
+  genes:
+  - preferred_term: UGT1A1
+    term:
+      id: hgnc:12530
+      label: UGT1A1
 prevalence:
 - population: Worldwide newborns
   measure_type: BIRTH_PREVALENCE
@@ -6360,6 +6829,69 @@ genetic:
       Establishes UGT1A1 as the causal gene for both subtypes and gives its
       chromosomal location. Evidence source is HUMAN_CLINICAL because the
       statement frames a genetically confirmed patient report.
+  variants:
+  - name: Alleles abolishing UGT1A1 activity
+    description: &gt;-
+      Genotypes leaving no measurable bilirubin-glucuronidating activity produce
+      type 1 disease. Because the residual activity is nil, phenobarbital has
+      nothing to induce, which is why enzyme induction separates the two types
+      clinically as well as biochemically.
+    evidence:
+    - reference: PMID:39456788
+      reference_title: &#34;Therapeutic Options for Crigler-Najjar Syndrome: A Scoping Review.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        CNS presents in the following forms: CNS type 1 (CNS1), the more severe
+        form with the complete absence of UGT1A1 activity, and CNS type 2 (CNS2),
+        with partial enzyme activity.
+      explanation: &gt;-
+        States that the type 1 / type 2 distinction is a distinction between
+        complete absence and partial retention of UGT1A1 activity. Evidence
+        source is OTHER because this is a scoping review.
+  - name: Missense alleles retaining partial UGT1A1 activity
+    description: &gt;-
+      Type 2 genotypes retain measurable enzyme activity. In vitro
+      characterisation of Crigler-Najjar missense alleles shows that residual
+      activity is both allele-dependent and substrate-dependent, ranging in one
+      series from undetectable to most of wild-type activity depending on which
+      substrate is measured.
+    evidence:
+    - reference: PMID:19830808
+      reference_title: &#34;Crigler-Najjar syndrome in The Netherlands: identification of four novel UGT1A1 alleles, genotype-phenotype correlation, and functional analysis of 10 missense mutants.&#34;
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: We demonstrate that five mutants have residual activity that, depending on the substrate, varies from not detectable to 94% of wild-type UGT1A1 activity.
+      explanation: &gt;-
+        Quantifies residual activity of Crigler-Najjar missense alleles in a
+        cell-based assay, the molecular basis of the partial-deficiency type 2
+        phenotype.
+    - reference: PMID:19830808
+      reference_title: &#34;Crigler-Najjar syndrome in The Netherlands: identification of four novel UGT1A1 alleles, genotype-phenotype correlation, and functional analysis of 10 missense mutants.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: we have analyzed 19 CN patients diagnosed in The Netherlands (18) and in Belgium (1), and have identified 14 different UGT1A1 mutations, four of which are novel
+      explanation: &gt;-
+        Gives the allelic heterogeneity of the cohort these functional data came
+        from; there is no single recurrent Crigler-Najjar allele.
+  - name: UGT1A1*28 promoter TA-repeat polymorphism in cis
+    description: &gt;-
+      The Gilbert-syndrome promoter allele (an extra TA in the TATA box,
+      UGT1A1*28) reduces UGT1A1 expression and was shown to be linked in cis to
+      structural Crigler-Najjar alleles in this cohort. It is a modifier of
+      expressed bilirubin level rather than an independent cause of
+      Crigler-Najjar syndrome, and is the reason the same gene spans
+      Crigler-Najjar and Gilbert&#39;s syndrome.
+    evidence:
+    - reference: PMID:19830808
+      reference_title: &#34;Crigler-Najjar syndrome in The Netherlands: identification of four novel UGT1A1 alleles, genotype-phenotype correlation, and functional analysis of 10 missense mutants.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: we show linkage of the UGT1A1 *28 promoter polymorphism (rs5719145insTA) to three structural mutations
+      explanation: &gt;-
+        Documents the promoter polymorphism occurring in cis with structural
+        Crigler-Najjar alleles, which is the observation behind treating it as a
+        modifier rather than a separate cause.
 inheritance:
 - name: Autosomal recessive inheritance
   description: &gt;-
@@ -6550,6 +7082,26 @@ discussions:
       phototherapy through the period of maximal liver growth, would establish
       whether vector dilution defeats the approach in the population that needs
       it most.
+notes: &gt;-
+  Genetics pass, September 2026. The genetics was re-derived from the primary
+  literature and then reconciled against the causal genes MONDO records for
+  Crigler-Najjar syndrome type 1 (MONDO:0021020) and type 2 (MONDO:0011725).
+  MONDO records UGT1A1 for both, matching the single causal gene already curated
+  here and already wired to the glucuronidation-deficiency pathophysiology node.
+  The pass added the allele-level layer the entry was missing: UGT1A1 is now
+  bound as the gene of both has_subtypes rows, and three variant records state
+  what separates the subtypes - null activity in type 1, allele- and
+  substrate-dependent residual activity in type 2, and the UGT1A1*28 promoter
+  TA-repeat allele acting in cis as a modifier rather than as an independent
+  cause. No second Crigler-Najjar gene was found and none is claimed.
+
+  GeneReviews status. There is no GeneReviews chapter for Crigler-Najjar
+  syndrome. This was checked with `just check-genereviews`, which searches the
+  committed index of every PubMed-indexed GeneReviews chapter
+  (cache/bookshelf/genereviews.csv, snapshot 2026-09-10) and reports NO_CHAPTER
+  for this entry. StatPearls carries a chapter (PMID:32965842) but StatPearls is
+  a point-of-care reference, not a phenotype baseline, so its absence from the
+  citation set is deliberate.
 </pre>
             </div>
         </div>
@@ -6610,7 +7162,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Crigler-Najjar Syndrome", "mondoId": "MONDO:0009044", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crigler-Najjar_Syndrome", "yamlRevision": "18320de6f5af"};
+        const OS_CONFIG = {"diseaseName": "Crigler-Najjar Syndrome", "mondoId": "MONDO:0009044", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Crigler-Najjar_Syndrome", "yamlRevision": "2d16092a7786"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

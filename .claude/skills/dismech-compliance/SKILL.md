@@ -101,14 +101,94 @@ just compliance-connectivity --list-unconnected
 
 # Fail CI if aggregate coverage drops below a percentage
 just compliance-connectivity --fail-under 30
+just compliance-connectivity --genes-fail-under 40
+just compliance-connectivity --activity-fail-under 20
 ```
 
-A phenotype counts as connected when at least one *causal* edge (`causes` /
-`leads_to` predicate) targets it. To fix a floating phenotype, add the
-phenotype's `name` as a `downstream: [{target: <phenotype name>}]` on the
-upstream pathophysiology node. The `QCMetricPlugin` protocol in
-`src/dismech/qc_plugins.py` is the generic seam for further graph-derived
-metrics (orphan-target rate, gene-to-mechanism wiring, dead-end nodes).
+A phenotype counts as connected when at least one *causal* edge (`causes`,
+`leads_to`, `triggers`, `exacerbates` — see `qc_plugins.CAUSAL_PREDICATES`)
+targets it. To fix a floating phenotype, add the phenotype's `name` as a
+`downstream: [{target: <phenotype name>}]` on the upstream pathophysiology node.
+Three metrics come out of the same command, and the two gene ones are a pair:
+
+| path | asks |
+|---|---|
+| `phenotypes[].causal_inlink` | is the phenotype reached by a causal edge? |
+| `genetic[].mechanism_outlink` | does the gene reach the mechanism graph at all? |
+| `genetic[].mechanism_activity_grounding` | does where it lands name a molecular function? |
+
+**Gene wiring.** A `genetic[]` entry reaches the pathograph only when some
+`pathophysiology` node carries the same gene in its `gene:`/`genes:` descriptor
+— that shared CURIE is the entire edge. A causal gene with no such node floats
+in the `genetic` block and never appears in the graph. Non-causal items
+(BIOMARKER, PROTECTIVE, MODIFIER, DISPUTED, UNKNOWN) are excluded from the
+denominator.
+
+**Gene activity grounding.** GO puts a level between a gene and a process —
+gene → molecular function → biological process — and an edge running from a gene
+straight to a node annotated only with `biological_processes:` skips it: the
+graph says what the *cell* can no longer do without saying what the *protein*
+can no longer do. A wired gene counts as grounded when at least one node it
+reaches carries `molecular_functions:`. The denominator is the *wired* genes, so
+an unwired gene is charged once (against `mechanism_outlink`), not twice.
+
+To fix a flagged gene, add `molecular_functions:` to the node it lands on:
+
+```yaml
+- name: SLC25A20 transporter molecular function deficiency
+  molecular_functions:
+  - preferred_term: acyl carnitine transmembrane transporter activity
+    term:
+      id: GO:0015227
+      label: O-acyl-L-carnitine transmembrane transporter activity
+  biological_processes:
+  - preferred_term: carnitine transport
+    term: {id: GO:0015879, label: carnitine transport}
+```
+
+Two cases where the term is *not* the fix. When the landing node collects many
+genes with unrelated activities (`Primary_Ciliary_Dyskinesia` / "Ciliary
+Dysfunction" carries 21 — dynein motors, radial-spoke constituents, and
+transcription factors), no single MF term is true of it and the node wants
+splitting. And some classes genuinely have no shared molecular function; say so
+in the node's `description` rather than binding a term that overstates it.
+
+#### Triage view: `just list-disconnected-phenotypes`
+
+The recipe above is the *compliance* view of the metric, and a gate — both
+halves, the aggregate percentages, and the `min_compliance` floor it enforces
+over the corpus. For **per-entry triage** of the phenotype half, use the report
+added for issue #11935, which calls the same `causal_inlink_coverage` function
+and so cannot disagree with it:
+
+```bash
+just list-disconnected-phenotypes                        # census + ranked worklist
+just list-disconnected-phenotypes --format tsv           # one row per phenotype
+just list-disconnected-phenotypes --zero-only            # only 0-connected entries
+just list-disconnected-phenotypes kb/disorders/Asthma.yaml
+```
+
+It adds three things `compliance-connectivity` does not have:
+
+- **A ranked zero-connectivity worklist.** Entries where *no* phenotype is
+  connected, ordered by how many are stranded. Every phenotype stranded is one
+  sitting's work; a single gap is not the same signal.
+- **An attachment class per stranded phenotype** — `ISOLATED`, `TREATED`,
+  `READOUT`, `NONCAUSAL_INBOUND`, `SEQUELA_SOURCE` — distinguishing "nothing in
+  the graph knows this node exists" from "a treatment or an observational
+  readout points at it, but no mechanism does". Neither counts as connected;
+  they are different curation jobs.
+- **`--format tsv` / `--format json`** for a census.
+
+Report-only by design (exit 0), with `--strict` / `--fail-under` opt-in — that
+is this view, not the metric, whose aggregate is gated by
+`compliance-connectivity`. Do not treat the percentage as a target: the edge
+asserts which mechanism produces which clinical feature, and some phenotypes
+legitimately have no upstream node in the entry. An edge added to clear a report
+is worse than no edge.
+
+The `QCMetricPlugin` protocol in `src/dismech/qc_plugins.py` is the generic seam
+for further graph-derived metrics (orphan-target rate, dead-end nodes).
 
 ## Understanding Compliance Scores
 

@@ -1,0 +1,118 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Familial_Hypocalciuric_Hypercalcemia_1
+  path: kb/disorders/Familial_Hypocalciuric_Hypercalcemia_1.yaml
+session:
+  id: 2026-09-08T013328Z-claude-code-b45c31
+  timestamp: '2026-09-08T01:33:28Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/10881
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10884
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - phenotypes
+  - pathophysiology
+  - evidence
+  - notes
+  summary: Address review round 1 on FHH1
+  details: |
+    Automated review round 1 returned CHANGES_REQUESTED with four findings. All
+    four were independently checked against the schema and the reference caches
+    before being acted on, and all four were correct. Fixed in a single push,
+    together with the reviewer's optional suggestions, because main dismisses
+    stale approvals and a follow-up chore commit would cost a whole review cycle.
+
+    Finding 1, critical. The phenotype 'Absence of Nephrolithiasis and
+    Nephrocalcinosis' carried phenotype_term HP:0000787 (Nephrolithiasis) and
+    frequency VERY_FREQUENT. The schema has no negation slot and FrequencyEnum has
+    no EXCLUDED value, so that pair exports as the assertion that FHH1 patients
+    very frequently have kidney stones, which is the inverse of the point. Both
+    slots were removed, following the convention already used by
+    Autosomal_Dominant_Nonsyndromic_Hearing_Loss_11 ('Absence of Retinitis
+    Pigmentosa') and Amyotrophic_Lateral_Sclerosis_27_Juvenile ('Absence of
+    Sensory Neuropathy'), and the description now states why the slots are absent
+    so a later curator does not helpfully restore them. The claim was also
+    reframed as comparative rather than absolute: nephrolithiasis is reported at
+    the moderate-to-severe end of the FHH1 range, so a REFUTE item from
+    PMID:35566721 is now carried alongside the SUPPORT item from PMID:19250271.
+
+    Finding 2. Four items asserted claims with no evidence. Each now cites an
+    exact quote: pathophysiology 'Reduced Renal Magnesium Excretion' and
+    'Hypermagnesemia' from PMID:39810898, phenotype 'Hypermagnesemia' and
+    phenotype 'Chondrocalcinosis' from PMID:35566721.
+
+    Finding 3. Pancreatitis carried frequency RARE, which is not a FrequencyEnum
+    value; the permissible values are OBLIGATE, VERY_FREQUENT, FREQUENT,
+    OCCASIONAL and VERY_RARE. Changed to VERY_RARE, and the sentence in the
+    entry's own notes that described it as RARE was corrected to match.
+
+    Nothing in the validation stack catches this, which was checked rather than
+    assumed: reinstating RARE in the working tree and re-running both gates,
+    linkml-validate reports 'No issues found' and check_enum_values reports 'no
+    out-of-enum values'. The reason is the slot definition. Phenotype.frequency
+    is declared range: Any with any_of: [FrequencyEnum, FrequencyQuantity], and
+    FrequencyQuantity is a bare str type, so every string satisfies the union and
+    the enum branch never has to hold. check_enum_values is correct to skip it -
+    the slot genuinely is not enum-bound - so an invalid frequency band reaches
+    main silently and only a reviewer or a downstream consumer sees it. Reported
+    on the PR; not fixed here, since narrowing the slot is a schema change with
+    corpus-wide blast radius and belongs in its own issue.
+
+    Finding 4. The thick ascending limb node bound GO:0070588 (calcium ion
+    transmembrane transport), which denotes transcellular movement across a
+    membrane, to a mechanism that is paracellular and claudin-gated. Rebound to
+    the broader GO:0006816 (calcium ion transport), which is what
+    Autosomal_Dominant_Hypocalcemia_1 does for the mirror-image node and for the
+    same recorded reason, with the specificity carried in preferred_term
+    ('paracellular calcium reabsorption in the thick ascending limb'). A right
+    general term beats a wrong specific one.
+
+    Suggestions taken. Pancreatitis and Chondrocalcinosis now connect to the
+    pathograph as downstream targets of the 'Hypercalcemia with Non-Suppressed
+    PTH' pathophysiology node, so both read as consequences of the sustained
+    calcium elevation rather than as free-floating features; Chondrocalcinosis
+    was also rescoped in prose to the moderate-to-severe range, matching what the
+    source actually says.
+
+    A first attempt at that connection was wrong and was caught before the
+    reviewer saw it. It used a sequelae block on each phenotype targeting the
+    hypercalcaemia node, but dismech.graph builds a sequelae entry as
+    source=phenotype, target, predicate=leads_to, so it asserted
+    'Chondrocalcinosis leads_to Hypercalcemia' - the causation backwards. Nothing
+    flags this: check_causal_targets only asks whether the bare name resolves,
+    and it did. Rewritten as downstream edges on the pathophysiology node, which
+    is what the review actually asked for and what runs in the right direction.
+
+    A top-level
+    references block was added for parity with Autosomal_Dominant_Hypocalcemia_1,
+    listing all eight cited PMIDs with titles copied verbatim from their caches.
+    The two GO binding compromises are now documented in notes rather than left
+    to be rediscovered.
+
+    Validation. Schema, terms and references all pass. Snippets 42/42 verified
+    against cached references, up from 35/35, under both the fast audit and the
+    batched --no-full-text reference validator CI runs. check_enum_values,
+    check_duplicate_yaml_keys, check_entity_refs, check_causal_targets,
+    check_qualifier_terms, check_snippet_length, check_snippet_grading,
+    check_title_snippets, check_reference_titles, check_folded_hyphens and
+    check_empty_snippets all pass with no new baseline entries. No new reference
+    caches and no cache CSV changes were needed: every added quote comes from a
+    file this PR already commits, and GO:0006816 was already in the
+    biologicalprocessterm enum cache.
+
+    One reported-not-gated item is left in place. check_causal_targets notes a
+    self-referential target, the phenotype 'Hypermagnesemia' pointing at the
+    pathophysiology node of the same name. That is the flat-node-namespace
+    collapse of issue #9896 rather than a curation error, and the same shape
+    already exists for other paired nodes in this entry.

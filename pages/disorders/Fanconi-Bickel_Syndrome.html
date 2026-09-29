@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4079,6 +4156,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4125,6 +4203,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc2a2-glut2-loss-of-function-variants" data-dismech-node="SLC2A2 (GLUT2) Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC2A2 (GLUT2) Loss-of-Function Variants</div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in SLC2A2, the gene encoding the facilitative glucose transporter GLUT2, predict truncated or non-functional translation products lacking monosaccharide transport activity. Reported variants include frameshift, nonsense, splice-site, and missense changes, as well as exonic deletions, distributed throughout the gene.</div>
 
@@ -4219,6 +4298,7 @@ This pathophysiological event involves SLC2A2 (hgnc:11006). hgnc:11006 is a gene
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4240,6 +4320,7 @@ This pathophysiological event involves SLC2A2 (hgnc:11006). hgnc:11006 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4265,6 +4346,7 @@ This pathophysiological event involves SLC2A2 (hgnc:11006). hgnc:11006 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-glut2-transporter-function" data-dismech-node="Loss of GLUT2 Transporter Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of GLUT2 Transporter Function</div>
+
 
                 <div class="item-desc">GLUT2 is a high-capacity, low-affinity facilitative glucose transporter normally expressed on the basolateral membrane of hepatocytes and renal proximal tubular epithelial cells, on pancreatic beta cells, and on the basolateral membrane of intestinal enterocytes, where it mediates bidirectional, insulin-independent glucose (and galactose) flux down the concentration gradient. Loss of GLUT2 activity uncouples intracellular glucose handling from these tissues&#39; normal transport function, impairing both glucose uptake/release across the basolateral membrane and pancreatic beta-cell glucose sensing.</div>
 
@@ -4485,6 +4567,7 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4506,6 +4589,7 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4531,6 +4615,7 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatocyte-glucose-transport" data-dismech-node="Impaired Hepatocyte Glucose Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatocyte Glucose Transport</div>
+
 
                 <div class="item-desc">With hepatocyte GLUT2 nonfunctional, glucose entering via other routes (e.g., during feeding) cannot be efficiently released back into the circulation during fasting, and instead accumulates intracellularly where it drives excessive glycogen synthesis. This produces massive hepatic glycogen accumulation and hepatomegaly, with impaired hepatic glucose output during fasting.</div>
 
@@ -4664,6 +4749,7 @@ This pathophysiological event involves increased Glycogen biosynthetic process (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4686,6 +4772,7 @@ This pathophysiological event involves increased Glycogen biosynthetic process (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-renal-proximal-tubular-glucose-transport" data-dismech-node="Impaired Renal Proximal Tubular Glucose Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Renal Proximal Tubular Glucose Transport</div>
+
 
                 <div class="item-desc">Failure of basolateral GLUT2-mediated glucose efflux in the proximal tubule causes intracellular glucose and glycogen accumulation in tubular epithelial cells, producing a generalized (Fanconi-type) proximal tubulopathy characterized by glucosuria, generalized aminoaciduria, phosphaturia, and bicarbonaturia, despite normal or low blood glucose.</div>
 
@@ -4819,6 +4906,7 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4901,17 +4989,17 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4921,7 +5009,7 @@ This pathophysiological event involves decreased D-glucose transmembrane transpo
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
@@ -4954,6 +5042,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4971,6 +5062,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4979,6 +5071,78 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                 <div class="evidence-explanation">A large genetically confirmed cohort quantifies hepatomegaly frequency at 95%, mapping to VERY_FREQUENT.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-hepatic-glycogen-content" data-dismech-node="Increased Hepatic Glycogen Content" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased Hepatic Glycogen Content
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0006568</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased hepatic glycogen content (HP:0006568). HP:0006568 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9354798" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9354798" target="_blank">PMID:9354798</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Fanconi-Bickel syndrome (FBS) is a rare autosomal-recessive inborn error of metabolism characterized by hepatorenal glycogen accumulation, Fanconi nephropathy and impaired utilization of glucose and galactose."</div>
+
+
+                <div class="evidence-explanation">Defines hepatorenal glycogen accumulation as a core defining feature of the disorder.</div>
 
 
 
@@ -5019,15 +5183,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001994" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001994</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001994" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001994</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal Fanconi syndrome (HP:0001994). HP:0001994 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5047,6 +5214,7 @@ This clinical feature is Renal Fanconi syndrome (HP:0001994). HP:0001994 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5089,15 +5257,18 @@ This clinical feature is Renal Fanconi syndrome (HP:0001994). HP:0001994 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003076</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5117,6 +5288,7 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5148,8 +5320,56 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-doll-like-facies" data-dismech-node="Doll-like Facies" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Doll-like Facies
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000295" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000295</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Doll-like facies (HP:0000295). HP:0000295 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Classically described in clinical summaries of Fanconi-Bickel syndrome, but the cited abstract/full-text cache available in this PR did not contain an exact quotable phrase for doll-like facies; no evidence block is attached.</div>
+
+
+
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fasting-hypoglycemia" data-dismech-node="Fasting Hypoglycemia" data-dismech-type="phenotype">
@@ -5168,15 +5388,18 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003162</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003162</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fasting hypoglycemia (HP:0003162). HP:0003162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5196,6 +5419,7 @@ This clinical feature is Fasting hypoglycemia (HP:0003162). HP:0003162 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5238,15 +5462,18 @@ This clinical feature is Fasting hypoglycemia (HP:0003162). HP:0003162 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002148</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002148" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002148</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5266,6 +5493,7 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5308,15 +5536,18 @@ This clinical feature is Hypophosphatemia (HP:0002148). HP:0002148 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002155</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5336,6 +5567,7 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5362,9 +5594,81 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-galactose-intolerance" data-dismech-node="Galactose Intolerance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Galactose Intolerance
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004919</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Galactose intolerance (HP:0004919). HP:0004919 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9809815" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9809815" target="_blank">PMID:9809815</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"glucose and galactose intolerance"</div>
+
+
+                <div class="evidence-explanation">Long-term natural history study documents glucose and galactose intolerance as a typical, persistent clinical/laboratory finding of FBS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -5387,15 +5691,18 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002748</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002748" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002748</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5415,6 +5722,7 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5443,7 +5751,7 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -5466,15 +5774,18 @@ This clinical feature is Rickets (HP:0002748). HP:0002748 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5494,6 +5805,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5521,6 +5833,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5529,187 +5842,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">A large genetically confirmed cohort quantifies growth retardation at 68.4%, mapping to FREQUENT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-hepatic-glycogen-content" data-dismech-node="Increased Hepatic Glycogen Content" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased Hepatic Glycogen Content
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0006568</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased hepatic glycogen content (HP:0006568). HP:0006568 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9354798" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9354798" target="_blank">PMID:9354798</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Fanconi-Bickel syndrome (FBS) is a rare autosomal-recessive inborn error of metabolism characterized by hepatorenal glycogen accumulation, Fanconi nephropathy and impaired utilization of glucose and galactose."</div>
-
-
-                <div class="evidence-explanation">Defines hepatorenal glycogen accumulation as a core defining feature of the disorder.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-doll-like-facies" data-dismech-node="Doll-like Facies" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Doll-like Facies
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000295" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000295</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Doll-like facies (HP:0000295). HP:0000295 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Classically described in clinical summaries of Fanconi-Bickel syndrome, but the cited abstract/full-text cache available in this PR did not contain an exact quotable phrase for doll-like facies; no evidence block is attached.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-galactose-intolerance" data-dismech-node="Galactose Intolerance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Galactose Intolerance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004919</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Galactose intolerance (HP:0004919). HP:0004919 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9809815" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9809815" target="_blank">PMID:9809815</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"glucose and galactose intolerance"</div>
-
-
-                <div class="evidence-explanation">Long-term natural history study documents glucose and galactose intolerance as a typical, persistent clinical/laboratory finding of FBS.</div>
 
 
 
@@ -5801,6 +5933,9 @@ This disease-associated gene is SLC2A2 (hgnc:11006). hgnc:11006 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5815,6 +5950,7 @@ This disease-associated gene is SLC2A2 (hgnc:11006). hgnc:11006 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5839,6 +5975,7 @@ This disease-associated gene is SLC2A2 (hgnc:11006). hgnc:11006 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5922,6 +6059,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Frequent small meals and uncooked cornstarch supplementation provide a sustained-release glucose source to reduce the amplitude of fasting hypoglycemia and glucose/galactose intolerance characteristic of Fanconi-Bickel syndrome; galactose restriction is also used given the shared GLUT2-dependent transport defect.</div>
 
 
@@ -5961,6 +6123,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6046,6 +6209,20 @@ This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral phosphate, alkali, and active vitamin D (alfacalcidol) replacement address the renal phosphate and bicarbonate wasting from the proximal tubulopathy and support treatment of hypophosphatemic rickets.</div>
 
 
@@ -6085,6 +6262,7 @@ This treatment uses alfacalcidol (CHEBI:31186). CHEBI:31186 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6187,6 +6365,31 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Off-label repurposing of the SGLT2 inhibitor empagliflozin blocks apical glucose reabsorption in renal proximal tubular cells, reducing the intracellular glucose/glycogen burden created by the basolateral GLUT2 defect and improving biochemical markers of tubular integrity and function; in a case series, phosphate/alkali/carnitine/alfacalcidol supplementation could be discontinued in treated children.</div>
 
 
@@ -6229,6 +6432,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6250,6 +6454,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6341,6 +6546,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6380,6 +6586,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6456,6 +6663,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6495,6 +6703,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6561,6 +6770,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6638,6 +6848,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6688,6 +6899,7 @@ This treatment uses SGLT2 Inhibitor (NCIT:C98083). NCIT:C98083 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

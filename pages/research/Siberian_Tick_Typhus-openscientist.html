@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siberian Tick Typhus · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Siberian Tick Typhus</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Siberian Tick Typhus</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0001154" target="_blank" rel="noopener noreferrer">MONDO:0001154</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">17 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>Finding 1 — Etiology and vector (F001)</h3>
+<p>Siberian tick typhus is a spotted-fever-group rickettsiosis caused by <em>Rickettsia sibirica</em>, an obligate intracellular bacterium transmitted by ixodid ticks of the genus <em>Dermacentor</em>. Molecular surveillance in Inner Mongolia, China (2019; 408 ticks screened) detected <em>R. sibirica</em> in <em>Dermacentor nuttalli</em> ticks, with <em>gltA</em> haplotypes (G8/G10) and <em>ompA</em> haplotypes (O16/O19) clustering phylogenetically with <em>R. sibirica</em> <a href="https://pubmed.ncbi.nlm.nih.gov/35934699/">PMID: 35934699</a>. The comprehensive geographic review by Parola et al. classifies <em>R. sibirica</em> among the tick-borne SFG <em>Rickettsia</em> zoonoses <a href="https://pubmed.ncbi.nlm.nih.gov/24092850/">PMID: 24092850</a>, which states: <em>"Tick-borne rickettsioses are caused by obligate intracellular bacteria belonging to the spotted fever group of the genus Rickettsia."</em> The Inner Mongolia study identifies the principal regional vector: <em>"The tick species Dermacentor nuttalli is considered the main vector carrying SFGR in Inner Mongolia."</em></p>
+<p>This establishes the disease as <strong>infectious, not genetic</strong>: the sole necessary cause is inoculation of <em>R. sibirica</em> via a tick bite. Ontology anchors: causative organism — <em>Rickettsia sibirica</em> (NCBITaxon:35793); vector — <em>Dermacentor nuttalli</em>.</p>
+<h3>Finding 2 — Clinical triad, LAR subspecies, and benign course (F002)</h3>
+<p>STT produces the classic SFG clinical triad — <strong>inoculation eschar (tache noire), fever, and maculopapular rash</strong> — often with regional lymphadenopathy following a tick bite. A clinically important variant is caused by <em>R. sibirica</em> subsp. <em>mongolitimonae</em>, which produces <strong>lymphangitis-associated rickettsiosis (LAR)</strong>. The defining review states: <em>"This bacterium induces the lymphangitis-associated rickettsiosis, a still unfamiliar rickettsiosis that is mainly characterized by fever with a rope-like lymphangitis and/or lymphadenopathy and skin eschar occurring after tick bites"</em> and <em>"Sequellae are very rare and treatment with doxycycline is recommended"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24034636/">PMID: 24034636</a>. The frequency of the lymphangitis feature is quantified in a second source: <em>"Approximately, one-third of the patients with this infection experience lymphangitis from the inoculation eschar to the draining lymph nodes, and, in that case, the infection is named 'lymphangitis-associated rickettsiosis' (LAR)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/33969876/">PMID: 33969876</a>.</p>
+<p>Suggested HPO phenotype terms: <strong>Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>)</strong>, <strong>Skin rash (<a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a>)</strong> / Maculopapular exanthema, <strong>Lymphadenopathy (<a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a>)</strong>, <strong>Skin ulcer/eschar (<a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a>)</strong>, <strong>Headache (<a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a>)</strong>, <strong>Myalgia (<a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a>)</strong>.</p>
+<h3>Finding 3 — Pathophysiology: endothelial infection, vasculitis, and procoagulant activation (F003)</h3>
+<p>The core pathophysiology of STT, shared across SFG rickettsioses, is a <strong>diffuse vasculitis with endothelial injury</strong>. <em>R. sibirica</em> infects <strong>vascular endothelial cells</strong>, producing a disseminated small-vessel vasculitis. Supporting evidence from the closely related SFG agent <em>R. conorii</em> (Mediterranean spotted fever, MSF) states: <em>"The physiopathology of Mediterranean spotted fever includes diffuse vasculitis with endothelial injury"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/20797742/">PMID: 20797742</a>. In vivo studies of MSF patients demonstrate the downstream procoagulant cascade: <em>"Our results provide biochemical evidence for the occurrence of TXA2-dependent platelet activation and thrombin generation in vivo, together with endothelial dysfunction"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/8584998/">PMID: 8584998</a> — reflecting thromboxane-A2-dependent platelet activation, thrombin generation, and elevated endothelin-1.</p>
+<p>Suggested GO terms: <strong>response to bacterium (<a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" rel="noopener noreferrer">GO:0009617</a>)</strong>, <strong>inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>)</strong>, <strong>blood coagulation (<a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a>)</strong>, <strong>platelet activation (<a href="http://purl.obolibrary.org/obo/GO_0030168" target="_blank" rel="noopener noreferrer">GO:0030168</a>)</strong>. Suggested CL/UBERON terms: <strong>endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>)</strong>, <strong>blood vessel endothelium (<a href="http://purl.obolibrary.org/obo/UBERON_0004638" target="_blank" rel="noopener noreferrer">UBERON:0004638</a>)</strong>, <strong>skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>)</strong>.</p>
+<h3>Finding 4 — Diagnosis by IFA serology and ompA/gltA PCR (F004)</h3>
+<p>Diagnosis relies on <strong>indirect immunofluorescence assay (IFA)</strong> serology (seroconversion or ≥4-fold titer rise), plus <strong>PCR targeting the ompA and gltA genes with DNA sequencing</strong>, ideally performed on an eschar biopsy or swab. The standard molecular protocol is described as <em>"a standard PCR reaction using primers suitable for hybridisation within the conserved region of genes coding for outer membrane protein A (ompA) and citrate synthase (gltA) and DNA sequencing were performed"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/23168048/">PMID: 23168048</a>. Non-invasive eschar sampling is now validated: <em>"New approaches, such as swabbing of eschars to obtain material to be tested by PCR, have emerged in recent years and have played a role in describing emerging tick-borne rickettsioses"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24092850/">PMID: 24092850</a>. In MSF biopsy series, PCR positivity reached 72.6% of samples, and IFA identifies the majority of serologically confirmed cases.</p>
+<h3>Finding 5 — Protective immunity is cell-mediated (NK cells + CD8+ T cells + IFN-γ) (F005)</h3>
+<p>Protective immunity to endothelium-targeting SFG rickettsiae is <strong>cell-mediated</strong>, not primarily antibody-driven. In murine models, resistant animals show higher frequencies of IFN-γ+ CD8+ T cells and cytotoxic NK cells; NK-deficient <em>Rag−/−γc−/−</em> mice show impaired clearance, severe hepatic thrombosis, and low serum IFN-γ. Key evidence: <em>"these findings reveal that NK cells mediate the innate phase of host protection against infection with rickettsiae, most likely via IFN-γ production"</em> and <em>"NK cells are involved in preventing rickettsial infection-induced endothelial cell damage"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/22617213/">PMID: 22617213</a>. For adaptive immunity: <em>"resistance to rickettsial infections is attributed to the induction of antigen-specific T cells, particularly CD8(+) T cells"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/25043277/">PMID: 25043277</a>, with the anti-<em>Rickettsia</em> CD8+ response peaking around 7 days post-infection and IFN-γ and granzyme B serving as correlates of protection.</p>
+<p>Suggested CL terms: <strong>CD8-positive, alpha-beta T cell (<a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a>)</strong>, <strong>natural killer cell (<a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" rel="noopener noreferrer">CL:0000623</a>)</strong>. Suggested GO terms: <strong>interferon-gamma production (<a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" rel="noopener noreferrer">GO:0032609</a>)</strong>, <strong>T cell mediated cytotoxicity (<a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" rel="noopener noreferrer">GO:0001913</a>)</strong>.</p>
+<h3>Finding 6 — Surface proteins mediate endothelial invasion and are protective antigens (F006)</h3>
+<p>Rickettsial <strong>surface-exposed outer-membrane proteins</strong> — OmpA and OmpB (Sca autotransporter family), plus Adr1, Adr2, OmpW, Porin_4, and TolC — mediate adhesion to and invasion of vascular endothelial cells and are immunoprotective antigens. Proteomic surface labeling of <em>R. rickettsii</em> identified these SEPs, and immunization studies showed functional relevance: <em>"sera from mice immunized with rAdr1, rAdr2, or rOmpW reduced R. rickettsii adherence to and invasion of vascular endothelial cells"</em> and <em>"Surface-exposed proteins (SEPs) of R. rickettsii may play important roles in its pathogenesis or immunity"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24950252/">PMID: 24950252</a>. These proteins provide the molecular link between the initiating tick inoculation and the endothelial tropism that drives disease, and they are the targets of the <em>ompA</em> PCR used diagnostically (Finding 4).</p>
+<p>Suggested GO cellular-component terms: <strong>outer membrane (<a href="http://purl.obolibrary.org/obo/GO_0019867" target="_blank" rel="noopener noreferrer">GO:0019867</a>)</strong>, <strong>cell surface (<a href="http://purl.obolibrary.org/obo/GO_0009986" target="_blank" rel="noopener noreferrer">GO:0009986</a>)</strong>. Suggested GO process term: <strong>entry into host cell (<a href="http://purl.obolibrary.org/obo/GO_0030260" target="_blank" rel="noopener noreferrer">GO:0030260</a>)</strong>.</p>
+<h3>Finding 7 — Prevention is entirely non-immunological (personal anti-tick measures) (F007)</h3>
+<p>There is <strong>no licensed vaccine and no recommended routine chemoprophylaxis</strong> for SFG rickettsiosis. Prevention is entirely based on <strong>personal protective measures against tick bites</strong>: DEET/picaridin repellents, permethrin-treated clothing, tick checks, and prompt tick removal. The CDC position: <em>"Personal protection measures to prevent human tick encounters from resulting in bites are widely recommended as the first line of defense against health impacts associated with ticks"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/35364518/">PMID: 35364518</a>. Efficacy is quantified: repellent/permethrin formulations showed <em>"estimated repellencies ranging from 93 to 97%"</em> in bioassays <a href="https://pubmed.ncbi.nlm.nih.gov/32073128/">PMID: 32073128</a>. Field durability is a caveat — 33% of permethrin-treated forester pants had no measurable permethrin after one year of wear <a href="https://pubmed.ncbi.nlm.nih.gov/34958094/">PMID: 34958094</a>.</p>
+<p>Suggested NCIT-style intervention terms: insect repellent use; protective clothing; vector control.</p>
+<h3>Finding 8 — Animal reservoirs/sentinels and male-biased human exposure (F008)</h3>
+<p>Domestic and wild mammals act as <strong>sentinels and amplifying hosts</strong> in the SFG rickettsial cycle, and human seropositivity is <strong>male-associated</strong>, consistent with outdoor exposure rather than any genetic predisposition. Seroprevalence surveys show high SFG rickettsial IgG in animals: 57–59% of dogs and 59% of cats in Tasmania (<em>"59% of cats and 57% of dogs were positive for antibodies"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/20148824/">PMID: 20148824</a>); and 58.5% of dogs, 48.1% of black rats, and 38.3% of humans in a Peruvian rural community. In that community, <em>"only male gender was statistically associated with having IgG antibodies against Rickettsia spp. (p-value=0.049, chi-square test)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/39799873/">PMID: 39799873</a>. The male predominance reflects occupational/recreational outdoor activity and tick exposure, reinforcing the environmental etiology.</p>
+<h3>Finding 9 — Doxycycline is curative; excellent prognosis (F009)</h3>
+<p><strong>Doxycycline is the first-line curative therapy</strong> for STT and related SFG rickettsioses, producing rapid recovery with very rare sequelae. <em>"Sequellae are very rare and treatment with doxycycline is recommended"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24034636/">PMID: 24034636</a>, and a recent case series confirms <em>"All patients were treated with doxycycline and recovered without complications"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40608626/">PMID: 40608626</a>. The excellent prognosis, combined with the absence of a vaccine and reliance on vector avoidance (Finding 7), completes the management picture. Suggested NCIT term: <strong>Doxycycline (NCIT:C542)</strong>; CHEBI: <strong>doxycycline (<a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" rel="noopener noreferrer">CHEBI:50845</a>)</strong>.</p>
+<hr />
+<h2>Full Disease-Knowledge-Base Entry (15 Sections)</h2>
+<h3>1. Disease Information</h3>
+<p>STT is an acute febrile zoonotic infection of the SFG rickettsioses. <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0001154" target="_blank" rel="noopener noreferrer">MONDO:0001154</a>; MeSH "Rickettsiosis, Siberian Tick" / "spotted fever"; ICD-10 A77.2 (Spotted fever due to <em>Rickettsia sibirica</em>); ICD-11 1C30.2. It is not an OMIM/Orphanet Mendelian entry (infectious, not genetic). <strong>Synonyms:</strong> North Asian tick typhus, North Asian tick-borne rickettsiosis, Siberian tick-borne typhus, <em>Rickettsia sibirica</em> infection. Information is derived from <strong>aggregated disease-level resources</strong> (case series, seroprevalence surveys, molecular surveillance) rather than individual EHR data.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factor:</strong> infectious — inoculation of <em>R. sibirica</em> through the bite of an infected ixodid tick (Finding 1). There are <strong>no genetic risk factors</strong>; susceptibility loci, causal variants, and modifier genes are <strong>not applicable</strong> to this infectious disease. <strong>Environmental/behavioral risk factors:</strong> outdoor occupational or recreational activity in endemic Eurasian foci (Siberia, Mongolia, northern China, Central Asia), spring–summer tick season, contact with tick-infested vegetation or animals; <strong>male sex</strong> is statistically associated with seropositivity as a proxy for exposure (Finding 8). <strong>Protective factors</strong> are behavioral (tick avoidance, repellents, protective clothing — Finding 7), not genetic. <strong>Gene–environment interactions:</strong> not applicable.</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO term</th>
+<th>Frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+<td>Near-universal; acute onset after incubation</td>
+</tr>
+<tr>
+<td>Inoculation eschar (tache noire)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> (skin ulcer)</td>
+<td>Hallmark at bite site</td>
+</tr>
+<tr>
+<td>Maculopapular rash</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a></td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Regional lymphadenopathy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a></td>
+<td>Common, esp. in LAR</td>
+</tr>
+<tr>
+<td>Lymphangitis (LAR, <em>mongolitimonae</em>)</td>
+<td>Clinical sign</td>
+<td>—</td>
+<td>~1/3 of <em>mongolitimonae</em> cases (Finding 2)</td>
+</tr>
+<tr>
+<td>Headache / myalgia</td>
+<td>Symptoms</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> / <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a></td>
+<td>Frequent constitutional</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a></td>
+<td>Reported in rickettsial infection</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong> adult-onset (exposure-driven, any age); <strong>acute</strong> onset; severity generally <strong>mild–moderate</strong> and self-limited; <strong>monophasic</strong> course resolving with treatment. <strong>Quality-of-life impact</strong> is transient and low given rapid response to doxycycline and rare sequelae.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable</strong> in the human-host sense — there are no causal human genes, pathogenic variants, modifier genes, epigenetic lesions, or chromosomal abnormalities. The relevant molecular genetics are <strong>pathogen-side</strong>: the <em>R. sibirica</em> genes <em>ompA</em> (outer membrane protein A) and <em>gltA</em> (citrate synthase) are used for molecular typing and phylogeny (Findings 1, 4), and surface-protein genes <em>ompB</em>, <em>adr1</em>, <em>adr2</em>, <em>ompW</em> encode virulence/adhesion factors (Finding 6).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agent:</strong> <em>Rickettsia sibirica</em> (including subsp. <em>sibirica</em> and subsp. <em>mongolitimonae</em>). <strong>Vectors/environment:</strong> ixodid ticks — <em>Dermacentor nuttalli</em> (principal), other <em>Dermacentor</em> spp., <em>Haemaphysalis</em>, and (for <em>mongolitimonae</em>) <em>Hyalomma</em> and <em>Rhipicephalus</em> ticks in the broader region. Transmission occurs in natural steppe/forest-steppe habitats. No toxin, radiation, or pollution etiology.</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain:</strong></p>
+<ol>
+<li>An infected ixodid tick bites the human host and <strong>inoculates</strong> <em>R. sibirica</em> into the dermis (initiating exposure). → leads to</li>
+<li>Bacteria use <strong>surface-exposed outer-membrane proteins (OmpA/OmpB, Adr1/Adr2)</strong> to <strong>adhere to and invade vascular endothelial cells</strong> at and beyond the bite site (Finding 6). → results in</li>
+<li>Intracellular replication and cell-to-cell spread causing <strong>local endothelial injury and the inoculation eschar (tache noire)</strong>; lymphatic spread produces regional lymphadenopathy and, for <em>mongolitimonae</em>, <strong>lymphangitis (LAR)</strong> (Finding 2). → leads to</li>
+<li>Hematogenous dissemination and <strong>disseminated small-vessel vasculitis with endothelial injury</strong> (Finding 3). → results in</li>
+<li><strong>Procoagulant activation</strong> — thromboxane-A2-dependent platelet activation, thrombin generation, endothelial dysfunction (↑endothelin-1) — and increased vascular permeability (Finding 3). → produces</li>
+<li>The clinical manifestations: <strong>maculopapular rash, fever, and (rarely) more severe vascular complications</strong>. Branch: in parallel, the host mounts a protective response —</li>
+<li><strong>NK cells (innate) and CD8+ T cells (adaptive), via IFN-γ and granzyme B, clear infected endothelium</strong> and prevent endothelial damage/thrombosis (Finding 5), leading to resolution — accelerated by doxycycline (Finding 9).</li>
+</ol>
+<p>Steps 2, 3, 5, and 7 are supported by direct experimental evidence (largely from closely related SFG agents <em>R. rickettsii</em> and <em>R. conorii</em>, extrapolated to <em>R. sibirica</em>, which is noted as an <strong>inference</strong> where species-specific data are lacking). Molecular pathways: bacterial cell entry, host inflammatory response, coagulation cascade. Cell types: endothelial cells (target); NK cells, CD8+ T cells (protection). GO/CL/UBERON terms as listed under Findings 3, 5, 6.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ/tissue:</strong> vascular endothelium (systemic small vessels) — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0004638" target="_blank" rel="noopener noreferrer">UBERON:0004638</a></strong> (blood vessel endothelium); <strong>skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>)</strong> at eschar and rash.</li>
+<li><strong>Secondary:</strong> lymphatic vessels/nodes (lymphangitis, lymphadenopathy — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a></strong> lymph node); potential liver/vascular complications in severe disease.</li>
+<li><strong>Body systems:</strong> cardiovascular (vascular), integumentary, lymphatic/immune.</li>
+<li><strong>Cell level:</strong> endothelial cell (<strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a></strong>). <strong>Subcellular:</strong> cytoplasm (intracellular replication) — GO cytoplasm (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>).</li>
+<li><strong>Lateralization:</strong> eschar typically <strong>unilateral/localized</strong> (single bite site); rash <strong>generalized/bilateral</strong>.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> acute, after a short incubation following the tick bite; any age (exposure-dependent, adult-predominant). <strong>Course:</strong> monophasic, <strong>self-limited</strong>, resolving over days to weeks; prompt doxycycline shortens course. <strong>Progression:</strong> generally mild and non-progressive; sequelae very rare (Findings 2, 9). <strong>Remission:</strong> treatment-induced (rapid) or spontaneous in mild cases. <strong>Critical period:</strong> early doxycycline initiation optimizes outcome.</p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong> endemic across Siberia, Mongolia, northern China, Kazakhstan, and Central Asia; seasonal (tick-activity months). Animal seroprevalence is high (dogs 57–58.5%, cats 59%, rats 48%), indicating widespread enzootic circulation (Finding 8). <strong>Inheritance:</strong> not applicable (infectious). <strong>Penetrance/expressivity/anticipation/founder effects/consanguinity/carrier frequency:</strong> all not applicable. <strong>Demographics:</strong> <strong>male predominance</strong> in seropositivity (p=0.049), attributable to outdoor exposure (Finding 8); no ethnic genetic predisposition. <strong>Geographic distribution</strong> tracks the range of <em>Dermacentor</em>/<em>Haemaphysalis</em> vectors and their small-mammal reservoirs.</p>
+<h3>10. Diagnostics</h3>
+<p><strong>Serology:</strong> IFA (reference standard) — seroconversion or ≥4-fold titer rise (Finding 4). <strong>Molecular:</strong> PCR of <em>ompA</em> and <em>gltA</em> with sequencing, from <strong>eschar biopsy or swab</strong> (non-invasive), or from blood/rash biopsy (Finding 4). <strong>Supportive labs:</strong> thrombocytopenia may be present. <strong>Clinical criteria:</strong> compatible triad (eschar + fever + rash) plus endemic tick exposure. <strong>Differential diagnosis:</strong> other SFG rickettsioses (MSF/<em>R. conorii</em>, <em>R. slovaca</em> TIBOLA/SENLAT, <em>R. raoultii</em>, <em>R. aeschlimannii</em>), tularemia, Lyme borreliosis, typhus group, and other eschar-forming tick-borne illnesses. <strong>Genetic/omics/newborn screening:</strong> not applicable.</p>
+<h3>11. Outcome/Prognosis</h3>
+<p><strong>Excellent.</strong> With doxycycline, recovery is rapid and complete; <em>"All patients... recovered without complications"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40608626/">PMID: 40608626</a>. <strong>Mortality</strong> is very low for <em>R. sibirica</em> (in contrast to more virulent SFG agents such as <em>R. rickettsii</em>). <strong>Sequelae are very rare</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/24034636/">PMID: 24034636</a>. <strong>Complications</strong> (severe vasculitis, thrombosis) are uncommon and associated with delayed treatment. <strong>Prognostic factors:</strong> timeliness of doxycycline, host immune competence (NK/CD8+ IFN-γ response — Finding 5), and comorbidity.</p>
+<h3>12. Treatment</h3>
+<p><strong>First-line:</strong> <strong>Doxycycline</strong> (tetracycline-class; inhibits bacterial protein synthesis) — curative, rapid response (Finding 9). <strong>Alternatives</strong> for SFG rickettsioses include other tetracyclines and, in specific circumstances, chloramphenicol or fluoroquinolones/macrolides (agent- and patient-dependent). <strong>No advanced therapeutics</strong> (gene, cell, RNA, targeted, or immunotherapy) are relevant. <strong>Supportive care</strong> for fever/pain as needed. <strong>Pharmacogenomics:</strong> not applicable. NCIT/CHEBI: Doxycycline (NCIT:C542; <a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" rel="noopener noreferrer">CHEBI:50845</a>).</p>
+<h3>13. Prevention</h3>
+<p><strong>Entirely non-immunological</strong> (Finding 7). <strong>Primary prevention:</strong> personal anti-tick measures — DEET/picaridin repellents, permethrin-treated clothing (93–97% repellency), tick checks, prompt tick removal; environmental/vector control in high-risk settings. <strong>Secondary/tertiary:</strong> early recognition and doxycycline. <strong>Immunization:</strong> no licensed vaccine. <strong>Prophylaxis:</strong> routine post-bite antibiotics <strong>not</strong> recommended. <strong>Public health:</strong> health education for outdoor workers/travelers in endemic zones; note permethrin durability declines over ~1 year of wear (Finding 7 caveat).</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Taxonomy of hosts/reservoirs:</strong> small mammals (rodents), dogs (<em>Canis lupus familiaris</em>, NCBITaxon:9615), cats (<em>Felis catus</em>, NCBITaxon:9685), and rats serve as reservoirs/sentinels with high seroprevalence (Finding 8). <strong>Vector:</strong> <em>Dermacentor nuttalli</em> and related ixodids. <strong>Zoonotic potential:</strong> STT is a <strong>zoonosis</strong> maintained in a tick–mammal cycle; humans are incidental hosts. Domestic animals are largely asymptomatic amplifying/sentinel hosts. Comparative pathology: the endothelial-tropism mechanism is conserved across SFG <em>Rickettsia</em> species and their mammalian hosts.</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Mouse models</strong> are the principal experimental system for SFG rickettsial immunity and pathogenesis: resistant/susceptible mouse strains, <em>Rag−/−γc−/−</em> NK-deficient mice, and challenge/immunization studies define the NK/CD8+/IFN-γ correlates of protection (Findings 5, 6). <strong>In vitro:</strong> vascular endothelial cell infection assays model adhesion/invasion (Finding 6). Most mechanistic data derive from <em>R. rickettsii</em>/<em>R. conorii</em> models and are <strong>extrapolated</strong> to <em>R. sibirica</em>; species-specific <em>R. sibirica</em> models are a knowledge gap. Cattle <em>Cowdria (Ehrlichia) ruminantium</em> work <a href="https://pubmed.ncbi.nlm.nih.gov/9573061/">PMID: 9573061</a> provides comparative evidence that infected endothelial cells present antigen to protective T cells.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> TICK BITE (Dermacentor nuttalli inoculates R. sibirica)
+      │
+      ▼
+ [Surface proteins OmpA/OmpB, Adr1/Adr2]  ── adhere &amp; invade ──►  VASCULAR ENDOTHELIAL CELLS
+      │                                                          │
+      ▼                                                          ▼
+   Local injury → ESCHAR (tache noire)                     Hematogenous dissemination
+   Lymphatic spread → lymphadenopathy / LAR (mongolitimonae)            │
+                                                        ▼
+                            DISSEMINATED SMALL-VESSEL VASCULITIS
+                                                        │
+                    ┌───────────────────────────────────┤
+                    ▼                                   ▼
+    Procoagulant activation                     Increased vascular
+    (TXA2 → platelets, thrombin,                permeability
+     ↑endothelin-1)                                     │
+                    └───────────────┬───────────────────┘
+                                    ▼
+                    FEVER + MACULOPAPULAR RASH
+                                    │
+┌───────────────────────────────────────────┘
+▼ (host defense branch)
+ NK cells (innate) + CD8+ T cells (adaptive) ── IFN-γ, granzyme B ──► clear infected endothelium
+│
+▼
+ RESOLUTION  ◄──── accelerated by DOXYCYCLINE ────►  EXCELLENT PROGNOSIS, rare sequelae
+</code></pre>
+<p>The disease is best understood as a <strong>linear infectious cascade</strong> with a protective immune branch. The single initiating lesion (tick inoculation) is amplified through endothelial tropism into a systemic vasculitis; the same surface proteins that drive invasion are the antigens recognized by protective cellular immunity and the genetic targets of molecular diagnostics. Because there is no host genetic component, the disease's "risk," "protection," and "prevention" all operate at the level of <strong>exposure</strong> — explaining the male, outdoor-associated epidemiology and the vector-avoidance basis of prevention.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35934699/">35934699</a></td>
+<td><em>Rickettsia</em> in <em>D. nuttalli</em>, Inner Mongolia</td>
+<td>F001 vector &amp; agent</td>
+<td>Molecular surveillance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24092850/">24092850</a></td>
+<td>Tick-borne rickettsioses worldwide</td>
+<td>F001 taxonomy, F004 eschar swab</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24034636/">24034636</a></td>
+<td>LAR by <em>R. sibirica mongolitimonae</em></td>
+<td>F002 clinic, F009 doxycycline</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33969876/">33969876</a></td>
+<td>LAR by <em>R. sibirica mongolitimonae</em></td>
+<td>F002 ~1/3 lymphangitis</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20797742/">20797742</a></td>
+<td><em>R. conorii</em> meningoencephalitis</td>
+<td>F003 vasculitis</td>
+<td>Clinical/mechanistic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8584998/">8584998</a></td>
+<td><em>R. conorii</em> coagulation activation</td>
+<td>F003 procoagulant</td>
+<td>Human in vivo</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23168048/">23168048</a></td>
+<td>MSF in Trakya, Turkey</td>
+<td>F004 ompA/gltA PCR</td>
+<td>Clinical series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22617213/">22617213</a></td>
+<td>NK cells vs. rickettsiae</td>
+<td>F005 innate immunity</td>
+<td>Mouse model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25043277/">25043277</a></td>
+<td>Anti-<em>Rickettsia</em> CD8+ response</td>
+<td>F005 adaptive immunity</td>
+<td>Mouse model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24950252/">24950252</a></td>
+<td><em>R. rickettsii</em> surface proteins</td>
+<td>F006 invasion/antigens</td>
+<td>Proteomics + immunization</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35364518/">35364518</a></td>
+<td>Personal protection vs. ticks</td>
+<td>F007 prevention</td>
+<td>Review/guidance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32073128/">32073128</a></td>
+<td>Repellent efficacy vs. ticks</td>
+<td>F007 93–97% repellency</td>
+<td>Bioassay</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34958094/">34958094</a></td>
+<td>Permethrin uniform durability</td>
+<td>F007 durability caveat</td>
+<td>Field study</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39799873/">39799873</a></td>
+<td>SFG rickettsiae, Peru</td>
+<td>F008 male exposure</td>
+<td>Seroprevalence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20148824/">20148824</a></td>
+<td>SFG in cats/dogs, Tasmania</td>
+<td>F008 animal sentinels</td>
+<td>Seroprevalence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40608626/">40608626</a></td>
+<td>Rickettsiosis case series, Turkey</td>
+<td>F009 doxycycline outcome</td>
+<td>Clinical series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26384814/">26384814</a></td>
+<td>Rickettsioses in Europe</td>
+<td>Context: LAR classification</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9573061/">9573061</a></td>
+<td><em>Cowdria</em> T-cell immunity</td>
+<td>Comparative endothelial immunity</td>
+<td>Cattle model</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Key strength:</strong> the mechanistic and immunological findings are internally consistent and cross-supported by multiple SFG species. <strong>Key caveat:</strong> much of the mechanistic/immunological detail derives from <em>R. rickettsii</em> and <em>R. conorii</em> rather than <em>R. sibirica</em> directly, and is applied by inference within the SFG.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Species-specific data scarcity.</strong> Most pathophysiology (Findings 3, 5, 6) comes from <em>R. conorii</em> and <em>R. rickettsii</em>. <em>R. sibirica</em>-specific endothelial-invasion, immune-correlate, and virulence studies are limited; extrapolation within the SFG is reasonable but not proven for STT.</li>
+<li><strong>Epidemiology from proxies.</strong> The male-predominance and seroprevalence findings (F008) derive from non-endemic comparators (Peru, Tasmania) rather than core Eurasian STT foci; precise STT incidence/prevalence per 100,000 in Siberia/Mongolia/China was not quantified here.</li>
+<li><strong>No quantitative severity/QoL data.</strong> Phenotype frequencies are qualitative or drawn from related agents; formal QoL instruments have not been applied to STT.</li>
+<li><strong>Diagnostic performance figures</strong> (e.g., 72.6% PCR positivity) come from MSF series, not STT-specific cohorts.</li>
+<li><strong>No host-genetics dimension</strong> exists for this infectious disease, so Sections 4 and much of 9 are "not applicable" by nature rather than by data gap.</li>
+<li><strong>Vaccine/therapeutic pipeline</strong> for SFG rickettsioses remains preclinical; the protective-antigen work (F006) is promising but not yet translated.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Actions</h2>
+<ol>
+<li><strong>Quantify STT-specific epidemiology</strong> by mining Russian/Chinese/Mongolian surveillance and registry literature for incidence, seasonality, and age/sex distribution in core endemic foci.</li>
+<li><strong>Confirm <em>R. sibirica</em>-specific mechanisms</strong>: seek in vitro endothelial-invasion and murine immunity studies using <em>R. sibirica</em> itself to validate the extrapolated OmpA/OmpB/Adr and NK/CD8+/IFN-γ findings.</li>
+<li><strong>Compile a differential-diagnosis matrix</strong> distinguishing STT from co-circulating eschar-forming rickettsioses (<em>R. slovaca</em>, <em>R. raoultii</em>, <em>R. aeschlimannii</em>, <em>R. conorii</em>) by vector, geography, eschar location, and lymphadenopathy pattern.</li>
+<li><strong>Assess subspecies delineation</strong>: further characterize <em>R. sibirica</em> subsp. <em>mongolitimonae</em> (LAR) vs. subsp. <em>sibirica</em> clinical and molecular distinctions.</li>
+<li><strong>Evaluate protective-antigen vaccine candidates</strong> (Adr1/Adr2/OmpW) for cross-protection across SFG species, given the shared endothelial mechanism.</li>
+<li><strong>Ontology curation</strong>: finalize HPO/GO/CL/UBERON/NCIT/CHEBI mappings proposed above for knowledge-base ingestion.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 5 investigation iterations, 9 confirmed cited findings, and 23 reviewed papers. Evidence types span human clinical series, mouse and cattle models, in vitro assays, molecular surveillance, and seroprevalence surveys. Where R. sibirica-specific data were unavailable, findings from closely related spotted fever group Rickettsia are applied by explicit inference.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Siberian_Tick_Typhus-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Siberian_Tick_Typhus-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>18</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0001945</code> (2 mentions) - the report calls it "Symptom"; HP calls it <strong>Fever</strong></li>
+<li><code>HP:0000988</code> (2 mentions) - the report calls it "Physical manifestation"; HP calls it <strong>Skin rash</strong></li>
+<li><code>HP:0002716</code> (2 mentions) - the report calls it "Clinical sign"; HP calls it <strong>Lymphadenopathy</strong></li>
+<li><code>HP:0001873</code> (1 mention) - the report calls it "Lab abnormality"; HP calls it <strong>Thrombocytopenia</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0030260</code> (GO_0030260) (1 mention) - replaced by <code>GO:0044409</code></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sialuria-openscientist.html">← Sialuria (OpenScientist)</a>
+                
+                
+                <a href="Sick_Sinus_Syndrome_2_Autosomal_Dominant-falcon.html">Sick Sinus Syndrome 2, Autosomal Dominant (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Siberian_Tick_Typhus.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Siberian_Tick_Typhus-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

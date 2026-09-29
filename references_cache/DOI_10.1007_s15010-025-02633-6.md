@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1007/s15010-025-02633-6
+extractor_version: 1
 title: "Use of fexinidazole in gambiense human African trypanosomiasis: a retrospective analysis of cases treated in Lui Hospital, South Sudan (2018–2024)"
 authors:
 - Francesca Mariotti
@@ -18,12 +19,14 @@ journal: Infection
 year: '2025'
 doi: 10.1007/s15010-025-02633-6
 content_type: full_text_pdf
+is_preprint: false
 full_text_attempted: true
 full_text_provider: openalex
 full_text_url: "https://link.springer.com/content/pdf/10.1007/s15010-025-02633-6.pdf"
 oa_status: hybrid
 license: cc-by
 local_pdf_path: files/DOI_10.1007_s15010-025-02633-6.pdf
+full_text_access_type: open
 ---
 
 # Use of fexinidazole in gambiense human African trypanosomiasis: a retrospective analysis of cases treated in Lui Hospital, South Sudan (2018–2024)
@@ -46,7 +49,7 @@ Purpose
                       -HAT admitted to Lui Hospital (Western Equatoria, South Sudan), a historical
                       g
                       -HAT focus.
-
+                    
 
 
 Methods
@@ -58,7 +61,7 @@ Methods
                       HAT diagnosis were included. Among them, we considered for the analysis patients eligible for both fexinidazole and pentamidine/NECT regimens (i.e. patients without symptoms/signs compatible with severe stage 2
                       g
                       -HAT).
-
+                    
 
 
 Results
@@ -76,7 +79,7 @@ Results
                        = 0.181) were reported. Although fexinidazole cohort experienced more gastro-intestinal ADRs than pentamidine/NECT cohort (63% vs. 19%,
                       p
                        = 0.005), discontinuation of oral treatment has not been recorded.
-
+                    
 
 
 Conclusion

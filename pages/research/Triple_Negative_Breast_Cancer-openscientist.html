@@ -1,0 +1,1383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triple-Negative Breast Cancer · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Triple-Negative Breast Cancer</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Triple-Negative Breast Cancer</h1>
+                
+                <p class="report-subtitle">Triple-Negative Breast Cancer (MONDO:0005494): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-12</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" rel="noopener noreferrer">MONDO:0005494</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">57 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Triple-Negative Breast Cancer (<a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" rel="noopener noreferrer">MONDO:0005494</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Triple-negative breast cancer (TNBC)</strong> is an aggressive, molecularly heterogeneous subtype of invasive breast carcinoma that accounts for approximately <strong>10–15% of all new breast cancer diagnoses</strong>. It is operationally defined by the absence of three receptors on tumor immunohistochemistry: estrogen receptor (ER), progesterone receptor (PR), and lack of amplification/overexpression of human epidermal growth factor receptor 2 (HER2). This receptor-negative phenotype removes the two most successful therapeutic targets in breast oncology — endocrine therapy and HER2-directed agents — leaving cytotoxic chemotherapy, and more recently immunotherapy and biology-guided targeted agents, as the therapeutic backbone. TNBC disproportionately affects younger women, women of African ancestry, premenopausal women, and germline <em>BRCA1</em> mutation carriers, and it is a major contributor to racial disparities in breast cancer mortality.</p>
+<p>Mechanistically, TNBC is best understood as a <strong>TP53-mutant, homologous-recombination–deficient (HRD) disease</strong>. Near-universal <em>TP53</em> mutation (with combined loss-of-function and oncogenic gain-of-function) cooperates with loss of homologous-recombination (HR) DNA repair — arising from germline or somatic <em>BRCA1/2</em>, <em>PALB2</em>, and <em>RAD51</em> pathway defects, or from epigenetic <em>BRCA1</em> promoter hypermethylation ("BRCAness") — to produce profound genomic instability. This drives a highly proliferative, basal-like tumor cell that undergoes early hematogenous spread with a strong tropism for visceral organs and brain. Superimposed metabolic reprogramming (Warburg glycolysis and glutamine addiction) supports rapid proliferation and stress resistance. TNBC resolves into four tumor-intrinsic transcriptomic subtypes — <strong>basal-like 1 (BL1), basal-like 2 (BL2), mesenchymal (M), and luminal androgen receptor (LAR)</strong> — that differ in biology, prognosis, and therapy response.</p>
+<p>Clinically, the HRD/genomic-instability biology has become therapeutically actionable. Standard of care now includes <strong>neoadjuvant pembrolizumab plus chemotherapy (KEYNOTE-522)</strong> for stage II–III disease, <strong>PARP inhibitors (olaparib, talazoparib)</strong> exploiting synthetic lethality in germline-<em>BRCA</em>-mutated tumors, the <strong>Trop-2 antibody–drug conjugate sacituzumab govitecan</strong> for metastatic disease, and <strong>androgen-receptor blockade</strong> for the LAR subtype. Tumor-infiltrating lymphocytes (TILs) predict chemoimmunotherapy response. Despite these advances, metastatic TNBC still carries a dismal prognosis (~12-month median overall survival), and prevention in hereditary disease relies on risk-reducing surgery and intensified surveillance in <em>BRCA1/2</em> carriers. This report synthesizes 14 confirmed findings across 65 reviewed papers into the full 15-section disease knowledge template. No primary patient-level data files were provided; all statements are aggregated disease-level evidence from primary literature and reviews.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Disease Information</h3>
+<p>TNBC is a subtype of invasive breast carcinoma "with a poor prognosis and aggressive behavior that accounts for 10-15% of all new cases of breast cancer... characterized by the absence of progesterone and estrogen receptor expression and lacks gene amplification or overexpression of HER2" (<a href="https://pubmed.ncbi.nlm.nih.gov/37044296/">PMID: 37044296</a>). It is a molecular/immunohistochemical classification rather than a distinct histologic entity — most TNBCs are invasive ductal carcinomas of no special type, frequently high-grade (grade 3) and basal-like.</p>
+<p><strong>Key identifiers and ontology terms:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005494" target="_blank" rel="noopener noreferrer">MONDO:0005494</a> (triple-negative breast cancer)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Triple Negative Breast Neoplasms (D064726)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>C50.x (malignant neoplasm of breast; TNBC not separately coded)</td>
+</tr>
+<tr>
+<td>ICD-O morphology</td>
+<td>8500/3 (invasive ductal carcinoma NST, most common)</td>
+</tr>
+<tr>
+<td>NCIT</td>
+<td>C71732 (Triple-Negative Breast Carcinoma)</td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0060081" target="_blank" rel="noopener noreferrer">DOID:0060081</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> triple-negative breast carcinoma; ER-/PR-/HER2- breast cancer; basal-like breast cancer (overlapping but not identical — see below); ductal breast carcinoma triple-negative.</p>
+<p><strong>Source of information:</strong> This report is derived predominantly from <em>aggregated disease-level resources</em> — clinical trials, molecular profiling cohorts (TCGA), registry data (SEER), and mechanistic literature — rather than individual EHR records.</p>
+<h3>2. Etiology</h3>
+<p><strong>Causal factors and risk factors.</strong> TNBC arises from acquired and inherited defects in genome maintenance. Established epidemiological risk factors are well characterized: "Risk factors for TNBC include young age at breast cancer diagnosis, young age at menarche, high parity, lack of breast feeding, high body mass index and African American ethnicity. The majority of BRCA1 tumours are TNBC" (<a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">PMID: 21080741</a>).</p>
+<ul>
+<li><strong>Genetic risk factors:</strong> Germline pathogenic variants confer graded risk. In multigene panel testing, "Germline pathogenic variants in BARD1, BRCA1, BRCA2, PALB2, and RAD51D were associated with high risk (odds ratio &gt; 5.0) of TNBC," while BRIP1, RAD51C, and TP53 conferred moderate risk (OR &gt; 2) (<a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">PMID: 30099541</a>). <em>BRCA1</em> is the dominant hereditary driver, and the majority of <em>BRCA1</em>-associated tumors are triple-negative.</li>
+<li><strong>Environmental/reproductive risk factors:</strong> young age at menarche, high parity, lack of breastfeeding, high BMI/obesity, and African American ethnicity (<a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">PMID: 21080741</a>).</li>
+<li><strong>Protective factors:</strong> Breastfeeding is protective (its absence is a risk factor). In <em>BRCA</em> carriers post-oophorectomy, estrogen-only hormone replacement therapy was <strong>not</strong> associated with increased breast cancer risk and each year was associated with reduced risk (HR 0.90, 95% CI 0.81–0.99; and HR 0.87 in <em>BRCA1</em> carriers) (<a href="https://pubmed.ncbi.nlm.nih.gov/41949865/">PMID: 41949865</a>).</li>
+<li><strong>Gene–environment interactions:</strong> Obesity and ancestry interact with tumor immunobiology — in a balanced Black/White TNBC cohort, immune deconvolution showed higher abundance of several immune cell populations in tumors from Black women, though neither Black race nor obesity was intrinsically predictive of poor outcome after balancing for stage and subtype (<a href="https://pubmed.ncbi.nlm.nih.gov/41224793/">PMID: 41224793</a>).</li>
+</ul>
+<h3>3. Phenotypes</h3>
+<p>TNBC most commonly presents as a <strong>palpable breast mass</strong> (<a href="http://purl.obolibrary.org/obo/HP_0031416" target="_blank" rel="noopener noreferrer">HP:0031416</a>, breast mass), often growing rapidly. In an imaging cohort, TNBC was associated with presentation on breast exam (56%), palpability (59.1%), more invasive ductal carcinoma (92.4%), higher stage (stage III, 16.5%), and higher grade (grade 3, 82.7%), and notably <em>lower</em> mammographic breast density (<a href="https://pubmed.ncbi.nlm.nih.gov/31927471/">PMID: 31927471</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO suggestion</th>
+<th>Characteristics</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Breast mass / palpable lump</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031416" target="_blank" rel="noopener noreferrer">HP:0031416</a></td>
+<td>Adult-onset; often rapidly enlarging; frequently interval (between screens)</td>
+</tr>
+<tr>
+<td>High tumor grade (grade 3)</td>
+<td>—</td>
+<td>82.7% grade 3; severe/aggressive</td>
+</tr>
+<tr>
+<td>Visceral metastasis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030075" target="_blank" rel="noopener noreferrer">HP:0030075</a> (neoplasm of lung), liver/lung involvement</td>
+<td>Early; poor prognosis</td>
+</tr>
+<tr>
+<td>Brain metastasis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0030692" target="_blank" rel="noopener noreferrer">HP:0030692</a> (brain neoplasm)</td>
+<td>Overrepresented in rapid-relapse TNBC (10.9%)</td>
+</tr>
+<tr>
+<td>Lymph node metastasis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a></td>
+<td>Common at presentation</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Age of onset:</strong> adult, skewing younger than other breast cancers (basal subtype significantly more common in patients aged &lt;50 and premenopausal women; <a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">PMID: 37482851</a>). <strong>Severity/progression:</strong> severe, progressive, with early distant relapse. <strong>Quality of life:</strong> In metastatic disease, PARP inhibition improved health-related QoL versus chemotherapy (global health status difference 7.5 points, 95% CI 2.48–12.44, P=0.0035; <a href="https://pubmed.ncbi.nlm.nih.gov/31446213/">PMID: 31446213</a>).</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>TP53 and BRCA1/2 are the dominant genomic drivers.</strong> In germline <em>BRCA</em>-mutated early TNBC (NEOTALA/talazoparib cohort), "Ninety-eight percent of patients had TP53 mutations," and "Strong concordance (97.8%) was observed between tumor BRCA and germline BRCA mutations, and 90.5% (38/42)... were predicted to exhibit BRCA loss of heterozygosity (LOH)" (<a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">PMID: 38869771</a>).</p>
+<ul>
+<li><strong>Causal genes:</strong> <em>TP53</em> (OMIM 191170), <em>BRCA1</em> (OMIM 113705), <em>BRCA2</em> (OMIM 600185), <em>PALB2</em>, <em>RAD51C/D</em>, <em>BARD1</em>, <em>BRIP1</em> (HGNC-approved symbols). High-risk (OR&gt;5): <em>BARD1, BRCA1, BRCA2, PALB2, RAD51D</em>; moderate-risk (OR&gt;2): <em>BRIP1, RAD51C, TP53</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">PMID: 30099541</a>).</li>
+<li><strong>Somatic vs germline:</strong> <em>BRCA</em> alterations occur both germline and somatically, with distinct biological/clinical patterns; somatic alterations "should not be interpreted in isolation and require integration with germline status" (<a href="https://pubmed.ncbi.nlm.nih.gov/42492369/">PMID: 42492369</a>). Whole-exome sequencing of Indian TNBC found ~106 mutations/sample, recurrent somatic mutations in <em>CTNNB1</em> (47%), <em>TP53</em> (33%), <em>PIK3CA</em>, <em>BRCA1/2</em>, and mutational signature 3 (HR-repair failure) associated with high tumor mutational burden (<a href="https://pubmed.ncbi.nlm.nih.gov/41324770/">PMID: 41324770</a>).</li>
+<li><strong>Variant classification/type:</strong> Pathogenic germline <em>BRCA1</em> founder-type frameshifts (e.g., c.66_67delAG [185delAG], c.3226_3227delAG) reported in TNBC; somatic <em>TP53</em> missense predominate (<a href="https://pubmed.ncbi.nlm.nih.gov/34097676/">PMID: 34097676</a>).</li>
+<li><strong>Functional consequences:</strong> <em>BRCA1/2</em> loss = loss of function → HRD; mutant <em>TP53</em> combines loss of function with oncogenic gain of function (see Finding 13 below).</li>
+<li><strong>Epigenetic information:</strong> "Aberrant methylation patterns are characterized by promoter hypermethylation of tumor suppressor genes (BRCA1, CDH1, PTEN, RARβ)... and global hypomethylation that activates oncogenes and promotes genomic instability" (<a href="https://pubmed.ncbi.nlm.nih.gov/40925466/">PMID: 40925466</a>). <em>BRCA1</em> promoter hypermethylation phenocopies <em>BRCA1</em> loss ("BRCAness").</li>
+<li><strong>Chromosomal abnormalities:</strong> Genomic instability, chromosomal instability, centrosome amplification, and copy-number alterations mirroring TCGA are characteristic (<a href="https://pubmed.ncbi.nlm.nih.gov/33267874/">PMID: 33267874</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">PMID: 30859564</a>).</li>
+</ul>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Lifestyle factors:</strong> high BMI/obesity, high parity, lack of breastfeeding, and young age at menarche are the established modifiable/reproductive contributors (<a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">PMID: 21080741</a>).</li>
+<li><strong>Environmental/social determinants:</strong> Residential racialized economic segregation independently affects outcomes — patients in the most deprived counties had higher breast cancer–specific mortality (HR 1.14) and late-stage diagnosis (OR 1.15), explaining ~28% of the excess Black-vs-White mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/40105752/">PMID: 40105752</a>).</li>
+<li><strong>Infectious agents:</strong> Not applicable — TNBC is not caused by an infectious agent. (Iatrogenic infection risk, e.g., parvovirus B19 during immunochemotherapy, is a treatment complication, not a cause; <a href="https://pubmed.ncbi.nlm.nih.gov/42500288/">PMID: 42500288</a>.)</li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Causal chain (initiating lesion → clinical manifestation):</strong></p>
+<pre><code>1. Germline or somatic loss of BRCA1/BRCA2/PALB2/RAD51 pathway
+   —OR— epigenetic BRCA1 promoter hypermethylation (&quot;BRCAness&quot;)
+│  leads to
+▼
+2. Homologous-recombination deficiency (HRD) — inability to accurately
+   repair DNA double-strand breaks
+│  results in
+▼
+3. Near-universal TP53 mutation (loss-of-function + gain-of-function),
+   abrogating G2/M checkpoint and apoptosis
+│  leads to
+▼
+4. Genomic instability: chromosomal instability, centrosome
+   amplification, loss of heterozygosity, high mutational burden
+│  drives
+▼
+5. Emergence of a highly proliferative, poorly differentiated
+   basal-like tumor cell (EGFR+, CK5/6+, high Ki67)
+│  supported by
+▼
+6. Metabolic reprogramming — Warburg aerobic glycolysis + glutamine
+   addiction — fueling biosynthesis, redox/ferroptosis defense
+│  enables
+▼
+7. Invasion, EMT, and early hematogenous dissemination
+│  results in
+▼
+8. Visceral- and brain-tropic metastasis, chemoresistant relapse,
+   and death (~12-month median OS in metastatic disease)
+
+   BRANCH (LAR subtype): androgen-receptor–driven signaling defines a
+   distinct, chemo-resistant, AR-targetable trajectory.
+</code></pre>
+<p><strong>Molecular detail.</strong></p>
+<ul>
+<li><strong>Mutant TP53 gain-of-function.</strong> "the R181C mutation leads to 'loss-of-function' of transcriptional regulating tumor suppressor genes like p21, bax, and PUMA as well as 'gain-of-function' of transcriptional regulating tumor promoting genes of PIK3CA, SHC1, SRC and PAK4. This dysregulation promotes genomic instability" (<a href="https://pubmed.ncbi.nlm.nih.gov/41484250/">PMID: 41484250</a>). Mutant p53 also drives loss of the wild-type allele: "we observed profound stabilization of mutp53 protein, the loss of p21 expression, the abrogation of G2/M checkpoint, chromosomal instability, centrosome amplification" (via Nek2 upregulation; <a href="https://pubmed.ncbi.nlm.nih.gov/33267874/">PMID: 33267874</a>). <em>GO terms:</em> <a href="http://purl.obolibrary.org/obo/GO_0006281" target="_blank" rel="noopener noreferrer">GO:0006281</a> (DNA repair), <a href="http://purl.obolibrary.org/obo/GO_0000724" target="_blank" rel="noopener noreferrer">GO:0000724</a> (double-strand break repair via homologous recombination), <a href="http://purl.obolibrary.org/obo/GO_0007049" target="_blank" rel="noopener noreferrer">GO:0007049</a> (cell cycle), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process).</li>
+<li><strong>HRD synthetic lethality.</strong> "Poly(ADP-ribose) polymerase (PARP) inhibitors exploit this deficiency through synthetic lethality... especially in BRCA1 or BRCA2 mutation carriers" (<a href="https://pubmed.ncbi.nlm.nih.gov/29753961/">PMID: 29753961</a>). Basal-like/TNBC tumors "share several histo-molecular characteristics with BRCA1-deficient tumors, including genomic instability and reduced BRCA1 expression beyond germline-mutated cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/42394702/">PMID: 42394702</a>).</li>
+<li><strong>Metabolic reprogramming.</strong> TNBC exhibits the Warburg effect and glutamine addiction: "the addiction of TNBC to Gln could facilitate the proliferation and invasiveness of these cancers. Thus, Gln metabolism inhibitors, such as CB-839, could be applied" (<a href="https://pubmed.ncbi.nlm.nih.gov/34083056/">PMID: 34083056</a>). Integrated omics in MDA-MB-231 show glutamine drives reductive TCA lipogenesis/sterol synthesis (SREBF1/2) while glucose "licens[es] chromatin engagement, DNA replication, and mitotic progression" (<a href="https://pubmed.ncbi.nlm.nih.gov/42373230/">PMID: 42373230</a>). <em>CHEBI:</em> glutamine (<a href="http://purl.obolibrary.org/obo/CHEBI_28300" target="_blank" rel="noopener noreferrer">CHEBI:28300</a>), glucose (<a href="http://purl.obolibrary.org/obo/CHEBI_17234" target="_blank" rel="noopener noreferrer">CHEBI:17234</a>), lactate (<a href="http://purl.obolibrary.org/obo/CHEBI_24996" target="_blank" rel="noopener noreferrer">CHEBI:24996</a>).</li>
+<li><strong>Immune microenvironment.</strong> TILs shape prognosis and therapy response; the immunomodulatory signal reflects infiltrating lymphocytes and varies by subtype (highest in BL1; <a href="https://pubmed.ncbi.nlm.nih.gov/30312311/">PMID: 30312311</a>).</li>
+<li><strong>Cell types (CL):</strong> basal/luminal-progenitor mammary epithelial cell (<a href="http://purl.obolibrary.org/obo/CL_0002326" target="_blank" rel="noopener noreferrer">CL:0002326</a>, luminal epithelial cell of mammary gland; <a href="http://purl.obolibrary.org/obo/CL_0000646" target="_blank" rel="noopener noreferrer">CL:0000646</a> basal cell), tumor-infiltrating T lymphocyte (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), regulatory T cell (<a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" rel="noopener noreferrer">CL:0000815</a>).</li>
+</ul>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary organ:</strong> breast (<a href="http://purl.obolibrary.org/obo/UBERON_0000310" target="_blank" rel="noopener noreferrer">UBERON:0000310</a>), specifically mammary gland epithelium/ductal-lobular units (<a href="http://purl.obolibrary.org/obo/UBERON_0002114" target="_blank" rel="noopener noreferrer">UBERON:0002114</a> duct; mammary gland epithelium).</li>
+<li><strong>Tissue/cell:</strong> epithelial tissue; basal-like tumors express EGFR and cytokeratin 5/6 and arise from a basal/luminal-progenitor lineage.</li>
+<li><strong>Secondary organ involvement (metastatic tropism):</strong> lung, liver, bone, lymph nodes, and brain. In a real-world sacituzumab govitecan cohort, metastatic sites were lymph nodes (60.9%), bone (43.0%), lung (42.6%), liver (33.2%), brain (26.2%) (<a href="https://pubmed.ncbi.nlm.nih.gov/42413328/">PMID: 42413328</a>). Rapid-relapse TNBC preferentially presents with visceral (74.9%) and brain (10.9%) metastases (<a href="https://pubmed.ncbi.nlm.nih.gov/42499497/">PMID: 42499497</a>).</li>
+<li><strong>Subcellular (GO CC):</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>, site of TP53/BRCA DNA-repair defects), centrosome (<a href="http://purl.obolibrary.org/obo/GO_0005813" target="_blank" rel="noopener noreferrer">GO:0005813</a>, amplified), mitochondrion (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>, metabolic rewiring).</li>
+<li><strong>Lateralization:</strong> unilateral at presentation (as in most breast cancers), bilateral risk elevated in <em>BRCA</em> carriers.</li>
+<li><strong>UBERON:</strong> breast (<a href="http://purl.obolibrary.org/obo/UBERON_0000310" target="_blank" rel="noopener noreferrer">UBERON:0000310</a>), mammary gland (<a href="http://purl.obolibrary.org/obo/UBERON_0001911" target="_blank" rel="noopener noreferrer">UBERON:0001911</a>), lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), bone (<a href="http://purl.obolibrary.org/obo/UBERON_0002481" target="_blank" rel="noopener noreferrer">UBERON:0002481</a>), lymph node (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>).</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> adult-onset, skewing younger/premenopausal; basal subtype significantly more common in patients &lt;50 and premenopausal women (<a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">PMID: 37482851</a>).</li>
+<li><strong>Progression:</strong> rapid. TNBC is graded by AJCC stage; stage III independently predicts worse recurrence-free survival (HR 2.18) and distant metastasis-free survival (HR 2.43) (<a href="https://pubmed.ncbi.nlm.nih.gov/42292008/">PMID: 42292008</a>).</li>
+<li><strong>Disease course:</strong> aggressive, progressive, with a characteristic early relapse peak. "Rapid relapse" TNBC (distant metastasis/death within 24 months) is associated with platinum resistance and visceral/CNS tropism (<a href="https://pubmed.ncbi.nlm.nih.gov/42499497/">PMID: 42499497</a>).</li>
+<li><strong>Critical period / window of opportunity:</strong> the neoadjuvant setting — achieving pathologic complete response (pCR) is the key early prognostic milestone and intervention window (KEYNOTE-522).</li>
+<li><strong>Remission:</strong> treatment-induced (pCR after neoadjuvant chemoimmunotherapy); spontaneous remission is not a feature.</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> ~10–15% of all breast cancers (<a href="https://pubmed.ncbi.nlm.nih.gov/37044296/">PMID: 37044296</a>); basal-like ~15–20% of cases (<a href="https://pubmed.ncbi.nlm.nih.gov/42394702/">PMID: 42394702</a>).</li>
+<li><strong>Inheritance:</strong> the hereditary fraction follows <strong>autosomal dominant</strong> transmission of <em>BRCA1/2</em>, <em>PALB2</em>, <em>RAD51</em> pathway variants with incomplete, age-dependent penetrance; the disease itself is multifactorial/polygenic. Founder <em>BRCA1</em> variants (e.g., 185delAG) occur (<a href="https://pubmed.ncbi.nlm.nih.gov/34097676/">PMID: 34097676</a>).</li>
+<li><strong>Sex ratio:</strong> overwhelmingly female (as with breast cancer generally).</li>
+<li><strong>Population demographics:</strong> Higher incidence and worse outcomes in Black/African American women and younger women. "Black women experience a 36% higher mortality rate" than White women, partly attributable to higher prevalence of aggressive subtypes such as TNBC (<a href="https://pubmed.ncbi.nlm.nih.gov/42320849/">PMID: 42320849</a>). SEER analyses show young Black women with TNBC and Asian women &lt;50 carry elevated hazard ratios (<a href="https://pubmed.ncbi.nlm.nih.gov/41896553/">PMID: 41896553</a>). In African American women with invasive breast cancer, 64.1% met NCCN genetic-testing criteria; pathogenic mutations concentrated in <em>BRCA2</em> (29.4%) and <em>BRCA1</em> (15.7%) (<a href="https://pubmed.ncbi.nlm.nih.gov/33083949/">PMID: 33083949</a>).</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<p><strong>Core diagnosis is immunohistochemistry demonstrating ER-negative, PR-negative, HER2-negative status</strong> (with HER2 confirmed by ISH if IHC equivocal). Within TNBC, basal-like tumors are identified by additional markers: "Basal subtype was significantly more common in patients aged &lt;50 years at diagnosis, premenopausal women, patients with positive nodal status, those with grade III tumours, and patients with Ki67 proliferation marker &gt;20% (p&lt;0.05)" — basal markers being EGFR and CK5/6 (<a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">PMID: 37482851</a>). An IHC combination of high CK19 + high Ki-67 + E-cadherin loss identified the worst relapse-free and overall survival (<a href="https://pubmed.ncbi.nlm.nih.gov/39435793/">PMID: 39435793</a>).</p>
+<ul>
+<li><strong>Imaging:</strong> mammography (TNBC associated with lower mammographic density), MRI, ultrasound; TNBC often presents as an interval/palpable mass (<a href="https://pubmed.ncbi.nlm.nih.gov/31927471/">PMID: 31927471</a>). Trop-2-directed PET/CT is emerging (<a href="https://pubmed.ncbi.nlm.nih.gov/42559486/">PMID: 42559486</a>).</li>
+<li><strong>Biopsy/pathology:</strong> core-needle biopsy with histopathology (usually invasive ductal carcinoma NST, grade 3) plus IHC panel.</li>
+<li><strong>Genetic testing:</strong> Germline multigene panel testing (BRCA1/2, PALB2, RAD51C/D, BARD1, BRIP1, TP53) is recommended given the high hereditary yield (<a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">PMID: 30099541</a>); tumor BRCA and germline BRCA show 97.8% concordance (<a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">PMID: 38869771</a>). NCCN criteria capture the majority but miss ~12.5% of African American mutation carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/33083949/">PMID: 33083949</a>).</li>
+<li><strong>Omics/transcriptomic diagnostics:</strong> Lehmann TNBCtype-4 subtyping (BL1, BL2, M, LAR) and PAM50, plus HRD/genomic scar scores and DNA-damage-repair signatures, refine classification and predict therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/27310713/">PMID: 27310713</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37334114/">PMID: 37334114</a>).</li>
+<li><strong>Predictive biomarkers:</strong> PD-L1 (immunotherapy), germline/somatic BRCA and HRD (PARP inhibitors), TILs (pCR), Trop-2 (ADC), AR (LAR subtype).</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<p>TNBC has the worst stage-adjusted prognosis of the major breast cancer subtypes. <strong>Metastatic TNBC "bears a dismal prognosis with an average survival of 12 months"</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29753961/">PMID: 29753961</a>). In a large real-world PD-L1-negative metastatic cohort (n=929), "Median rwOS and rwPFS... were 12.2 (10.7, 14.4) months and 4.7 (4.5, 5.2) months" (<a href="https://pubmed.ncbi.nlm.nih.gov/42554864/">PMID: 42554864</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Prognostic factor</th>
+<th>Direction</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stage III</td>
+<td>Worse RFS (HR 2.18), DMFS (HR 2.43)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42292008/">PMID: 42292008</a></td>
+</tr>
+<tr>
+<td>TILs present</td>
+<td>Better (higher pCR: 70% vs 48%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42360368/">PMID: 42360368</a></td>
+</tr>
+<tr>
+<td>pCR achieved</td>
+<td>Better EFS/OS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42607489/">PMID: 42607489</a></td>
+</tr>
+<tr>
+<td>Basal markers (EGFR/CK5/6, CK19+Ki67+/E-cad loss)</td>
+<td>Worse RFS/OS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39435793/">PMID: 39435793</a></td>
+</tr>
+<tr>
+<td>LAR subtype</td>
+<td>Chemo-resistant, lowest pCR</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29940524/">PMID: 29940524</a></td>
+</tr>
+<tr>
+<td>Low SPDEF expression</td>
+<td>Worse RFS/OS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42305508/">PMID: 42305508</a></td>
+</tr>
+<tr>
+<td>High miR-1911-3p</td>
+<td>Worse recurrence-free survival (HR 3.04)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42517063/">PMID: 42517063</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Racial disparity:</strong> Black women experience 36% higher breast cancer mortality, and residential segregation explains ~28% of the excess mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/42320849/">PMID: 42320849</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40105752/">PMID: 40105752</a>). <strong>Complications</strong> include visceral organ failure from metastasis, CNS metastasis, and treatment toxicities (e.g., immune-related adverse events, cytopenias).</p>
+<h3>12. Treatment</h3>
+<p>TNBC treatment has shifted from chemotherapy-only to <strong>biology-guided, multimodal therapy</strong>.</p>
+<p><strong>Neoadjuvant chemoimmunotherapy (standard for stage II–III).</strong> "Neoadjuvant chemotherapy (NACT) combined with pembrolizumab is now standard care for early-stage, triple-negative breast cancer (TNBC), based on KEYNOTE-522 demonstrating improved pathological complete response (pCR), event-free survival, and overall survival" (<a href="https://pubmed.ncbi.nlm.nih.gov/42607489/">PMID: 42607489</a>). Real-world pCR ~57%, and TILs predict response (70% vs 48% pCR, p=0.0027; TIL-positive 2.44× more likely to achieve pCR; <a href="https://pubmed.ncbi.nlm.nih.gov/42360368/">PMID: 42360368</a>). <em>NCIT:</em> pembrolizumab (C106432).</p>
+<p><strong>PARP inhibitors (germline BRCA).</strong> In OlympiAD, olaparib prolonged PFS versus chemotherapy, with strong benefit in the triple-negative subgroup (PFS HR 0.47, 95% CI 0.32–0.69; <a href="https://pubmed.ncbi.nlm.nih.gov/36971103/">PMID: 36971103</a>), durable long-term survival in first-line metastatic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/36893711/">PMID: 36893711</a>), and improved QoL (<a href="https://pubmed.ncbi.nlm.nih.gov/31446213/">PMID: 31446213</a>). Talazoparib is used in the neoadjuvant germline-<em>BRCA</em> setting (<a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">PMID: 38869771</a>). <em>NCIT:</em> olaparib (C71721), talazoparib (C97316).</p>
+<p><strong>Trop-2 antibody–drug conjugate (metastatic).</strong> Sacituzumab govitecan (SG) delivers durable benefit in real-world mTNBC: median rwPFS 6.4 months, rwOS 13.6 months, ORR/CR+PR 37.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/42413328/">PMID: 42413328</a>). Combination with PD-1 inhibitors ± antiangiogenics improves response in later lines (<a href="https://pubmed.ncbi.nlm.nih.gov/42714605/">PMID: 42714605</a>), and SG synergizes with TRAIL agonists preclinically (<a href="https://pubmed.ncbi.nlm.nih.gov/42601637/">PMID: 42601637</a>). <em>NCIT:</em> sacituzumab govitecan (C124255).</p>
+<p><strong>Androgen-receptor blockade (LAR subtype).</strong> "The partial AR antagonist bicalutamide and the next-generation AR inhibitor enzalutamide are being assessed in standard protocols for the mitigation of TNBC" (<a href="https://pubmed.ncbi.nlm.nih.gov/36612226/">PMID: 36612226</a>). AR blockade induces G1 arrest in AR-positive MDA-MB-453 cells; nuclear AR is detectable in ~30% of TNBC (<a href="https://pubmed.ncbi.nlm.nih.gov/42373057/">PMID: 42373057</a>). The LAR subtype is chemo-resistant with the lowest pCR (<a href="https://pubmed.ncbi.nlm.nih.gov/29940524/">PMID: 29940524</a>). <em>NCIT:</em> bicalutamide (C1685), enzalutamide (C95733).</p>
+<p><strong>Other modalities:</strong> cytotoxic chemotherapy backbone (anthracycline/taxane, platinum for HRD), surgery (breast-conserving or mastectomy), and adjuvant radiotherapy. Experimental: metabolic inhibitors (CB-839/telaglenastat targeting glutaminase; <a href="https://pubmed.ncbi.nlm.nih.gov/34083056/">PMID: 34083056</a>), p53-reactivating small molecules (PRIMA-1/APR-246; <a href="https://pubmed.ncbi.nlm.nih.gov/35234267/">PMID: 35234267</a>), PLK2 inhibitors to disarm mutant p53 (<a href="https://pubmed.ncbi.nlm.nih.gov/39480521/">PMID: 39480521</a>), and iPSC-derived mesothelin-targeted CAR-NK cells (<a href="https://pubmed.ncbi.nlm.nih.gov/37584622/">PMID: 37584622</a>).</p>
+<p><strong>Adverse events:</strong> SG toxicities include alopecia (69.1%), neutropenia (57%), nausea, anemia, diarrhea (<a href="https://pubmed.ncbi.nlm.nih.gov/42413328/">PMID: 42413328</a>); pembrolizumab carries immune-related adverse events and rare severe cytopenias (<a href="https://pubmed.ncbi.nlm.nih.gov/42500288/">PMID: 42500288</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42314326/">PMID: 42314326</a>).</p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention (hereditary):</strong> For <em>BRCA1/2</em> carriers, guideline strategies include risk-reducing mastectomy, risk-reducing bilateral salpingo-oophorectomy (RRBSO), and intensified MRI surveillance. In a population-based cohort, "Of those without a prior breast cancer (n = 1021), 20.8% underwent bilateral mastectomy... 71.8% underwent RRBSO" (<a href="https://pubmed.ncbi.nlm.nih.gov/42166900/">PMID: 42166900</a>); breast MRI uptake was ~31–33% (<a href="https://pubmed.ncbi.nlm.nih.gov/42647762/">PMID: 42647762</a>).</li>
+<li><strong>Secondary prevention:</strong> breast screening (mammography/MRI in high-risk women); TNBC's lower mammographic density and interval-cancer tendency underscore the value of supplemental MRI in carriers.</li>
+<li><strong>Genetic counseling and cascade testing:</strong> identify carriers for prevention; decision-coaching reduces decisional conflict and increases decision-making in carriers with open family planning (<a href="https://pubmed.ncbi.nlm.nih.gov/42607047/">PMID: 42607047</a>). Disparities in counseling access persist for young Black women (<a href="https://pubmed.ncbi.nlm.nih.gov/25868867/">PMID: 25868867</a>).</li>
+<li><strong>Behavioral/public-health:</strong> weight management, breastfeeding, and addressing socioeconomic/segregation drivers of late-stage diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/40105752/">PMID: 40105752</a>).</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Spontaneous triple-negative mammary carcinoma occurs naturally in companion animals, providing immunocompetent comparative models. "Feline invasive mammary carcinomas are characterized by their high clinical aggressiveness, rare expression of hormone receptors, and pathological resemblance to human breast cancer, especially triple-negative breast cancer" — including an immune-suppressed, FOXP3+ Treg-infiltrated basal-like subgroup mirroring human TNBC immunobiology (<a href="https://pubmed.ncbi.nlm.nih.gov/31959092/">PMID: 31959092</a>). In dogs, mammary epitheliosis "was a slow-growing, triple-negative process with a strong predominance of basal-like nonmyoepithelial cells" (CK14+) associated with malignancy (<a href="https://pubmed.ncbi.nlm.nih.gov/35451346/">PMID: 35451346</a>).</p>
+<ul>
+<li><strong>Taxonomy:</strong> <em>Felis catus</em> (NCBI:txid9685), <em>Canis lupus familiaris</em> (NCBI:txid9615), <em>Mus musculus</em> (NCBI:txid10090).</li>
+<li><strong>Orthologous genes:</strong> <em>Trp53</em>, <em>Brca1</em>, <em>Brca2</em> (mouse orthologs of human <em>TP53</em>, <em>BRCA1</em>, <em>BRCA2</em>).</li>
+<li><strong>Veterinary relevance:</strong> naturally occurring, immunocompetent, spontaneously arising — valuable for microenvironment and immunotherapy studies.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<p>TNBC is studied across in vitro, in vivo, and ex vivo systems.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Examples</th>
+<th>Use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Human cell lines</td>
+<td>MDA-MB-231 (basal/mesenchymal), MDA-MB-453 (LAR), MDA-MB-468, HCC1806, HCC1937</td>
+<td>Mechanistic, drug testing</td>
+</tr>
+<tr>
+<td>Syngeneic mouse</td>
+<td>4T1</td>
+<td>Immunocompetent metastasis/immunotherapy (<a href="https://pubmed.ncbi.nlm.nih.gov/33727591/">PMID: 33727591</a>)</td>
+</tr>
+<tr>
+<td>Patient-derived xenografts</td>
+<td>61-PDX panel</td>
+<td>Recapitulate molecular heterogeneity (<a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">PMID: 30859564</a>)</td>
+</tr>
+<tr>
+<td>Organoids</td>
+<td>Patient-derived</td>
+<td>Precision phototherapy/drug testing (<a href="https://pubmed.ncbi.nlm.nih.gov/38532439/">PMID: 38532439</a>)</td>
+</tr>
+<tr>
+<td>iPSC-derived</td>
+<td>CAR-NK (mesothelin-targeted)</td>
+<td>Immunotherapy development (<a href="https://pubmed.ncbi.nlm.nih.gov/37584622/">PMID: 37584622</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>PDX fidelity: "TNBC PDX represent all of the various TNBC subtypes identified by the Lehmann classification except for immunomodulatory subtype, which is underrepresented in PDX. NGS and copy number data showed a similar diversity of significantly mutated gene and somatic copy number alteration in PDX and the Cancer Genome Atlas TNBC patients" (<a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">PMID: 30859564</a>). <strong>Limitation:</strong> the immunomodulatory/TIL-driven biology is underrepresented in immunodeficient xenografts — a key gap given the therapeutic importance of TILs and immunotherapy.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>TNBC is best conceptualized not as a single disease but as a <strong>convergent phenotype of genome-maintenance failure</strong> landing on the mammary epithelium. Two upstream lesions dominate and cooperate:</p>
+<ol>
+<li><strong>HR-repair collapse</strong> (BRCA1/2/PALB2/RAD51 mutation or <em>BRCA1</em> promoter hypermethylation) removes the cell's ability to faithfully repair double-strand breaks.</li>
+<li><strong>TP53 loss/gain-of-function</strong> removes the checkpoint that would otherwise arrest or eliminate genomically damaged cells, and actively upregulates oncogenic programs (PIK3CA, SRC, PAK4).</li>
+</ol>
+<p>Together these produce runaway <strong>genomic instability</strong> — the disease's central engine — which manifests as chromosomal instability, LOH, centrosome amplification, and high mutational burden. Downstream, this instability generates a basal-like, highly proliferative tumor (EGFR+, CK5/6+, Ki67-high) that is metabolically rewired (Warburg glycolysis + glutamine addiction) to sustain proliferation and resist oxidative/ferroptotic stress. The tumor disseminates early, with a distinctive visceral and brain tropism, producing the disease's poor prognosis.</p>
+<p>Crucially, the same instability that makes TNBC aggressive is its <strong>therapeutic Achilles heel</strong>: HRD confers synthetic-lethal sensitivity to PARP inhibitors and platinum, high mutational/neoantigen burden invites checkpoint immunotherapy (potentiated where TILs are present), and surface Trop-2 offers an ADC target. The four transcriptomic subtypes (BL1/BL2/M/LAR) overlay biological trajectories onto this core, with LAR representing a distinct AR-driven, chemo-resistant but AR-targetable branch. The persistent racial disparity is a product of both biology (higher TNBC prevalence in Black and young women) and structural factors (segregation, delayed diagnosis, unequal access to genetic services).</p>
+<pre><code>HR-repair loss ──┐
+   (BRCA1/2, PALB2,      │
+    RAD51; or BRCA1      ├──► GENOMIC INSTABILITY ──► basal-like tumor ──► early visceral/
+    hypermethylation)    │    (the engine)             + metabolic          brain metastasis
+         │                              rewiring            ──► ~12-mo mOS (mets)
+TP53 LOF+GOF ────┘                                                        │
+                                                                  ▼
+   Therapeutic corollary: PARPi (HRD) · platinum · pembrolizumab (TMB/TILs) ·
+          sacituzumab govitecan (Trop-2) · AR blockade (LAR)
+</code></pre>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Supports / Challenges</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37044296/">37044296</a></td>
+<td>Definition, 10–15% prevalence, receptor-negativity</td>
+<td>Supports Finding 1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21080741/">21080741</a></td>
+<td>Epidemiological risk factors, BRCA1 association</td>
+<td>Supports Findings 1–2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27310713/">27310713</a></td>
+<td>TNBCtype-4 subtypes (BL1/BL2/M/LAR)</td>
+<td>Supports Finding 2</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38869771/">38869771</a></td>
+<td>98% TP53, 97.8% BRCA concordance, 90.5% LOH</td>
+<td>Supports Finding 3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30099541/">30099541</a></td>
+<td>Panel-based risk genes (OR&gt;5 high-risk)</td>
+<td>Supports Finding 3</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42607489/">42607489</a></td>
+<td>KEYNOTE-522 standard of care</td>
+<td>Supports Finding 4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42360368/">42360368</a></td>
+<td>TILs predict pCR (70% vs 48%)</td>
+<td>Supports Finding 4</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36971103/">36971103</a></td>
+<td>Olaparib PFS HR 0.47 in TNBC</td>
+<td>Supports Finding 5</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29753961/">29753961</a></td>
+<td>PARP synthetic lethality; 12-mo mOS</td>
+<td>Supports Findings 5–6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42320849/">42320849</a></td>
+<td>36% higher Black mortality</td>
+<td>Supports Finding 6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42499497/">42499497</a></td>
+<td>Visceral/brain tropism of rapid relapse</td>
+<td>Supports Finding 6</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37482851/">37482851</a></td>
+<td>Basal markers ↔ aggressive features</td>
+<td>Supports Finding 7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39435793/">39435793</a></td>
+<td>CK19+Ki67+/E-cad loss = worst survival</td>
+<td>Supports Finding 7</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42166900/">42166900</a></td>
+<td>Risk-reducing surgery uptake</td>
+<td>Supports Finding 8</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31959092/">31959092</a></td>
+<td>Feline TNBC model</td>
+<td>Supports Finding 9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35451346/">35451346</a></td>
+<td>Canine basal-like mammary dysplasia</td>
+<td>Supports Finding 9</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36612226/">36612226</a></td>
+<td>Bicalutamide/enzalutamide for LAR</td>
+<td>Supports Finding 10</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29940524/">29940524</a></td>
+<td>LAR clinical behavior</td>
+<td>Supports Finding 10</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30859564/">30859564</a></td>
+<td>PDX fidelity/heterogeneity</td>
+<td>Supports Finding 11</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40925466/">40925466</a></td>
+<td>BRCA1 hypermethylation/BRCAness</td>
+<td>Supports Finding 12</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41484250/">41484250</a></td>
+<td>Mutant p53 LOF+GOF</td>
+<td>Supports Finding 13</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33267874/">33267874</a></td>
+<td>p53LOH, CIN, centrosome amplification</td>
+<td>Supports Finding 13</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34083056/">34083056</a></td>
+<td>Glutamine addiction, CB-839</td>
+<td>Supports Finding 14</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42373230/">42373230</a></td>
+<td>Glucose/glutamine metabolic states</td>
+<td>Supports Finding 14</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ul>
+<li><strong>No primary dataset was analyzed:</strong> This report is a literature/knowledge synthesis; no de novo statistical analysis of a patient cohort or omics dataset was performed. Effect sizes and quotes are drawn from published cohorts of varying size, geography, and quality (several are single-center or real-world retrospective studies).</li>
+<li><strong>Subtype instability:</strong> The Lehmann TNBCtype-4 classification is refined but still evolving; immunomodulatory (IM) and mesenchymal stem-like (MSL) signals were reassigned to microenvironment rather than tumor-intrinsic biology, and boundaries between "basal-like" (PAM50) and "TNBC" (IHC) are imperfect (~partial overlap).</li>
+<li><strong>Model gaps:</strong> Immunodeficient PDX/xenograft models underrepresent the immunomodulatory/TIL-driven biology that is central to modern immunotherapy — a major translational blind spot.</li>
+<li><strong>HRD quantification:</strong> The exact prevalence and best clinical assay for HRD beyond germline <em>BRCA</em> (e.g., genomic scar scores, <em>BRCA1</em> methylation) remain incompletely standardized.</li>
+<li><strong>Disparities causation:</strong> The relative contributions of ancestry-linked tumor biology versus structural/socioeconomic factors to racial outcome disparities are entangled and not fully resolved.</li>
+<li><strong>Metastatic prognosis:</strong> Despite new agents, metastatic TNBC survival remains ~12 months; predictive biomarkers for immunotherapy (beyond PD-L1/TILs) and ADC resistance mechanisms are incompletely defined.</li>
+</ul>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Quantitative HRD landscape:</strong> Analyze a genomic dataset (e.g., TCGA-BRCA TNBC subset or a public cohort) to quantify the fraction of TNBC that is HRD-positive by combined germline <em>BRCA</em>, somatic <em>BRCA/PALB2/RAD51</em>, and <em>BRCA1</em> methylation, and correlate with genomic scar scores — filling the standardization gap.</li>
+<li><strong>Subtype × therapy-response mapping:</strong> Integrate TNBCtype-4 subtype calls with pCR and survival across neoadjuvant cohorts to formally test whether BL1 (immune-rich) predicts pembrolizumab benefit and LAR predicts AR-blockade benefit.</li>
+<li><strong>Immune-competent modeling:</strong> Prioritize syngeneic (4T1), humanized-mouse, or organoid-immune co-culture systems to study checkpoint/ADC combinations, addressing the PDX immunobiology gap.</li>
+<li><strong>Metabolic–DNA-repair combination trials:</strong> Preclinically test glutaminase inhibition (CB-839) or p53-reactivation (APR-246/PLK2 inhibition) combined with PARP inhibitors/platinum, exploiting the convergence of metabolic and genomic vulnerabilities.</li>
+<li><strong>Equity intervention study:</strong> Design a prospective analysis linking cascade genetic-testing access, MRI surveillance uptake, and stage-at-diagnosis in Black and young women to quantify how much of the mortality gap is modifiable through service delivery.</li>
+<li><strong>Liquid-biopsy relapse detection:</strong> Evaluate ctDNA (TP53/BRCA-informed) for early detection of rapid-relapse TNBC within the 24-month high-risk window.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings across 65 reviewed papers over 5 iterations. Evidence source types span human clinical trials/cohorts, model organism (mouse, cat, dog), in vitro cell-line, and computational/omics studies, as annotated throughout.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Triple_Negative_Breast_Cancer-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Triple_Negative_Breast_Cancer-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>57</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:42373230</code> <em>(abstract only)</em>: "licens[es] chromatin engagement, DNA replication, and mitotic progression"</li>
+<li>closest text in source: "Conversely, glucose alone acts as the executor, licensing chromatin engagement, DNA replication, and mitotic progression"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>DOID:0060081</code> (1 mention) - the report calls it "Disease Ontology"; DOID calls it <strong>triple-negative breast cancer</strong></li>
+<li><code>HP:0031416</code> (2 mentions) - the report calls it "Breast mass / palpable lump"; HP calls it <strong>Abnormal nasal mucus secretion</strong></li>
+<li><code>HP:0030075</code> (1 mention) - the report calls it "neoplasm of lung"; HP calls it <strong>Ductal carcinoma in situ</strong></li>
+<li><code>UBERON:0000310</code> (2 mentions) - the report calls it "Primary organ:<strong> breast", "UBERON:</strong> breast"; UBERON calls it <strong>breast</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0002716</code> (1 mention) - the report calls it "Lymph node metastasis"; HP calls it <strong>Lymphadenopathy</strong>, and lists "Lymph node hyperplasia" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0000310</code> - called "Primary organ:<strong> breast", "UBERON:</strong> breast"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Triple_Negative_Breast_Cancer-falcon.html">← Triple-Negative Breast Cancer (Falcon)</a>
+                
+                
+                <a href="TRMU-Related_Acute_Infantile_Liver_Failure-claude_code.html">TRMU-Related Acute Infantile Liver Failure (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Triple-Negative_Breast_Cancer.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Triple_Negative_Breast_Cancer-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Triple_Negative_Breast_Cancer-cyberian-codex.html"><span class="provider-pill provider-cyberian">Cyberian Codex</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Triple_Negative_Breast_Cancer-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

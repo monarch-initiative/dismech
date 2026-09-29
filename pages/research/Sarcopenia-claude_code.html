@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sarcopenia · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Sarcopenia</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Sarcopenia</h1>
+                
+                <p class="report-subtitle">Sarcopenia: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-08-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">48 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>I'll research this now using web search, covering the disease characteristics systematically. Let me start by loading the search tools and running parallel queries across the major topic areas.</p>
+<p>I now have sufficient identifier and mechanism data, plus solid coverage of etiology, epidemiology, treatment pipeline, diagnostics, and animal models. I have enough to write the comprehensive report now.</p>
+<h2>Sarcopenia: Comprehensive Research Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> Sarcopenia is a progressive, generalized skeletal muscle disorder characterized by accelerated loss of muscle mass and function, most classically associated with aging but increasingly recognized as also arising secondary to disuse, malnutrition, and chronic disease. It sits at the intersection of geriatric medicine, endocrinology, and musculoskeletal biology and is now recognized internationally as a distinct disease entity rather than merely a normal correlate of aging. The 2019 revised consensus (EWGSOP2) defines it operationally: "sarcopenia is a condition characterized by loss of muscle mass and function occurring as a natural part of aging process," with diagnosis requiring the presence of low muscle strength as the primary criterion, confirmed by low muscle quantity/quality, with severity graded by poor physical performance (PMC6322506).</p>
+<p><strong>Key identifiers:</strong>
+- <strong>ICD-10-CM:</strong> M62.84 (Sarcopenia) — assigned in 2016, formally recognizing sarcopenia as a billable disease state rather than a normal aging finding (<a href="https://www.icd10data.com/ICD10CM/Codes/M00-M99/M60-M63/M62-/M62.84">icd10data.com</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/27891296/">PubMed 27891296</a>, "Welcome to the ICD-10 code for sarcopenia").
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006516" target="_blank" rel="noopener noreferrer">MONDO:0006516</a> exists but is flagged <strong>obsolete</strong> in the current ontology release, described there as "Progressive decline in muscle mass due to aging which results in decreased functional capacity of muscles" — curators should verify current mapping status/replacement term directly against the live Mondo release before binding.
+- <strong>NCIT:</strong> NCIT:C186726 (Sarcopenia); NCIT:C189016 (Acute Sarcopenia) — NCIT distinguishes acute (≤6 months, typically post-illness/surgery) from chronic (&gt;6 months) forms.
+- <strong>MeSH:</strong> D055948.
+- <strong>EFO:</strong> <a href="https://bioregistry.io/EFO:1000653" target="_blank" rel="noopener noreferrer">EFO:1000653</a>.
+- <strong>SNOMED CT:</strong> 772791006.
+- <strong>UMLS/MedGen:</strong> C0872084.
+- No dedicated OMIM or Orphanet entry was found — sarcopenia in its primary (age-related) form is not a monogenic/rare disease in the classic Orphanet/OMIM sense, though secondary/genetic myopathic sarcopenias may map to related entries (e.g., myostatin-related muscle hypertrophy, OMIM #614457, is the inverse phenotype).
+- No dedicated HPO term was identified in this search; OLS returned zero HP hits for "sarcopenia," suggesting the concept may need representation via composed terms (e.g., <a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" rel="noopener noreferrer">HP:0003324</a> Generalized muscle weakness, <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" rel="noopener noreferrer">HP:0003202</a> Skeletal muscle atrophy) rather than a single canonical HP identifier — this should be confirmed against a live HPO browser query before curation.</p>
+<p><strong>Synonyms:</strong> age-related muscle loss, sarcopenic muscle wasting, myopenia (less common), primary/secondary sarcopenia, sarcopenic obesity (comorbid variant).</p>
+<p><strong>Data provenance:</strong> Most disease-level knowledge (prevalence, mechanism, treatment efficacy) derives from aggregated cohort studies, meta-analyses, and consensus panels (EWGSOP2, AWGS, IWGS, FNIH) rather than individual EHR case reports, though EHR-based sarcopenia/frailty/cachexia phenotyping is an active research area (PMC7395344).</p>
+<p>Sources:
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6322506/">Sarcopenia: revised European consensus on definition and diagnosis</a>
+- <a href="https://www.icd10data.com/ICD10CM/Codes/M00-M99/M60-M63/M62-/M62.84">ICD-10-CM M62.84</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/27891296/">Welcome to the ICD-10 code for sarcopenia - PubMed</a></p>
+<hr />
+<h3>2. Etiology</h3>
+<p><strong>Primary vs. secondary classification.</strong> The field distinguishes <strong>primary (age-related) sarcopenia</strong>, diagnosed when aging is the only apparent cause, from <strong>secondary sarcopenia</strong>, driven by identifiable extrinsic factors. Secondary sarcopenia is categorized into three main mechanistic buckets: (1) activity-related (disuse, bed rest, sedentary lifestyle, zero-gravity/immobilization), (2) disease-related (organ failure — heart, kidney, lung, liver, brain; inflammatory disease; malignancy; endocrine disease), and (3) nutrition-related (insufficient energy/protein intake, malabsorption, GI disease, anorexia of aging, drug-induced anorexia) (PMC8773430).</p>
+<p><strong>Disease Causal Factors — primary/age-related mechanism:</strong> Reduction in alpha-motor neuron number and motor unit remodeling, mitochondrial dysfunction, hormonal shifts (declining IGF-1, testosterone, estrogen; rising cortisol and pro-inflammatory cytokines TNF-α/IL-6), and insulin resistance.</p>
+<p><strong>Genetic risk factors.</strong>
+- <strong>Heritability:</strong> Twin and family studies estimate heritability of muscle strength at 30–85% and of muscle mass at 45–90%, with handgrip strength specifically at 30–65% (ScienceDirect S0026049523003153, "Pathophysiology of sarcopenia: Genetic factors and their interplay with environmental factors").
+- <strong>GWAS loci:</strong> A multivariate GWAS identified 215 loci and &gt;30,000 SNPs contributing to the polygenic architecture of sarcopenia-related traits; 78 independent SNPs across 73 loci were associated with handgrip strength, lean mass, and walking pace with consistent effect direction. A large European-ancestry meta-analysis (20 cohorts) identified five loci for total lean body mass: <strong>HSD17B11, VCAN, ADAMTSL3, IRS1, and FTO</strong>. Earlier work also implicated <strong>ESR1, NOS3, KLF5, and HLA-DQA1</strong> in low handgrip strength/lean mass (Nature Scientific Reports 41598-022-07567-9; PMC9920138, UK Biobank).
+- <strong>Candidate genes:</strong> <em>ACTN3</em> R577X null polymorphism (α-actinin-3 deficiency, present in &gt;1.5 billion people worldwide) is associated with reduced skeletal muscle mass persisting into old age and increased risk of sarcopenia, frailty, and functional loss (PMC/biorxiv on ACTN3). <em>MSTN</em> (myostatin) K153R polymorphism (rs1805086) associates with muscle power phenotypes, though a meta-analysis found inconsistent overall effects on strength/mass across studies, and MSTN/ACTN3 variants were <strong>not</strong> associated with exceptional longevity in Japanese centenarians (PMC5115755).</p>
+<p><strong>Environmental/lifestyle risk factors:</strong> Physical inactivity/sedentary behavior, inadequate dietary protein intake, vitamin D deficiency, smoking, excess alcohol, obesity (via sarcopenic obesity), and chronic disease exposure. Age itself and, per EWGSOP2 data, male sex are risk factors under some diagnostic criteria (though IWGS criteria show higher prevalence in women) (PMC/Wiley global prevalence meta-analysis, jcsm.12783).</p>
+<p><strong>Protective factors:</strong> Regular resistance/aerobic exercise, adequate high-quality (leucine-rich) protein intake (1.0–1.2 g/kg/day, up to 1.2–1.5 g/kg/day with inflammatory disease), vitamin D sufficiency, and possibly favorable genetic variants (e.g., ACTN3 R577 "wild-type" allele).</p>
+<p><strong>Gene-environment interaction:</strong> The interplay is bidirectional — genetic susceptibility (e.g., ACTN3 XX genotype) may amplify vulnerability to disuse-induced atrophy, while chronic environmental stressors (inflammation, malnutrition) can epigenetically or transcriptionally suppress anabolic gene programs regardless of baseline genotype (ScienceDirect S0026049523003153).</p>
+<p>Sources:
+- <a href="https://www.sciencedirect.com/science/article/abs/pii/S0026049523003153">Pathophysiology of sarcopenia: Genetic factors and their interplay with environmental factors</a>
+- <a href="https://www.nature.com/articles/s41598-022-07567-9">Unveiling genetic variants for age-related sarcopenia — Korean cohorts</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9920138/">Genomic Predictors of Sarcopenia — UK Biobank</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8773430/">Effect of Exercise on Secondary Sarcopenia: A Comprehensive Literature Review</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5115755/">Muscle-Related Polymorphisms (MSTN, ACTN3) Not Associated with Longevity</a></p>
+<hr />
+<h3>3. Phenotypes</h3>
+<p>Sarcopenia is defined by a <strong>triad</strong> of measurable phenotypic domains rather than a single symptom:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Low muscle strength (grip strength, chair-stand)</td>
+<td>Sign/functional</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003324" target="_blank" rel="noopener noreferrer">HP:0003324</a> (Generalized muscle weakness)</td>
+<td>Primary EWGSOP2 diagnostic criterion</td>
+</tr>
+<tr>
+<td>Low muscle mass/quantity (appendicular skeletal muscle index)</td>
+<td>Sign (imaging/anthropometric)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" rel="noopener noreferrer">HP:0003202</a> (Skeletal muscle atrophy)</td>
+<td>Confirms diagnosis (DXA/BIA/CT/MRI)</td>
+</tr>
+<tr>
+<td>Low physical performance (gait speed, SPPB, TUG, 400m walk)</td>
+<td>Functional/behavioral</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" rel="noopener noreferrer">HP:0002015</a> (dysphagia, if severe) not applicable; consider <a href="http://purl.obolibrary.org/obo/HP_0001288" target="_blank" rel="noopener noreferrer">HP:0001288</a> (Gait disturbance)</td>
+<td>Determines severity grading</td>
+</tr>
+<tr>
+<td>Falls</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002527" target="_blank" rel="noopener noreferrer">HP:0002527</a> (Falls)</td>
+<td>Downstream consequence</td>
+</tr>
+<tr>
+<td>Frailty</td>
+<td>Syndromic</td>
+<td>—</td>
+<td>Overlapping but distinct construct</td>
+</tr>
+<tr>
+<td>Reduced muscle quality (fatty infiltration, fibrosis)</td>
+<td>Imaging/histological</td>
+<td>—</td>
+<td>CT/MRI attenuation-based</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> Muscle mass and strength typically peak in the 3rd–4th decade of life, plateau, then decline progressively from approximately age 40–50 onward, accelerating markedly after age 60–70 ("late-onset," though disuse/critical-illness sarcopenia can develop acutely within days-to-weeks in ICU settings — reflected in the NCIT "Acute Sarcopenia," NCIT:C189016, ≤6 months, vs. chronic, &gt;6 months).</p>
+<p><strong>Severity/progression:</strong> EWGSOP2 grades severity in three tiers: (1) <strong>probable sarcopenia</strong> (low strength only), (2) <strong>confirmed sarcopenia</strong> (low strength + low muscle mass/quality), (3) <strong>severe sarcopenia</strong> (low strength + low mass/quality + poor physical performance) (PMC6322506). Course is typically chronic and progressive in primary sarcopenia; secondary/disuse forms can progress rapidly (muscle loss of up to several percent per week during bed rest or critical illness) and are partially reversible with rehabilitation.</p>
+<p><strong>Frequency:</strong> By definition all sarcopenia patients have the diagnostic triad; downstream phenotypes occur at variable frequency — falls, frailty, disability, and reduced quality of life are common consequences, with an estimated prevalence gradient depending on diagnostic criteria used (see Epidemiology, §9).</p>
+<p><strong>QoL impact:</strong> Reduced physical function correlates with diminished independence in activities of daily living, increased fall/fracture risk, loss of mobility, and downstream depression; validated via SF-36/EQ-5D-type instruments in several of the reviewed cohort studies, though disease-specific quantification (e.g., utility decrements) was not directly retrieved in this search pass.</p>
+<p>Sources:
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6322506/">Sarcopenia: revised European consensus on definition and diagnosis</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10856900/">Diagnostic Criteria and Measurement Techniques of Sarcopenia</a></p>
+<hr />
+<h3>4. Genetic/Molecular Information</h3>
+<p>Sarcopenia is fundamentally a <strong>complex/polygenic trait</strong>, not a single-gene Mendelian disorder, so this section summarizes contributing loci/pathways rather than causal Mendelian variants.</p>
+<p><strong>Candidate/contributing genes (with GO/functional relevance):</strong>
+- <strong>MSTN (myostatin, GDF8)</strong> — hgnc:7204 (approx.) — negative regulator of muscle mass; K153R (rs1805086) polymorphism associated with muscle power phenotypes; myostatin pathway is the leading pharmacological target class (see §12) (PMC3024427; PMC9690375).
+- <strong>ACTN3</strong> — R577X null polymorphism; loss of α-actinin-3 (compensated by α-actinin-2) associated with reduced sprint/power performance and increased sarcopenia/frailty risk in old age.
+- <strong>IRS1, FTO, HSD17B11, VCAN, ADAMTSL3</strong> — lean-mass GWAS loci (European ancestry meta-analysis, 20 cohorts).
+- <strong>ESR1</strong> (estrogen receptor), <strong>NOS3</strong> (endothelial NOS), <strong>KLF5</strong>, <strong>HLA-DQA1</strong> — implicated in earlier handgrip-strength/lean-mass association studies.</p>
+<p><strong>Functional consequences:</strong> Myostatin overexpression/gain-of-function drives muscle atrophy via TGF-β superfamily/activin receptor signaling → SMAD2/3 activation → suppression of Akt/mTOR anabolic signaling and upregulation of the ubiquitin-proteasome atrogenes. This is essentially the inverse of the loss-of-function MSTN phenotype (myostatin-related muscle hypertrophy).</p>
+<p><strong>Epigenetics:</strong> Not extensively covered in this search pass, but the multi-omics literature (e.g., PMC EP092853, "multi-omics investigation of sarcopenia and frailty: genomic, epigenomic and telomere length data") indicates epigenetic and telomere-length changes are being actively integrated into sarcopenia risk models alongside genomics.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not a recognized feature of primary sarcopenia; not applicable in the way it is for classic Mendelian disorders.</p>
+<p><strong>Somatic vs. germline:</strong> Sarcopenia genetics is entirely germline/constitutional (polygenic susceptibility); no somatic mutation component is described.</p>
+<p>Sources:
+- <a href="https://physoc.onlinelibrary.wiley.com/doi/full/10.1113/EP092853">A multi-omics investigation of sarcopenia and frailty</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9690375/">Association of Myostatin Gene Polymorphisms with Strength and Muscle Mass in Athletes</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3024427/">K153R Polymorphism in the Myostatin Gene</a></p>
+<hr />
+<h3>5. Environmental Information</h3>
+<p><strong>Environmental/lifestyle factors:</strong> Sedentary behavior and physical inactivity are the dominant modifiable drivers; prolonged bed rest, immobilization, and hindlimb/limb unloading are used experimentally (and occur clinically in hospitalization) to model rapid disuse atrophy. Malnutrition (inadequate protein/caloric intake), smoking, and excessive alcohol use contribute. Obesity independently and synergistically worsens sarcopenia via ectopic intramuscular fat deposition and anabolic resistance (sarcopenic obesity) (PMC4326920, "Muscle ectopic fat deposition contributes to anabolic resistance in obese sarcopenic old rats").</p>
+<p><strong>Infectious agents:</strong> No primary infectious etiology; however, acute/critical illness (including sepsis and severe infections) is a major precipitant of secondary/ICU-acquired sarcopenia via a combination of immobilization, systemic inflammation, and catabolic stress.</p>
+<p><strong>Occupational/toxin exposure:</strong> Not a well-characterized primary driver in the literature retrieved; disuse (occupational sedentarism) and chronic corticosteroid/medication exposure (iatrogenic) are more relevant secondary contributors than classic toxicological exposures.</p>
+<p>Sources:
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4326920/">Muscle ectopic fat deposition contributes to anabolic resistance in obese sarcopenic old rats</a>
+- <a href="https://www.frontiersin.org/journals/endocrinology/articles/10.3389/fendo.2023.1185221/full">Sarcopenic obesity: epidemiology, pathophysiology, cardiovascular disease, mortality, and management</a></p>
+<hr />
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (age-related/primary sarcopenia):</strong></p>
+<ol>
+<li>Aging (and/or disuse/inflammatory disease) → <strong>motor neuron loss and neuromuscular junction (NMJ) instability</strong> (denervation, acetylcholine receptor fragmentation) — this is now considered an early, possibly initiating, event (PMC10789655, "Unraveling the causes of sarcopenia: Roles of neuromuscular junction impairment and mitochondrial dysfunction").</li>
+<li>NMJ denervation → <strong>loss of type II (fast-twitch) fiber innervation</strong>, with denervated fibers either reinnervated by adjacent type I motor units (fiber-type grouping/shift toward slow-twitch) or undergoing atrophy and replacement by fat/fibrous tissue (myosteatosis/fibrosis) → net preferential type II fiber atrophy and reduced peak power output.</li>
+<li>In parallel, aging drives <strong>mitochondrial dysfunction</strong> (reduced biogenesis, impaired oxidative phosphorylation, elevated ROS) within myofibers, which both correlates with and reinforces NMJ degeneration, creating a feed-forward loop → reduced ATP availability and increased oxidative damage to contractile and structural proteins.</li>
+<li>Chronic low-grade "inflammaging" — elevated circulating <strong>TNF-α and IL-6</strong> — activates <strong>NF-κB</strong> signaling in myofibers, which (a) upregulates E3 ubiquitin ligases <strong>Atrogin-1 (FBXO32) and MuRF1 (TRIM63)</strong>, accelerating ubiquitin-proteasome-mediated myofibrillar protein degradation, and (b) represses <strong>MyoD</strong>, impairing myogenic differentiation; IL-6/STAT3 signaling separately inhibits satellite cell-mediated regeneration.</li>
+<li>Concurrently, declining anabolic hormonal drive (falling <strong>IGF-1</strong> and <strong>testosterone</strong>, rising <strong>myostatin/activin</strong> signaling through activin type II receptors → SMAD2/3) suppresses <strong>Akt/mTORC1</strong> signaling, producing <strong>"anabolic resistance"</strong> — a blunted muscle protein synthesis response to dietary protein/leucine and resistance exercise stimuli, worsened further by obesity/insulin resistance via eIF2α phosphorylation and ectopic intramuscular lipid (ceramide) accumulation.</li>
+<li>Satellite cells (muscle stem cells), whose niche is degraded by the same mitochondrial dysfunction, chronic inflammation, and NMJ decline above, lose quiescence/proliferation/differentiation capacity; senescent cells accumulating in the regenerative niche secrete a senescence-associated secretory phenotype (SASP) that further suppresses regeneration (2023 finding on CD36+ secretome/SASP as negative muscle-regeneration regulators).</li>
+<li>The net result of steps 2–6 — degradation exceeding synthesis, impaired regeneration, fiber-type shift, and myosteatosis — is <strong>progressive loss of skeletal muscle mass, strength, and quality</strong>, converging on the clinical phenotype: low strength (step 1° criterion) → low muscle mass/quality (confirmatory) → impaired physical performance (severity marker) → falls, disability, frailty, hospitalization, and increased mortality.</li>
+</ol>
+<p>Branch — <strong>sarcopenic obesity</strong>: steps 3 and 5 are amplified by adipose-tissue-derived inflammatory cytokines and ectopic intramuscular/intermuscular fat, producing a distinct oxidative-stress-driven mechanistic branch with disproportionate anabolic resistance (PMC/Frontiers fendo.2023.1185221).</p>
+<p>Branch — <strong>disease-associated secondary sarcopenia</strong> (e.g., CKD, heart failure, cancer, T2DM): organ-specific catabolic signals (uremic toxins, natriuretic peptide/cytokine excess in heart failure, tumor-derived cachectic factors, hyperglycemia/insulin resistance in diabetes) feed into the same NF-κB/ubiquitin-proteasome and anabolic-resistance nodes described above, producing disease-flavored but mechanistically convergent muscle wasting (T2DM-related sarcopenia is now considered mechanistically distinct from both classic age-related sarcopenia and pure disuse atrophy — PMC11157032).</p>
+<p><strong>Additional hallmark framework:</strong> A 2023 review proposed nine core aging hallmarks plus five sarcopenia-specific additions: perturbed inflammation, compromised vascular perfusion, neural dysfunction, extracellular matrix (ECM) dysregulation, and ionic imbalance (PMC12295260).</p>
+<p><strong>Suggested ontology terms:</strong>
+- GO biological processes: <a href="http://purl.obolibrary.org/obo/GO_0006511" target="_blank" rel="noopener noreferrer">GO:0006511</a> (ubiquitin-dependent protein catabolic process), <a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> (autophagy), <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" rel="noopener noreferrer">GO:0008283</a> (cell population proliferation, satellite cells), <a href="http://purl.obolibrary.org/obo/GO_0007520" target="_blank" rel="noopener noreferrer">GO:0007520</a> (myoblast fusion), <a href="http://purl.obolibrary.org/obo/GO_0043123" target="_blank" rel="noopener noreferrer">GO:0043123</a> (positive regulation of NF-κB signaling), <a href="http://purl.obolibrary.org/obo/GO_0032496" target="_blank" rel="noopener noreferrer">GO:0032496</a> (response to lipopolysaccharide/inflammation)
+- GO molecular function: <a href="http://purl.obolibrary.org/obo/GO_0005160" target="_blank" rel="noopener noreferrer">GO:0005160</a> (TGF-beta receptor binding, for myostatin/activin signaling)
+- CL cell types: <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a> (skeletal muscle myoblast/satellite cell — more precisely <a href="http://purl.obolibrary.org/obo/CL_0000594" target="_blank" rel="noopener noreferrer">CL:0000594</a> skeletal muscle satellite cell), <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a> (skeletal muscle fiber), <a href="http://purl.obolibrary.org/obo/CL_0000738" target="_blank" rel="noopener noreferrer">CL:0000738</a> (leukocyte, for inflammatory infiltrate)
+- Molecular targets: myostatin/GDF8, activin type II receptor (ACVR2B), IGF-1/Akt/mTORC1, NF-κB, Atrogin-1/FBXO32, MuRF1/TRIM63</p>
+<p>Sources:
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10789655/">Unraveling the causes of sarcopenia: NMJ impairment and mitochondrial dysfunction</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12295260/">Sarcopenia: Current Insights into Molecular Mechanisms, Diagnostics, and Emerging Interventional Approaches</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12267276/">Molecular constraints of sarcopenia in the ageing muscle</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11157032/">Type 2 diabetes mellitus related sarcopenia</a>
+- <a href="https://www.frontiersin.org/journals/endocrinology/articles/10.3389/fendo.2023.1185221/full">Sarcopenic obesity: epidemiology, pathophysiology</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10690626/">Ubiquitin-proteasome pathway in skeletal muscle atrophy</a></p>
+<hr />
+<h3>7. Anatomical Structures Affected</h3>
+<p><strong>Organ/system level:</strong> Primary target is <strong>skeletal muscle</strong> (musculoskeletal system), generalized across the body but with particular clinical emphasis on <strong>appendicular</strong> musculature (limbs — the basis of the appendicular skeletal muscle index, ASMI, used diagnostically). Secondary/complication involvement includes the skeletal system (falls → fractures; disuse → osteosarcopenia overlap with osteoporosis), cardiovascular system (sarcopenia-heart failure interplay), and metabolic/endocrine systems (insulin resistance).</p>
+<p><strong>Tissue/cell level:</strong> Skeletal muscle tissue — specifically <strong>type II (fast-twitch, glycolytic) muscle fibers</strong>, which undergo preferential atrophy and denervation, with relative sparing/compensatory reinnervation of type I (slow-twitch) fibers. Cell populations: skeletal myofibers, <strong>satellite cells</strong> (muscle stem cells, <a href="http://purl.obolibrary.org/obo/CL_0000594" target="_blank" rel="noopener noreferrer">CL:0000594</a>), motor neurons and their NMJ synaptic terminals, and infiltrating fibro-adipogenic progenitors/adipocytes (myosteatosis) and fibroblasts (fibrosis).</p>
+<p><strong>Subcellular level:</strong> <strong>Mitochondria</strong> (biogenesis/OXPHOS dysfunction, <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>), sarcomeric contractile apparatus (myofibrillar protein degradation via the ubiquitin-proteasome system), and the neuromuscular junction as a specialized subcellular structure (postsynaptic acetylcholine receptor clusters).</p>
+<p><strong>Localization:</strong> Generalized/bilateral and symmetric — sarcopenia is by definition a systemic process, distinguishing it from focal/localized muscle atrophy (e.g., from a single peripheral nerve injury). UBERON terms of relevance: <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle tissue), <a href="http://purl.obolibrary.org/obo/UBERON_0000383" target="_blank" rel="noopener noreferrer">UBERON:0000383</a> (musculature of limb/appendicular musculature — commonly the diagnostic focus site, e.g., mid-thigh CT/MRI, calf circumference).</p>
+<p>Sources: derived from the pathophysiology sources cited in §6 (PMC10789655, PMC12267276, PMC10690626).</p>
+<hr />
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> Muscle mass and strength peak around the third decade, then decline gradually from ~40 years, accelerating after 60–70. Primary sarcopenia is thus <strong>adult/late-onset and insidious</strong>. Secondary/disuse or critical-illness sarcopenia has an <strong>acute-to-subacute</strong> onset (days to weeks), formally distinguished by NCIT as "Acute Sarcopenia" (≤6 months) vs. chronic (&gt;6 months).</p>
+<p><strong>Progression:</strong> Chronic primary sarcopenia is typically <strong>slowly progressive</strong> over years to decades; disease-associated secondary sarcopenia (cancer cachexia, heart failure, CKD) can progress much faster. EWGSOP2's staged framework (probable → confirmed → severe) functions as an implicit staging system based on accumulating deficits across strength, mass, and performance domains (PMC6322506).</p>
+<p><strong>Course pattern:</strong> Generally progressive rather than relapsing-remitting, though partial reversal is achievable with resistance exercise and nutritional intervention, particularly in secondary/disuse-related cases and earlier disease stages — this reversibility is a key rationale for early detection.</p>
+<p><strong>Critical periods/intervention windows:</strong> Midlife (40s–60s) is increasingly emphasized as a window for preventive intervention before muscle loss accelerates; post-acute-illness/post-hospitalization periods are critical windows for rehabilitative intervention to prevent conversion of transient disuse atrophy into persistent sarcopenia.</p>
+<p>Sources:
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6322506/">Sarcopenia: revised European consensus on definition and diagnosis</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11172762/">Prognostic Features of Sarcopenia in Older Hospitalized Patients: A 6-Month Follow-Up Study</a></p>
+<hr />
+<h3>9. Inheritance and Population</h3>
+<p><strong>Epidemiology:</strong>
+- Global prevalence estimates vary substantially by diagnostic criteria: <strong>~5% (EWGSOP2)</strong> to <strong>~17% (IWGS)</strong> among elderly populations in one meta-analysis; another large meta-analysis (58,404 community-dwelling participants ≥60 years) estimated overall global prevalence at <strong>~10%</strong> (PubMed 34816624, jcsm.12783).
+- Prevalence ranges from <strong>8–36%</strong> in adults &lt;60 years to <strong>10–27%</strong> in adults ≥60 years, reflecting major criteria-dependent heterogeneity.
+- <strong>Severe sarcopenia</strong> prevalence: <strong>2–9%</strong>.
+- <strong>Sex differences differ by criteria set:</strong> EWGSOP2 shows higher prevalence in <strong>men</strong> (11% vs. 2% in women), while IWGS criteria show higher prevalence in <strong>women</strong> (17% vs. 12% in men) — a striking illustration of definitional sensitivity (PubMed 36907247, Metabolism 2023 epidemiology review).</p>
+<p><strong>Inheritance pattern:</strong> Sarcopenia is <strong>multifactorial/polygenic</strong>, not Mendelian. No single inheritance pattern (AD/AR/X-linked) applies; risk is distributed across many common variants of small effect (see §4 GWAS loci) interacting with environmental exposures.</p>
+<p><strong>Penetrance/expressivity:</strong> Not applicable in the classical monogenic sense; "penetrance" of the polygenic risk score is modulated heavily by lifestyle, nutrition, and comorbidity burden.</p>
+<p><strong>Founder effects/consanguinity/carrier frequency:</strong> Not applicable — sarcopenia is a complex age-related trait, not a rare monogenic disorder.</p>
+<p><strong>Population demographics:</strong> Prevalence rises steeply with age and is influenced by geography, diagnostic criteria applied (EWGSOP vs. AWGS [Asian Working Group for Sarcopenia] vs. IWGS vs. FNIH), and setting (community-dwelling vs. hospitalized vs. long-term care, with hospitalized/institutionalized populations showing substantially higher rates). Regional/ethnic variation in cutoff values is a recognized methodological issue (Frontiers fmed.2024.1405438, "Diagnosing sarcopenia in clinical practice: international guidelines vs. population-specific cutoff criteria").</p>
+<p>Sources:
+- <a href="https://onlinelibrary.wiley.com/doi/10.1002/jcsm.12783">Global prevalence of sarcopenia and severe sarcopenia: a systematic review and meta-analysis</a>
+- <a href="https://www.metabolismjournal.com/article/S0026-0495(23)00136-1/fulltext">Epidemiology of sarcopenia: Prevalence, risk factors, and consequences</a>
+- <a href="https://www.frontiersin.org/journals/medicine/articles/10.3389/fmed.2024.1405438/full">Diagnosing sarcopenia in clinical practice: international guidelines vs. population-specific cutoff criteria</a></p>
+<hr />
+<h3>10. Diagnostics</h3>
+<p><strong>EWGSOP2 four-step algorithm</strong> (the dominant clinical framework):
+1. <strong>Find</strong> — case-finding via clinical suspicion or the <strong>SARC-F questionnaire</strong> (self-report screening tool).
+2. <strong>Assess</strong> — measure <strong>muscle strength</strong>: grip strength (dynamometry) and/or chair-stand test; low strength → "probable sarcopenia," sufficient to initiate treatment in practice.
+3. <strong>Confirm</strong> — quantify <strong>muscle mass/quality</strong>: bioimpedance analysis (BIA) or DXA in routine clinical care; DXA, CT, or MRI in research/specialty high-risk settings.
+4. <strong>Severity</strong> — assess <strong>physical performance</strong>: gait speed, Short Physical Performance Battery (SPPB), Timed-Up-and-Go (TUG), or 400-meter walk test (PMC10684299; PMC6322506).</p>
+<p><strong>Laboratory/biomarkers:</strong> No single validated diagnostic blood biomarker yet, but candidates under active investigation include:
+- <strong>Myostatin (GDF8)</strong> — elevated, inhibitory myokine.
+- <strong>GDF-15</strong> — higher circulating levels independently associated with greater sarcopenia risk (PMC7740254).
+- <strong>Follistatin</strong> — antagonizes myostatin/activin A; differs between sarcopenic and non-sarcopenic populations.
+- <strong>IGF-1</strong> — reduced levels correlate with decreased muscle anabolism (though one study found IGF-1/TGF-β family/follistatin levels did <strong>not</strong> reliably reflect different dynapenia/sarcopenia stages in elderly women — PubMed 25681638 — underscoring current lack of a validated single biomarker).
+- Activin A, irisin, vitamin D, myoglobin, cortisol.</p>
+<p><strong>Imaging:</strong> DXA (appendicular lean mass), CT/MRI (cross-sectional muscle area and intramuscular fat/attenuation — used in specialty/research settings), ultrasound (emerging, portable, used to measure muscle thickness/cross-sectional area, e.g., quadriceps).</p>
+<p><strong>Genetic testing:</strong> Not part of routine clinical diagnosis (sarcopenia is not diagnosed via genetic testing); genetic risk scores remain a research tool.</p>
+<p><strong>Differential diagnosis:</strong> Cachexia (distinct — requires ≥5% weight loss in ≤12 months plus ≥3 of: decreased strength, fatigue, anorexia, low fat-free mass index, abnormal biochemistry), frailty (overlapping but broader multisystem syndrome), primary myopathies/muscular dystrophies, disuse atrophy without the aging/chronic-disease substrate, malnutrition alone, and inflammatory myopathies (which can be assessed similarly via DXA/grip strength — PubMed 38544289).</p>
+<p><strong>Screening:</strong> SARC-F is the standard community screening instrument; sensitivity for detecting probable sarcopenia has been specifically evaluated in recent cross-sectional studies (PMC12292031, 2025).</p>
+<p>Sources:
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6322506/">Sarcopenia: revised European consensus on definition and diagnosis</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10684299/">Addressing the Main Barrier to Sarcopenia Identification: BIA vs. DXA</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7740254/">Elevated GDF-15 Is a Biomarker of Sarcopenia in Older Adults</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12292031/">Assessment of SARC-F Sensitivity for Probable Sarcopenia</a></p>
+<hr />
+<h3>11. Outcome/Prognosis</h3>
+<p><strong>Mortality/morbidity:</strong> Sarcopenia is independently associated with increased <strong>all-cause mortality</strong>, particularly in hospitalized and critically ill older adults; a routine sarcopenia assessment at ICU admission is proposed as a prognostic tool (PMC8616666). It is linked to increased <strong>rehospitalization</strong>, <strong>falls</strong>, <strong>fractures</strong>, and <strong>loss of independence</strong> — one 2025 longitudinal China-based aging study specifically linked sarcopenia to falls, fractures, hospital readmission, and all-cause mortality in older adults with endocrine disorders (PMC12403857).</p>
+<p><strong>Functional/QoL outcomes:</strong> Progressive disability, worsening ADL/IADL function, increased risk of institutionalization (long-term care admission), and depression are recognized downstream consequences (PMC/Springer chapters on frailty-sarcopenia-falls).</p>
+<p><strong>Prognostic factors:</strong> Severity grade (EWGSOP2 "severe sarcopenia" carries worse prognosis than "probable"), presence of comorbid frailty, and comorbid chronic disease burden (heart failure, CKD, cancer) all modify prognosis; the Multidimensional Prognostic Index has been used to track longitudinal changes predicting rehospitalization/mortality up to 6 months post-discharge (PMC11172762).</p>
+<p><strong>Reversibility/recovery potential:</strong> Unlike many chronic degenerative conditions, sarcopenia — especially secondary/disuse forms — has meaningful reversibility potential with early resistance exercise and nutritional rehabilitation, making early identification prognostically important.</p>
+<p>Sources:
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11172762/">Prognostic Features of Sarcopenia in Older Hospitalized Patients</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8616666/">Correlation of Sarcopenia With Modified Frailty Index in Critically Ill Elderly Patients</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12403857/">Association between sarcopenia and falls, fractures, hospital readmission, and all-cause mortality in older adults with endocrine disorders</a></p>
+<hr />
+<h3>12. Treatment</h3>
+<p><strong>Pharmacotherapy — established/guideline-recommended:</strong> No drug is yet FDA-approved specifically for sarcopenia; current guideline-based management centers on non-pharmacological intervention (below). <strong>Vitamin D repletion</strong> is recommended where deficient (NCIT:C1621, Cholecalciferol / relevant vitamin D agents), though a 2024 RCT (DPVD ancillary study, Lancet Healthy Longevity) found active vitamin D (eldecalcitol) reduced sarcopenia onset risk in adults with prediabetes by increasing skeletal muscle volume/strength.</p>
+<p><strong>Advanced/investigational therapeutics — myostatin/activin pathway (the leading pharmacological target class):</strong>
+- <strong>Bimagrumab</strong> — anti-activin type II receptor monoclonal antibody blocking myostatin/activin signaling. Phase 2 proof-of-concept: thigh muscle volume +4.80% vs. −1.01% placebo at 24 weeks; lean body mass gains of 1.9–2.8 kg across dose groups; however, <strong>no significant improvement in physical performance</strong> (gait speed, SPPB, 6-minute walk test) despite mass gains — a critical mass-vs-function dissociation. 2025 data extend this to post-hip-fracture recovery, again showing muscle-mass but only minimal mobility/strength benefit (PubMed 41248895; JAMA Network Open 2771858; PMC12141158; PMC12146653).
+- <strong>Apitegromab (SRK-015)</strong> — targets latent (pro-)myostatin specifically, reducing TGF-β superfamily cross-reactivity; validated in spinal muscular atrophy; FDA issued a 2025 Complete Response Letter citing third-party manufacturing concerns (not efficacy/safety).
+- <strong>Trevogrumab (REGN1033)</strong> — myostatin monoclonal antibody; in the Phase 2 COURAGE trial, adding trevogrumab to semaglutide preserved roughly half the lean mass otherwise lost to semaglutide-induced weight loss — relevant to the emerging "GLP-1-associated sarcopenia" concern.
+- <strong>Taldefgrobep alfa</strong> — myostatin-targeting adnectin; awaiting Phase 2 obesity-context data.
+- <strong>KER-065</strong> — selective activin receptor ligand trap, initially targeting Duchenne muscular dystrophy, mechanistically relevant to sarcopenia.
+- RANK-ligand inhibition (denosumab-class) is being trialed for combined sarcopenia-with-osteoporosis indications (PMC12323245).</p>
+<p><strong>Suggested NCIT terms:</strong> NCIT:C15986 (Pharmacotherapy) as the generic action term paired with <code>therapeutic_agent</code> bindings for specific compounds (myostatin/activin inhibitors generally lack individual NCIT drug codes yet given investigational status; use CHEBI/NCIT where available per compound), NCIT:C15302 (Physical Therapy), NCIT:C15447 (Dietary Intervention), NCIT:C15747 (Supportive Care).</p>
+<p><strong>Exercise (cornerstone, highest-grade recommendation):</strong> Progressive <strong>resistance exercise training (RET)</strong>, moderate-to-high intensity, is the single most consistently effective intervention for both muscle mass and strength, with benefit demonstrated even in frail/multimorbid populations. NCIT:C15302 (Physical Therapy).</p>
+<p><strong>Nutrition:</strong> Increased daily protein intake (1.0–1.2 g/kg/day; 1.2–1.5 g/kg/day with inflammatory disease), high-quality/whey protein rich in leucine/essential amino acids; combined resistance-training + protein supplementation produces the largest gains in handgrip strength and gait speed; adding vitamin D further improves appendicular skeletal muscle index (network meta-analysis, Frontiers fnut.2025.1685014). Creatine supplementation is also recommended as an adjunct to structured exercise programs.</p>
+<p><strong>Treatment response/limitations:</strong> A recurring theme across trials (bimagrumab, others) is <strong>dissociation between muscle mass gain and functional/performance improvement</strong> — mass-focused pharmacotherapy alone appears insufficient without concurrent exercise, an important consideration for future combination-therapy trial design (PMC12146653, "Sarcopenia in Ageing and Chronic Illness: Trial Endpoints and Regulatory Issues").</p>
+<p>Sources:
+- <a href="https://pubmed.ncbi.nlm.nih.gov/41248895/">Bimagrumab: Novel Medical Therapy for IBM, Sarcopenia, and Medication-Induced Lean Body Mass Loss</a>
+- <a href="https://jamanetworkopen.com/journals/jamanetworkopen/fullarticle/2771858">Bimagrumab vs Optimized Standard of Care — JAMA Network Open</a> — actually <a href="https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2771858">JAMA Network Open</a>
+- <a href="https://www.metabolismjournal.com/article/S0026-0495(23)00201-9/fulltext">Current and investigational medications for the treatment of sarcopenia</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12146653/">Sarcopenia in Ageing and Chronic Illness: Trial Endpoints and Regulatory Issues</a>
+- <a href="https://www.thelancet.com/journals/lanhl/article/PIIS2666-7568(24)00009-6/fulltext">Active vitamin D treatment in the prevention of sarcopenia (DPVD ancillary study)</a>
+- <a href="https://www.frontiersin.org/journals/nutrition/articles/10.3389/fnut.2025.1685014/full">Exercise and nutrition strategies for sarcopenia in older adults: network meta-analysis</a>
+- <a href="https://www.delveinsight.com/blog/promising-sarcopenia-drugs-in-development">5 Sarcopenia Drugs Poised to Make an Impact</a>
+- <a href="https://www.myostatininhibitorshub.com/blog/trevogrumab">Trevogrumab (REGN1033): Myostatin Blocker, COURAGE Data</a></p>
+<hr />
+<h3>13. Prevention</h3>
+<p><strong>Primary prevention:</strong> Regular structured resistance/multicomponent exercise throughout mid-to-late life is the strongest evidence-based primary prevention strategy; adequate dietary protein and vitamin D sufficiency across the lifespan support this. USPSTF recommends exercise interventions to prevent falls in community-dwelling adults ≥65 at increased fall risk.</p>
+<p><strong>Secondary prevention (early detection):</strong> Population screening using SARC-F in primary-care and geriatric settings, with reflex grip-strength/chair-stand testing, enables earlier identification before functional decline is severe; targeted screening in high-risk disease populations (CKD, heart failure, cancer, post-hospitalization) is increasingly recommended.</p>
+<p><strong>Tertiary prevention:</strong> Structured rehabilitation (physical/occupational therapy) post-hospitalization or post-acute-illness to prevent conversion of transient disuse atrophy into persistent sarcopenia; nutritional support during and after catabolic illness.</p>
+<p><strong>Behavioral interventions:</strong> Smoking cessation, alcohol moderation, sustained physical activity, weight management (particularly relevant to sarcopenic obesity).</p>
+<p><strong>Immunization/infectious prevention:</strong> Not directly applicable as a primary sarcopenia-prevention strategy, though preventing severe infections/hospitalizations indirectly reduces acute-catabolic sarcopenia risk.</p>
+<p><strong>Genetic counseling/screening:</strong> Not applicable given the polygenic, non-Mendelian nature of the condition; polygenic risk scoring remains investigational.</p>
+<p><strong>Public health:</strong> Nutritional support programs for older adults, fall-prevention public health initiatives, and geriatric assessment integration into primary care are the relevant population-level interventions (PMC11119320, "The nutritional support to prevent sarcopenia in the elderly").</p>
+<p>Sources:
+- <a href="https://www.dovepress.com/vitamin-d-and-sarcopenia-in-the-senior-people-a-review-of-mechanisms-a-peer-reviewed-fulltext-article-TCRM">Vitamin D and Sarcopenia in the Elderly: Mechanisms and Consequences</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11119320/">The nutritional support to prevent sarcopenia in the elderly</a>
+- <a href="https://www.uspreventiveservicestaskforce.org/uspstf/draft-recommendation/vitamin-d-calcium-combined-supplementation-primary-prevention-falls-fractures-communitydwelling-adults">Draft Recommendation: Vitamin D, Calcium, or Combined Supplementation — USPSTF</a></p>
+<hr />
+<h3>14. Other Species / Natural Disease</h3>
+<p><strong>Taxonomy:</strong> Naturally occurring, age-related sarcopenia is well documented in companion animals, particularly <strong>dogs (Canis lupus familiaris, NCBITaxon:9615)</strong> and <strong>cats (Felis catus, NCBITaxon:9685)</strong>, making them recognized comparative/natural models rather than purely induced laboratory models (PMC/Wiley, "Cachexia and Sarcopenia in Companion Animals: An Under-Utilized Natural Animal Model of Human Disease").</p>
+<p><strong>Natural disease/veterinary relevance:</strong> Aging Labrador retriever colonies show significant loss of lean body mass with age; epaxial muscle cross-sectional area (measured by ultrasound/CT) is significantly lower in healthy geriatric vs. young dogs. Cats show a significant negative correlation between muscle condition score (MCS, assessed by DEXA) and age. Clinically, muscle loss in companion animals impairs strength/balance, depresses immune function, and reduces recovery capacity from illness, surgery, or injury — directly paralleling the human syndrome.</p>
+<p><strong>Sarcopenic obesity in animals:</strong> Approximately 40% of aged pet cats and dogs are obese, with 12–15% of these specifically showing extremely low lean mass (i.e., comorbid sarcopenic obesity), closely mirroring the human sarcopenic-obesity phenotype.</p>
+<p><strong>Comparative biology/One Health angle:</strong> Tufts University and collaborators have explicitly framed companion-animal sarcopenia as a "One Health" comparative model, leveraging the shared home environment, similar aging trajectory, and non-invasive longitudinal measurement opportunities that companion animals offer versus purely laboratory rodent models.</p>
+<p><strong>Cross-species conservation:</strong> Core molecular pathways (myostatin/activin signaling, ubiquitin-proteasome atrogenes, mitochondrial dysfunction) are broadly evolutionarily conserved across mammals, supporting translational relevance of both natural (companion animal) and induced (rodent) models — though species-specific modulators exist (see PMC7881157, "Molecular and phenotypic analysis of rodent models reveals conserved and species-specific modulators of human sarcopenia").</p>
+<p>Sources:
+- <a href="https://onlinelibrary.wiley.com/doi/full/10.1002/j.2617-1619.2018.tb00006.x">Cachexia and Sarcopenia in Companion Animals: An Under-Utilized Natural Animal Model</a>
+- <a href="https://now.tufts.edu/2022/04/11/taking-one-health-approach-muscle-loss-research">Taking a One Health Approach to Muscle Loss Research — Tufts</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/22111652/">Cachexia and sarcopenia: emerging syndromes of importance in dogs and cats</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7881157/">Molecular and phenotypic analysis of rodent models reveals conserved and species-specific modulators of human sarcopenia</a></p>
+<hr />
+<h3>15. Model Organisms</h3>
+<p><strong>Model types and induction strategies:</strong>
+- <strong>Natural aging models</strong> — considered the <strong>most representative/suitable</strong> model, as it most closely resembles the human aging process compared to genetic or accelerated-senescence models (though slow and resource-intensive). <strong>Aged Fischer-344/Brown Norway F1 hybrid rats</strong> are a widely used strain, showing progressive skeletal muscle atrophy with age while remaining relatively disease-free until advanced age — a valuable feature for isolating pure aging effects from comorbid pathology.
+- <strong>Senescence-accelerated models</strong> — <strong>SAMP8 (senescence-accelerated mouse-prone 8)</strong> mice are commonly used for accelerated-timeline aging studies, including metabolic changes in specific muscles (e.g., extensor digitorum longus).
+- <strong>Genetic modification models</strong> — e.g., muscle-specific <strong>OPA1 knockout</strong> mice (mitochondrial dynamics disruption) recapitulate sarcopenia-relevant pathophysiology; a 2024 JCI paper describes a mouse sarcopenia model revealing <strong>sex- and age-specific differences</strong> in phenotypic/molecular characteristics.
+- <strong>Induced-atrophy models</strong> — hindlimb unloading/suspension, surgical or chemical denervation, and immobilization are used to model the disuse-related mechanistic arm specifically (complementary to, but mechanistically distinct from, natural aging models).</p>
+<p><strong>Evaluation methods:</strong> Grip strength testing, treadmill/rotarod functional performance, muscle mass and fiber cross-sectional area quantification, fiber-type distribution analysis, and (in genetic models) targeted molecular pathway readouts (mitochondrial function, UPS activity, satellite cell markers).</p>
+<p><strong>Model limitations:</strong> Genetically modified and senescence-accelerated models can decouple specific pathway perturbations from the full multifactorial aging process, so findings may not fully generalize to naturally aging (and especially human) sarcopenia; natural aging models, while more representative, are slow, costly and confounded by comorbid age-related pathology in longer-lived strains.</p>
+<p><strong>Applications:</strong> Rodent models are used to dissect individual mechanistic contributions (mitochondrial, NMJ, satellite cell, inflammatory) that are difficult to isolate in human cohort studies, and to test candidate pharmacological interventions (myostatin/activin pathway antagonists in particular) prior to human trials.</p>
+<p>Sources:
+- <a href="https://www.sciencedirect.com/science/article/pii/S1568163723002775">Mouse models of accelerated aging in musculoskeletal research</a>
+- <a href="https://onlinelibrary.wiley.com/doi/full/10.1111/acel.13223">Animal models of sarcopenia — Aging Cell</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8441530/">Two Types of Mouse Models for Sarcopenia Research</a>
+- <a href="https://www.jci.org/articles/view/172890">JCI - Mouse sarcopenia model reveals sex- and age-specific differences</a>
+- <a href="https://onlinelibrary.wiley.com/doi/full/10.1002/mef2.70008">The recent development, application, and future prospects of muscle atrophy animal models</a></p>
+<hr />
+<h2>Curation Notes for dismech KB Entry</h2>
+<ol>
+<li><strong>MONDO binding needs live verification.</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0006516" target="_blank" rel="noopener noreferrer">MONDO:0006516</a> returned as obsolete in this search — before binding <code>disease_term</code>, run the standard OAK/OLS lookup workflow (per the <code>dismech-terms</code> skill) to find the current, non-obsolete replacement term, if one exists, rather than trusting this report's identifier.</li>
+<li><strong>No canonical single HP term surfaced</strong> for "sarcopenia" itself in this search pass — the phenotype triad (low strength/low mass/low performance) likely needs to be represented via component HP terms rather than one umbrella term; verify directly against a live HPO instance during curation.</li>
+<li><strong>This is a polygenic/complex-disease entry</strong>, not a Mendelian one — the <code>genetic:</code> section should likely use <code>relationship_type: SUSCEPTIBILITY</code> for the GWAS loci listed (IRS1, FTO, HSD17B11, VCAN, ADAMTSL3, ESR1, NOS3, KLF5, HLA-DQA1) and for ACTN3/MSTN polymorphisms, not causal variant framing.</li>
+<li><strong>The bimagrumab mass-vs-function dissociation</strong> is a mechanistically important, citable nuance worth capturing explicitly in a <code>treatments[].evidence</code> or <code>notes</code> field — several independent trials (2017 phase 2, JAMA Network Open, 2025 post-hip-fracture) converge on the same finding.</li>
+<li><strong>NCIT already codes "Acute Sarcopenia" (NCIT:C189016) distinctly from chronic</strong> — this could inform a <code>temporality</code> qualifier (ACUTE/CHRONIC) on phenotype/pathophysiology descriptors per the Descriptor Qualifier Slots convention.</li>
+<li>All PMIDs/URLs above should be run through the standard <code>just fetch-reference</code> and snippet-verification workflow before being embedded as <code>evidence:</code> blocks in any KB YAML — this report is a research lead, not pre-verified curation content.</li>
+</ol>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>37</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>CL:0000738</code> (1 mention) - the report calls it "leukocyte, for inflammatory infiltrate"; CL calls it <strong>leukocyte</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>MONDO:0006516</code> (obsolete sarcopenia) (2 mentions)</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCIT:C189016</code> (3 mentions) - the report calls it "Acute Sarcopenia", "NCIT already codes "Acute Sarcopenia"; NCIT calls it <strong>Acute Sarcopenia</strong></li>
+<li><code>GO:0008283</code> (1 mention) - the report calls it "cell population proliferation, satellite cells"; GO calls it <strong>cell population proliferation</strong></li>
+<li><code>GO:0043123</code> (1 mention) - the report calls it "positive regulation of NF-κB signaling"; GO calls it <strong>positive regulation of canonical NF-kappaB signal transduction</strong>, and lists "positive regulation of I-kappaB kinase/NF-kappaB signaling" among its other names</li>
+<li><code>GO:0032496</code> (1 mention) - the report calls it "response to lipopolysaccharide/inflammation"; GO calls it <strong>response to lipopolysaccharide</strong></li>
+<li><code>GO:0005160</code> (1 mention) - the report calls it "TGF-beta receptor binding, for myostatin/activin signaling"; GO calls it <strong>transforming growth factor beta receptor binding</strong>, and lists "TGF-beta receptor binding" among its other names</li>
+<li><code>CL:0000188</code> (2 mentions) - the report calls it "skeletal muscle fiber"; CL calls it <strong>cell of skeletal muscle</strong>, and lists "skeletal muscle cell" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>NCIT:C189016</code> - called "Acute Sarcopenia", "NCIT already codes "Acute Sarcopenia"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sarcoma_Of_Cervix_Uteri-falcon.html">← Sarcoma Of Cervix Uteri (Falcon)</a>
+                
+                
+                <a href="SARS1-Related_Neurodevelopmental_Disorder-claude_code.html">SARS1-Related Neurodevelopmental Disorder (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Sarcopenia.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Sarcopenia-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -13,7 +13,7 @@ import pytest
 
 from dismech.perturb.simulate import load_model_config
 
-CONFIG = Path("models/hpt_feedback_axis.config.yaml")
+CONFIG = Path("models/hpt_feedback_axis/config.yaml")
 CH = "kb/disorders/Congenital_Hypothyroidism.yaml"
 
 

@@ -44,6 +44,7 @@ def wanted_type(record: dict) -> str:
         "METABOLOMICS",
         "MULTI_OMICS",
         "MULTI_OMICS_PERTURBATION",
+        "IMAGING",
         "WGS",
         "GWAS",
     }:

@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astrakhan spotted fever · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Astrakhan spotted fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Astrakhan spotted fever</h1>
+                
+                <p class="report-subtitle">Astrakhan Spotted Fever: Disease Characteristics Research Report</p>
+                
+                
+                <div class="report-date">2026-09-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0024473" target="_blank" rel="noopener noreferrer">MONDO:0024473</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-fable-5-1, claude-haiku-4-5-20251001, claude-opus-5</span>
+                    
+                    
+                    <span class="meta-chip">16 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Astrakhan Spotted Fever: Disease Characteristics Research Report</h1>
+<p><strong>Target:</strong> Astrakhan spotted fever (<a href="http://purl.obolibrary.org/obo/MONDO_0024473" target="_blank" rel="noopener noreferrer">MONDO:0024473</a>) · Category: Infectious Disease · Report date: 2026-09-28</p>
+<p><strong>Scope note on sources.</strong> Astrakhan spotted fever (ASF) has a small literature, much of it Russian-language with English abstracts only. The surveillance numbers below come from one 1983–1988 prospective series (as summarized in the Parola 2005 review), one 2000–2020 registry summary (a 2021 conference abstract), and a 2022 serology study that quotes official annual counts. Quotations marked <em>verbatim</em> were copied from PubMed abstracts retrieved during this research; figures attributed to the 2024 China letter and the 2021 IJID abstract were read from indexed summaries because the publisher pages were paywalled, and should be re-verified against the full text before being used as evidence snippets.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Astrakhan spotted fever is a tick-borne spotted-fever-group (SFG) rickettsiosis caused by <em>Rickettsia conorii</em> subsp. <em>caspia</em>, a member of the <em>R. conorii</em> complex. It is endemic to the lower Volga delta and Caspian littoral (Astrakhan oblast and Kalmykia, Russia), transmitted chiefly by <em>Rhipicephalus pumilio</em> and the brown dog tick <em>Rhipicephalus sanguineus</em>, and presents as a summer febrile exanthem that resembles Mediterranean spotted fever (MSF) but with a notably lower frequency of inoculation eschar. The Kosovo tick study describes it as "a summer spotted fever resembling Mediterranean spotted fever, endemic in Astrakhan, a region of Russia located by the Caspian sea" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/12860620/" target="_blank" rel="noopener noreferrer">PMID:12860620</a>).</p>
+<p>The disease was first noticed in the 1970s as a "viral exanthema of unknown etiology" and shown to be a rickettsiosis in the early 1990s: "The acute febrile disease with characteristic rash seen in Astrakhan region and named as 'viral exanthema of unknown etiology' was proved to be a spotted fever group rickettsiosis" (<em>verbatim</em>, Tarasevich 1991, <a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>). Russian surveillance dates recognition to 1983: "Astrakhan spotted fever, caused by R. conorii subsp. caspia has been recognized since 1983" (<em>verbatim</em>, Tarasevich 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/17114680/" target="_blank" rel="noopener noreferrer">PMID:17114680</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0024473" target="_blank" rel="noopener noreferrer">MONDO:0024473</a> "Astrakhan spotted fever"</td>
+<td>Monarch API (parent <a href="http://purl.obolibrary.org/obo/MONDO_0005677" target="_blank" rel="noopener noreferrer">MONDO:0005677</a>, <em>Rickettsia conorii</em> infectious disease)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0050041" target="_blank" rel="noopener noreferrer">DOID:0050041</a></td>
+<td>MONDO xref via Monarch</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><a href="https://bioregistry.io/GARD:0025401" target="_blank" rel="noopener noreferrer">GARD:0025401</a></td>
+<td>MONDO xref via Monarch</td>
+</tr>
+<tr>
+<td>MedGen / UMLS</td>
+<td>MedGen 1814171 / UMLS C5574872</td>
+<td>MONDO xref via Monarch</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>No ORPHA xref present on the MONDO record</td>
+<td>Monarch API</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (infectious disease)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A77.1 "Spotted fever due to <em>Rickettsia conorii</em>" is the applicable parent code; no ASF-specific code exists</td>
+<td>Not verified against WHO this session; treat as a lead</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor found; indexed under "Boutonneuse Fever" / "Rickettsia Infections"</td>
+<td>Inferred from PubMed indexing of the retrieved records</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (agent)</td>
+<td>NCBITaxon:302011 <em>Rickettsia conorii</em> subsp. <em>caspia</em> (rank: subspecies)</td>
+<td>NCBI esummary</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (parent species)</td>
+<td>NCBITaxon:781 <em>Rickettsia conorii</em></td>
+<td>repo cache + NCBI</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Astrakhan fever; Astrakhan rickettsial fever (ARF, used by Russian and Chinese authors); Astrakhan fever rickettsiosis; historically "viral exanthema of unknown etiology" (Astrakhan). Agent synonyms: Astrakhan fever rickettsia (AFR); <em>R. conorii</em> Astrakhan strain; type strain A-167.</p>
+<p><strong>Nature of the information.</strong> All data are aggregated disease-level resources and case series, not individual EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor.</strong> Infection with <em>R. conorii</em> subsp. <em>caspia</em> following the bite of an infected <em>Rhipicephalus</em> tick. Taxonomy: Zhu et al. (2005) proposed "R. conorii subspecies caspia subsp. nov. (type strain = A-167)" on the basis of multilocus sequence typing, multi-spacer typing and mouse serotyping, noting that "strains within the R. conorii species show MST genotypic, serotypic, and epidemio-clinical dissimilarities" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/15766388/" target="_blank" rel="noopener noreferrer">PMID:15766388</a>). Earlier work had found the agent antigenically indistinguishable from the Israeli spotted fever rickettsia: "Astrakhan fever rickettsiae were found to be serologically and antigenically similar to Israeli spotted fever rickettsiae. Both of them probably belong to a single Rickettsia conorii pathotype complex. Only PFGE pattern analysis could clearly discriminate Astrakhan fever rickettsiae from other isolates" (<em>verbatim</em>, Eremeeva 1994, <a href="https://pubmed.ncbi.nlm.nih.gov/7985764/" target="_blank" rel="noopener noreferrer">PMID:7985764</a>; see also Drancourt 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1583342/" target="_blank" rel="noopener noreferrer">PMID:1583342</a>, a letter titled "Astrakhan fever rickettsia is identical to Israel tick typhus rickettsia").</p>
+<p><strong>Risk factors (environmental / behavioural).</strong>
+- <strong>Tick exposure and dog contact.</strong> In the 1983–1988 series, "Most of the patients had dogs and reported having contact with <em>Rhipicephalus sanguineus</em> dog ticks" (Parola 2005 review, <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>, summarizing Tarasevich). Tarasevich (1991) detected SFG rickettsiae "in 8 of 104 Rhipicephalus sanguineus ticks removed from dogs" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>).
+- <strong>Season.</strong> 85% of cases occurred in summer, 43% in August alone (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>). The 2019 serology cohort was collected May–October (<a href="https://pubmed.ncbi.nlm.nih.gov/35467375/" target="_blank" rel="noopener noreferrer">PMID:35467375</a>); the four Chinese cases all began in July 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a>).
+- <strong>Rural residence in the Volga delta / Caspian steppe.</strong> Early cases were "in patients of rural areas" (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>). The 2021 registry abstract reports spread from Astrakhan city plus 3 districts in 1993 to all 11 districts of the oblast by 2013 (IJID 2021 abstract, PII S1201-9712(21)01194-2).
+- <strong>Age and sex.</strong> Adults (94%) and males (61%) predominated in 1983–1988 (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>). The 2019 cohort spanned ages 1–88 (mean 45) (PMC9241626).
+- <strong>Vector abundance.</strong> The 2021 abstract states the rise in incidence "begins when the abundance index of R. pumilio ticks reaches its maximum" (indexed summary; verify against full text).</p>
+<p><strong>Genetic risk / protective factors.</strong> None reported for ASF. No GWAS, ClinVar, or ClinGen data exist. This is expected for an acute zoonotic infection.</p>
+<p><strong>Protective factors.</strong> Tick avoidance and prompt tick removal (generic to SFG rickettsioses; CDC 2016 guidance, <a href="https://pubmed.ncbi.nlm.nih.gov/27172113/" target="_blank" rel="noopener noreferrer">PMID:27172113</a>). No vaccine exists (<a href="https://pubmed.ncbi.nlm.nih.gov/24059918/" target="_blank" rel="noopener noreferrer">PMID:24059918</a>: "No suitable vaccines for human use are currently available to prevent rickettsial diseases", <em>verbatim</em>).</p>
+<p><strong>Gene–environment interactions.</strong> Not studied.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies are from the 1983–1988 prospective series of 321 cases (as summarized in <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>) unless stated otherwise. HPO identifiers below were read from the repository's HP term cache (<code>cache/hp/terms.csv</code>) during this session.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Onset / course</th>
+<th>HPO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever, high (39–40 °C), prolonged</td>
+<td>Sign</td>
+<td>94%</td>
+<td>Acute, sustained over days to ~2 weeks</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> Fever</td>
+</tr>
+<tr>
+<td>Maculopapular rash, disseminated, may be roseolous-papular-hemorrhagic</td>
+<td>Sign</td>
+<td>94% (with fever)</td>
+<td>Appears early, generalized incl. extremities</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040186" target="_blank" rel="noopener noreferrer">HP:0040186</a> Maculopapular exanthema; <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> Skin rash</td>
+</tr>
+<tr>
+<td>Hemorrhagic/petechial component of rash</td>
+<td>Sign</td>
+<td>Reported ("papular-hemorrhagic", <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>); % not given</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000967" target="_blank" rel="noopener noreferrer">HP:0000967</a> Petechiae</td>
+</tr>
+<tr>
+<td>Inoculation eschar (tache noire), usually single</td>
+<td>Sign</td>
+<td>23%</td>
+<td>At bite site, precedes fever</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> Skin ulcer (closest available; no HPO eschar term)</td>
+</tr>
+<tr>
+<td>Conjunctivitis</td>
+<td>Sign</td>
+<td>32%</td>
+<td>Early</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a> Conjunctivitis</td>
+</tr>
+<tr>
+<td>Regional lymphadenitis / adenopathy</td>
+<td>Sign</td>
+<td>Reported; % not given</td>
+<td>Early, near bite site</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> Lymphadenopathy</td>
+</tr>
+<tr>
+<td>Hepatomegaly</td>
+<td>Sign</td>
+<td>Reported; % not given</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> Hepatomegaly</td>
+</tr>
+<tr>
+<td>Arterial hypotension</td>
+<td>Sign</td>
+<td>Reported; % not given</td>
+<td>Acute phase</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a> Hypotension</td>
+</tr>
+<tr>
+<td>"Intoxication" (malaise, headache, myalgia)</td>
+<td>Symptom</td>
+<td>Reported qualitatively</td>
+<td>Acute phase</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> Fatigue; <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> Headache; <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> Myalgia</td>
+</tr>
+<tr>
+<td>Chills</td>
+<td>Symptom</td>
+<td>Typical of SFG rickettsioses; not quantified for ASF</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> Chills</td>
+</tr>
+<tr>
+<td>Transient T- and B-lymphocyte suppression</td>
+<td>Laboratory</td>
+<td>Observed in 75 patients</td>
+<td>2 weeks (moderate) / 3 weeks (severe)</td>
+<td>No specific HPO term; describe in <code>biochemical:</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting quotes (<em>verbatim</em>):
+- "The disease presented with long-term fever (body temperature 39-40 degrees C), intoxication, conjunctivitis, hepatomegaly, regional lymphadenitis, disseminated roseolous papular-hemorrhagic rash, arterial hypotension." (Galimzianov 1996, <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>)
+- "the</p>
+<h1>Astrakhan Spotted Fever: Disease Characteristics Research Report</h1>
+<p><strong>Target:</strong> Astrakhan spotted fever (<a href="http://purl.obolibrary.org/obo/MONDO_0024473" target="_blank" rel="noopener noreferrer">MONDO:0024473</a>) · Category: Infectious Disease · Report date: 2026-09-28</p>
+<p><strong>Scope note on sources.</strong> Astrakhan spotted fever (ASF) has a small literature, much of it Russian-language with English abstracts only. The surveillance numbers below come from one 1983–1988 prospective series (as summarized in the Parola 2005 review), one 2000–2020 registry summary (a 2021 conference abstract), and a 2022 serology study that quotes official annual counts. Quotations marked <em>verbatim</em> were copied from PubMed abstracts retrieved during this research; figures attributed to the 2024 China letter and the 2021 IJID abstract were read from indexed summaries because the publisher pages were paywalled, and should be re-verified against the full text before being used as evidence snippets.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Astrakhan spotted fever is a tick-borne spotted-fever-group (SFG) rickettsiosis caused by <em>Rickettsia conorii</em> subsp. <em>caspia</em>, a member of the <em>R. conorii</em> complex. It is endemic to the lower Volga delta and Caspian littoral (Astrakhan oblast and Kalmykia, Russia), transmitted chiefly by <em>Rhipicephalus pumilio</em> and the brown dog tick <em>Rhipicephalus sanguineus</em>, and presents as a summer febrile exanthem that resembles Mediterranean spotted fever (MSF) but with a notably lower frequency of inoculation eschar. The Kosovo tick study describes it as "a summer spotted fever resembling Mediterranean spotted fever, endemic in Astrakhan, a region of Russia located by the Caspian sea" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/12860620/" target="_blank" rel="noopener noreferrer">PMID:12860620</a>).</p>
+<p>The disease was first noticed in the 1970s as a "viral exanthema of unknown etiology" and shown to be a rickettsiosis in the early 1990s: "The acute febrile disease with characteristic rash seen in Astrakhan region and named as 'viral exanthema of unknown etiology' was proved to be a spotted fever group rickettsiosis" (<em>verbatim</em>, Tarasevich 1991, <a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>). Russian surveillance dates recognition to 1983: "Astrakhan spotted fever, caused by R. conorii subsp. caspia has been recognized since 1983" (<em>verbatim</em>, Tarasevich 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/17114680/" target="_blank" rel="noopener noreferrer">PMID:17114680</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0024473" target="_blank" rel="noopener noreferrer">MONDO:0024473</a> "Astrakhan spotted fever"</td>
+<td>Monarch API (parent <a href="http://purl.obolibrary.org/obo/MONDO_0005677" target="_blank" rel="noopener noreferrer">MONDO:0005677</a>, <em>Rickettsia conorii</em> infectious disease)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0050041" target="_blank" rel="noopener noreferrer">DOID:0050041</a></td>
+<td>MONDO xref via Monarch</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td><a href="https://bioregistry.io/GARD:0025401" target="_blank" rel="noopener noreferrer">GARD:0025401</a></td>
+<td>MONDO xref via Monarch</td>
+</tr>
+<tr>
+<td>MedGen / UMLS</td>
+<td>MedGen 1814171 / UMLS C5574872</td>
+<td>MONDO xref via Monarch</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>No ORPHA xref present on the MONDO record</td>
+<td>Monarch API</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (infectious disease)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A77.1 "Spotted fever due to <em>Rickettsia conorii</em>" is the applicable parent code; no ASF-specific code exists</td>
+<td>Not verified against WHO this session; treat as a lead</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>No dedicated descriptor found; indexed under "Boutonneuse Fever" / "Rickettsia Infections"</td>
+<td>Inferred from PubMed indexing of the retrieved records</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (agent)</td>
+<td>NCBITaxon:302011 <em>Rickettsia conorii</em> subsp. <em>caspia</em> (rank: subspecies)</td>
+<td>NCBI esummary</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (parent species)</td>
+<td>NCBITaxon:781 <em>Rickettsia conorii</em></td>
+<td>repo cache + NCBI</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> Astrakhan fever; Astrakhan rickettsial fever (ARF, used by Russian and Chinese authors); Astrakhan fever rickettsiosis; historically "viral exanthema of unknown etiology" (Astrakhan). Agent synonyms: Astrakhan fever rickettsia (AFR); <em>R. conorii</em> Astrakhan strain; type strain A-167.</p>
+<p><strong>Nature of the information.</strong> All data are aggregated disease-level resources and case series, not individual EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor.</strong> Infection with <em>R. conorii</em> subsp. <em>caspia</em> following the bite of an infected <em>Rhipicephalus</em> tick. Taxonomy: Zhu et al. (2005) proposed "R. conorii subspecies caspia subsp. nov. (type strain = A-167)" on the basis of multilocus sequence typing, multi-spacer typing and mouse serotyping, noting that "strains within the R. conorii species show MST genotypic, serotypic, and epidemio-clinical dissimilarities" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/15766388/" target="_blank" rel="noopener noreferrer">PMID:15766388</a>). Earlier work had found the agent antigenically indistinguishable from the Israeli spotted fever rickettsia: "Astrakhan fever rickettsiae were found to be serologically and antigenically similar to Israeli spotted fever rickettsiae. Both of them probably belong to a single Rickettsia conorii pathotype complex. Only PFGE pattern analysis could clearly discriminate Astrakhan fever rickettsiae from other isolates" (<em>verbatim</em>, Eremeeva 1994, <a href="https://pubmed.ncbi.nlm.nih.gov/7985764/" target="_blank" rel="noopener noreferrer">PMID:7985764</a>; see also Drancourt 1992, <a href="https://pubmed.ncbi.nlm.nih.gov/1583342/" target="_blank" rel="noopener noreferrer">PMID:1583342</a>, a letter titled "Astrakhan fever rickettsia is identical to Israel tick typhus rickettsia").</p>
+<p><strong>Risk factors (environmental / behavioural).</strong>
+- <strong>Tick exposure and dog contact.</strong> In the 1983–1988 series, "Most of the patients had dogs and reported having contact with <em>Rhipicephalus sanguineus</em> dog ticks" (Parola 2005 review, <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>, summarizing Tarasevich). Tarasevich (1991) detected SFG rickettsiae "in 8 of 104 Rhipicephalus sanguineus ticks removed from dogs" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>).
+- <strong>Season.</strong> 85% of cases occurred in summer, 43% in August alone (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>). The 2019 serology cohort was collected May–October (<a href="https://pubmed.ncbi.nlm.nih.gov/35467375/" target="_blank" rel="noopener noreferrer">PMID:35467375</a>); the four Chinese cases all began in July 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a>).
+- <strong>Rural residence in the Volga delta / Caspian steppe.</strong> Early cases were "in patients of rural areas" (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>). The 2021 registry abstract reports spread from Astrakhan city plus 3 districts in 1993 to all 11 districts of the oblast by 2013 (IJID 2021 abstract, PII S1201-9712(21)01194-2).
+- <strong>Age and sex.</strong> Adults (94%) and males (61%) predominated in 1983–1988 (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>). The 2019 cohort spanned ages 1–88 (mean 45) (PMC9241626).
+- <strong>Vector abundance.</strong> The 2021 abstract states the rise in incidence "begins when the abundance index of R. pumilio ticks reaches its maximum" (indexed summary; verify against full text).</p>
+<p><strong>Genetic risk / protective factors.</strong> None reported for ASF. No GWAS, ClinVar, or ClinGen data exist. This is expected for an acute zoonotic infection.</p>
+<p><strong>Protective factors.</strong> Tick avoidance and prompt tick removal (generic to SFG rickettsioses; CDC 2016 guidance, <a href="https://pubmed.ncbi.nlm.nih.gov/27172113/" target="_blank" rel="noopener noreferrer">PMID:27172113</a>). No vaccine exists (<a href="https://pubmed.ncbi.nlm.nih.gov/24059918/" target="_blank" rel="noopener noreferrer">PMID:24059918</a>: "No suitable vaccines for human use are currently available to prevent rickettsial diseases", <em>verbatim</em>).</p>
+<p><strong>Gene–environment interactions.</strong> Not studied.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies are from the 1983–1988 prospective series of 321 cases (as summarized in <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>) unless stated otherwise. HPO identifiers below were read from the repository's HP term cache (<code>cache/hp/terms.csv</code>) during this session.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency</th>
+<th>Onset / course</th>
+<th>HPO suggestion</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever, high (39–40 °C), prolonged</td>
+<td>Sign</td>
+<td>94%</td>
+<td>Acute, sustained over days to ~2 weeks</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> Fever</td>
+</tr>
+<tr>
+<td>Maculopapular rash, disseminated, may be roseolous-papular-hemorrhagic</td>
+<td>Sign</td>
+<td>94% (with fever)</td>
+<td>Appears early, generalized incl. extremities</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040186" target="_blank" rel="noopener noreferrer">HP:0040186</a> Maculopapular exanthema; <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> Skin rash</td>
+</tr>
+<tr>
+<td>Hemorrhagic/petechial component of rash</td>
+<td>Sign</td>
+<td>Reported ("papular-hemorrhagic", <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>); % not given</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000967" target="_blank" rel="noopener noreferrer">HP:0000967</a> Petechiae</td>
+</tr>
+<tr>
+<td>Inoculation eschar (tache noire), usually single</td>
+<td>Sign</td>
+<td>23%</td>
+<td>At bite site, precedes fever</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> Skin ulcer (closest available; no HPO eschar term)</td>
+</tr>
+<tr>
+<td>Conjunctivitis</td>
+<td>Sign</td>
+<td>32%</td>
+<td>Early</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a> Conjunctivitis</td>
+</tr>
+<tr>
+<td>Regional lymphadenitis / adenopathy</td>
+<td>Sign</td>
+<td>Reported; % not given</td>
+<td>Early, near bite site</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> Lymphadenopathy</td>
+</tr>
+<tr>
+<td>Hepatomegaly</td>
+<td>Sign</td>
+<td>Reported; % not given</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> Hepatomegaly</td>
+</tr>
+<tr>
+<td>Arterial hypotension</td>
+<td>Sign</td>
+<td>Reported; % not given</td>
+<td>Acute phase</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002615" target="_blank" rel="noopener noreferrer">HP:0002615</a> Hypotension</td>
+</tr>
+<tr>
+<td>"Intoxication" (malaise, headache, myalgia)</td>
+<td>Symptom</td>
+<td>Reported qualitatively</td>
+<td>Acute phase</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> Fatigue; <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> Headache; <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> Myalgia</td>
+</tr>
+<tr>
+<td>Chills</td>
+<td>Symptom</td>
+<td>Typical of SFG rickettsioses; not quantified for ASF</td>
+<td>—</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025143" target="_blank" rel="noopener noreferrer">HP:0025143</a> Chills</td>
+</tr>
+<tr>
+<td>Transient T- and B-lymphocyte suppression</td>
+<td>Laboratory</td>
+<td>Observed in 75 patients</td>
+<td>2 weeks (moderate) / 3 weeks (severe)</td>
+<td>No specific HPO term; describe in <code>biochemical:</code></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Supporting quotes (<em>verbatim</em>):
+- "The disease presented with long-term fever (body temperature 39-40 degrees C), intoxication, conjunctivitis, hepatomegaly, regional lymphadenitis, disseminated roseolous papular-hemorrhagic rash, arterial hypotension." (Galimzianov 1996, <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>)
+- "the presence of a tache noire was reported in only 23% of the patients" (Parola 2005, <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>).
+- "Examination of immunocompetent cells has revealed suppression of T- and B-immunity for 2 weeks in moderate AF and 3 weeks in severe AF. The number of T-helpers was low for 3 weeks while of T-suppressors rose beginning from week 2." (Kasimova 2002, <a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>)</p>
+<p><strong>Distinguishing feature vs MSF.</strong> The low eschar rate (23%) is the clinically important contrast with Mediterranean spotted fever, where the tache noire is usual. This shifts differential weight toward rash-plus-fever presentations without a findable bite site.</p>
+<p><strong>Severity and quality of life.</strong> Severe disease accounted for 5.3% of Russian cases and case fatality is stated as approximately 1–2%, with a first reported death in 2013 (figures cited in the 2024 China letter, <a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a>; read from indexed summaries, not the full text). No EQ-5D, SF-36 or PROMIS data exist for ASF; as a self-limited acute illness it has no documented chronic quality-of-life burden.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Host genetics: not applicable.</strong> ASF has no causal genes, pathogenic variants, modifier genes, epigenetic signature or chromosomal abnormality. No ClinVar, HGMD, gnomAD or DECIPHER content pertains.</p>
+<p><strong>Pathogen genomics.</strong> The genome of <em>R. conorii</em> subsp. <em>caspia</em> strain A-167 was sequenced in 2012 (Sentausa et al., <a href="https://pubmed.ncbi.nlm.nih.gov/22887666/" target="_blank" rel="noopener noreferrer">PMID:22887666</a>, J Bacteriol): draft genome of 1,260,331 bases in 25 contigs at ~20× coverage, "a total complement of 1,210 genes (1,636 open reading frames [ORFs])" (<em>verbatim</em>), 33% GC, deposited as GenBank <strong>AJUR00000000</strong>. Among predicted genes, "820 (67.8%) are complete genes, 229 (18.9%) are split into two to 12 ORFs, and 78 (6.5%) are present only as fragments" (<em>verbatim</em>) — the split/fragmented pattern is the genome-reduction signature typical of <em>Rickettsia</em>.</p>
+<p><strong>Typing loci used for identification.</strong> 16S rDNA, <em>gltA</em> (citrate synthase), <em>ompA</em> (rOmpA), <em>ompB</em>, <em>sca4</em>, and the 23S–5S intergenic spacer. Pairwise similarity across the four <em>R. conorii</em> subspecies ranged 98.2–100% depending on locus, with <em>ompA</em> and <em>ompB</em> the most discriminating (<a href="https://pubmed.ncbi.nlm.nih.gov/15766388/" target="_blank" rel="noopener noreferrer">PMID:15766388</a>). Historic methodology: Roux 1997 (<em>gltA</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/9103608/" target="_blank" rel="noopener noreferrer">PMID:9103608</a>), Fournier 1998 (rOmpA, <a href="https://pubmed.ncbi.nlm.nih.gov/9734038/" target="_blank" rel="noopener noreferrer">PMID:9734038</a>), Roux 1995 (16S rDNA, <a href="https://pubmed.ncbi.nlm.nih.gov/8525055/" target="_blank" rel="noopener noreferrer">PMID:8525055</a>).</p>
+<p>Suggested annotations: the surface adhesins rOmpA and rOmpB (UniProt <em>R. conorii</em> entries; Sca family autotransporters) and Sca2/RickA for actin-based motility are the functionally characterized proteins, all studied in <em>R. conorii</em> sensu lato rather than in subsp. <em>caspia</em> specifically.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Infectious agent.</strong> <em>Rickettsia conorii</em> subsp. <em>caspia</em> (NCBITaxon:302011), an obligate intracellular Gram-negative alphaproteobacterium of the spotted fever group.</p>
+<p><strong>Vectors.</strong>
+- <em>Rhipicephalus pumilio</em> (NCBITaxon:127007) — the principal Astrakhan vector; infection prevalence 3% in Astrakhan-region ticks: "Rh. pumilio from the Astrakhan region were infected with ... the Astrakhan fever agent (3%)" (<em>verbatim</em>, Rydkina 1999, <a href="https://pubmed.ncbi.nlm.nih.gov/10603217/" target="_blank" rel="noopener noreferrer">PMID:10603217</a>). The primary-lesion study attributes the bite to <em>R. pumilio</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>).
+- <em>Rhipicephalus sanguineus</em> (NCBITaxon:34632), the brown dog tick — vector in Kosovo, France and Zambia; also implicated by dog contact in Astrakhan.</p>
+<p><strong>Reservoirs and hosts.</strong> Domestic dogs (<em>Canis lupus familiaris</em>, NCBITaxon:9615) are the principal tick host linking vector to humans. I found no published evidence for a hedgehog or rodent reservoir specific to <em>R. conorii</em> subsp. <em>caspia</em>; a Kazakhstan rodent survey detected <em>R. raoultii</em>, <em>R. slovaca</em> and <em>R. conorii</em> but did not report subsp. <em>caspia</em> in rodents (<a href="https://pubmed.ncbi.nlm.nih.gov/36050456/" target="_blank" rel="noopener noreferrer">PMID:36050456</a>).</p>
+<p><strong>Geographic distribution beyond Astrakhan.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Finding</th>
+<th>Citation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Astrakhan oblast and Kalmykia, Russia</td>
+<td>Endemic focus, Caspian/Volga delta</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17114680/" target="_blank" rel="noopener noreferrer">PMID:17114680</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12860620/" target="_blank" rel="noopener noreferrer">PMID:12860620</a></td>
+</tr>
+<tr>
+<td>Kosovo</td>
+<td>Detected in 4 <em>R. sanguineus</em> (3 from dogs, 1 from a soldier); "Our study demonstrates, for the first time, the presence of Astrakhan fever rickettsia in ticks outside Russia" (<em>verbatim</em>)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12860620/" target="_blank" rel="noopener noreferrer">PMID:12860620</a></td>
+</tr>
+<tr>
+<td>Chad</td>
+<td>Isolate from a febrile traveller, 99.5–99.7% identical across 16S/<em>gltA</em>/<em>ompA</em>; "The Chad isolate should be considered a variant of Astrakhan fever rickettsia" (<em>verbatim</em>)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12860619/" target="_blank" rel="noopener noreferrer">PMID:12860619</a></td>
+</tr>
+<tr>
+<td>Southern France</td>
+<td>9 of 22 household <em>R. sanguineus</em> positive, "marking the first documentation of this subspecies in France" (<em>verbatim</em>), in an urban family cluster also involving <em>R. massiliae</em></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23140893/" target="_blank" rel="noopener noreferrer">PMID:23140893</a></td>
+</tr>
+<tr>
+<td>Zambia</td>
+<td>One tick of 1,465 (0.06%); one of 1,254 <em>Rh. sanguineus</em> (0.07%)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28986641/" target="_blank" rel="noopener noreferrer">PMID:28986641</a></td>
+</tr>
+<tr>
+<td>Kazakhstan</td>
+<td>Reported as circulating, per secondary statement in a rodent survey; not detected by that study itself</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36050456/" target="_blank" rel="noopener noreferrer">PMID:36050456</a></td>
+</tr>
+<tr>
+<td>Xinjiang, China</td>
+<td>Four laboratory-confirmed human cases, July 2023, first <em>R. conorii</em> subsp. <em>caspia</em> infections reported in East Asia; <em>Rh. sanguineus</em> and <em>Rh. pumilio</em> present at 1.7% and 0.6% prevalence</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a> (read from indexed summaries)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Non-infectious environmental and lifestyle factors.</strong> None established beyond outdoor/rural exposure, dog ownership and season. No toxicological (CTD, EPA) contribution.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Important caveat.</strong> No mechanistic study has been performed on <em>R. conorii</em> subsp. <em>caspia</em> itself apart from cell-culture growth experiments. The chain below is the established SFG rickettsiosis mechanism, documented mainly for <em>R. conorii</em> sensu lato and <em>R. rickettsii</em>, applied to ASF by subspecies membership. Every step from 3 onward should be curated as <code>directness: INDIRECT</code> for ASF, or cited to the pan-rickettsial reviews (Walker 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18414502/" target="_blank" rel="noopener noreferrer">PMID:18414502</a>; Sahni 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/24059918/" target="_blank" rel="noopener noreferrer">PMID:24059918</a>) with <code>evidence_source: OTHER</code> or <code>IN_VITRO</code> as appropriate. The two ASF-specific mechanistic observations are the primary-lesion histology (<a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>) and the cytokine/cellular-immunity studies (<a href="https://pubmed.ncbi.nlm.nih.gov/12459842/" target="_blank" rel="noopener noreferrer">PMID:12459842</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>).</p>
+<p><strong>Ordered causal chain</strong></p>
+<ol>
+<li>An infected <em>Rhipicephalus pumilio</em> or <em>Rh. sanguineus</em> nymph or adult attaches and feeds on human skin, <strong>which leads to</strong> inoculation of <em>R. conorii</em> subsp. <em>caspia</em> into the dermis with tick saliva. <em>(Demonstrated for ASF by vector isolation and bite-site histology, <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/7985764/" target="_blank" rel="noopener noreferrer">PMID:7985764</a>.)</em></li>
+<li>Local replication in the dermis <strong>results in</strong> a focal necrotizing lesion at the bite site, the primary affect or tache noire, with regional lymphatic drainage <strong>leading to</strong> regional lymphadenitis. <em>(ASF-specific: <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>. Note this step completes in only ~23% of ASF patients, <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a> — a genuine branch point, and an unexplained one.)</em></li>
+<li>Rickettsiae adhere to and invade vascular endothelial cells via Sca-family outer-membrane adhesins (rOmpA/rOmpB) engaging host receptors, <strong>which results in</strong> induced-phagocytosis entry. <em>(Pan-rickettsial; Walker 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18414502/" target="_blank" rel="noopener noreferrer">PMID:18414502</a>; Sahni 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/24059918/" target="_blank" rel="noopener noreferrer">PMID:24059918</a>. Inferred for subsp. caspia.)</em></li>
+<li>Phagosomal escape into the cytosol <strong>leads to</strong> intracytoplasmic replication and actin-based motility, <strong>which results in</strong> cell-to-cell spread without extracellular exposure. <em>(Pan-rickettsial; Sahni 2013 names "intracytoplasmic niche within the host cell, predilection for infection of microvascular endothelium in mammalian hosts" (verbatim) and "motility" among the field's characterized mechanisms.)</em></li>
+<li>Haematogenous and lymphatic dissemination <strong>leads to</strong> multifocal infection of microvascular endothelium in skin, liver, lymph node and other organs.</li>
+<li>Endothelial infection <strong>results in</strong> endothelial activation, cytokine release (IL-1, TNF) and leukocyte recruitment. <em>(ASF-supporting: "Comparative study of interleukin-1 and tumor necrosis factor production under conditions of experimental rickettsial infection caused by agents of Astrakhan spotted fever and North Asian scrub typhus showed that therapy with galavit reduced manifestations of the disease, decreased mortality of experimental animals, and decreased the concentrations of interleukin-1 and tumor necrosis factor to normal values" — verbatim, <a href="https://pubmed.ncbi.nlm.nih.gov/12459842/" target="_blank" rel="noopener noreferrer">PMID:12459842</a>, evidence_source MODEL_ORGANISM.)</em></li>
+<li><strong>Branch A — cutaneous.</strong> Dermal microvascular injury and perivascular lymphohistiocytic infiltration <strong>produce</strong> the disseminated maculopapular and, where injury is greater, petechial/hemorrhagic rash. <em>(ASF: <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>.)</em></li>
+<li><strong>Branch B — systemic.</strong> Widespread endothelial injury with increased vascular permeability <strong>leads to</strong> hypotension, and in a minority <strong>to</strong> severe multi-organ disease. <em>(ASF: arterial hypotension, <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>; severe disease 5.3%, <a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a> as indexed.)</em></li>
+<li><strong>Branch C — hepatic/reticuloendothelial.</strong> Infection of hepatic and splenic microvasculature and reticuloendothelial activation <strong>result in</strong> hepatomegaly. <em>(ASF: <a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>.)</em></li>
+<li><strong>Branch D — immunological.</strong> Acute infection <strong>is accompanied by</strong> transient suppression of T- and B-cell compartments lasting 2 weeks in moderate and 3 weeks in severe disease, with depressed T-helper numbers and a persistently low helper/suppressor index. <em>(ASF-specific human data, <a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>.)</em></li>
+<li>Effective antirickettsial therapy (doxycycline) <strong>arrests</strong> intracellular replication, <strong>leading to</strong> defervescence and resolution; in its absence severe disease and death occur in a small fraction.</li>
+</ol>
+<p><strong>Ontology suggestions</strong> (identifiers verified against the repository term caches this session)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Host-cell invasion by the bacterium</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0046718" target="_blank" rel="noopener noreferrer">GO:0046718</a> symbiont entry into host cell</td>
+</tr>
+<tr>
+<td>Inflammatory response</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> inflammatory response</td>
+</tr>
+<tr>
+<td>Innate immune response</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> innate immune response</td>
+</tr>
+<tr>
+<td>Cytokine production</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" rel="noopener noreferrer">GO:0001816</a> cytokine production</td>
+</tr>
+<tr>
+<td>IL-1 production</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032612" target="_blank" rel="noopener noreferrer">GO:0032612</a> interleukin-1 production</td>
+</tr>
+<tr>
+<td>TNF production</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" rel="noopener noreferrer">GO:0032640</a> tumor necrosis factor production</td>
+</tr>
+<tr>
+<td>Response to bacterium</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" rel="noopener noreferrer">GO:0009617</a> response to bacterium</td>
+</tr>
+<tr>
+<td>Apoptosis (endothelial)</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> apoptotic process</td>
+</tr>
+<tr>
+<td>Coagulation activation</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a> blood coagulation</td>
+</tr>
+<tr>
+<td>Primary target cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> endothelial cell; <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" rel="noopener noreferrer">CL:0000071</a> blood vessel endothelial cell; <a href="http://purl.obolibrary.org/obo/CL_0002139" target="_blank" rel="noopener noreferrer">CL:0002139</a> endothelial cell of vascular tree</td>
+</tr>
+<tr>
+<td>Recruited cells</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> neutrophil; <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage; <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a> monocyte</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Molecular profiling.</strong> No transcriptomic, proteomic, metabolomic, lipidomic, single-cell or spatial data exist for ASF. No GEO, PRIDE, MetaboLights or DepMap datasets were found for <em>R. conorii</em> subsp. <em>caspia</em>. This is a real and total gap, not an omission of this report.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary target tissue:</strong> vascular endothelium of the microcirculation — <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> blood vessel; cell type <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> endothelial cell.</li>
+<li><strong>Skin:</strong> the bite-site primary lesion and the generalized exanthem — <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin of body; <a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a> dermis.</li>
+<li><strong>Lymphatic:</strong> regional lymphadenitis draining the bite site — <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a> lymph node.</li>
+<li><strong>Liver:</strong> hepatomegaly — <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> liver. Spleen involvement (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>) is plausible by analogy with MSF but was not named in the ASF abstracts retrieved.</li>
+<li><strong>Eye:</strong> conjunctivitis in 32% — <a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" rel="noopener noreferrer">UBERON:0001811</a> conjunctiva.</li>
+<li><strong>Body systems:</strong> cardiovascular (primary), integumentary, lymphatic/immune, hepatobiliary.</li>
+<li><strong>Subcellular:</strong> the bacterium occupies the host cytosol (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a> cytosol) after phagosomal escape; no organelle-specific pathology is described.</li>
+<li><strong>Lateralization:</strong> the eschar and its regional adenopathy are unilateral, at the bite site; the exanthem is bilateral and generalized, described as involving the extremities.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> acute, in previously healthy adults of any age (1–88 years in the 2019 cohort, mean 45; PMC9241626). No congenital or pediatric-specific form. 94% of the historical series were adults.</li>
+<li><strong>Incubation:</strong> not stated in the ASF abstracts retrieved; SFG rickettsioses generally run 2–14 days from tick bite. Treat as unverified for ASF.</li>
+<li><strong>Course:</strong> a self-limited acute febrile illness of roughly 1–2 weeks with treatment. Fever is described as "long-term" at 39–40 °C (<a href="https://pubmed.ncbi.nlm.nih.gov/9324803/" target="_blank" rel="noopener noreferrer">PMID:9324803</a>). The primary lesion precedes or accompanies fever onset where present.</li>
+<li><strong>Stages:</strong> no formal staging system exists. Severity is graded clinically as moderate versus severe in the Russian literature (63 moderate vs 12 severe of 75 patients, <a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>).</li>
+<li><strong>Immunological recovery lags clinical recovery:</strong> lymphocyte suppression persists 2–3 weeks and the helper/suppressor index "remains low till the end of the disease" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>).</li>
+<li><strong>Critical intervention window:</strong> early empiric doxycycline. The CDC states this generally for tickborne rickettsial disease: "early empiric antibacterial therapy can prevent severe disease and death" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/27172113/" target="_blank" rel="noopener noreferrer">PMID:27172113</a>).</li>
+<li><strong>Chronicity / relapse:</strong> no chronic or relapsing form is reported. Serological IgM and IgA are detectable from day 1 to day 16 of illness (PMC9241626).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance:</strong> not applicable. ASF is an acquired infection with no heritable component, no penetrance/expressivity/anticipation/mosaicism/founder-effect/carrier-frequency parameters.</p>
+<p><strong>Epidemiology</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Measure</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Registered cases, Astrakhan region, 2000–2020</td>
+<td>4,894</td>
+<td>IJID 2021 abstract, PII S1201-9712(21)01194-2 (indexed summary)</td>
+</tr>
+<tr>
+<td>Average long-term incidence, Astrakhan region</td>
+<td>23.18 ± 1.5 per 100,000 population</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Annual national cases, Russia</td>
+<td>~200–300</td>
+<td>PMC9241626</td>
+</tr>
+<tr>
+<td>Cases by year (Russia)</td>
+<td>295 (2014), 314 (2015), 299 (2016), 176 (2017), 290 (2018)</td>
+<td>PMC9241626</td>
+</tr>
+<tr>
+<td>Severe disease fraction</td>
+<td>5.3%</td>
+<td>Cited in <a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a> (indexed summary)</td>
+</tr>
+<tr>
+<td>Case fatality</td>
+<td>~1–2%; first reported death 2013</td>
+<td>Cited in <a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a> (indexed summary)</td>
+</tr>
+<tr>
+<td>Seroprevalence, healthy residents of endemic areas (1991)</td>
+<td>5.1% of 429 sera positive at titre 20–40</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a> (<em>verbatim</em>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>For dismech <code>Prevalence</code> records, the 23.18 per 100,000 figure is a regional <code>ANNUAL_INCIDENCE</code> averaged over 2000–2020 and needs <code>rate_denominator: POPULATION_PER_YEAR</code>; the ~200–300 national annual counts are <code>CASES_IN_LITERATURE</code>-adjacent registry counts, not a rate.</p>
+<p><strong>Demographics.</strong> Male predominance (61%) and adult predominance (94%) in the 1983–1988 series (<a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>) most plausibly reflect exposure rather than susceptibility. Sex ratio ≈ 1.6:1 male:female.</p>
+<p><strong>Geographic trend.</strong> Endemic area expanded within Astrakhan oblast from the city plus 3 districts (1993) to 9 rural districts plus the city (1999) to all 11 districts (2013), with incidence peaks in 2000, 2002, 2005–2007 and a maximum in 2013 tracking <em>R. pumilio</em> abundance (IJID 2021 abstract, indexed summary).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Serology (the mainstay).</strong>
+- Microimmunofluorescence (MIF) against SFG antigens. ASF sera react to the homologous Astrakhan strain and to the Israeli isolate similarly, and differently from <em>R. conorii</em> Malish: "The serologic response to specific rickettsial agent and to Israelian isolate has been found to be similar, but was different of that to R. conorii. Immunoglobulin G (IgG) and IgM antibodies were detected in most sera and were directed against the lipopolysaccharide" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/8549703/" target="_blank" rel="noopener noreferrer">PMID:8549703</a>).
+- <strong>ELISA IgM alone is insufficient.</strong> In 185 patients, "the determination of IgM alone allows for serological confirmation of diagnosis in only 46.5% of cases but ... the determination of both IgM and IgA increases this rate to 66.5%" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/35467375/" target="_blank" rel="noopener noreferrer">PMID:35467375</a>). IgM recognized both LPS and proteins; IgA predominantly proteins. This is the most actionable recent diagnostic finding for ASF and argues for adding IgA to the panel.
+- Complement fixation was used historically, cross-reacting across <em>R. conorii</em>, <em>R. akari</em> and <em>R. sibirica</em> at titres 20–640 (<a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>) — insufficiently specific by modern standards.
+- Retrospective serosurveillance in high-risk areas: Chekanova 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/31200408/" target="_blank" rel="noopener noreferrer">PMID:31200408</a>.</p>
+<p><strong>Molecular.</strong>
+- PCR amplification and sequencing of <em>gltA</em>, <em>ompA</em>, 16S rDNA, <em>ompB</em>, <em>sca4</em> and the 23S–5S spacer distinguishes subspecies (<a href="https://pubmed.ncbi.nlm.nih.gov/12860619/" target="_blank" rel="noopener noreferrer">PMID:12860619</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/12860620/" target="_blank" rel="noopener noreferrer">PMID:12860620</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/28986641/" target="_blank" rel="noopener noreferrer">PMID:28986641</a>).
+- Suicide PCR on skin biopsy specimens is validated for rickettsioses generally (Fournier 2004, <a href="https://pubmed.ncbi.nlm.nih.gov/15297478/" target="_blank" rel="noopener noreferrer">PMID:15297478</a>) and is the route to a diagnosis from an eschar or rash biopsy.
+- Real-time pan-<em>Rickettsia</em> PCR for screening, with MLST confirmation.</p>
+<p><strong>Culture.</strong> Isolation in cell culture or guinea pigs is possible but slow, low-yield and biosafety-restricted; early attempts recovered rickettsiae in 2 of 12 cell-culture samples and seroconverted 4 of 8 guinea pigs (<a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>). Strains A-108 and A-167 came from <em>R. pumilio</em> haemolymph (<a href="https://pubmed.ncbi.nlm.nih.gov/7985764/" target="_blank" rel="noopener noreferrer">PMID:7985764</a>).</p>
+<p><strong>Laboratory findings.</strong> Cellular immunology shows transient lymphopenia-like suppression with neutrophil increase from week 2–3 (<a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>). Routine haematological and hepatic abnormality frequencies for ASF were not available in the retrieved abstracts.</p>
+<p><strong>Imaging, electrophysiology, functional tests:</strong> no role.</p>
+<p><strong>Genetic testing:</strong> not applicable (host).</p>
+<p><strong>Differential diagnosis.</strong> Mediterranean spotted fever (<em>R. conorii</em> subsp. <em>conorii</em>), Israeli spotted fever (subsp. <em>israelensis</em>, serologically near-identical — the key laboratory pitfall), Siberian tick typhus (<em>R. sibirica</em>), <em>R. massiliae</em> and <em>R. aeschlimannii</em> infection, Crimean-Congo hemorrhagic fever (co-circulating in the Caspian region and a critical rule-out given the hemorrhagic rash), West Nile fever, hemorrhagic fever with renal syndrome, and non-rickettsial viral exanthems. The 2022 study makes the general point: "The symptoms of this bacterial infection are similar to those of viral infection, and thus, diagnostic accuracy has special clinical importance" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/35467375/" target="_blank" rel="noopener noreferrer">PMID:35467375</a>). Butenko 1995 (<a href="https://pubmed.ncbi.nlm.nih.gov/7476689/" target="_blank" rel="noopener noreferrer">PMID:7476689</a>) treats arbovirus infections, HFRS and Astrakhan fever together as the regional differential.</p>
+<p><strong>Screening.</strong> No population screening. Surveillance is clinician-reported case notification plus tick-abundance monitoring.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> approximately 1–2%, with severe cases 5.3% of those infected and a first reported death in 2013 (cited in <a href="https://pubmed.ncbi.nlm.nih.gov/38462076/" target="_blank" rel="noopener noreferrer">PMID:38462076</a>; verify in full text before use as an evidence snippet).</li>
+<li><strong>Recovery:</strong> the great majority recover fully with antibiotic therapy; ASF is self-limited and leaves no documented chronic sequelae.</li>
+<li><strong>Prognostic factors:</strong> delay to effective antibiotic therapy is the dominant modifiable factor across SFG rickettsioses (<a href="https://pubmed.ncbi.nlm.nih.gov/27172113/" target="_blank" rel="noopener noreferrer">PMID:27172113</a>). Severity correlates with depth and duration of cellular immunosuppression (<a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>), though that is an association in a small series, not a validated prognostic marker.</li>
+<li><strong>Prognostic biomarkers:</strong> none validated. IL-1 and TNF concentrations tracked disease manifestations in an animal model (<a href="https://pubmed.ncbi.nlm.nih.gov/12459842/" target="_blank" rel="noopener noreferrer">PMID:12459842</a>) but have not been evaluated prognostically in patients.</li>
+<li><strong>Survival statistics, DALYs, disability outcomes, QOL instruments:</strong> no ASF-specific data in SEER-equivalent, GBD or ICF sources.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Doxycycline is the treatment of choice.</strong> The CDC recommendation for tickborne rickettsial disease is explicit: "doxycycline is the treatment of choice for suspected tickborne rickettsial diseases in adults and children" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/27172113/" target="_blank" rel="noopener noreferrer">PMID:27172113</a>). For ASF specifically, a comparative Russian series concluded "Doxycycline efficiency was higher than that of rifampicin" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/12498120/" target="_blank" rel="noopener noreferrer">PMID:12498120</a>) — a direct head-to-head observation in ASF patients and the strongest disease-specific therapeutic evidence available.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Role</th>
+<th>CHEBI (repo cache)</th>
+<th>NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Doxycycline</td>
+<td>First line</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" rel="noopener noreferrer">CHEBI:50845</a></td>
+<td>Pharmacotherapy NCIT:C15986 with <code>therapeutic_agent</code> bound to doxycycline</td>
+</tr>
+<tr>
+<td>Rifampicin</td>
+<td>Used in Russian series, less effective than doxycycline</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" rel="noopener noreferrer">CHEBI:28077</a></td>
+<td>NCIT:C15986</td>
+</tr>
+<tr>
+<td>Chloramphenicol</td>
+<td>Historical alternative for SFG rickettsioses</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_17698" target="_blank" rel="noopener noreferrer">CHEBI:17698</a></td>
+<td>NCIT:C15986</td>
+</tr>
+<tr>
+<td>Azithromycin / ciprofloxacin</td>
+<td>Alternatives in MSF literature; no ASF-specific data</td>
+<td><a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" rel="noopener noreferrer">CHEBI:2955</a> / <a href="http://purl.obolibrary.org/obo/CHEBI_100241" target="_blank" rel="noopener noreferrer">CHEBI:100241</a></td>
+<td>NCIT:C15986</td>
+</tr>
+<tr>
+<td>Supportive care</td>
+<td>Fluids for hypotension, antipyresis</td>
+<td>—</td>
+<td>NCIT:C15747 Supportive Care</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The NCIT identifiers above were <strong>not</strong> resolvable in this worktree's <code>cache/ncit/terms.csv</code> during this session (the grep returned nothing), so each must be verified with <code>just validate-terms</code> before being written into a KB entry. Per the repository's term contract, do not commit an NCIT CURIE from this table without that lookup.</p>
+<p><strong>Adjunctive interferon — historical, and not recommended.</strong> Galimzianov 1996 reported that "Adjuvant use of interferons in basic treatment of Astrakhan fever elevates its efficacy" with alpha-2 at 15,000–25,000 IU/kg/day and gamma at 1,500–2,500 IU/kg/day, while noting that "Interferons induce side effects early in the course: intensification of hyperthermia and pains" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/8771664/" target="_blank" rel="noopener noreferrer">PMID:8771664</a>). This is a single uncontrolled 1996 report and has no modern support; curate it as historical practice, not current therapy.</p>
+<p><strong>Immunomodulation in animals.</strong> Galavit reduced IL-1/TNF and mortality in experimental ASF infection (<a href="https://pubmed.ncbi.nlm.nih.gov/12459842/" target="_blank" rel="noopener noreferrer">PMID:12459842</a>) — <code>evidence_source: MODEL_ORGANISM</code>, no human translation.</p>
+<p><strong>In vitro antimicrobial work.</strong> Wild thyme and bergamot essential oils inhibited <em>R. conorii caspia</em> growth in Vero cells (<a href="https://pubmed.ncbi.nlm.nih.gov/30316918/" target="_blank" rel="noopener noreferrer">PMID:30316918</a>); chitosan, selenium and silver nanoparticles showed anti-rickettsial activity in Vero cells (<a href="https://pubmed.ncbi.nlm.nih.gov/41011786/" target="_blank" rel="noopener noreferrer">PMID:41011786</a>, 2025). Both are <code>IN_VITRO</code> and pre-clinical.</p>
+<p><strong>Not applicable:</strong> gene therapy, cell therapy, RNA therapeutics, targeted therapy, immunotherapy, surgery, rehabilitation. No registered clinical trials for ASF were found; a ClinicalTrials.gov query was not run this session and the absence should be confirmed before asserting it in an entry.</p>
+<p><strong>Pharmacogenomics:</strong> none described.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> tick-bite avoidance — protective clothing, repellents, prompt full-body tick checks and early removal after outdoor exposure in the endemic season (May–October, peak August). Dog-directed measures matter disproportionately here because <em>Rh. sanguineus</em> is a domestic, peridomestic and indoor-capable tick: acaricidal collars and treatments for dogs, and control of tick infestations inside dwellings. The French urban family cluster is the cautionary case — ticks were "collected from the floor from behind the furniture" inside the home (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/23140893/" target="_blank" rel="noopener noreferrer">PMID:23140893</a>).</li>
+<li><strong>Immunization:</strong> no vaccine exists for any <em>Rickettsia</em> in human use (<a href="https://pubmed.ncbi.nlm.nih.gov/24059918/" target="_blank" rel="noopener noreferrer">PMID:24059918</a>).</li>
+<li><strong>Chemoprophylaxis:</strong> not recommended after tick bite for SFG rickettsioses; the CDC approach is watchful waiting with early empiric treatment on symptom onset (<a href="https://pubmed.ncbi.nlm.nih.gov/27172113/" target="_blank" rel="noopener noreferrer">PMID:27172113</a>).</li>
+<li><strong>Secondary prevention:</strong> clinician awareness in endemic areas so that fever plus rash in summer triggers empiric doxycycline before serological confirmation, since early treatment prevents severe outcomes. The Kazakhstan surveillance work makes the analogous point for its own region: "Kazakh physicians should be aware of rickettsioses after tick bites in both regions studied" (<em>verbatim</em>, <a href="https://pubmed.ncbi.nlm.nih.gov/31053085/" target="_blank" rel="noopener noreferrer">PMID:31053085</a>).</li>
+<li><strong>Public health:</strong> vector surveillance tied to <em>R. pumilio</em> abundance indices, which the Astrakhan registry analysis links to incidence peaks; stray-dog population management; health education before the summer season.</li>
+<li><strong>Genetic counseling / carrier or prenatal screening:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Vectors (not diseased hosts):</strong> <em>Rhipicephalus pumilio</em> NCBITaxon:127007; <em>Rhipicephalus sanguineus</em> NCBITaxon:34632.</li>
+<li><strong>Dogs</strong> (<em>Canis lupus familiaris</em>, NCBITaxon:9615) are the key tick-maintenance host. Whether dogs develop clinical disease from <em>R. conorii</em> subsp. <em>caspia</em> was not addressed in any retrieved source; canine infection with <em>R. conorii</em> sensu lato is documented generally. Treat canine clinical disease as <strong>unestablished</strong> for this subspecies.</li>
+<li><strong>Zoonotic status:</strong> ASF is a tick-borne zoonosis with no human-to-human transmission.</li>
+<li><strong>No OMIA record</strong> applies — this is an infectious disease, not an inherited animal disorder.</li>
+<li><strong>Comparative pathology:</strong> the endothelial tropism of SFG rickettsiae is conserved across mammalian hosts (Walker 2008, <a href="https://pubmed.ncbi.nlm.nih.gov/18414502/" target="_blank" rel="noopener noreferrer">PMID:18414502</a>).</li>
+<li><strong>Incidental tick findings in other taxa:</strong> <em>R. conorii</em> subsp. <em>caspia</em> has been detected in <em>Rh. sanguineus</em> on dogs in Kosovo, France and Zambia; a Formosan pangolin tick survey (<a href="https://pubmed.ncbi.nlm.nih.gov/27426438/" target="_blank" rel="noopener noreferrer">PMID:27426438</a>) and a Turkish cattle tick survey (<a href="https://pubmed.ncbi.nlm.nih.gov/35631021/" target="_blank" rel="noopener noreferrer">PMID:35631021</a>) appear in the same literature searches but the retrieved abstracts do not establish subsp. <em>caspia</em> detection in those studies.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Cell culture (principal system).</strong> Vero cells are the standard host for <em>R. conorii caspia</em> propagation and antimicrobial testing (<a href="https://pubmed.ncbi.nlm.nih.gov/30316918/" target="_blank" rel="noopener noreferrer">PMID:30316918</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41011786/" target="_blank" rel="noopener noreferrer">PMID:41011786</a>). Historic isolation used cell cultures with immunofluorescence detection (<a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>). <code>evidence_source: IN_VITRO</code>.</li>
+<li><strong>Guinea pig</strong> (<em>Cavia porcellus</em>, NCBITaxon:10141). Used for isolation and seroconversion in the original ASF characterization: 4 of 8 inoculated animals developed SFG antibodies (<a href="https://pubmed.ncbi.nlm.nih.gov/1884783/" target="_blank" rel="noopener noreferrer">PMID:1884783</a>). A classical rickettsial isolation host, not a fidelity model of human disease.</li>
+<li><strong>Mouse</strong> (<em>Mus musculus</em>, NCBITaxon:10090). Used for <strong>serotyping</strong>, not pathogenesis: mouse serotyping distinguished the Chad isolate from other <em>R. conorii</em> complex members by a specificity difference of 2 (<a href="https://pubmed.ncbi.nlm.nih.gov/12860619/" target="_blank" rel="noopener noreferrer">PMID:12860619</a>) and underpinned the subspecies proposal (<a href="https://pubmed.ncbi.nlm.nih.gov/15766388/" target="_blank" rel="noopener noreferrer">PMID:15766388</a>).</li>
+<li><strong>Experimental infection for immunopathology.</strong> The IL-1/TNF and galavit work used unspecified "experimental animals" (<a href="https://pubmed.ncbi.nlm.nih.gov/12459842/" target="_blank" rel="noopener noreferrer">PMID:12459842</a>); the species is not stated in the abstract and should be read from the full text before curation.</li>
+<li><strong>Genetic models:</strong> none. No knockout, transgenic, humanized, organoid or iPSC model exists for ASF, and none is expected — the relevant genetics is bacterial, and <em>Rickettsia</em> is genetically intractable relative to free-living bacteria.</li>
+<li><strong>Limitations.</strong> No animal model reproduces the human ASF clinical picture, including the eschar-poor rash phenotype that distinguishes ASF from MSF. Any <code>modeled_mechanisms</code> link for these systems should carry <code>fidelity: LOW</code> or <code>UNKNOWN</code>, <code>model_scale: MOLECULAR</code> or <code>CELLULAR</code> for the Vero work, and an explicit <code>divergences</code> entry of type <code>SPECIES_MISMATCH</code> (guinea pig, mouse) or <code>BOUNDARY_OMISSION</code> (Vero cells contain no vasculature, no immune compartment, and cannot report rash or hypotension).</li>
+</ul>
+<hr />
+<h2>Evidence Inventory for Curation</h2>
+<p>Verified PMIDs with abstracts retrieved this session, suitable for <code>just fetch-reference</code>:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Short description</th>
+<th>Best use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>15766388</td>
+<td>Zhu 2005, subspecies proposal, type strain A-167</td>
+<td>Taxonomy, agent identity</td>
+</tr>
+<tr>
+<td>1884783</td>
+<td>Tarasevich 1991, first characterization, seroprevalence 5.1%, ticks on dogs</td>
+<td>History, epidemiology, vector</td>
+</tr>
+<tr>
+<td>1670806</td>
+<td>Tarasevich 1991 Lancet letter (no abstract)</td>
+<td>Historical citation only</td>
+</tr>
+<tr>
+<td>7985764</td>
+<td>Eremeeva 1994, A-108/A-167 from <em>R. pumilio</em>, identity with ISF</td>
+<td>Agent, vector</td>
+</tr>
+<tr>
+<td>1583342</td>
+<td>Drancourt 1992 letter (no abstract)</td>
+<td>Historical</td>
+</tr>
+<tr>
+<td>8549703</td>
+<td>Eremeeva 1995, MIF/immunoblot, anti-LPS IgG/IgM</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td>9324803</td>
+<td>Galimzianov 1996, primary lesion and clinical picture</td>
+<td>Phenotypes, pathophysiology</td>
+</tr>
+<tr>
+<td>8771664</td>
+<td>Galimzianov 1996, interferon adjuvant</td>
+<td>Treatment (historical)</td>
+</tr>
+<tr>
+<td>12498120</td>
+<td>Kasimova 2002, cellular immunity, doxycycline &gt; rifampicin</td>
+<td>Treatment, immunopathology</td>
+</tr>
+<tr>
+<td>12459842</td>
+<td>Nelyubov 2002, IL-1/TNF, galavit, animal model</td>
+<td>Mechanism (MODEL_ORGANISM)</td>
+</tr>
+<tr>
+<td>10603217</td>
+<td>Rydkina 1999, 3% infection in <em>R. pumilio</em></td>
+<td>Vector</td>
+</tr>
+<tr>
+<td>12860619</td>
+<td>Fournier 2003, Chad isolate</td>
+<td>Geography</td>
+</tr>
+<tr>
+<td>12860620</td>
+<td>Fournier 2003, Kosovo ticks</td>
+<td>Geography, vector</td>
+</tr>
+<tr>
+<td>23140893</td>
+<td>Renvoisé 2012, French urban family cluster</td>
+<td>Geography, prevention</td>
+</tr>
+<tr>
+<td>28986641</td>
+<td>Chitimia-Dobler 2017, Zambia, 0.06%</td>
+<td>Geography</td>
+</tr>
+<tr>
+<td>22887666</td>
+<td>Sentausa 2012, genome A-167, AJUR00000000</td>
+<td>Pathogen genomics</td>
+</tr>
+<tr>
+<td>35467375</td>
+<td>Smirnova 2022, IgA raises confirmation 46.5% → 66.5%</td>
+<td>Diagnostics</td>
+</tr>
+<tr>
+<td>17114680</td>
+<td>Tarasevich 2006, recognized since 1983</td>
+<td>History, Russian surveillance</td>
+</tr>
+<tr>
+<td>17266709</td>
+<td>Brouqui 2007, European SFG overview</td>
+<td>Context</td>
+</tr>
+<tr>
+<td>33143199</td>
+<td>Malkhazova 2020, Russian natural-focal EID mapping</td>
+<td>Epidemiology context</td>
+</tr>
+<tr>
+<td>27172113</td>
+<td>CDC 2016, doxycycline is treatment of choice</td>
+<td>Treatment</td>
+</tr>
+<tr>
+<td>18414502</td>
+<td>Walker 2008, endothelial infection and early events</td>
+<td>Mechanism (indirect)</td>
+</tr>
+<tr>
+<td>24059918</td>
+<td>Sahni 2013, rickettsial pathogenesis and immunity</td>
+<td>Mechanism (indirect)</td>
+</tr>
+<tr>
+<td>16223955</td>
+<td>Parola 2005, review carrying the 321-case series figures</td>
+<td>Phenotype frequencies</td>
+</tr>
+<tr>
+<td>38462076</td>
+<td>Teng 2024, four cases in Xinjiang, first in East Asia</td>
+<td>Geography, severity figures</td>
+</tr>
+<tr>
+<td>31053085</td>
+<td>Turebekov 2019, Kazakhstan ticks (caspia <strong>not</strong> found)</td>
+<td>Negative/context</td>
+</tr>
+<tr>
+<td>36050456</td>
+<td>Kazakhstan rodents (caspia <strong>not</strong> found in rodents)</td>
+<td>Negative/context</td>
+</tr>
+<tr>
+<td>39065062</td>
+<td>Karachay-Cherkessia ticks (caspia <strong>not</strong> found)</td>
+<td>Negative/context</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Figures needing full-text verification before use as snippets:</strong> the 321-case series percentages (94% adults, 61% male, 85% summer, 43% August, 94% fever with rash, 23% eschar, 32% conjunctivitis) read from the Parola 2005 review rather than the primary Russian source; the 4,894 cases and 23.18 ± 1.5 per 100,000 from the 2021 IJID conference abstract; and the 5.3% severe / 1–2% mortality / first-death-2013 figures cited in the 2024 China letter. The last three publisher pages returned 403 or CAPTCHA this session.</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15766388/">Proposal to create subspecies of Rickettsia conorii (PMID:15766388)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12860620/">Detection of Astrakhan fever rickettsia from ticks in Kosovo (PMID:12860620)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12860619/">Isolation of a rickettsia related to Astrakhan fever rickettsia in Chad (PMID:12860619)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9241626/">Diagnostic Value of IgA Antibody Measurement in ARF (PMID:35467375)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3415478/">Genome Sequence of R. conorii subsp. caspia (PMID:22887666)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC1265907/">Tick-Borne Rickettsioses around the World (PMID:16223955)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3811236/">Update on Tick-Borne Rickettsioses: a Geographic Approach</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38462076">Emergence of Astrakhan rickettsial fever in China (PMID:38462076)</a></li>
+<li><a href="https://www.ijidonline.com/article/S1201-9712(21)01194-2/fulltext">Epidemiological monitoring of the natural focus of Astrakhan spotted fever (IJID 2021)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/23140893/">Urban family cluster linked to Rh. sanguineus infected with R. conorii subsp. caspia (PMID:23140893)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28986641/">First detection of R. conorii ssp. caspia in Zambia (PMID:28986641)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/27172113/">CDC Diagnosis and Management of Tickborne Rickettsial Diseases (PMID:27172113)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31053085/">Prevalence of Rickettsia species in ticks in Kazakhstan (PMID:31053085)</a></li>
+<li><a href="https://www.nature.com/articles/s41598-022-19145-0">Incidence of SFG Rickettsia in rodents in Kazakhstan (PMID:36050456)</a></li>
+<li><a href="https://api.monarchinitiative.org/v3/api/entity/MONDO:0024473">Astrakhan spotted fever — MONDO:0024473 (Monarch)</a></li>
+<li><a href="https://rarediseases.org/mondo-disease/astrakhan-spotted-fever/">Astrakhan spotted fever — NORD rare disease page</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>2</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>38</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:16223955</code> <em>(abstract only)</em>: "Most of the patients had dogs and reported having contact with <em>Rhipicephalus sanguineus</em> dog ticks"</li>
+<li>closest text in source: "Of these agents, seven were initially isolated from ticks, often years or decades before a definitive association with human disease was established"</li>
+<li><code>PMID:16223955</code> <em>(abstract only)</em>: "in patients of rural areas"</li>
+<li>Text part not found as substring: 'in patients of rural areas' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>, full text may contain this excerpt)</li>
+<li><code>PMID:16223955</code> <em>(abstract only)</em>: "Most of the patients had dogs and reported having contact with <em>Rhipicephalus sanguineus</em> dog ticks"</li>
+<li>closest text in source: "Of these agents, seven were initially isolated from ticks, often years or decades before a definitive association with human disease was established"</li>
+<li><code>PMID:16223955</code> <em>(abstract only)</em>: "in patients of rural areas"</li>
+<li>Text part not found as substring: 'in patients of rural areas' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>, full text may contain this excerpt)</li>
+<li><code>PMID:16223955</code> <em>(abstract only)</em>: "the presence of a tache noire was reported in only 23% of the patients"</li>
+<li>Text part not found as substring: 'the presence of a tache noire was reported in only 23% of the patients' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/16223955/" target="_blank" rel="noopener noreferrer">PMID:16223955</a>, full text may contain this excerpt)</li>
+<li><code>PMID:12498120</code> <em>(abstract only)</em>: "Doxycycline efficiency was higher than that of rifampicin"</li>
+<li>closest text in source: "CONCLUSION: Doxicycline efficiency was higher than that of rifampicin"</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMID:1583342</code>: "Astrakhan fever rickettsiae were found to be serologically and antigenically similar to Israeli spotted fever rickettsiae. Both of them probably belong to a single Rickettsia conorii pathotype complex. Only PFGE pattern analysis could clearly discriminate Astrakhan fever rickettsiae from other isolates"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>PMID:1583342</code>: "Astrakhan fever rickettsiae were found to be serologically and antigenically similar to Israeli spotted fever rickettsiae. Both of them probably belong to a single Rickettsia conorii pathotype complex. Only PFGE pattern analysis could clearly discriminate Astrakhan fever rickettsiae from other isolates"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>54</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>53</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0024473</code> (7 mentions) - the report calls it "Monarch"; MONDO calls it <strong>Astrakhan spotted fever</strong></li>
+<li><code>DOID:0050041</code> (2 mentions) - the report calls it "DOID"; DOID calls it <strong>Astrakhan spotted fever</strong></li>
+<li><code>NCBITaxon:302011</code> (3 mentions) - the report calls it "caspia"; NCBITaxon calls it <strong>Rickettsia conorii subsp. caspia</strong></li>
+<li><code>CHEBI:50845</code> (1 mention) - the report calls it "First line"; CHEBI calls it <strong>doxycycline</strong></li>
+<li><code>CHEBI:28077</code> (1 mention) - the report calls it "Used in Russian series, less effective than doxycycline"; CHEBI calls it <strong>rifampicin</strong></li>
+<li><code>CHEBI:17698</code> (1 mention) - the report calls it "Historical alternative for SFG rickettsioses"; CHEBI calls it <strong>chloramphenicol</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>GARD</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Asthma-falcon.html">← Asthma (Falcon)</a>
+                
+                
+                <a href="Ataxia_With_Oculomotor_Apraxia_Type_1-perplexity.html">Ataxia With Oculomotor Apraxia Type 1 (Perplexity) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Astrakhan_spotted_fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Astrakhan_Spotted_Fever-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

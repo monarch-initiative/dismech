@@ -1,13 +1,15 @@
-"""Tests for graph-derived QC metric plugins (phenotype connectivity)."""
+"""Tests for graph-derived QC metric plugins (pathograph wiring coverage)."""
 
 from linkml_data_qc.config import PathQCConfig, QCConfig
 from linkml_data_qc.models import AggregatedPathScore, ComplianceReport
 
 from dismech.qc_plugins import (
+    GeneActivityGroundingPlugin,
     GeneMechanismWiringPlugin,
     PhenotypeConnectivityPlugin,
     augment_report,
     causal_inlink_coverage,
+    gene_activity_grounding_coverage,
     gene_mechanism_wiring_coverage,
 )
 
@@ -195,6 +197,118 @@ def test_gene_wiring_plugin_returns_no_score_without_genes() -> None:
     assert GeneMechanismWiringPlugin().evaluate({"name": "x"}, QCConfig.default()) == []
 
 
+def _activity() -> dict:
+    """Two wired genes: one lands on an MF-bound node, one on a process-only node."""
+    return {
+        "name": "Test Disorder",
+        "genetic": [
+            {
+                "name": "ACP2",
+                "gene_term": {"term": {"id": "hgnc:123", "label": "ACP2"}},
+                "relationship_type": "CAUSAL",
+            },
+            {
+                "name": "SLC25A20",
+                "gene_term": {"term": {"id": "hgnc:1421", "label": "SLC25A20"}},
+                "relationship_type": "CAUSAL",
+            },
+        ],
+        "pathophysiology": [
+            {
+                "name": "Acid Phosphatase Deficiency",
+                "gene": {"term": {"id": "hgnc:123", "label": "ACP2"}},
+                "molecular_functions": [
+                    {"term": {"id": "GO:0003993", "label": "acid phosphatase activity"}}
+                ],
+                "biological_processes": [
+                    {"term": {"id": "GO:0016311", "label": "dephosphorylation"}}
+                ],
+            },
+            {
+                "name": "Carnitine Translocase Deficiency",
+                "gene": {"term": {"id": "hgnc:1421", "label": "SLC25A20"}},
+                "biological_processes": [
+                    {"term": {"id": "GO:0015879", "label": "carnitine transport"}}
+                ],
+            },
+        ],
+    }
+
+
+def test_activity_grounding_flags_the_process_only_landing() -> None:
+    grounded, total, ungrounded = gene_activity_grounding_coverage(_activity())
+    assert (grounded, total) == (1, 2)
+    assert ungrounded == ["SLC25A20"]
+
+
+def test_activity_denominator_is_the_wired_genes_only() -> None:
+    """An unwired gene is charged against wiring, not a second time here."""
+    data = _activity()
+    data["genetic"].append(
+        {
+            "name": "Floating Gene",
+            "gene_term": {"term": {"id": "hgnc:9999", "label": "FLOAT1"}},
+            "relationship_type": "CAUSAL",
+        }
+    )
+    wired, wiring_total, _ = gene_mechanism_wiring_coverage(data)
+    grounded, total, ungrounded = gene_activity_grounding_coverage(data)
+
+    assert (wired, wiring_total) == (2, 3)
+    assert total == wired, "the grounding denominator is the wiring numerator"
+    assert (grounded, ungrounded) == (1, ["SLC25A20"])
+
+
+def test_one_grounded_landing_is_enough() -> None:
+    """A gene reaching both an activity node and its consequence still counts."""
+    data = _activity()
+    data["pathophysiology"].append(
+        {
+            "name": "Impaired Long-Chain Fatty Acid Oxidation",
+            "gene": {"term": {"id": "hgnc:1421", "label": "SLC25A20"}},
+            "molecular_functions": [
+                {
+                    "term": {
+                        "id": "GO:0015227",
+                        "label": "O-acyl-L-carnitine transmembrane transporter activity",
+                    }
+                }
+            ],
+        }
+    )
+    grounded, total, ungrounded = gene_activity_grounding_coverage(data)
+    assert (grounded, total) == (2, 2)
+    assert ungrounded == []
+
+
+def test_activity_plugin_emits_graded_score() -> None:
+    config = QCConfig(
+        paths={
+            "genetic[].mechanism_activity_grounding": PathQCConfig(
+                weight=1.5, min_compliance=None
+            )
+        }
+    )
+    scores = GeneActivityGroundingPlugin().evaluate(_activity(), config)
+    assert len(scores) == 1
+    score = scores[0]
+    assert isinstance(score, AggregatedPathScore)
+    assert score.path == "genetic[]"
+    assert score.slot_name == "mechanism_activity_grounding"
+    assert (score.populated, score.total) == (1, 2)
+    assert score.percentage == 50.0
+    assert score.weight == 1.5
+
+
+def test_activity_plugin_returns_no_score_without_wired_genes() -> None:
+    assert (
+        GeneActivityGroundingPlugin().evaluate(
+            {"name": "x", "genetic": [{"name": "Floating Gene"}]}, QCConfig.default()
+        )
+        == []
+    )
+
+
 def test_augment_report_folds_in_connectivity_and_recomputes() -> None:
     base = ComplianceReport(
         file_path="t.yaml",
@@ -231,3 +345,44 @@ def test_augment_report_folds_in_connectivity_and_recomputes() -> None:
     assert round(base.weighted_compliance, 1) == 66.7
     # 50% < 90% threshold -> a violation is appended.
     assert any(v.slot_name == "causal_inlink" for v in base.threshold_violations)
+
+
+def test_committed_causal_inlink_floor_is_set_and_never_lowered() -> None:
+    """The committed connectivity floor is a ratchet: it moves up, never down.
+
+    `phenotypes[].causal_inlink` carried `min_compliance: null` while the metric
+    was advisory. It is now enforced -- `just compliance-connectivity` exits
+    non-zero when the KB-wide aggregate falls below it, in `just qc` and as an
+    ungated whole-KB CI step.
+
+    The floor was set to 50.0 against a measured 53.9% (18989/35255 phenotype
+    nodes). This test pins two things a future edit could quietly undo: that a
+    floor exists at all (reverting to null disables the gate without touching
+    any code), and that it is not lowered below its starting value to get a red
+    build green. Raising it as coverage improves is the intended change and
+    requires editing the constant here too, which is the point -- lowering it
+    should be a deliberate, reviewed act rather than a one-character config fix.
+    """
+    from pathlib import Path
+
+    config = QCConfig.from_yaml(
+        str(Path(__file__).parent.parent / "conf" / "qc_config.yaml")
+    )
+    # Look the floor up exactly as the CLI does, through the plugin's own
+    # `path`/`slot_name`. `get_min_compliance` takes the container path
+    # ("phenotypes[]") and the slot separately and joins them; passing the
+    # joined "phenotypes[].causal_inlink" as the path silently returns None,
+    # which would make this test pass against a config that has no floor.
+    plugin = PhenotypeConnectivityPlugin()
+    floor = config.get_min_compliance(plugin.path, plugin.slot_name)
+
+    assert floor is not None, (
+        "phenotypes[].causal_inlink lost its min_compliance floor; a null here "
+        "silently disables the connectivity gate in `just qc` and CI."
+    )
+    assert floor >= 50.0, (
+        f"connectivity floor lowered to {floor}; it is a ratchet against erosion "
+        "and is only ever raised. If CI is failing, wire up floating phenotypes "
+        "(`just compliance-connectivity --list-unconnected`) rather than lowering "
+        "the floor."
+    )

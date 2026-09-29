@@ -56,6 +56,9 @@ def extract_result(events: list) -> str:
         f"subtype={last.get('subtype')}]"
     )
     parts.append(stats)
+    model_usage = last.get("modelUsage")
+    if isinstance(model_usage, dict) and model_usage:
+        parts.append("Models used: " + ", ".join(sorted(model_usage)))
     return "\n\n".join(parts)
 
 

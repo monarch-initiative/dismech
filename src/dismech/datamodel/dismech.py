@@ -1,5 +1,5 @@
 # Auto generated from dismech.yaml by pythongen.py version: 0.0.1
-# Generation date: 2026-08-29T02:33:06
+# Generation date: 2026-09-17T03:29:32
 # Schema: dismech
 #
 # id: https://w3id.org/monarch-initiative/dismech
@@ -85,6 +85,7 @@ OBI = CurieNamespace('OBI', 'http://purl.obolibrary.org/obo/OBI_')
 OPL = CurieNamespace('OPL', 'http://purl.obolibrary.org/obo/OPL_')
 PATO = CurieNamespace('PATO', 'http://purl.obolibrary.org/obo/PATO_')
 PMID = CurieNamespace('PMID', 'http://www.ncbi.nlm.nih.gov/pubmed/')
+SO = CurieNamespace('SO', 'http://purl.obolibrary.org/obo/SO_')
 UBERON = CurieNamespace('UBERON', 'http://purl.obolibrary.org/obo/UBERON_')
 XCO = CurieNamespace('XCO', 'http://purl.obolibrary.org/obo/XCO_')
 ARRAYEXPRESS = CurieNamespace('arrayexpress', 'https://www.ebi.ac.uk/biostudies/arrayexpress/studies/')
@@ -92,9 +93,11 @@ BIGG = CurieNamespace('bigg', 'https://bigg.ucsd.edu/models/')
 BIOMODELS = CurieNamespace('biomodels', 'https://www.ebi.ac.uk/biomodels/')
 BIOPROJECT = CurieNamespace('bioproject', 'https://www.ncbi.nlm.nih.gov/bioproject/')
 CELLXGENE = CurieNamespace('cellxgene', 'https://cellxgene.cziscience.com/collections/')
+CITO = CurieNamespace('cito', 'http://purl.org/spar/cito/')
 CLINICALTRIALS = CurieNamespace('clinicaltrials', 'https://clinicaltrials.gov/study/')
 CLINVAR = CurieNamespace('clinvar', 'https://www.ncbi.nlm.nih.gov/clinvar/variation/')
 DBGAP = CurieNamespace('dbgap', 'https://www.ncbi.nlm.nih.gov/projects/gap/cgi-bin/study.cgi?study_id=')
+DCTERMS = CurieNamespace('dcterms', 'http://purl.org/dc/terms/')
 DISMECH = CurieNamespace('dismech', 'https://w3id.org/monarch-initiative/dismech/')
 EGA = CurieNamespace('ega', 'https://ega-archive.org/studies/')
 ENCODE = CurieNamespace('encode', 'https://www.encodeproject.org/experiments/')
@@ -140,6 +143,10 @@ class FrequencyQuantity(str):
 
 # Class references
 class TermId(URIorCURIE):
+    pass
+
+
+class GenomicRegionName(extended_str):
     pass
 
 
@@ -308,6 +315,10 @@ class FDASurrogateEndpointCollectionName(SurrogateEndpointCollectionName):
 
 
 class GroupingName(extended_str):
+    pass
+
+
+class ModuleCollectionName(extended_str):
     pass
 
 
@@ -1179,12 +1190,66 @@ class SampleTypeDescriptor(Descriptor):
 
 
 @dataclass(repr=False)
+class GenomicRegion(YAMLRoot):
+    """
+    A named genomic feature or interval affected by an alteration. Supports qualitative reference-genome location
+    without requiring an ontology identifier, assembly, or patient-specific coordinates. Use a specific name and
+    description to distinguish an affected subfeature (such as a regulatory boundary) from the full altered interval.
+    Gene relations describe linear reference-genome placement only; keep regulatory targets, expression consequences,
+    and mechanistic confidence on the enclosing variant or pathophysiology record.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["GenomicRegion"]
+    class_class_curie: ClassVar[str] = "dismech:GenomicRegion"
+    class_name: ClassVar[str] = "GenomicRegion"
+    class_model_uri: ClassVar[URIRef] = DISMECH.GenomicRegion
+
+    name: Union[str, GenomicRegionName] = None
+    description: Optional[str] = None
+    chromosomal_region: Optional[str] = None
+    regulatory_element_type: Optional[Union[str, "RegulatoryElementTypeEnum"]] = None
+    between_genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    within_gene: Optional[Union[dict, GeneDescriptor]] = None
+    overlaps_genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+    adjacent_to_genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, GenomicRegionName):
+            self.name = GenomicRegionName(self.name)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.chromosomal_region is not None and not isinstance(self.chromosomal_region, str):
+            self.chromosomal_region = str(self.chromosomal_region)
+
+        if self.regulatory_element_type is not None and not isinstance(self.regulatory_element_type, RegulatoryElementTypeEnum):
+            self.regulatory_element_type = RegulatoryElementTypeEnum(self.regulatory_element_type)
+
+        self._normalize_inlined_as_list(slot_name="between_genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+
+        if self.within_gene is not None and not isinstance(self.within_gene, GeneDescriptor):
+            self.within_gene = GeneDescriptor(**as_dict(self.within_gene))
+
+        self._normalize_inlined_as_list(slot_name="overlaps_genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+
+        self._normalize_inlined_as_list(slot_name="adjacent_to_genes", slot_type=GeneDescriptor, key_name="preferred_term", keyed=False)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class GeneticContext(YAMLRoot):
     """
     A structured description of a genetic context that modifies phenotype frequency, severity, or presentation.
     Flexible enough to capture single genes, multiple genes, mutation types, zygosity, complementation groups, and
     complex genotypes. The description slot accommodates contexts that don't fit neatly into the structured fields
-    (e.g., structural variants, complex rearrangements).
+    (e.g., structural variants, complex rearrangements). Physical variant class and sequence overlap use the same
+    controlled fields as Variant. Separate alternative initiating alterations into distinct pathophysiology nodes when
+    their classes or overlaps differ.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
@@ -1196,6 +1261,9 @@ class GeneticContext(YAMLRoot):
     gene: Optional[Union[dict, GeneDescriptor]] = None
     genes: Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]] = empty_list()
     allele_type: Optional[str] = None
+    variant_type: Optional[Union[str, "VariantTypeEnum"]] = None
+    genomic_contexts: Optional[Union[Union[str, "GenomicContextEnum"], list[Union[str, "GenomicContextEnum"]]]] = empty_list()
+    affected_regions: Optional[Union[dict[Union[str, GenomicRegionName], Union[dict, GenomicRegion]], list[Union[dict, GenomicRegion]]]] = empty_dict()
     variant_origin: Optional[Union[str, "VariantOriginEnum"]] = None
     allelic_hit_role: Optional[Union[str, "AllelicHitRoleEnum"]] = None
     allelic_events: Optional[Union[Union[str, "AllelicEventEnum"], list[Union[str, "AllelicEventEnum"]]]] = empty_list()
@@ -1214,6 +1282,15 @@ class GeneticContext(YAMLRoot):
 
         if self.allele_type is not None and not isinstance(self.allele_type, str):
             self.allele_type = str(self.allele_type)
+
+        if self.variant_type is not None and not isinstance(self.variant_type, VariantTypeEnum):
+            self.variant_type = VariantTypeEnum(self.variant_type)
+
+        if not isinstance(self.genomic_contexts, list):
+            self.genomic_contexts = [self.genomic_contexts] if self.genomic_contexts is not None else []
+        self.genomic_contexts = [v if isinstance(v, GenomicContextEnum) else GenomicContextEnum(v) for v in self.genomic_contexts]
+
+        self._normalize_inlined_as_list(slot_name="affected_regions", slot_type=GenomicRegion, key_name="name", keyed=True)
 
         if self.variant_origin is not None and not isinstance(self.variant_origin, VariantOriginEnum):
             self.variant_origin = VariantOriginEnum(self.variant_origin)
@@ -2133,6 +2210,7 @@ class EvidenceItem(YAMLRoot):
     reference_title: Optional[str] = None
     supports: Optional[Union[str, "EvidenceItemSupportEnum"]] = None
     directness: Optional[Union[str, "DirectnessEnum"]] = None
+    quote_role: Optional[Union[str, "QuoteRoleEnum"]] = None
     evidence_source: Optional[Union[str, "EvidenceSourceEnum"]] = None
     snippet: Optional[str] = None
     explanation: Optional[str] = None
@@ -2150,6 +2228,9 @@ class EvidenceItem(YAMLRoot):
 
         if self.directness is not None and not isinstance(self.directness, DirectnessEnum):
             self.directness = DirectnessEnum(self.directness)
+
+        if self.quote_role is not None and not isinstance(self.quote_role, QuoteRoleEnum):
+            self.quote_role = QuoteRoleEnum(self.quote_role)
 
         if self.evidence_source is not None and not isinstance(self.evidence_source, EvidenceSourceEnum):
             self.evidence_source = EvidenceSourceEnum(self.evidence_source)
@@ -2293,6 +2374,45 @@ class EnvironmentalMechanismTarget(YAMLRoot):
 
 
 @dataclass(repr=False)
+class ModelDivergence(YAMLRoot):
+    """
+    One typed way in which a model departs from the mechanism node it is linked to, with the curator's explanation of
+    why that gap applies to this particular claim.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModelDivergence"]
+    class_class_curie: ClassVar[str] = "dismech:ModelDivergence"
+    class_name: ClassVar[str] = "ModelDivergence"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModelDivergence
+
+    divergence_type: Union[str, "ModelDivergenceTypeEnum"] = None
+    description: str = None
+    materiality: Optional[Union[str, "ModelDivergenceMaterialityEnum"]] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.divergence_type):
+            self.MissingRequiredField("divergence_type")
+        if not isinstance(self.divergence_type, ModelDivergenceTypeEnum):
+            self.divergence_type = ModelDivergenceTypeEnum(self.divergence_type)
+
+        if self._is_empty(self.description):
+            self.MissingRequiredField("description")
+        if not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if self.materiality is not None and not isinstance(self.materiality, ModelDivergenceMaterialityEnum):
+            self.materiality = ModelDivergenceMaterialityEnum(self.materiality)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
 class ModelMechanismLink(YAMLRoot):
     """
     Links an experimental (NAM), animal, or computational model to a specific pathophysiology mechanism node,
@@ -2312,6 +2432,8 @@ class ModelMechanismLink(YAMLRoot):
     readouts: Optional[Union[dict[Union[str, ExperimentalReadoutName], Union[dict, ExperimentalReadout]], list[Union[dict, ExperimentalReadout]]]] = empty_dict()
     fidelity: Optional[Union[str, "ModelFidelityEnum"]] = None
     limitations: Optional[str] = None
+    model_scale: Optional[Union[str, "BiologicalScaleEnum"]] = None
+    divergences: Optional[Union[Union[dict, ModelDivergence], list[Union[dict, ModelDivergence]]]] = empty_list()
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -2333,6 +2455,11 @@ class ModelMechanismLink(YAMLRoot):
 
         if self.limitations is not None and not isinstance(self.limitations, str):
             self.limitations = str(self.limitations)
+
+        if self.model_scale is not None and not isinstance(self.model_scale, BiologicalScaleEnum):
+            self.model_scale = BiologicalScaleEnum(self.model_scale)
+
+        self._normalize_inlined_as_list(slot_name="divergences", slot_type=ModelDivergence, key_name="divergence_type", keyed=False)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -3004,6 +3131,7 @@ class Prevalence(YAMLRoot):
     rate_per_100000: Optional[float] = None
     rate_low: Optional[float] = None
     rate_high: Optional[float] = None
+    rate_denominator: Optional[Union[str, "RateDenominatorEnum"]] = None
     percentage: Optional[Union[dict, Any]] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     notes: Optional[str] = None
@@ -3029,6 +3157,9 @@ class Prevalence(YAMLRoot):
 
         if self.rate_high is not None and not isinstance(self.rate_high, float):
             self.rate_high = float(self.rate_high)
+
+        if self.rate_denominator is not None and not isinstance(self.rate_denominator, RateDenominatorEnum):
+            self.rate_denominator = RateDenominatorEnum(self.rate_denominator)
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -3273,6 +3404,7 @@ class Pathophysiology(YAMLRoot):
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
     mechanism_confidence: Optional[Union[str, "MechanismConfidenceEnum"]] = None
     biological_scale: Optional[Union[str, "BiologicalScaleEnum"]] = None
+    regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
         if self._is_empty(self.name):
@@ -3358,6 +3490,9 @@ class Pathophysiology(YAMLRoot):
 
         if self.biological_scale is not None and not isinstance(self.biological_scale, BiologicalScaleEnum):
             self.biological_scale = BiologicalScaleEnum(self.biological_scale)
+
+        if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
+            self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
 
         super().__post_init__(**kwargs)
 
@@ -3663,6 +3798,7 @@ class Genetic(YAMLRoot):
 
     name: Union[str, GeneticName] = None
     gene_term: Optional[Union[dict, GeneDescriptor]] = None
+    affected_regions: Optional[Union[dict[Union[str, GenomicRegionName], Union[dict, GenomicRegion]], list[Union[dict, GenomicRegion]]]] = empty_dict()
     presence: Optional[str] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     association: Optional[str] = None
@@ -3686,6 +3822,8 @@ class Genetic(YAMLRoot):
 
         if self.gene_term is not None and not isinstance(self.gene_term, GeneDescriptor):
             self.gene_term = GeneDescriptor(**as_dict(self.gene_term))
+
+        self._normalize_inlined_as_list(slot_name="affected_regions", slot_type=GenomicRegion, key_name="name", keyed=True)
 
         if self.presence is not None and not isinstance(self.presence, str):
             self.presence = str(self.presence)
@@ -3845,6 +3983,7 @@ class Disease(YAMLRoot):
     environmental: Optional[Union[dict[Union[str, EnvironmentalName], Union[dict, Environmental]], list[Union[dict, Environmental]]]] = empty_dict()
     treatments: Optional[Union[dict[Union[str, TreatmentName], Union[dict, "Treatment"]], list[Union[dict, "Treatment"]]]] = empty_dict()
     categories: Optional[Union[str, list[str]]] = empty_list()
+    module_categories: Optional[Union[Union[str, "ModuleCategoryEnum"], list[Union[str, "ModuleCategoryEnum"]]]] = empty_list()
     infectious_agent: Optional[Union[dict[Union[str, InfectiousAgentName], Union[dict, "InfectiousAgent"]], list[Union[dict, "InfectiousAgent"]]]] = empty_dict()
     agent_life_cycle: Optional[Union[dict, "AgentLifeCycle"]] = None
     transmission: Optional[Union[dict[Union[str, TransmissionName], Union[dict, "Transmission"]], list[Union[dict, "Transmission"]]]] = empty_dict()
@@ -3936,6 +4075,10 @@ class Disease(YAMLRoot):
         if not isinstance(self.categories, list):
             self.categories = [self.categories] if self.categories is not None else []
         self.categories = [v if isinstance(v, str) else str(v) for v in self.categories]
+
+        if not isinstance(self.module_categories, list):
+            self.module_categories = [self.module_categories] if self.module_categories is not None else []
+        self.module_categories = [v if isinstance(v, ModuleCategoryEnum) else ModuleCategoryEnum(v) for v in self.module_categories]
 
         self._normalize_inlined_as_list(slot_name="infectious_agent", slot_type=InfectiousAgent, key_name="name", keyed=True)
 
@@ -4232,7 +4375,10 @@ class Treatment(YAMLRoot):
     treatment_term: Optional[Union[dict, TreatmentDescriptor]] = None
     regimen_term: Optional[Union[dict, RegimenDescriptor]] = None
     therapeutic_modality: Optional[Union[str, "TherapeuticModalityEnum"]] = None
-    aso_details: Optional[Union[dict, "AntisenseOligonucleotideDetail"]] = None
+    oligonucleotide_details: Optional[Union[dict, "OligonucleotideDetail"]] = None
+    aso_details: Optional[Union[dict, "OligonucleotideDetail"]] = None
+    dosing_interval: Optional[str] = None
+    dosing_interval_days: Optional[float] = None
     target_phenotypes: Optional[Union[Union[dict, PhenotypeDescriptor], list[Union[dict, PhenotypeDescriptor]]]] = empty_list()
     target_mechanisms: Optional[Union[Union[dict, TreatmentMechanismTarget], list[Union[dict, TreatmentMechanismTarget]]]] = empty_list()
     pdb_structures: Optional[Union[Union[dict, ProteinStructure], list[Union[dict, ProteinStructure]]]] = empty_list()
@@ -4265,8 +4411,17 @@ class Treatment(YAMLRoot):
         if self.therapeutic_modality is not None and not isinstance(self.therapeutic_modality, TherapeuticModalityEnum):
             self.therapeutic_modality = TherapeuticModalityEnum(self.therapeutic_modality)
 
-        if self.aso_details is not None and not isinstance(self.aso_details, AntisenseOligonucleotideDetail):
-            self.aso_details = AntisenseOligonucleotideDetail(**as_dict(self.aso_details))
+        if self.oligonucleotide_details is not None and not isinstance(self.oligonucleotide_details, OligonucleotideDetail):
+            self.oligonucleotide_details = OligonucleotideDetail(**as_dict(self.oligonucleotide_details))
+
+        if self.aso_details is not None and not isinstance(self.aso_details, OligonucleotideDetail):
+            self.aso_details = OligonucleotideDetail(**as_dict(self.aso_details))
+
+        if self.dosing_interval is not None and not isinstance(self.dosing_interval, str):
+            self.dosing_interval = str(self.dosing_interval)
+
+        if self.dosing_interval_days is not None and not isinstance(self.dosing_interval_days, float):
+            self.dosing_interval_days = float(self.dosing_interval_days)
 
         self._normalize_inlined_as_list(slot_name="target_phenotypes", slot_type=PhenotypeDescriptor, key_name="preferred_term", keyed=False)
 
@@ -4300,29 +4455,35 @@ class Treatment(YAMLRoot):
 
 
 @dataclass(repr=False)
-class AntisenseOligonucleotideDetail(YAMLRoot):
+class OligonucleotideDetail(YAMLRoot):
     """
-    Structured attributes specific to an antisense oligonucleotide (ASO) treatment: its molecular mechanism, RNA
-    target, splice exon (for splice-switching ASOs), backbone chemistry, and targeting conjugate. Attach via the
-    aso_details slot on a Treatment whose therapeutic_modality is ANTISENSE_OLIGONUCLEOTIDE.
+    Structured attributes of a treatment that acts by base-pairing with a target RNA: its molecular mechanism, RNA
+    target, splice exon (for splice-switching antisense oligonucleotides), backbone chemistry, targeting conjugate,
+    and delivery platform. Attach via the oligonucleotide_details slot on a Treatment whose therapeutic_modality is
+    ANTISENSE_OLIGONUCLEOTIDE or SIRNA. Single-stranded ASOs and double-stranded siRNAs share this class deliberately
+    - they differ in effector (RNase H1 versus Argonaute-2) but are the same programmable platform, described by the
+    same target, chemistry, and delivery attributes.
     """
     _inherited_slots: ClassVar[list[str]] = []
 
-    class_class_uri: ClassVar[URIRef] = DISMECH["AntisenseOligonucleotideDetail"]
-    class_class_curie: ClassVar[str] = "dismech:AntisenseOligonucleotideDetail"
-    class_name: ClassVar[str] = "AntisenseOligonucleotideDetail"
-    class_model_uri: ClassVar[URIRef] = DISMECH.AntisenseOligonucleotideDetail
+    class_class_uri: ClassVar[URIRef] = DISMECH["OligonucleotideDetail"]
+    class_class_curie: ClassVar[str] = "dismech:OligonucleotideDetail"
+    class_name: ClassVar[str] = "OligonucleotideDetail"
+    class_model_uri: ClassVar[URIRef] = DISMECH.OligonucleotideDetail
 
-    aso_mechanism: Optional[Union[str, "AsoMechanismEnum"]] = None
+    oligonucleotide_mechanism: Optional[Union[str, "OligonucleotideMechanismEnum"]] = None
     target_gene: Optional[Union[dict, GeneDescriptor]] = None
     target_transcript: Optional[str] = None
     target_exon: Optional[str] = None
-    aso_chemistry: Optional[Union[str, "AsoChemistryEnum"]] = None
-    conjugation: Optional[Union[str, "AsoConjugationEnum"]] = None
+    oligonucleotide_chemistry: Optional[Union[str, "OligonucleotideChemistryEnum"]] = None
+    conjugation: Optional[Union[str, "OligonucleotideConjugationEnum"]] = None
+    delivery_platform: Optional[Union[str, "OligonucleotideDeliveryPlatformEnum"]] = None
+    aso_mechanism: Optional[Union[str, "OligonucleotideMechanismEnum"]] = None
+    aso_chemistry: Optional[Union[str, "OligonucleotideChemistryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
-        if self.aso_mechanism is not None and not isinstance(self.aso_mechanism, AsoMechanismEnum):
-            self.aso_mechanism = AsoMechanismEnum(self.aso_mechanism)
+        if self.oligonucleotide_mechanism is not None and not isinstance(self.oligonucleotide_mechanism, OligonucleotideMechanismEnum):
+            self.oligonucleotide_mechanism = OligonucleotideMechanismEnum(self.oligonucleotide_mechanism)
 
         if self.target_gene is not None and not isinstance(self.target_gene, GeneDescriptor):
             self.target_gene = GeneDescriptor(**as_dict(self.target_gene))
@@ -4333,11 +4494,20 @@ class AntisenseOligonucleotideDetail(YAMLRoot):
         if self.target_exon is not None and not isinstance(self.target_exon, str):
             self.target_exon = str(self.target_exon)
 
-        if self.aso_chemistry is not None and not isinstance(self.aso_chemistry, AsoChemistryEnum):
-            self.aso_chemistry = AsoChemistryEnum(self.aso_chemistry)
+        if self.oligonucleotide_chemistry is not None and not isinstance(self.oligonucleotide_chemistry, OligonucleotideChemistryEnum):
+            self.oligonucleotide_chemistry = OligonucleotideChemistryEnum(self.oligonucleotide_chemistry)
 
-        if self.conjugation is not None and not isinstance(self.conjugation, AsoConjugationEnum):
-            self.conjugation = AsoConjugationEnum(self.conjugation)
+        if self.conjugation is not None and not isinstance(self.conjugation, OligonucleotideConjugationEnum):
+            self.conjugation = OligonucleotideConjugationEnum(self.conjugation)
+
+        if self.delivery_platform is not None and not isinstance(self.delivery_platform, OligonucleotideDeliveryPlatformEnum):
+            self.delivery_platform = OligonucleotideDeliveryPlatformEnum(self.delivery_platform)
+
+        if self.aso_mechanism is not None and not isinstance(self.aso_mechanism, OligonucleotideMechanismEnum):
+            self.aso_mechanism = OligonucleotideMechanismEnum(self.aso_mechanism)
+
+        if self.aso_chemistry is not None and not isinstance(self.aso_chemistry, OligonucleotideChemistryEnum):
+            self.aso_chemistry = OligonucleotideChemistryEnum(self.aso_chemistry)
 
         super().__post_init__(**kwargs)
 
@@ -4562,6 +4732,7 @@ class Variant(YAMLRoot):
     name: Union[str, VariantName] = None
     description: Optional[str] = None
     gene: Optional[Union[dict, GeneDescriptor]] = None
+    regulatory_target_gene: Optional[Union[dict, GeneDescriptor]] = None
     evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
     functional_effects: Optional[Union[Union[dict, "FunctionalEffect"], list[Union[dict, "FunctionalEffect"]]]] = empty_list()
     synonyms: Optional[Union[str, list[str]]] = empty_list()
@@ -4570,6 +4741,9 @@ class Variant(YAMLRoot):
     sequence_length: Optional[int] = None
     clinical_significance: Optional[Union[str, "ClinicalSignificanceEnum"]] = None
     type: Optional[str] = None
+    variant_type: Optional[Union[str, "VariantTypeEnum"]] = None
+    genomic_contexts: Optional[Union[Union[str, "GenomicContextEnum"], list[Union[str, "GenomicContextEnum"]]]] = empty_list()
+    affected_regions: Optional[Union[dict[Union[str, GenomicRegionName], Union[dict, GenomicRegion]], list[Union[dict, GenomicRegion]]]] = empty_dict()
     regulatory_category: Optional[Union[str, "RegulatoryVariantCategoryEnum"]] = None
 
     def __post_init__(self, *_: str, **kwargs: Any):
@@ -4583,6 +4757,9 @@ class Variant(YAMLRoot):
 
         if self.gene is not None and not isinstance(self.gene, GeneDescriptor):
             self.gene = GeneDescriptor(**as_dict(self.gene))
+
+        if self.regulatory_target_gene is not None and not isinstance(self.regulatory_target_gene, GeneDescriptor):
+            self.regulatory_target_gene = GeneDescriptor(**as_dict(self.regulatory_target_gene))
 
         if not isinstance(self.evidence, list):
             self.evidence = [self.evidence] if self.evidence is not None else []
@@ -4610,6 +4787,15 @@ class Variant(YAMLRoot):
 
         if self.type is not None and not isinstance(self.type, str):
             self.type = str(self.type)
+
+        if self.variant_type is not None and not isinstance(self.variant_type, VariantTypeEnum):
+            self.variant_type = VariantTypeEnum(self.variant_type)
+
+        if not isinstance(self.genomic_contexts, list):
+            self.genomic_contexts = [self.genomic_contexts] if self.genomic_contexts is not None else []
+        self.genomic_contexts = [v if isinstance(v, GenomicContextEnum) else GenomicContextEnum(v) for v in self.genomic_contexts]
+
+        self._normalize_inlined_as_list(slot_name="affected_regions", slot_type=GenomicRegion, key_name="name", keyed=True)
 
         if self.regulatory_category is not None and not isinstance(self.regulatory_category, RegulatoryVariantCategoryEnum):
             self.regulatory_category = RegulatoryVariantCategoryEnum(self.regulatory_category)
@@ -6567,6 +6753,110 @@ class DifferentiatingMechanism(YAMLRoot):
         super().__post_init__(**kwargs)
 
 
+@dataclass(repr=False)
+class ModuleCollection(YAMLRoot):
+    """
+    A curated navigation or framework record that organizes mechanism modules. A ModuleCollection is not itself a
+    mechanism and does not assert disease membership. It points down to module filename stems, may nest more specific
+    collections, and may cite the publication that defines the framework.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModuleCollection"]
+    class_class_curie: ClassVar[str] = "dismech:ModuleCollection"
+    class_name: ClassVar[str] = "ModuleCollection"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModuleCollection
+
+    name: Union[str, ModuleCollectionName] = None
+    collection_type: Union[str, "ModuleCollectionTypeEnum"] = None
+    module_members: Union[Union[dict, "ModuleCollectionMember"], list[Union[dict, "ModuleCollectionMember"]]] = None
+    display_name: Optional[str] = None
+    creation_date: Optional[str] = None
+    description: Optional[str] = None
+    child_collections: Optional[Union[str, list[str]]] = empty_list()
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.name):
+            self.MissingRequiredField("name")
+        if not isinstance(self.name, ModuleCollectionName):
+            self.name = ModuleCollectionName(self.name)
+
+        if self._is_empty(self.collection_type):
+            self.MissingRequiredField("collection_type")
+        if not isinstance(self.collection_type, ModuleCollectionTypeEnum):
+            self.collection_type = ModuleCollectionTypeEnum(self.collection_type)
+
+        if self._is_empty(self.module_members):
+            self.MissingRequiredField("module_members")
+        self._normalize_inlined_as_list(slot_name="module_members", slot_type=ModuleCollectionMember, key_name="module", keyed=False)
+
+        if self.display_name is not None and not isinstance(self.display_name, str):
+            self.display_name = str(self.display_name)
+
+        if self.creation_date is not None and not isinstance(self.creation_date, str):
+            self.creation_date = str(self.creation_date)
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.child_collections, list):
+            self.child_collections = [self.child_collections] if self.child_collections is not None else []
+        self.child_collections = [v if isinstance(v, str) else str(v) for v in self.child_collections]
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
+@dataclass(repr=False)
+class ModuleCollectionMember(YAMLRoot):
+    """
+    A mechanism module included in a ModuleCollection, with optional labels and explanation specific to the source
+    framework.
+    """
+    _inherited_slots: ClassVar[list[str]] = []
+
+    class_class_uri: ClassVar[URIRef] = DISMECH["ModuleCollectionMember"]
+    class_class_curie: ClassVar[str] = "dismech:ModuleCollectionMember"
+    class_name: ClassVar[str] = "ModuleCollectionMember"
+    class_model_uri: ClassVar[URIRef] = DISMECH.ModuleCollectionMember
+
+    module: str = None
+    framework_terms: Optional[Union[str, list[str]]] = empty_list()
+    description: Optional[str] = None
+    evidence: Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]] = empty_list()
+    notes: Optional[str] = None
+
+    def __post_init__(self, *_: str, **kwargs: Any):
+        if self._is_empty(self.module):
+            self.MissingRequiredField("module")
+        if not isinstance(self.module, str):
+            self.module = str(self.module)
+
+        if not isinstance(self.framework_terms, list):
+            self.framework_terms = [self.framework_terms] if self.framework_terms is not None else []
+        self.framework_terms = [v if isinstance(v, str) else str(v) for v in self.framework_terms]
+
+        if self.description is not None and not isinstance(self.description, str):
+            self.description = str(self.description)
+
+        if not isinstance(self.evidence, list):
+            self.evidence = [self.evidence] if self.evidence is not None else []
+        self.evidence = [v if isinstance(v, EvidenceItem) else EvidenceItem(**as_dict(v)) for v in self.evidence]
+
+        if self.notes is not None and not isinstance(self.notes, str):
+            self.notes = str(self.notes)
+
+        super().__post_init__(**kwargs)
+
+
 # Enumerations
 class EvidenceItemSupportEnum(EnumDefinitionImpl):
     """
@@ -6613,6 +6903,29 @@ class DirectnessEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="DirectnessEnum",
         description="""How directly the quoted evidence bears on the claim it is attached to. The evidential counterpart of CausalLinkTypeEnum, which records the same notion of directness for a causal edge.""",
+    )
+
+class QuoteRoleEnum(EnumDefinitionImpl):
+    """
+    Where the quoted sentence sits in the cited publication's own argument: a finding that publication produced,
+    something it restates from elsewhere, or its synthesis of a literature it did not generate.
+    """
+    PRIMARY_RESULT = PermissibleValue(
+        text="PRIMARY_RESULT",
+        title="Primary result",
+        description="""The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.""")
+    BACKGROUND = PermissibleValue(
+        text="BACKGROUND",
+        title="Background",
+        description="""The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.""")
+    REVIEW_SYNTHESIS = PermissibleValue(
+        text="REVIEW_SYNTHESIS",
+        title="Review synthesis",
+        description="""The quoted text is the cited publication's synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.""")
+
+    _defn = EnumDefinition(
+        name="QuoteRoleEnum",
+        description="""Where the quoted sentence sits in the cited publication's own argument: a finding that publication produced, something it restates from elsewhere, or its synthesis of a literature it did not generate.""",
     )
 
 class EvidenceSourceEnum(EnumDefinitionImpl):
@@ -6812,57 +7125,110 @@ class PrevalenceMeasureEnum(EnumDefinitionImpl):
 
 class PrevalenceClassEnum(EnumDefinitionImpl):
     """
-    Coarse, always-fillable band for disease occurrence — the population-rate analog of the HPO-style FrequencyEnum
-    used for phenotype frequency. The numeric bands are the Orphanet prevalence classes (so the ~7% of records already
-    quoting Orphanet map directly and the ICEES/ORPHA structured sources stay aligned); the qualitative tiers cover
-    records that report only prose ("rare", "common") with no numeric estimate. When a numeric estimate exists, also
-    populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the
-    precision.
+    Coarse, always-fillable band for the MAGNITUDE of a disease-occurrence rate — the population-rate analog of the
+    HPO-style FrequencyEnum used for phenotype frequency.
+    IMPORTANT: a band reports magnitude only. It does not say what is being measured; the sibling `measure_type` slot
+    does that, and a band is meaningless without it. `BAND_1_9_PER_100000` on a POINT_PREVALENCE record means "1-9 of
+    every 100,000 people have this disease"; the same band on an ANNUAL_INCIDENCE record means "1-9 new cases per
+    100,000 per year"; on a CARRIER_FREQUENCY record it describes carriers, who do not have the disease at all. Never
+    read, compare, aggregate, or render a band without reading `measure_type` alongside it. `rate_denominator` pins
+    the denominator explicitly and should be preferred by consumers where present.
+    The five numeric bands are aligned to the Orphanet prevalence classes, so Orphanet-sourced prevalence records (and
+    the ICEES/ORPHA structured sources) map across directly; on a non-prevalence measure the same boundaries are read
+    purely as magnitude.
+    The qualitative tiers are NOT magnitude bands. COMMON/RARE/ULTRA_RARE are each defined by a prevalence threshold
+    and each presuppose that the source gave no numeric estimate. They are therefore INVALID on the two measures that
+    are definitely not prevalence — ANNUAL_INCIDENCE and CARRIER_FREQUENCY — and should not sit alongside a populated
+    `rate_per_100000`. They remain correct on the prevalence measures, on CASES_IN_LITERATURE, and on UNKNOWN, which
+    is the ordinary prose-only case: a source that says only "rare" without naming its measure.
+    When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable
+    summary, the rate carries the precision.
     """
     ABOVE_1_IN_1000 = PermissibleValue(
         text="ABOVE_1_IN_1000",
         title=">1 / 1,000",
-        description="More than 1 in 1,000 (more than 100 per 100,000). Orphanet class.")
+        description="""More than 100 per 100,000, in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet >1/1,000 prevalence class.""")
     BAND_1_5_PER_10000 = PermissibleValue(
         text="BAND_1_5_PER_10000",
         title="1-9 / 10,000",
-        description="""1 to 9 per 10,000 (10-99 per 100,000). Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.""")
+        description="""10-99 per 100,000 (1-9 per 10,000), in whatever denominator `measure_type` specifies. Combines the Orphanet 1-5 and 6-9 per 10,000 classes into one decade-spanning band, matching the other per-decade bands and the _band_from_rate() boundaries.""")
     BAND_1_9_PER_100000 = PermissibleValue(
         text="BAND_1_9_PER_100000",
         title="1-9 / 100,000",
-        description="1 to 9 per 100,000. Orphanet class.")
+        description="""1-9 per 100,000, in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet 1-9/100,000 prevalence class.""")
     BAND_1_9_PER_1000000 = PermissibleValue(
         text="BAND_1_9_PER_1000000",
         title="1-9 / 1,000,000",
-        description="1 to 9 per 1,000,000 (0.1-0.9 per 100,000). Orphanet class.")
+        description="""0.1-0.9 per 100,000 (1-9 per 1,000,000), in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet 1-9/1,000,000 prevalence class.""")
     BELOW_1_IN_1000000 = PermissibleValue(
         text="BELOW_1_IN_1000000",
         title="<1 / 1,000,000",
-        description="Fewer than 1 in 1,000,000 (less than 0.1 per 100,000). Orphanet class.")
+        description="""Fewer than 0.1 per 100,000 (less than 1 per 1,000,000), in whatever denominator `measure_type` specifies. Boundary aligned to the Orphanet <1/1,000,000 prevalence class.""")
     COMMON = PermissibleValue(
         text="COMMON",
         title="Common",
-        description="""Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively.""")
+        description="""Qualitative tier for disorders described as common/endemic with no numeric estimate captured. Roughly corresponds to the >1/1,000 region but asserted only qualitatively. Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.""")
     RARE = PermissibleValue(
         text="RARE",
         title="Rare",
-        description="""Qualitative tier for disorders described as \"rare\" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000).""")
+        description="""Qualitative tier for disorders described as \"rare\" in the source without a numeric estimate (the EU rare-disease threshold is <1 in 2,000). Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.""")
     ULTRA_RARE = PermissibleValue(
         text="ULTRA_RARE",
         title="Ultra-rare",
-        description="""Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE.""")
+        description="""Qualitative tier for disorders described as ultra-rare / only a handful of reported cases, with no population rate available. Often paired with measure_type CASES_IN_LITERATURE. Invalid on measure_type ANNUAL_INCIDENCE or CARRIER_FREQUENCY, and should not sit alongside a populated rate_per_100000.""")
     NOT_YET_DOCUMENTED = PermissibleValue(
         text="NOT_YET_DOCUMENTED",
         title="Not yet documented",
-        description="Source states prevalence is not yet documented. Orphanet class.")
+        description="""Source states that the measure is not yet documented. Orphanet class; applies to whatever `measure_type` reports, not to prevalence alone.""")
     UNKNOWN = PermissibleValue(
         text="UNKNOWN",
         title="Unknown",
-        description="Prevalence is unknown or not stated.")
+        description="The magnitude is unknown or not stated for whatever `measure_type` reports.")
 
     _defn = EnumDefinition(
         name="PrevalenceClassEnum",
-        description="""Coarse, always-fillable band for disease occurrence — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency. The numeric bands are the Orphanet prevalence classes (so the ~7% of records already quoting Orphanet map directly and the ICEES/ORPHA structured sources stay aligned); the qualitative tiers cover records that report only prose (\"rare\", \"common\") with no numeric estimate. When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.""",
+        description="""Coarse, always-fillable band for the MAGNITUDE of a disease-occurrence rate — the population-rate analog of the HPO-style FrequencyEnum used for phenotype frequency.
+IMPORTANT: a band reports magnitude only. It does not say what is being measured; the sibling `measure_type` slot does that, and a band is meaningless without it. `BAND_1_9_PER_100000` on a POINT_PREVALENCE record means \"1-9 of every 100,000 people have this disease\"; the same band on an ANNUAL_INCIDENCE record means \"1-9 new cases per 100,000 per year\"; on a CARRIER_FREQUENCY record it describes carriers, who do not have the disease at all. Never read, compare, aggregate, or render a band without reading `measure_type` alongside it. `rate_denominator` pins the denominator explicitly and should be preferred by consumers where present.
+The five numeric bands are aligned to the Orphanet prevalence classes, so Orphanet-sourced prevalence records (and the ICEES/ORPHA structured sources) map across directly; on a non-prevalence measure the same boundaries are read purely as magnitude.
+The qualitative tiers are NOT magnitude bands. COMMON/RARE/ULTRA_RARE are each defined by a prevalence threshold and each presuppose that the source gave no numeric estimate. They are therefore INVALID on the two measures that are definitely not prevalence — ANNUAL_INCIDENCE and CARRIER_FREQUENCY — and should not sit alongside a populated `rate_per_100000`. They remain correct on the prevalence measures, on CASES_IN_LITERATURE, and on UNKNOWN, which is the ordinary prose-only case: a source that says only \"rare\" without naming its measure.
+When a numeric estimate exists, also populate rate_per_100000 (or rate_low/rate_high); the band is the queryable summary, the rate carries the precision.""",
+    )
+
+class RateDenominatorEnum(EnumDefinitionImpl):
+    """
+    What a Prevalence record's rate is a rate *of* — the denominator its numerator is divided by. Together with
+    `measure_type` this pins the dimension of `rate_per_100000`, which is otherwise ambiguous: a point prevalence of
+    5.0 is a dimensionless proportion of a population, while an annual incidence of 5.0 is 5 per 100,000 per year
+    (dimension time^-1). Records that omit the slot fall back to the denominator implied by `measure_type`: POPULATION
+    for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has
+    deliberately NO fallback — a published "annual incidence per 100,000" is usually computed against a mid-year
+    population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not
+    interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one
+    would silently assert a dimension for every legacy incidence record, none of which were migrated with denominator
+    information. Treat an incidence record with no `rate_denominator` as undetermined, and set the slot explicitly on
+    any incidence record you write. (Counts as of the decision are in design-decisions §8; they are deliberately not
+    repeated here, since a schema description outlives any KB snapshot.)
+    """
+    POPULATION = PermissibleValue(
+        text="POPULATION",
+        title="Per population",
+        description="""Whatever `measure_type` counts, per 100,000 people in the stated population — affected individuals for a prevalence, carriers for a carrier frequency. A dimensionless proportion; the denominator for point, period, and lifetime prevalence, and for carrier frequency.""")
+    LIVE_BIRTHS = PermissibleValue(
+        text="LIVE_BIRTHS",
+        title="Per live births",
+        description="""Whatever `measure_type` counts, per 100,000 live births (or births). A birth-cohort proportion, not a per-year rate; the denominator for birth prevalence and for predicted per-birth incidence catalogues.""")
+    PERSON_YEARS = PermissibleValue(
+        text="PERSON_YEARS",
+        title="Per person-years",
+        description="""New cases per 100,000 person-years of observation. A true rate with dimension time^-1; never directly comparable with a prevalence proportion.""")
+    POPULATION_PER_YEAR = PermissibleValue(
+        text="POPULATION_PER_YEAR",
+        title="Per population per year",
+        description="""New cases per 100,000 population per year, where the source reports an annual rate against a mid-period population rather than accumulated person-time. Distinguished from PERSON_YEARS because the two are only interchangeable when the population is stable over the interval.""")
+
+    _defn = EnumDefinition(
+        name="RateDenominatorEnum",
+        description="""What a Prevalence record's rate is a rate *of* — the denominator its numerator is divided by. Together with `measure_type` this pins the dimension of `rate_per_100000`, which is otherwise ambiguous: a point prevalence of 5.0 is a dimensionless proportion of a population, while an annual incidence of 5.0 is 5 per 100,000 per year (dimension time^-1). Records that omit the slot fall back to the denominator implied by `measure_type`: POPULATION for the prevalence measures and for CARRIER_FREQUENCY, LIVE_BIRTHS for BIRTH_PREVALENCE. ANNUAL_INCIDENCE has deliberately NO fallback — a published \"annual incidence per 100,000\" is usually computed against a mid-year population (POPULATION_PER_YEAR) but person-year denominators are standard in cohort studies, and the two are not interchangeable unless the population is stable. Neither choice is right often enough to assume, and the wrong one would silently assert a dimension for every legacy incidence record, none of which were migrated with denominator information. Treat an incidence record with no `rate_denominator` as undetermined, and set the slot explicitly on any incidence record you write. (Counts as of the decision are in design-decisions §8; they are deliberately not repeated here, since a schema description outlives any KB snapshot.)""",
     )
 
 class ClinicalSignificanceEnum(EnumDefinitionImpl):
@@ -6899,6 +7265,100 @@ class ClinicalSignificanceEnum(EnumDefinitionImpl):
         name="ClinicalSignificanceEnum",
         description="The clinical significance of a variant for a condition (ACMG guidelines)",
     )
+
+class VariantTypeEnum(EnumDefinitionImpl):
+    """
+    Physical sequence alteration, independently of genomic location or functional consequence. Human-readable values
+    map to Sequence Ontology. This is an optional classification alongside the legacy free-text type; it is not an
+    exhaustive vocabulary for complex rearrangements.
+    """
+    deletion = PermissibleValue(
+        text="deletion",
+        description="deletion",
+        meaning=SO["0000159"])
+    insertion = PermissibleValue(
+        text="insertion",
+        description="insertion",
+        meaning=SO["0000667"])
+    duplication = PermissibleValue(
+        text="duplication",
+        description="duplication",
+        meaning=SO["1000035"])
+    inversion = PermissibleValue(
+        text="inversion",
+        description="inversion",
+        meaning=SO["1000036"])
+    translocation = PermissibleValue(
+        text="translocation",
+        description="translocation",
+        meaning=SO["0000199"])
+
+    _defn = EnumDefinition(
+        name="VariantTypeEnum",
+        description="""Physical sequence alteration, independently of genomic location or functional consequence. Human-readable values map to Sequence Ontology. This is an optional classification alongside the legacy free-text type; it is not an exhaustive vocabulary for complex rearrangements.""",
+    )
+
+    @classmethod
+    def _addvals(cls):
+        setattr(cls, "single nucleotide variant",
+            PermissibleValue(
+                text="single nucleotide variant",
+                description="SNV",
+                meaning=SO["0001483"]))
+        setattr(cls, "copy number variation",
+            PermissibleValue(
+                text="copy number variation",
+                description="copy_number_variation",
+                meaning=SO["0001019"]))
+        setattr(cls, "short tandem repeat expansion",
+            PermissibleValue(
+                text="short tandem repeat expansion",
+                description="short_tandem_repeat_expansion",
+                meaning=SO["0002162"]))
+
+class GenomicContextEnum(EnumDefinitionImpl):
+    """
+    Genomic features overlapped by a variant, independently of its functional effect. Values describe sequence
+    features, not variant consequences. Contexts may overlap and are relative to the relevant gene or transcript;
+    record those details in the variant description.
+    """
+    intron = PermissibleValue(
+        text="intron",
+        description="intron",
+        meaning=SO["0000188"])
+
+    _defn = EnumDefinition(
+        name="GenomicContextEnum",
+        description="""Genomic features overlapped by a variant, independently of its functional effect. Values describe sequence features, not variant consequences. Contexts may overlap and are relative to the relevant gene or transcript; record those details in the variant description.""",
+    )
+
+    @classmethod
+    def _addvals(cls):
+        setattr(cls, "coding sequence",
+            PermissibleValue(
+                text="coding sequence",
+                description="CDS",
+                meaning=SO["0000316"]))
+        setattr(cls, "5' UTR",
+            PermissibleValue(
+                text="5' UTR",
+                description="five_prime_UTR",
+                meaning=SO["0000204"]))
+        setattr(cls, "3' UTR",
+            PermissibleValue(
+                text="3' UTR",
+                description="three_prime_UTR",
+                meaning=SO["0000205"]))
+        setattr(cls, "noncoding exon",
+            PermissibleValue(
+                text="noncoding exon",
+                description="noncoding_exon",
+                meaning=SO["0000198"]))
+        setattr(cls, "intergenic region",
+            PermissibleValue(
+                text="intergenic region",
+                description="intergenic_region",
+                meaning=SO["0000605"]))
 
 class RegulatoryVariantCategoryEnum(EnumDefinitionImpl):
     """
@@ -8158,6 +8618,9 @@ class DatasetTypeEnum(EnumDefinitionImpl):
     MULTI_OMICS_PERTURBATION = PermissibleValue(
         text="MULTI_OMICS_PERTURBATION",
         description="""Multi-omics profiling of genetic perturbations (e.g., CRISPR knockout combined with transcriptomic, chromatin accessibility, and cellular phenotyping)""")
+    IMAGING = PermissibleValue(
+        text="IMAGING",
+        description="""Image collection or image-derived morphometric dataset (e.g., micro-CT embryo phenotyping series, MRI cohorts, histology image repositories such as IMPC embryo imaging, IDR, or TCIA)""")
 
     _defn = EnumDefinition(
         name="DatasetTypeEnum",
@@ -8258,6 +8721,96 @@ class ModelFidelityEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="ModelFidelityEnum",
         description="""Curator assessment of how faithfully a model captures the linked human mechanism. Deliberately coarse: this is a translational-validity caveat, not a metric. Pair with `limitations` for the specific caveat.""",
+    )
+
+class ModelDivergenceTypeEnum(EnumDefinitionImpl):
+    """
+    Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all
+    50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to
+    establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single
+    link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately
+    computational-model-first; extending it to animal models would add supraphysiological expression and incomplete
+    phenotype, each already evidenced in that set.
+    """
+    BOUNDARY_OMISSION = PermissibleValue(
+        text="BOUNDARY_OMISSION",
+        title="Boundary omission",
+        description="""A component, cell type, compartment, or process the mechanism requires lies outside the model boundary. The commonest kind. Contrast PROXY_QUANTITY, where the thing is in the model but stands in for something else.""")
+    PROXY_QUANTITY = PermissibleValue(
+        text="PROXY_QUANTITY",
+        title="Proxy quantity",
+        description="""The model's variable is a stand-in of a different quantity from the one the mechanism node describes -- transcriptional regulation of dopamine synthesis for striatal dopamine concentration, an imaging signal for the tissue property it correlates with. Can occur at the same biological scale, so it is not recoverable from `model_scale`.""")
+    CALIBRATION_PROVENANCE = PermissibleValue(
+        text="CALIBRATION_PROVENANCE",
+        title="Calibration provenance",
+        description="""Parameters, training data, or validation derive from a system, cohort, or measurement type that does not match the claim -- fitted to cultured epithelia, parameterized from mouse fibroblasts, validated against aggregate rather than individual outcomes.""")
+    CAUSE_UNREPRESENTED = PermissibleValue(
+        text="CAUSE_UNREPRESENTED",
+        title="Cause unrepresented",
+        description="""The disease lesion is not encoded; the mechanism is imposed phenomenologically instead of arising from the allele, exposure, or perturbation that causes it. Also covers a perturbation that cannot be applied in isolation.""")
+    STRUCTURAL_IDEALIZATION = PermissibleValue(
+        text="STRUCTURAL_IDEALIZATION",
+        title="Structural idealization",
+        description="""Geometry, topology, or spatial organisation is idealized rather than anatomically or patient-derived -- a symmetric airway tree, a one-dimensional strand standing for a reconstructed outflow tract, spatially uniform fields.""")
+    TEMPORAL_SCOPE = PermissibleValue(
+        text="TEMPORAL_SCOPE",
+        title="Temporal scope",
+        description="""The model's time horizon or dynamic resolution does not match the mechanism's: an acute-injury window standing for chronic progression, or a parameter-free qualitative model that reaches reachability but not magnitude or timing.""")
+    CONTESTED_ASSUMPTION = PermissibleValue(
+        text="CONTESTED_ASSUMPTION",
+        title="Contested assumption",
+        description="""The model encodes a mechanistic assumption that independent or later evidence disputes, or that rests on a structure not experimentally known. Distinct from the other kinds in that the model may be internally sound and still wrong about the biology.""")
+    SCALE_EXTRAPOLATION = PermissibleValue(
+        text="SCALE_EXTRAPOLATION",
+        title="Scale extrapolation",
+        description="""The model observes below the biological scale of the node it is cited for and infers the higher-scale outcome. Derivable from `model_scale` versus the target's `biological_scale`; record it explicitly when the curator wants to state why it matters here.""")
+    SPECIES_MISMATCH = PermissibleValue(
+        text="SPECIES_MISMATCH",
+        title="Species mismatch",
+        description="""The model, or the data behind it, derives from a non-human system. Marginal among computational models and dominant among animal models, where it is the principal translational caveat.""")
+    POPULATION_MISMATCH = PermissibleValue(
+        text="POPULATION_MISMATCH",
+        title="Population mismatch",
+        description="""The modelled cohort, subtype, or indication is not the one this entry describes -- a generic model standing for a genotype-defined disorder, or a cohort that mixes in cases outside the entry's molecular criteria.""")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other",
+        description="""A divergence that does not fit the values above. Requires a `description` that states the kind plainly, and is a signal the taxonomy may need a value.""")
+
+    _defn = EnumDefinition(
+        name="ModelDivergenceTypeEnum",
+        description="""Typed kind of departure between a model and the mechanism node it is linked to. Values were fixed by reading all 50 computational-model `limitations` strings in the KB and clustering them, with the animal and NAM sets probed to establish which kinds are shared -- see docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single link usually carries more than one, which is why `divergences` is multivalued. The set is deliberately computational-model-first; extending it to animal models would add supraphysiological expression and incomplete phenotype, each already evidenced in that set.""",
+    )
+
+class ModelDivergenceMaterialityEnum(EnumDefinitionImpl):
+    """
+    Whether a specific divergence bears on the specific claim its link makes. This is what separates a caveat that
+    undermines the claim from one that is real but beside the point, and it is deliberately per-divergence where
+    `fidelity` is per-link. Recording it is what could eventually let `fidelity` be derived rather than authored. The
+    per-divergence framing mirrors the risk-informed grading in ASME V&V 40 and the FDA credibility guidance, where
+    how much credibility evidence a model needs is set by its influence on the decision and the consequence of that
+    decision being wrong, rather than by a single global quality score.
+    """
+    INVALIDATING = PermissibleValue(
+        text="INVALIDATING",
+        title="Invalidating",
+        description="""The claim should not be transferred to human disease on this model alone. Usually pairs with PARTIALLY_RECAPITULATE or FAILS_TO_RECAPITULATE and a low fidelity tier.""")
+    QUALIFYING = PermissibleValue(
+        text="QUALIFYING",
+        title="Qualifying",
+        description="""The claim holds, but in a narrower form than the link's `description` would suggest on its own. The commonest value.""")
+    IMMATERIAL = PermissibleValue(
+        text="IMMATERIAL",
+        title="Immaterial",
+        description="""A real divergence that does not bear on this particular claim. Worth recording precisely because it stops a reader inferring that a known limitation of the model undermines this use of it.""")
+    UNKNOWN = PermissibleValue(
+        text="UNKNOWN",
+        title="Unknown",
+        description="Bearing on the claim has not been assessed. Prefer this over guessing.")
+
+    _defn = EnumDefinition(
+        name="ModelDivergenceMaterialityEnum",
+        description="""Whether a specific divergence bears on the specific claim its link makes. This is what separates a caveat that undermines the claim from one that is real but beside the point, and it is deliberately per-divergence where `fidelity` is per-link. Recording it is what could eventually let `fidelity` be derived rather than authored. The per-divergence framing mirrors the risk-informed grading in ASME V&V 40 and the FDA credibility guidance, where how much credibility evidence a model needs is set by its influence on the decision and the consequence of that decision being wrong, rather than by a single global quality score.""",
     )
 
 class ModelReadoutDirectionEnum(EnumDefinitionImpl):
@@ -8544,7 +9097,7 @@ class EnvironmentalEffectEnum(EnumDefinitionImpl):
 class ImagingModalityEnum(EnumDefinitionImpl):
     """
     In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus
-    Diagnostic Imaging branch.
+    Diagnostic Imaging branch where NCIT has a term for the modality; MICRO_CT and OTHER carry none.
     """
     MRI = PermissibleValue(
         text="MRI",
@@ -8561,6 +9114,10 @@ class ImagingModalityEnum(EnumDefinitionImpl):
         title="Computed Tomography",
         description="X-ray computed tomography",
         meaning=NCIT["C17204"])
+    MICRO_CT = PermissibleValue(
+        text="MICRO_CT",
+        title="Micro-Computed Tomography",
+        description="""In-vivo X-ray computed tomography acquired at micrometer-scale voxel resolution, as used for live small-animal scanning and for high-resolution peripheral quantitative CT of human bone microarchitecture""")
     PET = PermissibleValue(
         text="PET",
         title="Positron Emission Tomography",
@@ -8603,7 +9160,7 @@ class ImagingModalityEnum(EnumDefinitionImpl):
 
     _defn = EnumDefinition(
         name="ImagingModalityEnum",
-        description="""In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch.""",
+        description="""In-vivo medical imaging modality by which an ImagingFinding is detected. Meanings bind to the NCI Thesaurus Diagnostic Imaging branch where NCIT has a term for the modality; MICRO_CT and OTHER carry none.""",
     )
 
 class ElectrophysiologyModalityEnum(EnumDefinitionImpl):
@@ -8825,16 +9382,24 @@ class TherapeuticModalityEnum(EnumDefinitionImpl):
         description="""Broad therapeutic modality / platform of a treatment, independent of the specific agent or NCIT action term. Captures the \"kind of thing\" a treatment is (e.g., a small molecule vs. an antisense oligonucleotide vs. a gene therapy) so treatments are queryable by platform across diseases.""",
     )
 
-class AsoMechanismEnum(EnumDefinitionImpl):
+class OligonucleotideMechanismEnum(EnumDefinitionImpl):
     """
-    Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase
-    H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).
+    Molecular mechanism of action of a therapeutic oligonucleotide. Covers the three core single-stranded antisense
+    (ASO) paradigms described in Sang et al. 2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation,
+    and steric blockade - together with the double-stranded RNA interference (RNAi) paradigm used by siRNA
+    therapeutics, in which the guide strand is loaded into RISC and Argonaute-2 cleaves the sequence-matched
+    transcript.
     """
     RNASE_H_KNOCKDOWN = PermissibleValue(
         text="RNASE_H_KNOCKDOWN",
         title="RNase H knockdown",
         description="""ASO:RNA heteroduplex recruits RNase H1 to cleave the target mRNA, reducing a toxic or gain-of-function protein""",
         meaning=GO["0004523"])
+    RNAI_KNOCKDOWN = PermissibleValue(
+        text="RNAI_KNOCKDOWN",
+        title="RNAi knockdown",
+        description="""Double-stranded siRNA guide strand is loaded into RISC and Argonaute-2 catalytically cleaves the sequence-matched mRNA, reducing a toxic or gain-of-function protein (e.g., patisiran, vutrisiran, inclisiran)""",
+        meaning=GO["0070551"])
     SPLICE_MODULATION_EXON_SKIPPING = PermissibleValue(
         text="SPLICE_MODULATION_EXON_SKIPPING",
         title="Splice modulation (exon skipping)",
@@ -8853,14 +9418,17 @@ class AsoMechanismEnum(EnumDefinitionImpl):
         description="ASO sequesters or inhibits a microRNA (antimiR) or blocks a miRNA binding site")
 
     _defn = EnumDefinition(
-        name="AsoMechanismEnum",
-        description="""Molecular mechanism of action of an antisense oligonucleotide, following the three core ASO paradigms (RNase H-mediated degradation, splice modulation, and steric blockade) described in Sang et al. 2024 (PMID:38914784).""",
+        name="OligonucleotideMechanismEnum",
+        description="""Molecular mechanism of action of a therapeutic oligonucleotide. Covers the three core single-stranded antisense (ASO) paradigms described in Sang et al. 2024 (PMID:38914784) - RNase H-mediated degradation, splice modulation, and steric blockade - together with the double-stranded RNA interference (RNAi) paradigm used by siRNA therapeutics, in which the guide strand is loaded into RISC and Argonaute-2 cleaves the sequence-matched transcript.""",
     )
 
-class AsoChemistryEnum(EnumDefinitionImpl):
+class OligonucleotideChemistryEnum(EnumDefinitionImpl):
     """
-    Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and
-    whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.
+    Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity,
+    and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts
+    purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose
+    modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should
+    record the modification most characteristic of its design and describe the rest in the treatment description.
     """
     PHOSPHOROTHIOATE = PermissibleValue(
         text="PHOSPHOROTHIOATE",
@@ -8874,7 +9442,11 @@ class AsoChemistryEnum(EnumDefinitionImpl):
     TWO_PRIME_O_METHYL = PermissibleValue(
         text="TWO_PRIME_O_METHYL",
         title="2'-O-methyl",
-        description="2'-O-methyl (2'-OMe) ribose modification")
+        description="""2'-O-methyl (2'-OMe) ribose modification; the dominant sugar chemistry of stabilized siRNA duplexes""")
+    TWO_PRIME_FLUORO = PermissibleValue(
+        text="TWO_PRIME_FLUORO",
+        title="2'-fluoro",
+        description="""2'-fluoro (2'-F) ribose modification, alternated with 2'-O-methyl in enhanced-stabilization siRNA duplexes""")
     TWO_PRIME_O_METHOXYETHYL = PermissibleValue(
         text="TWO_PRIME_O_METHOXYETHYL",
         title="2'-O-methoxyethyl (2'-MOE)",
@@ -8892,14 +9464,16 @@ class AsoChemistryEnum(EnumDefinitionImpl):
         description="Chemistry not covered by the above categories")
 
     _defn = EnumDefinition(
-        name="AsoChemistryEnum",
-        description="""Backbone / sugar chemistry of an antisense oligonucleotide. Determines nuclease resistance, binding affinity, and whether the ASO supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy.""",
+        name="OligonucleotideChemistryEnum",
+        description="""Backbone / sugar chemistry of a therapeutic oligonucleotide. Determines nuclease resistance and binding affinity, and for single-stranded ASOs whether the oligonucleotide supports RNase H recruitment (gapmer designs) or acts purely by steric occupancy. siRNA duplexes typically combine alternating 2'-O-methyl and 2'-fluoro ribose modifications with terminal phosphorothioate linkages; a treatment whose duplex uses more than one of these should record the modification most characteristic of its design and describe the rest in the treatment description.""",
     )
 
-class AsoConjugationEnum(EnumDefinitionImpl):
+class OligonucleotideConjugationEnum(EnumDefinitionImpl):
     """
-    Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve
-    pharmacokinetics.
+    Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve
+    pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a
+    conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may
+    still be formulated in a lipid nanoparticle (e.g., patisiran).
     """
     UNCONJUGATED = PermissibleValue(
         text="UNCONJUGATED",
@@ -8923,8 +9497,48 @@ class AsoConjugationEnum(EnumDefinitionImpl):
         description="Conjugate not covered by the above categories")
 
     _defn = EnumDefinition(
-        name="AsoConjugationEnum",
-        description="""Targeting ligand or conjugate attached to an antisense oligonucleotide to direct tissue uptake or improve pharmacokinetics.""",
+        name="OligonucleotideConjugationEnum",
+        description="""Targeting ligand covalently attached to a therapeutic oligonucleotide to direct tissue uptake or improve pharmacokinetics. Distinct from delivery_platform, which records whether the oligonucleotide is carried by a conjugate at all as opposed to a nanoparticle, a viral vector, or nothing: an unconjugated oligonucleotide may still be formulated in a lipid nanoparticle (e.g., patisiran).""",
+    )
+
+class OligonucleotideDeliveryPlatformEnum(EnumDefinitionImpl):
+    """
+    How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the
+    targeting ligand (see conjugation) and not the route of administration: it is what solves the stability,
+    cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing -
+    patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed
+    intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three
+    months without it.
+    """
+    UNFORMULATED = PermissibleValue(
+        text="UNFORMULATED",
+        title="Unformulated / free uptake",
+        description="""Chemically stabilized oligonucleotide administered without a carrier or targeting ligand, relying on free tissue uptake (e.g., intrathecal nusinersen, subcutaneous inotersen)""")
+    CONJUGATE = PermissibleValue(
+        text="CONJUGATE",
+        title="Ligand conjugate",
+        description="""Covalently conjugated to a targeting ligand that drives receptor-mediated uptake; the specific ligand is recorded in conjugation (e.g., GalNAc for hepatocyte ASGR1 uptake)""")
+    LIPID_NANOPARTICLE = PermissibleValue(
+        text="LIPID_NANOPARTICLE",
+        title="Lipid nanoparticle (LNP)",
+        description="""Encapsulated in an ionizable-lipid nanoparticle that protects the payload and destabilizes the endosomal membrane on acidification (e.g., patisiran)""")
+    POLYMER_NANOPARTICLE = PermissibleValue(
+        text="POLYMER_NANOPARTICLE",
+        description="Encapsulated in a polymeric or dendrimer nanoparticle")
+    VIRAL_VECTOR = PermissibleValue(
+        text="VIRAL_VECTOR",
+        description="Delivered by an engineered viral vector (e.g., AAV-expressed short hairpin RNA)")
+    EXOSOME = PermissibleValue(
+        text="EXOSOME",
+        title="Exosome / extracellular vesicle",
+        description="Delivered in an exosome or other extracellular vesicle")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        description="Delivery platform not covered by the above categories")
+
+    _defn = EnumDefinition(
+        name="OligonucleotideDeliveryPlatformEnum",
+        description="""How a therapeutic oligonucleotide is carried to its target tissue. This is the delivery strategy, not the targeting ligand (see conjugation) and not the route of administration: it is what solves the stability, cellular-uptake, and endosomal-escape problem for a given drug. The distinction is clinically load-bearing - patisiran and vutrisiran silence the same transcript, but the lipid-nanoparticle formulation is dosed intravenously every three weeks with premedication, while the GalNAc conjugate is dosed subcutaneously every three months without it.""",
     )
 
 class MechanisticHypothesisStatusEnum(EnumDefinitionImpl):
@@ -9405,9 +10019,6 @@ class GroupingMemberTypeEnum(EnumDefinitionImpl):
     SUBTYPE = PermissibleValue(
         text="SUBTYPE",
         description="A named subtype within a Disease entry.")
-    MODULE = PermissibleValue(
-        text="MODULE",
-        description="A mechanism module in kb/modules/.")
     GROUPING = PermissibleValue(
         text="GROUPING",
         description="Another Grouping (nested grouping).")
@@ -9415,6 +10026,91 @@ class GroupingMemberTypeEnum(EnumDefinitionImpl):
     _defn = EnumDefinition(
         name="GroupingMemberTypeEnum",
         description="The kind of entity referenced by a GroupingMember.",
+    )
+
+class ModuleCollectionTypeEnum(EnumDefinitionImpl):
+    """
+    The organizing principle for a curated collection of mechanism modules. Collections are navigation and framework
+    records, not mechanism modules themselves and not disease groupings.
+    """
+    PUBLISHED_FRAMEWORK = PermissibleValue(
+        text="PUBLISHED_FRAMEWORK",
+        title="Published framework",
+        description="""A named framework or model defined in the scientific literature, such as the Hallmarks of Aging.""")
+    MECHANISTIC_FAMILY = PermissibleValue(
+        text="MECHANISTIC_FAMILY",
+        title="Mechanistic family",
+        description="Modules sharing a broad mechanistic pattern or process family.")
+    BIOLOGICAL_SYSTEM = PermissibleValue(
+        text="BIOLOGICAL_SYSTEM",
+        title="Biological system",
+        description="Modules organized by the biological system or compartment involved.")
+    PATHOLOGICAL_OUTCOME = PermissibleValue(
+        text="PATHOLOGICAL_OUTCOME",
+        title="Pathological outcome",
+        description="Modules organized by a shared class of pathological outcome.")
+    THERAPEUTIC_STRATEGY = PermissibleValue(
+        text="THERAPEUTIC_STRATEGY",
+        title="Therapeutic strategy",
+        description="Modules organized by a shared intervention or therapeutic strategy.")
+    OTHER = PermissibleValue(
+        text="OTHER",
+        title="Other",
+        description="A module-collection basis not covered by the other values.")
+
+    _defn = EnumDefinition(
+        name="ModuleCollectionTypeEnum",
+        description="""The organizing principle for a curated collection of mechanism modules. Collections are navigation and framework records, not mechanism modules themselves and not disease groupings.""",
+    )
+
+class ModuleCategoryEnum(EnumDefinitionImpl):
+    """
+    Areas of study a mechanism module is relevant to. A category asserts "this module is relevant to this area of
+    study" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that
+    conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and
+    PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the
+    `module_categories` slot, which is intended for entries under `kb/modules/`.
+    """
+    TOXICOLOGY = PermissibleValue(
+        text="TOXICOLOGY",
+        title="Toxicology",
+        description="""Injury caused by exposure to a xenobiotic — environmental toxicants, poisons, occupational and dietary exposures, and adverse drug reactions modelled as mechanism rather than as an outcome. Includes drug-toxicity modules and any module whose trigger arm carries a toxicant or drug exposure.""")
+    PHARMACOLOGY = PermissibleValue(
+        text="PHARMACOLOGY",
+        title="Pharmacology",
+        description="""Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern.""")
+    ONCOLOGY = PermissibleValue(
+        text="ONCOLOGY",
+        title="Oncology",
+        description="""Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns.""")
+    INFECTIOUS_DISEASE = PermissibleValue(
+        text="INFECTIOUS_DISEASE",
+        title="Infectious disease",
+        description="""Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules.""")
+    IMMUNOLOGY = PermissibleValue(
+        text="IMMUNOLOGY",
+        title="Immunology",
+        description="""Immune-mediated mechanism — innate and adaptive immune activation, autoimmunity, hypersensitivity, chronic inflammation, and the immune contribution to tissue injury and repair.""")
+    NEUROSCIENCE = PermissibleValue(
+        text="NEUROSCIENCE",
+        title="Neuroscience",
+        description="""Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance.""")
+    DEVELOPMENTAL_BIOLOGY = PermissibleValue(
+        text="DEVELOPMENTAL_BIOLOGY",
+        title="Developmental biology",
+        description="""Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue.""")
+    METABOLISM = PermissibleValue(
+        text="METABOLISM",
+        title="Metabolism",
+        description="""Intermediary metabolism, bioenergetics, and cellular quality control of metabolic substrate: inborn errors of metabolism, mitochondrial and lysosomal function, nutrient sensing, and storage or intoxication phenotypes.""")
+    AGING = PermissibleValue(
+        text="AGING",
+        title="Aging",
+        description="""Geroscience mechanism — the hallmarks of aging and the age-associated processes (senescence, telomere attrition, stem-cell exhaustion, proteostasis and genome-maintenance decline) that drive late-onset disease.""")
+
+    _defn = EnumDefinition(
+        name="ModuleCategoryEnum",
+        description="""Areas of study a mechanism module is relevant to. A category asserts \"this module is relevant to this area of study\" — it is a discovery and browsing aid, not a mechanistic claim and not a classification of the diseases that conform to the module. Multivalued and deliberately non-exclusive: a drug-toxicity module is both TOXICOLOGY and PHARMACOLOGY, and an antiviral drug-target module is both PHARMACOLOGY and INFECTIOUS_DISEASE. Applied through the `module_categories` slot, which is intended for entries under `kb/modules/`.""",
     )
 
 class ReferenceTagEnum(EnumDefinitionImpl):
@@ -9425,7 +10121,11 @@ class ReferenceTagEnum(EnumDefinitionImpl):
     GeneReviews = PermissibleValue(
         text="GeneReviews",
         title="GeneReviews",
-        description="""Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management.""")
+        description="""Reference is a GeneReviews article published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK1116/). GeneReviews are expert-authored, peer-reviewed summaries updated on a rolling basis; they are the gold-standard narrative resource for rare Mendelian disease phenotyping and management. A GeneReviews chapter is the mandatory phenotype baseline for a Mendelian entry (`just check-genereviews` reports whether one exists).""")
+    StatPearls = PermissibleValue(
+        text="StatPearls",
+        title="StatPearls",
+        description="""Reference is a StatPearls chapter published in the NCBI Bookshelf (https://www.ncbi.nlm.nih.gov/books/NBK430685/). StatPearls is a point-of-care clinical reference spanning all of medicine, written by volunteer clinicians under a lighter editorial process than GeneReviews and framed as a continuing-education activity. A chapter is citable for orientation and its PubMed abstract is quotable, but it is not an expert-curated baseline: a StatPearls chapter never substitutes for a GeneReviews chapter, and its absence is never a gap.""")
 
     _defn = EnumDefinition(
         name="ReferenceTagEnum",
@@ -9462,6 +10162,21 @@ class GeneSetRelationshipEnum(EnumDefinitionImpl):
 class ICDOMorphologyEnum(EnumDefinitionImpl):
     """
     ICD-O morphology axis classification for cancer subtypes. Values link to NCI Thesaurus for formal definitions.
+    This is a coarse histogenetic vocabulary, not a slot for four-digit ICD-O codes. Two rules govern it.
+    Granularity (the lump/split rule): a value names a morphology *family*, not an individual tumour entity. A family
+    earns its own value when the knowledge base holds neoplastic entries that no existing value can hold correctly,
+    and when it is a top-level morphology group in ICD-O / the WHO classification. A sub-family is split out of its
+    parent only when it dominates curation practice — which is why ``Adenocarcinoma`` and ``Squamous Cell Carcinoma``
+    sit beside ``Carcinoma``, and ``Multiple Myeloma`` beside ``Plasma Cell Neoplasm``, while single entities (glomus
+    tumour, chordoma, GIST) are held by their family rather than given a value of their own.
+    Behaviour: this axis names the morphology family, and most values are behaviour-neutral — ``Nerve Sheath
+    Neoplasm`` and ``Pericytic Neoplasm`` cover benign and malignant members alike. Where ICD-O itself splits a family
+    on behaviour, the values follow it (``Adenoma`` vs ``Adenocarcinoma``). Do not read malignancy into a value that
+    does not assert it. A first-class behaviour slot (the ICD-O ``/0``-``/3`` digit) and a place for the four-digit
+    code itself remain open on monarch-initiative/dismech#7548.
+    When no value fits, omit ``icdo_morphology`` and record why in the entry's ``notes`` or a ``CURATION_TODO``
+    discussion. There is deliberately no ``Other`` value: the omissions are the signal that tells us which family to
+    add next, and this expansion was driven by exactly those notes.
     """
     Carcinoma = PermissibleValue(
         text="Carcinoma",
@@ -9491,10 +10206,22 @@ class ICDOMorphologyEnum(EnumDefinitionImpl):
         text="Glioma",
         description="Cancer arising from glial cells",
         meaning=NCIT["C3059"])
+    Adenoma = PermissibleValue(
+        text="Adenoma",
+        description="Benign neoplasm of glandular epithelium; the benign counterpart of Adenocarcinoma",
+        meaning=NCIT["C2855"])
+    Meningioma = PermissibleValue(
+        text="Meningioma",
+        description="Neoplasm of meningothelial (arachnoidal) cells",
+        meaning=NCIT["C3230"])
 
     _defn = EnumDefinition(
         name="ICDOMorphologyEnum",
-        description="""ICD-O morphology axis classification for cancer subtypes. Values link to NCI Thesaurus for formal definitions.""",
+        description="""ICD-O morphology axis classification for cancer subtypes. Values link to NCI Thesaurus for formal definitions.
+This is a coarse histogenetic vocabulary, not a slot for four-digit ICD-O codes. Two rules govern it.
+Granularity (the lump/split rule): a value names a morphology *family*, not an individual tumour entity. A family earns its own value when the knowledge base holds neoplastic entries that no existing value can hold correctly, and when it is a top-level morphology group in ICD-O / the WHO classification. A sub-family is split out of its parent only when it dominates curation practice — which is why ``Adenocarcinoma`` and ``Squamous Cell Carcinoma`` sit beside ``Carcinoma``, and ``Multiple Myeloma`` beside ``Plasma Cell Neoplasm``, while single entities (glomus tumour, chordoma, GIST) are held by their family rather than given a value of their own.
+Behaviour: this axis names the morphology family, and most values are behaviour-neutral — ``Nerve Sheath Neoplasm`` and ``Pericytic Neoplasm`` cover benign and malignant members alike. Where ICD-O itself splits a family on behaviour, the values follow it (``Adenoma`` vs ``Adenocarcinoma``). Do not read malignancy into a value that does not assert it. A first-class behaviour slot (the ICD-O ``/0``-``/3`` digit) and a place for the four-digit code itself remain open on monarch-initiative/dismech#7548.
+When no value fits, omit ``icdo_morphology`` and record why in the entry's ``notes`` or a ``CURATION_TODO`` discussion. There is deliberately no ``Other`` value: the omissions are the signal that tells us which family to add next, and this expansion was driven by exactly those notes.""",
     )
 
     @classmethod
@@ -9514,6 +10241,61 @@ class ICDOMorphologyEnum(EnumDefinitionImpl):
                 text="Embryonal Neoplasm",
                 description="Cancer arising from embryonic tissue",
                 meaning=NCIT["C3264"]))
+        setattr(cls, "Trophoblastic Tumor",
+            PermissibleValue(
+                text="Trophoblastic Tumor",
+                description="Neoplasm of trophoblastic cells, gestational or non-gestational",
+                meaning=NCIT["C3422"]))
+        setattr(cls, "Mesothelial Neoplasm",
+            PermissibleValue(
+                text="Mesothelial Neoplasm",
+                description="""Neoplasm arising from the mesothelium lining the pleura, peritoneum, pericardium or tunica vaginalis""",
+                meaning=NCIT["C3786"]))
+        setattr(cls, "Pericytic Neoplasm",
+            PermissibleValue(
+                text="Pericytic Neoplasm",
+                description="""Mesenchymal neoplasm arising from the perivascular (pericytic) cells of connective and soft tissue""",
+                meaning=NCIT["C6528"]))
+        setattr(cls, "Nerve Sheath Neoplasm",
+            PermissibleValue(
+                text="Nerve Sheath Neoplasm",
+                description="Neoplasm arising from the cells of the peripheral nerve sheath",
+                meaning=NCIT["C4972"]))
+        setattr(cls, "Germ Cell Tumor",
+            PermissibleValue(
+                text="Germ Cell Tumor",
+                description="Gonadal or extragonadal neoplasm originating from germ cells",
+                meaning=NCIT["C3708"]))
+        setattr(cls, "Sex Cord-Stromal Tumor",
+            PermissibleValue(
+                text="Sex Cord-Stromal Tumor",
+                description="""Neoplasm of the gonadal sex cord and stromal cells (granulosa, Sertoli, Leydig, fibroblast)""",
+                meaning=NCIT["C3794"]))
+        setattr(cls, "Neuroendocrine Neoplasm",
+            PermissibleValue(
+                text="Neuroendocrine Neoplasm",
+                description="Neoplasm of cells showing neuroendocrine differentiation",
+                meaning=NCIT["C3809"]))
+        setattr(cls, "Plasma Cell Neoplasm",
+            PermissibleValue(
+                text="Plasma Cell Neoplasm",
+                description="Clonal proliferation of immunoglobulin-secreting plasma cells",
+                meaning=NCIT["C4665"]))
+        setattr(cls, "Myeloproliferative Neoplasm",
+            PermissibleValue(
+                text="Myeloproliferative Neoplasm",
+                description="""Clonal myeloid neoplasm with effective but excessive production of one or more mature blood cell lineages""",
+                meaning=NCIT["C4345"]))
+        setattr(cls, "Myelodysplastic Syndrome",
+            PermissibleValue(
+                text="Myelodysplastic Syndrome",
+                description="Clonal myeloid neoplasm characterised by dysplasia and ineffective haematopoiesis",
+                meaning=NCIT["C3247"]))
+        setattr(cls, "Histiocytic and Dendritic Cell Neoplasm",
+            PermissibleValue(
+                text="Histiocytic and Dendritic Cell Neoplasm",
+                description="Neoplasm of histiocytes and accessory/dendritic cells",
+                meaning=NCIT["C9294"]))
 
 class HarrisonsChapterEnum(EnumDefinitionImpl):
     """
@@ -9764,7 +10546,7 @@ class IUISCategoryEnum(EnumDefinitionImpl):
         setattr(cls, "bone marrow failure",
             PermissibleValue(
                 text="bone marrow failure",
-                description="Table 9 - Bone marrow failure syndromes (Fanconi, DKC, SDS, DBA)"))
+                description="""Table 9 - Bone marrow failure syndromes (Fanconi anemia, dyskeratosis congenita, MIRAGE, Coats plus)"""))
         setattr(cls, "phenocopy of IEI",
             PermissibleValue(
                 text="phenocopy of IEI",
@@ -10395,7 +11177,8 @@ class ISDSNosologyGroupEnum(EnumDefinitionImpl):
         description="""Group 11 (2023 revision): Metaphyseal dysplasias. Disorders with predominantly metaphyseal change — metaphyseal dysplasia Schmid type (COL10A1), cartilage-hair hypoplasia (RMRP), the CHH-like short-stature dysplasias (POP1, NEPRO), Shwachman-Diamond syndrome (SBDS, EFL1, DNAJC21, SRP54), metaphyseal dysplasia Spahr and metaphyseal anadysplasia (MMP13, MMP9), metaphyseal dysplasia with maxillary hypoplasia (RUNX2).""")
     spondylometaphyseal_dysplasias = PermissibleValue(
         text="spondylometaphyseal_dysplasias",
-        description="""Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement — spondyloenchondrodysplasia (ACP5), odontochondrodysplasia (TRIP11), SMD corner-fracture/Sutcliffe type (FN1), SMD with cone-rod dystrophy (PCYT1A).""")
+        description="""Group 12 (2023 revision): Spondylometaphyseal dysplasias (SMD). Combined vertebral and metaphyseal involvement. The group has exactly six members, NOS 12-0010 to 12-0060 — spondyloenchondrodysplasia with immune dysregulation (ACP5), odontochondrodysplasia (TRIP11), SMD Sutcliffe or 'corner fracture' type (FN1), SMD with cone-rod dystrophy (PCYT1A), SMD with corneal dystrophy (PLCB3), and chondrodysplasia-pseudohermaphroditism / Nivelon-Nivelon-Mabille syndrome (HHAT).
+Four disorders carrying an SMD name are deliberately placed elsewhere, and the group's own \"see also\" note lists all four: SMD Kozlowski (TRPV4, group 10), severe SMD Sedaghatian type (GPX4, group 14), and axial SMD in its CFAP410-related and NEK1-related forms (group 10, skeletal ciliopathies). TRIP11 additionally spans two groups by severity — odontochondrodysplasia here, achondrogenesis type 1A in group 14 — and MIM 184255 is gene-split between NOS 12-0030 (FN1) and NOS 02-0050 (COL2A1), with the row note \"Some cases are linked to COL2A1 but not the original family\". A radiographic SMD label is therefore a poor predictor of group-12 membership; check Table 1.""")
     spondylo_epi_metaphyseal_dysplasias = PermissibleValue(
         text="spondylo_epi_metaphyseal_dysplasias",
         description="""Group 13 (2023 revision): Spondyloepi(meta)physeal dysplasias (SE(M)D). A large, molecularly heterogeneous group with vertebral plus epiphyseal (with or without metaphyseal) involvement — Dyggve-Melchior-Clausen dysplasia, immuno-osseous dysplasia (Schimke), Wolcott-Rallison syndrome, the named SEMD types (matrilin/MATN3, biglycan, NANS, RSPRY1, TMEM165, EXTL3, DDRGK1, UFSP2, DDR2), X-linked SED tarda (TRAPPC2), spondylodysplastic Ehlers-Danlos syndrome (SLC39A13), SPONASTRIME dysplasia, Steel syndrome, CODAS, EVEN-PLUS and CAGSSS syndromes.""")
@@ -11996,6 +12779,9 @@ slots.supports = Slot(uri=DISMECH.supports, name="supports", curie=DISMECH.curie
 slots.directness = Slot(uri=DISMECH.directness, name="directness", curie=DISMECH.curie('directness'),
                    model_uri=DISMECH.directness, domain=None, range=Optional[Union[str, "DirectnessEnum"]])
 
+slots.quote_role = Slot(uri=DISMECH.quote_role, name="quote_role", curie=DISMECH.curie('quote_role'),
+                   model_uri=DISMECH.quote_role, domain=None, range=Optional[Union[str, "QuoteRoleEnum"]])
+
 slots.evidence_source = Slot(uri=DISMECH.evidence_source, name="evidence_source", curie=DISMECH.curie('evidence_source'),
                    model_uri=DISMECH.evidence_source, domain=None, range=Optional[Union[str, "EvidenceSourceEnum"]])
 
@@ -12055,6 +12841,9 @@ slots.rate_low = Slot(uri=DISMECH.rate_low, name="rate_low", curie=DISMECH.curie
 
 slots.rate_high = Slot(uri=DISMECH.rate_high, name="rate_high", curie=DISMECH.curie('rate_high'),
                    model_uri=DISMECH.rate_high, domain=None, range=Optional[float])
+
+slots.rate_denominator = Slot(uri=DISMECH.rate_denominator, name="rate_denominator", curie=DISMECH.curie('rate_denominator'),
+                   model_uri=DISMECH.rate_denominator, domain=None, range=Optional[Union[str, "RateDenominatorEnum"]])
 
 slots.case_fractions = Slot(uri=DISMECH.case_fractions, name="case_fractions", curie=DISMECH.curie('case_fractions'),
                    model_uri=DISMECH.case_fractions, domain=None, range=Optional[Union[Union[dict, GeneCaseFraction], list[Union[dict, GeneCaseFraction]]]])
@@ -12449,6 +13238,9 @@ slots.treatments = Slot(uri=DISMECH.treatments, name="treatments", curie=DISMECH
 slots.categories = Slot(uri=DISMECH.categories, name="categories", curie=DISMECH.curie('categories'),
                    model_uri=DISMECH.categories, domain=None, range=Optional[Union[str, list[str]]])
 
+slots.module_categories = Slot(uri=DISMECH.module_categories, name="module_categories", curie=DISMECH.curie('module_categories'),
+                   model_uri=DISMECH.module_categories, domain=None, range=Optional[Union[Union[str, "ModuleCategoryEnum"], list[Union[str, "ModuleCategoryEnum"]]]])
+
 slots.infectious_agent = Slot(uri=DISMECH.infectious_agent, name="infectious_agent", curie=DISMECH.curie('infectious_agent'),
                    model_uri=DISMECH.infectious_agent, domain=None, range=Optional[Union[dict[Union[str, InfectiousAgentName], Union[dict, InfectiousAgent]], list[Union[dict, InfectiousAgent]]]])
 
@@ -12496,6 +13288,12 @@ slots.genotype = Slot(uri=DISMECH.genotype, name="genotype", curie=DISMECH.curie
 
 slots.type = Slot(uri=DISMECH.type, name="type", curie=DISMECH.curie('type'),
                    model_uri=DISMECH.type, domain=None, range=Optional[str])
+
+slots.variant_type = Slot(uri=DISMECH.variant_type, name="variant_type", curie=DISMECH.curie('variant_type'),
+                   model_uri=DISMECH.variant_type, domain=None, range=Optional[Union[str, "VariantTypeEnum"]])
+
+slots.genomic_contexts = Slot(uri=DISMECH.genomic_contexts, name="genomic_contexts", curie=DISMECH.curie('genomic_contexts'),
+                   model_uri=DISMECH.genomic_contexts, domain=None, range=Optional[Union[Union[str, "GenomicContextEnum"], list[Union[str, "GenomicContextEnum"]]]])
 
 slots.clinical_significance = Slot(uri=DISMECH.clinical_significance, name="clinical_significance", curie=DISMECH.curie('clinical_significance'),
                    model_uri=DISMECH.clinical_significance, domain=None, range=Optional[Union[str, "ClinicalSignificanceEnum"]])
@@ -12577,6 +13375,25 @@ slots.regulatory_category = Slot(uri=DISMECH.regulatory_category, name="regulato
 
 slots.regulatory_element_type = Slot(uri=DISMECH.regulatory_element_type, name="regulatory_element_type", curie=DISMECH.curie('regulatory_element_type'),
                    model_uri=DISMECH.regulatory_element_type, domain=None, range=Optional[Union[str, "RegulatoryElementTypeEnum"]])
+
+slots.affected_regions = Slot(uri=DISMECH.affected_regions, name="affected_regions", curie=DISMECH.curie('affected_regions'),
+                   model_uri=DISMECH.affected_regions, domain=None, range=Optional[Union[dict[Union[str, GenomicRegionName], Union[dict, GenomicRegion]], list[Union[dict, GenomicRegion]]]])
+
+slots.chromosomal_region = Slot(uri=DISMECH.chromosomal_region, name="chromosomal_region", curie=DISMECH.curie('chromosomal_region'),
+                   model_uri=DISMECH.chromosomal_region, domain=None, range=Optional[str],
+                   pattern=re.compile(r'^([1-9]|1[0-9]|2[0-2]|X|Y)([pq]([1-9][0-9]*(\.[0-9]+)?)?(-[pq]([1-9][0-9]*(\.[0-9]+)?)?)?)?$'))
+
+slots.between_genes = Slot(uri=DISMECH.between_genes, name="between_genes", curie=DISMECH.curie('between_genes'),
+                   model_uri=DISMECH.between_genes, domain=None, range=Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]])
+
+slots.within_gene = Slot(uri=DISMECH.within_gene, name="within_gene", curie=DISMECH.curie('within_gene'),
+                   model_uri=DISMECH.within_gene, domain=None, range=Optional[Union[dict, GeneDescriptor]])
+
+slots.overlaps_genes = Slot(uri=DISMECH.overlaps_genes, name="overlaps_genes", curie=DISMECH.curie('overlaps_genes'),
+                   model_uri=DISMECH.overlaps_genes, domain=None, range=Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]])
+
+slots.adjacent_to_genes = Slot(uri=DISMECH.adjacent_to_genes, name="adjacent_to_genes", curie=DISMECH.curie('adjacent_to_genes'),
+                   model_uri=DISMECH.adjacent_to_genes, domain=None, range=Optional[Union[Union[dict, GeneDescriptor], list[Union[dict, GeneDescriptor]]]])
 
 slots.affected_cell_types = Slot(uri=DISMECH.affected_cell_types, name="affected_cell_types", curie=DISMECH.curie('affected_cell_types'),
                    model_uri=DISMECH.affected_cell_types, domain=None, range=Optional[Union[Union[dict, CellTypeDescriptor], list[Union[dict, CellTypeDescriptor]]]])
@@ -12686,6 +13503,18 @@ slots.fidelity = Slot(uri=DISMECH.fidelity, name="fidelity", curie=DISMECH.curie
 slots.limitations = Slot(uri=DISMECH.limitations, name="limitations", curie=DISMECH.curie('limitations'),
                    model_uri=DISMECH.limitations, domain=None, range=Optional[str])
 
+slots.model_scale = Slot(uri=DISMECH.model_scale, name="model_scale", curie=DISMECH.curie('model_scale'),
+                   model_uri=DISMECH.model_scale, domain=None, range=Optional[Union[str, "BiologicalScaleEnum"]])
+
+slots.divergences = Slot(uri=DISMECH.divergences, name="divergences", curie=DISMECH.curie('divergences'),
+                   model_uri=DISMECH.divergences, domain=None, range=Optional[Union[Union[dict, ModelDivergence], list[Union[dict, ModelDivergence]]]])
+
+slots.divergence_type = Slot(uri=DISMECH.divergence_type, name="divergence_type", curie=DISMECH.curie('divergence_type'),
+                   model_uri=DISMECH.divergence_type, domain=None, range=Optional[Union[str, "ModelDivergenceTypeEnum"]])
+
+slots.materiality = Slot(uri=DISMECH.materiality, name="materiality", curie=DISMECH.curie('materiality'),
+                   model_uri=DISMECH.materiality, domain=None, range=Optional[Union[str, "ModelDivergenceMaterialityEnum"]])
+
 slots.influences_mechanisms = Slot(uri=DISMECH.influences_mechanisms, name="influences_mechanisms", curie=DISMECH.curie('influences_mechanisms'),
                    model_uri=DISMECH.influences_mechanisms, domain=None, range=Optional[Union[Union[dict, EnvironmentalMechanismTarget], list[Union[dict, EnvironmentalMechanismTarget]]]])
 
@@ -12701,11 +13530,17 @@ slots.pdb_structures = Slot(uri=DISMECH.pdb_structures, name="pdb_structures", c
 slots.therapeutic_modality = Slot(uri=DISMECH.therapeutic_modality, name="therapeutic_modality", curie=DISMECH.curie('therapeutic_modality'),
                    model_uri=DISMECH.therapeutic_modality, domain=None, range=Optional[Union[str, "TherapeuticModalityEnum"]])
 
+slots.oligonucleotide_details = Slot(uri=DISMECH.oligonucleotide_details, name="oligonucleotide_details", curie=DISMECH.curie('oligonucleotide_details'),
+                   model_uri=DISMECH.oligonucleotide_details, domain=None, range=Optional[Union[dict, OligonucleotideDetail]])
+
 slots.aso_details = Slot(uri=DISMECH.aso_details, name="aso_details", curie=DISMECH.curie('aso_details'),
-                   model_uri=DISMECH.aso_details, domain=None, range=Optional[Union[dict, AntisenseOligonucleotideDetail]])
+                   model_uri=DISMECH.aso_details, domain=None, range=Optional[Union[dict, OligonucleotideDetail]])
+
+slots.oligonucleotide_mechanism = Slot(uri=DISMECH.oligonucleotide_mechanism, name="oligonucleotide_mechanism", curie=DISMECH.curie('oligonucleotide_mechanism'),
+                   model_uri=DISMECH.oligonucleotide_mechanism, domain=None, range=Optional[Union[str, "OligonucleotideMechanismEnum"]])
 
 slots.aso_mechanism = Slot(uri=DISMECH.aso_mechanism, name="aso_mechanism", curie=DISMECH.curie('aso_mechanism'),
-                   model_uri=DISMECH.aso_mechanism, domain=None, range=Optional[Union[str, "AsoMechanismEnum"]])
+                   model_uri=DISMECH.aso_mechanism, domain=None, range=Optional[Union[str, "OligonucleotideMechanismEnum"]])
 
 slots.target_gene = Slot(uri=DISMECH.target_gene, name="target_gene", curie=DISMECH.curie('target_gene'),
                    model_uri=DISMECH.target_gene, domain=None, range=Optional[Union[dict, GeneDescriptor]])
@@ -12716,11 +13551,23 @@ slots.target_transcript = Slot(uri=DISMECH.target_transcript, name="target_trans
 slots.target_exon = Slot(uri=DISMECH.target_exon, name="target_exon", curie=DISMECH.curie('target_exon'),
                    model_uri=DISMECH.target_exon, domain=None, range=Optional[str])
 
+slots.oligonucleotide_chemistry = Slot(uri=DISMECH.oligonucleotide_chemistry, name="oligonucleotide_chemistry", curie=DISMECH.curie('oligonucleotide_chemistry'),
+                   model_uri=DISMECH.oligonucleotide_chemistry, domain=None, range=Optional[Union[str, "OligonucleotideChemistryEnum"]])
+
 slots.aso_chemistry = Slot(uri=DISMECH.aso_chemistry, name="aso_chemistry", curie=DISMECH.curie('aso_chemistry'),
-                   model_uri=DISMECH.aso_chemistry, domain=None, range=Optional[Union[str, "AsoChemistryEnum"]])
+                   model_uri=DISMECH.aso_chemistry, domain=None, range=Optional[Union[str, "OligonucleotideChemistryEnum"]])
 
 slots.conjugation = Slot(uri=DISMECH.conjugation, name="conjugation", curie=DISMECH.curie('conjugation'),
-                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "AsoConjugationEnum"]])
+                   model_uri=DISMECH.conjugation, domain=None, range=Optional[Union[str, "OligonucleotideConjugationEnum"]])
+
+slots.delivery_platform = Slot(uri=DISMECH.delivery_platform, name="delivery_platform", curie=DISMECH.curie('delivery_platform'),
+                   model_uri=DISMECH.delivery_platform, domain=None, range=Optional[Union[str, "OligonucleotideDeliveryPlatformEnum"]])
+
+slots.dosing_interval = Slot(uri=DISMECH.dosing_interval, name="dosing_interval", curie=DISMECH.curie('dosing_interval'),
+                   model_uri=DISMECH.dosing_interval, domain=None, range=Optional[str])
+
+slots.dosing_interval_days = Slot(uri=DISMECH.dosing_interval_days, name="dosing_interval_days", curie=DISMECH.curie('dosing_interval_days'),
+                   model_uri=DISMECH.dosing_interval_days, domain=None, range=Optional[float])
 
 slots.mechanism_confidence = Slot(uri=DISMECH.mechanism_confidence, name="mechanism_confidence", curie=DISMECH.curie('mechanism_confidence'),
                    model_uri=DISMECH.mechanism_confidence, domain=None, range=Optional[Union[str, "MechanismConfidenceEnum"]])
@@ -13195,6 +14042,18 @@ slots.member_type = Slot(uri=DISMECH.member_type, name="member_type", curie=DISM
 slots.differentiating_mechanisms = Slot(uri=DISMECH.differentiating_mechanisms, name="differentiating_mechanisms", curie=DISMECH.curie('differentiating_mechanisms'),
                    model_uri=DISMECH.differentiating_mechanisms, domain=None, range=Optional[Union[Union[dict, DifferentiatingMechanism], list[Union[dict, DifferentiatingMechanism]]]])
 
+slots.collection_type = Slot(uri=DISMECH.collection_type, name="collection_type", curie=DISMECH.curie('collection_type'),
+                   model_uri=DISMECH.collection_type, domain=None, range=Optional[Union[str, "ModuleCollectionTypeEnum"]])
+
+slots.module_members = Slot(uri=DISMECH.module_members, name="module_members", curie=DISMECH.curie('module_members'),
+                   model_uri=DISMECH.module_members, domain=None, range=Optional[Union[Union[dict, ModuleCollectionMember], list[Union[dict, ModuleCollectionMember]]]])
+
+slots.framework_terms = Slot(uri=DISMECH.framework_terms, name="framework_terms", curie=DISMECH.curie('framework_terms'),
+                   model_uri=DISMECH.framework_terms, domain=None, range=Optional[Union[str, list[str]]])
+
+slots.child_collections = Slot(uri=DISMECH.child_collections, name="child_collections", curie=DISMECH.curie('child_collections'),
+                   model_uri=DISMECH.child_collections, domain=None, range=Optional[Union[str, list[str]]])
+
 slots.geneSetAssociation__gene_set = Slot(uri=DISMECH.gene_set, name="geneSetAssociation__gene_set", curie=DISMECH.curie('gene_set'),
                    model_uri=DISMECH.geneSetAssociation__gene_set, domain=None, range=Union[str, URIorCURIE])
 
@@ -13315,6 +14174,9 @@ slots.FoodDescriptor_term = Slot(uri=DISMECH.term, name="FoodDescriptor_term", c
 slots.OrganismDescriptor_term = Slot(uri=DISMECH.term, name="OrganismDescriptor_term", curie=DISMECH.curie('term'),
                    model_uri=DISMECH.OrganismDescriptor_term, domain=OrganismDescriptor, range=Optional[Union[dict, Term]])
 
+slots.GenomicRegion_name = Slot(uri=DISMECH.name, name="GenomicRegion_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.GenomicRegion_name, domain=GenomicRegion, range=Union[str, GenomicRegionName])
+
 slots.PhenotypeContext_sex = Slot(uri=DISMECH.sex, name="PhenotypeContext_sex", curie=DISMECH.curie('sex'),
                    model_uri=DISMECH.PhenotypeContext_sex, domain=PhenotypeContext, range=Optional[Union[str, "SexEnum"]])
 
@@ -13425,6 +14287,15 @@ slots.EnvironmentalMechanismTarget_causal_link_type = Slot(uri=DISMECH.causal_li
 
 slots.EnvironmentalMechanismTarget_evidence = Slot(uri=DISMECH.evidence, name="EnvironmentalMechanismTarget_evidence", curie=DISMECH.curie('evidence'),
                    model_uri=DISMECH.EnvironmentalMechanismTarget_evidence, domain=EnvironmentalMechanismTarget, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
+
+slots.ModelDivergence_divergence_type = Slot(uri=DISMECH.divergence_type, name="ModelDivergence_divergence_type", curie=DISMECH.curie('divergence_type'),
+                   model_uri=DISMECH.ModelDivergence_divergence_type, domain=ModelDivergence, range=Union[str, "ModelDivergenceTypeEnum"])
+
+slots.ModelDivergence_description = Slot(uri=DISMECH.description, name="ModelDivergence_description", curie=DISMECH.curie('description'),
+                   model_uri=DISMECH.ModelDivergence_description, domain=ModelDivergence, range=str)
+
+slots.ModelDivergence_evidence = Slot(uri=DISMECH.evidence, name="ModelDivergence_evidence", curie=DISMECH.curie('evidence'),
+                   model_uri=DISMECH.ModelDivergence_evidence, domain=ModelDivergence, range=Optional[Union[Union[dict, EvidenceItem], list[Union[dict, EvidenceItem]]]])
 
 slots.ModelMechanismLink_target = Slot(uri=DISMECH.target, name="ModelMechanismLink_target", curie=DISMECH.curie('target'),
                    model_uri=DISMECH.ModelMechanismLink_target, domain=ModelMechanismLink, range=str)
@@ -13811,3 +14682,25 @@ slots.GroupingMember_member_type = Slot(uri=DISMECH.member_type, name="GroupingM
 
 slots.DifferentiatingMechanism_description = Slot(uri=DISMECH.description, name="DifferentiatingMechanism_description", curie=DISMECH.curie('description'),
                    model_uri=DISMECH.DifferentiatingMechanism_description, domain=DifferentiatingMechanism, range=str)
+
+slots.ModuleCollection_name = Slot(uri=DISMECH.name, name="ModuleCollection_name", curie=DISMECH.curie('name'),
+                   model_uri=DISMECH.ModuleCollection_name, domain=ModuleCollection, range=Union[str, ModuleCollectionName])
+
+slots.ModuleCollection_creation_date = Slot(uri=DISMECH.creation_date, name="ModuleCollection_creation_date", curie=DISMECH.curie('creation_date'),
+                   model_uri=DISMECH.ModuleCollection_creation_date, domain=ModuleCollection, range=Optional[str],
+                   pattern=re.compile(r'^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})$'))
+
+slots.ModuleCollection_collection_type = Slot(uri=DISMECH.collection_type, name="ModuleCollection_collection_type", curie=DISMECH.curie('collection_type'),
+                   model_uri=DISMECH.ModuleCollection_collection_type, domain=ModuleCollection, range=Union[str, "ModuleCollectionTypeEnum"])
+
+slots.ModuleCollection_module_members = Slot(uri=DISMECH.module_members, name="ModuleCollection_module_members", curie=DISMECH.curie('module_members'),
+                   model_uri=DISMECH.ModuleCollection_module_members, domain=ModuleCollection, range=Union[Union[dict, "ModuleCollectionMember"], list[Union[dict, "ModuleCollectionMember"]]])
+
+slots.ModuleCollectionMember_module = Slot(uri=DISMECH.module, name="ModuleCollectionMember_module", curie=DISMECH.curie('module'),
+                   model_uri=DISMECH.ModuleCollectionMember_module, domain=ModuleCollectionMember, range=str)
+
+slots.regulatory_target_gene = Slot(uri=DISMECH.regulatory_target_gene, name="regulatory_target_gene", curie=DISMECH.curie('regulatory_target_gene'),
+                   model_uri=DISMECH.regulatory_target_gene, domain=None, range=Optional[Union[dict, GeneDescriptor]])
+
+slots.Pathophysiology_regulatory_category = Slot(uri=DISMECH.regulatory_category, name="Pathophysiology_regulatory_category", curie=DISMECH.curie('regulatory_category'),
+                   model_uri=DISMECH.Pathophysiology_regulatory_category, domain=Pathophysiology, range=Optional[Union[str, "RegulatoryVariantCategoryEnum"]])

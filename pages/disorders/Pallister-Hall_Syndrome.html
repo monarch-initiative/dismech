@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Pallister-Hall%20Syndrome"
@@ -3967,7 +4044,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4160,6 +4237,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"GLI3 mutations that predict a truncated functional repressor protein cause PHS and that functional haploinsufficiency of GLI3 causes GCPS"</div>
@@ -4205,12 +4283,120 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gli3-constitutive-repressor-from-truncating-mutations" data-dismech-node="GLI3 Constitutive Repressor from Truncating Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">GLI3 Constitutive Repressor from Truncating Mutations</div>
 
+
                 <div class="item-desc">Truncating mutations in the middle third of GLI3 (ORF nt 1998-3481) produce a protein that retains the N-terminal zinc finger DNA-binding domain and repressor domain but lacks the C-terminal transactivation domain. This truncated protein functions as a constitutive repressor of Hedgehog target genes, independent of Hedgehog signaling input.
 </div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4319</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:4319</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+
+
+    <div class="context-detail">Heterozygous frameshift, nonsense and splicing variants in the middle third of the GLI3 ORF yield a C-terminally truncated protein. No `functional_impact_category` is recorded: the cited sources establish the variant classes and their positional correlation with phenotype, but none of them labels the mechanism as dominant-negative, neomorphic or gain-of-function, and this entry&#39;s contrast with GCPS haploinsufficiency is argued from the node evidence rather than from such a label.</div>
 
 
 
@@ -4227,11 +4413,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0007224</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007224" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007224</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Hedgehog Signaling Pathway, annotated with smoothened signaling pathway (GO:0007224). GO:0007224 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4262,7 +4448,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -4274,6 +4460,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4299,6 +4486,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"among the frameshift/nonsense mutations, there was a clear genotype-phenotype correlation"</div>
@@ -4321,6 +4509,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"C-terminal sequences are required for positive inducing activity"</div>
@@ -4333,7 +4522,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -4344,12 +4533,56 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-development-disruption" data-dismech-node="Hypothalamic Development Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic Development Disruption</div>
 
+
                 <div class="item-desc">Constitutive GLI3 repressor activity inappropriately silences Hedgehog target genes required for hypothalamic development, leading to hypothalamic hamartoma formation. This can cause precocious puberty through ectopic GnRH secretion or gelastic seizures.
 </div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:4319</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4397,6 +4630,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"provide a molecular basis for the human Polydactyly type A and Pallister-Hall Syndrome phenotypes, derived from the deregulated production of C-terminally truncated GLI3 proteins"</div>
@@ -4416,6 +4650,7 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4442,12 +4677,56 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-posterior-limb-patterning-disruption" data-dismech-node="Posterior Limb Patterning Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Posterior Limb Patterning Disruption</div>
 
+
                 <div class="item-desc">Constitutive GLI3 repressor activity disrupts Hedgehog-dependent limb patterning, causing postaxial or central polydactyly. This is distinct from the preaxial polydactyly seen in GCPS, where GLI3 haploinsufficiency (reduced activator) rather than constitutive repressor drives the phenotype.
 </div>
 
 
 
 
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:4319</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4464,11 +4743,11 @@ This pathophysiological event involves Hedgehog Signaling Pathway, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0030326</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030326" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030326</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326). GO:0030326 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4514,6 +4793,7 @@ This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326)
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"provide a molecular basis for the human Polydactyly type A and Pallister-Hall Syndrome phenotypes, derived from the deregulated production of C-terminally truncated GLI3 proteins"</div>
@@ -4534,6 +4814,7 @@ This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-pituitary-axis-disruption" data-dismech-node="Hypothalamic-Pituitary Axis Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic-Pituitary Axis Disruption</div>
+
 
                 <div class="item-desc">The hypothalamic hamartoma disrupts normal hypothalamic-pituitary axis signaling, producing a spectrum of endocrine insufficiency ranging from isolated growth hormone deficiency to panhypopituitarism. Adrenal insufficiency (secondary to ACTH deficiency) is a potentially lethal complication in neonates and infants that requires urgent evaluation and cortisol replacement before or alongside other endocrine workup. Precocious puberty may result from ectopic GnRH secretion by the hamartoma.
 </div>
@@ -4557,11 +4838,11 @@ This pathophysiological event involves Embryonic Limb Morphogenesis (GO:0030326)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0021983" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0021983</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0021983" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0021983</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Pituitary gland development (GO:0021983). GO:0021983 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4604,6 +4885,7 @@ This pathophysiological event involves Pituitary gland development (GO:0021983).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4652,7 +4934,7 @@ This pathophysiological event involves Pituitary gland development (GO:0021983).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Hypothalamic Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive GLI3 repressor activity inappropriately silences Hedgehog target genes required for hypothalamic development, leading to hypothalamic hamartoma formation. This can cause precocious puberty through ectopic GnRH secretion or gelastic seizures.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hypothalamic-Pituitary Axis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hypothalamic hamartoma disrupts normal hypothalamic-pituitary axis signaling, producing a spectrum of endocrine insufficiency ranging from isolated growth hormone deficiency to panhypopituitarism. Adrenal insufficiency (secondary to ACTH deficiency) is a potentially lethal complication in neonates and infants that requires urgent evaluation and cortisol replacement before or alongside other endocrine workup. Precocious puberty may result from ectopic GnRH secretion by the hamartoma.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Pituitary gland development\"]}}], \"edges\": [{\"source\": \"Hypothalamic Development Disruption\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothalamic hamartoma formation disrupts pituitary signaling, leading to endocrine insufficiency including adrenal insufficiency.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"GLI3 Constitutive Repressor from Truncating Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Truncating mutations in the middle third of GLI3 (ORF nt 1998-3481) produce a protein that retains the N-terminal zinc finger DNA-binding domain and repressor domain but lacks the C-terminal transactivation domain. This truncated protein functions as a constitutive repressor of Hedgehog target genes, independent of Hedgehog signaling input.\\n\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"Hedgehog Signaling Pathway\"], \"genes\": [\"GLI3\"], \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"Heterozygous frameshift, nonsense and splicing variants in the middle third of the GLI3 ORF yield a C-terminally truncated protein. No `functional_impact_category` is recorded: the cited sources establish the variant classes and their positional correlation with phenotype, but none of them labels the mechanism as dominant-negative, neomorphic or gain-of-function, and this entry\u0027s contrast with GCPS haploinsufficiency is argued from the node evidence rather than from such a label.\", \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}]}}}, {\"id\": \"GLI3 Mutations (Truncating, Middle Third)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"GLI3\"], \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Hypothalamic Development Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive GLI3 repressor activity inappropriately silences Hedgehog target genes required for hypothalamic development, leading to hypothalamic hamartoma formation. This can cause precocious puberty through ectopic GnRH secretion or gelastic seizures.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GLI3\"], \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}]}}, {\"id\": \"Hypothalamic-Pituitary Axis Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The hypothalamic hamartoma disrupts normal hypothalamic-pituitary axis signaling, producing a spectrum of endocrine insufficiency ranging from isolated growth hormone deficiency to panhypopituitarism. Adrenal insufficiency (secondary to ACTH deficiency) is a potentially lethal complication in neonates and infants that requires urgent evaluation and cortisol replacement before or alongside other endocrine workup. Precocious puberty may result from ectopic GnRH secretion by the hamartoma.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Pituitary gland development\"]}}, {\"id\": \"Posterior Limb Patterning Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive GLI3 repressor activity disrupts Hedgehog-dependent limb patterning, causing postaxial or central polydactyly. This is distinct from the preaxial polydactyly seen in GCPS, where GLI3 haploinsufficiency (reduced activator) rather than constitutive repressor drives the phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Embryonic Limb Morphogenesis\"], \"genes\": [\"GLI3\"], \"gene_terms\": [{\"label\": \"GLI3\", \"id\": \"hgnc:4319\"}]}}], \"edges\": [{\"source\": \"Hypothalamic Development Disruption\", \"target\": \"Hypothalamic-Pituitary Axis Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypothalamic hamartoma formation disrupts pituitary signaling, leading to endocrine insufficiency including adrenal insufficiency.\"}, {\"source\": \"GLI3 Mutations (Truncating, Middle Third)\", \"target\": \"GLI3 Constitutive Repressor from Truncating Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLI3 Mutations (Truncating, Middle Third)\", \"target\": \"Hypothalamic Development Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GLI3 Mutations (Truncating, Middle Third)\", \"target\": \"Posterior Limb Patterning Disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4673,15 +4955,15 @@ This pathophysiological event involves Pituitary gland development (GO:0021983).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4708,15 +4990,18 @@ This pathophysiological event involves Pituitary gland development (GO:0021983).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0002023</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002023</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4736,6 +5021,7 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4766,12 +5052,12 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-adrenal-insufficiency" data-dismech-node="Adrenal Insufficiency" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-central-precocious-puberty" data-dismech-node="Central Precocious Puberty" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Adrenal Insufficiency
+                        Central Precocious Puberty
 
 
 
@@ -4783,15 +5069,18 @@ This clinical feature is Anal atresia (HP:0002023). HP:0002023 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0000846</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000826</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4811,6 +5100,151 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"monitor for signs of precocious puberty"</div>
+
+
+                <div class="evidence-explanation">GeneReviews surveillance guidelines specify annual monitoring for precocious puberty as a complication of hypothalamic hamartoma in GLI3-PHS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopituitarism" data-dismech-node="Hypopituitarism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypopituitarism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0040075</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301638" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301638" target="_blank">PMID:20301638</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Individuals with GLI3-PHS can have pituitary insufficiency and may die as neonates from undiagnosed and untreated adrenal insufficiency."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies pituitary insufficiency as an important complication of GLI3-PHS that can be lethal if adrenal axis involvement is missed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-adrenal-insufficiency" data-dismech-node="Adrenal Insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Adrenal Insufficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000846</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301638" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301638" target="_blank">PMID:20301638</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4862,15 +5296,18 @@ This clinical feature is Adrenal insufficiency (HP:0000846). HP:0000846 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001162</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001162" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001162</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4893,6 +5330,7 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"postaxial or central polydactyly, anal atresia and bifid epiglottis"</div>
@@ -4912,6 +5350,7 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4941,227 +5380,9 @@ This clinical feature is Postaxial hand polydactyly (HP:0001162). HP:0001162 is 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
+                    Nervous System
                     <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-epiglottis" data-dismech-node="Bifid Epiglottis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bifid Epiglottis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010564" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0010564</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bifid epiglottis (HP:0010564). HP:0010564 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24736735" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736735" target="_blank">PMID:24736735</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"hypothalamic hamartoma, postaxial or central polydactyly, anal atresia and bifid epiglottis"</div>
-
-
-                <div class="evidence-explanation">Bifid epiglottis is one of the cardinal features in the original PHS description.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Neoplasm
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypothalamic-hamartoma" data-dismech-node="Hypothalamic Hamartoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypothalamic Hamartoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002444</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypothalamic hamartoma (HP:0002444). HP:0002444 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24736735" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736735" target="_blank">PMID:24736735</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                </div>
-
-                <div class="evidence-snippet">"PHS was first described as a lethal condition associating hypothalamic hamartoma, postaxial or central polydactyly, anal atresia and bifid epiglottis"</div>
-
-
-                <div class="evidence-explanation">Hypothalamic hamartoma is a cardinal feature of PHS since original description.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-central-precocious-puberty" data-dismech-node="Central Precocious Puberty" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Central Precocious Puberty
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000826</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301638" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301638" target="_blank">PMID:20301638</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"monitor for signs of precocious puberty"</div>
-
-
-                <div class="evidence-explanation">GeneReviews surveillance guidelines specify annual monitoring for precocious puberty as a complication of hypothalamic hamartoma in GLI3-PHS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gelastic-seizures" data-dismech-node="Gelastic Seizures" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5179,15 +5400,18 @@ This clinical feature is Precocious puberty (HP:0000826). HP:0000826 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0010821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0010821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal emotional seizure with laughing (HP:0010821). HP:0010821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5207,6 +5431,7 @@ This clinical feature is Focal emotional seizure with laughing (HP:0010821). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5234,6 +5459,7 @@ This clinical feature is Focal emotional seizure with laughing (HP:0010821). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5257,9 +5483,18 @@ This clinical feature is Focal emotional seizure with laughing (HP:0010821). HP:
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopituitarism" data-dismech-node="Hypopituitarism" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bifid-epiglottis" data-dismech-node="Bifid Epiglottis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypopituitarism
+                        Bifid Epiglottis
 
 
 
@@ -5271,15 +5506,18 @@ This clinical feature is Focal emotional seizure with laughing (HP:0010821). HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040075" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0040075</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010564" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010564</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Bifid epiglottis (HP:0010564). HP:0010564 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5291,10 +5529,10 @@ This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20301638" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:24736735" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301638" target="_blank">PMID:20301638</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736735" target="_blank">PMID:24736735</a>
                     </span>
 
 
@@ -5302,14 +5540,13 @@ This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype
 
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Individuals with GLI3-PHS can have pituitary insufficiency and may die as neonates from undiagnosed and untreated adrenal insufficiency."</div>
+                <div class="evidence-snippet">"hypothalamic hamartoma, postaxial or central polydactyly, anal atresia and bifid epiglottis"</div>
 
 
-                <div class="evidence-explanation">GeneReviews identifies pituitary insufficiency as an important complication of GLI3-PHS that can be lethal if adrenal axis involvement is missed.</div>
+                <div class="evidence-explanation">Bifid epiglottis is one of the cardinal features in the original PHS description.</div>
 
 
 
@@ -5339,15 +5576,18 @@ This clinical feature is Hypopituitarism (HP:0040075). HP:0040075 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0008751</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0008751</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5370,6 +5610,7 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5378,6 +5619,85 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
 
 
                 <div class="evidence-explanation">GeneReviews defines the clinical spectrum of GLI3-PHS from mild (polydactyly, bifid epiglottis) to lethal (laryngotracheal cleft).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypothalamic-hamartoma" data-dismech-node="Hypothalamic Hamartoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypothalamic Hamartoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002444" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002444</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypothalamic hamartoma (HP:0002444). HP:0002444 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24736735" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24736735" target="_blank">PMID:24736735</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"PHS was first described as a lethal condition associating hypothalamic hamartoma, postaxial or central polydactyly, anal atresia and bifid epiglottis"</div>
+
+
+                <div class="evidence-explanation">Hypothalamic hamartoma is a cardinal feature of PHS since original description.</div>
 
 
 
@@ -5440,12 +5760,41 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
 
                 </div>
 
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GLI3
+
+
+    <a href="https://bioregistry.io/hgnc:4319" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:4319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GLI3 (hgnc:4319). hgnc:4319 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -5457,6 +5806,7 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5482,6 +5832,7 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"These results demonstrate a robust correlation of genotype and phenotype for GLI3 mutations and strongly support the hypothesis that these two allelic disorders have distinct modes of pathogenesis"</div>
@@ -5504,6 +5855,7 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A range of phenotypes including Greig cephalopolysyndactyly and Pallister-Hall syndromes (GCPS, PHS) are caused by pathogenic mutation of the GLI3 gene"</div>
@@ -5516,7 +5868,7 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 2 more references</div>
 
         </div>
     </details>
@@ -5551,7 +5903,7 @@ This clinical feature is Laryngeal cleft (HP:0008751). HP:0008751 is a phenotype
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-13">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-13">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329), qualified as located in manus. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5590,7 +5942,7 @@ This treatment is surgical procedure (NCIT:C15329), qualified as located in manu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Located in:</strong>
 
 
-                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-14">manus<span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
+                    <span class="tag tag-bio" tabindex="0" aria-describedby="pill-tip-19">manus<span class="pill-tip" role="tooltip" id="pill-tip-19">Uberon multi-species anatomy ontology (UBERON)
 Relation: this treatment is delivered to this anatomical location
 This treatment is delivered to manus (UBERON:0002398). UBERON:0002398 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5606,6 +5958,31 @@ This treatment is delivered to manus (UBERON:0002398). UBERON:0002398 is an anat
 
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
 
 
 
@@ -5630,6 +6007,20 @@ This treatment is delivered to manus (UBERON:0002398). UBERON:0002398 is an anat
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Neonatal surgical correction of imperforate anus, typically posterior sagittal anorectoplasty (PSARP).
 </div>
 
@@ -5649,7 +6040,7 @@ This treatment is delivered to manus (UBERON:0002398). UBERON:0002398 is an anat
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">endocrine hormone replacement and management<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">endocrine hormone replacement and management<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is endocrine hormone replacement and management, annotated with Hormone Replacement Therapy (NCIT:C15599). NCIT:C15599 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5682,6 +6073,20 @@ This treatment is endocrine hormone replacement and management, annotated with H
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adrenal insufficiency is the first priority: cortisol deficiency must be evaluated urgently in all newly diagnosed patients, especially neonates, as untreated adrenal crisis can be fatal. Annual surveillance during childhood includes growth assessment (for growth hormone deficiency) and monitoring for signs of precocious puberty. GnRH analogs may be used if central precocious puberty develops. Pituitary function testing should be performed at baseline in all patients.
 </div>
 
@@ -5704,6 +6109,7 @@ This treatment is endocrine hormone replacement and management, annotated with H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5735,7 +6141,7 @@ This treatment is endocrine hormone replacement and management, annotated with H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Anticonvulsant Therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5767,6 +6173,20 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic treatment for seizures associated with hypothalamic hamartoma, using standard anti-seizure medications. Stimulants prescribed for ADHD may exacerbate seizures and should be used with caution or avoided.
 </div>
 
@@ -5789,6 +6209,7 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5820,7 +6241,7 @@ This treatment is Anticonvulsant Therapy (NCIT:C64172). NCIT:C64172 is a clinica
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-17">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5853,6 +6274,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hypothalamic hamartomas in PHS are malformations, not neoplasms; they grow at the same rate as surrounding brain tissue. Biopsy or surgical resection is generally contraindicated because complications and the resulting need for lifelong hormone replacement typically outweigh any potential benefit. Management focuses on endocrine replacement and anti-seizure therapy rather than surgical intervention.
 </div>
 
@@ -5875,6 +6310,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5938,11 +6374,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-18">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -5980,6 +6416,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6057,6 +6494,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6078,6 +6516,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,6 +6650,27 @@ pathophysiology:
     domain and repressor domain but lacks the C-terminal transactivation
     domain. This truncated protein functions as a constitutive repressor
     of Hedgehog target genes, independent of Hedgehog signaling input.
+  genes:
+  - preferred_term: GLI3
+    term:
+      id: hgnc:4319
+      label: GLI3
+  genetic_context:
+    gene:
+      preferred_term: GLI3
+      term:
+        id: hgnc:4319
+        label: GLI3
+    variant_origin: GERMLINE
+    zygosity: HETEROZYGOUS
+    description: &gt;-
+      Heterozygous frameshift, nonsense and splicing variants in the middle
+      third of the GLI3 ORF yield a C-terminally truncated protein. No
+      `functional_impact_category` is recorded: the cited sources establish the
+      variant classes and their positional correlation with phenotype, but none
+      of them labels the mechanism as dominant-negative, neomorphic or
+      gain-of-function, and this entry&#39;s contrast with GCPS haploinsufficiency
+      is argued from the node evidence rather than from such a label.
   biological_processes:
   - preferred_term: Hedgehog Signaling Pathway
     term:
@@ -6232,6 +6692,16 @@ pathophysiology:
     supports: SUPPORT
     snippet: &#34;C-terminal sequences are required for positive inducing activity&#34;
     explanation: &#34;Loss of C-terminal transactivation domain explains why middle-third truncations produce a constitutive repressor.&#34;
+  - reference: PMID:20672375
+    reference_title: &#34;Molecular analysis expands the spectrum of phenotypes associated with GLI3 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;the truncations in the middle third of the protein are predicted to generate a constitutive repressor protein that skews the balance of activator and repressor forms of GLI3&#34;
+    explanation: &gt;-
+      States the constitutive-repressor model for middle-third truncations that
+      this node asserts, and frames it as a shift in the activator/repressor
+      balance rather than as a loss of GLI3 dose.
   - reference: PMID:10693759
     reference_title: &#34;Hedgehog-regulated processing of Gli3 produces an anterior/posterior repressor gradient in the developing vertebrate limb.&#34;
     supports: SUPPORT
@@ -6243,6 +6713,11 @@ pathophysiology:
     target genes required for hypothalamic development, leading to
     hypothalamic hamartoma formation. This can cause precocious puberty
     through ectopic GnRH secretion or gelastic seizures.
+  genes:
+  - preferred_term: GLI3
+    term:
+      id: hgnc:4319
+      label: GLI3
   downstream:
   - target: Hypothalamic-Pituitary Axis Disruption
     description: Hypothalamic hamartoma formation disrupts pituitary signaling, leading to endocrine insufficiency including adrenal insufficiency.
@@ -6264,6 +6739,11 @@ pathophysiology:
     patterning, causing postaxial or central polydactyly. This is distinct
     from the preaxial polydactyly seen in GCPS, where GLI3 haploinsufficiency
     (reduced activator) rather than constitutive repressor drives the phenotype.
+  genes:
+  - preferred_term: GLI3
+    term:
+      id: hgnc:4319
+      label: GLI3
   biological_processes:
   - preferred_term: Embryonic Limb Morphogenesis
     term:
@@ -6480,7 +6960,14 @@ phenotypes:
       (polydactyly, bifid epiglottis) to lethal (laryngotracheal cleft).
 genetic:
 - name: GLI3 Mutations (Truncating, Middle Third)
+  gene_term:
+    preferred_term: GLI3
+    term:
+      id: hgnc:4319
+      label: GLI3
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   notes: &gt;
     Frameshift and nonsense mutations in the middle third of GLI3
     (ORF nt 1998-3481) on chromosome 7p14.1 specifically cause PHS.
@@ -6518,6 +7005,16 @@ genetic:
     supports: SUPPORT
     snippet: &#34;A range of phenotypes including Greig cephalopolysyndactyly and Pallister-Hall syndromes (GCPS, PHS) are caused by pathogenic mutation of the GLI3 gene&#34;
     explanation: &#34;Expanded cohort confirms GLI3 as the causative gene for PHS.&#34;
+  - reference: PMID:20672375
+    reference_title: &#34;Molecular analysis expands the spectrum of phenotypes associated with GLI3 mutations.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &#34;Mutations in the zinc finger transcription factor encoding gene GLI3 (MIM# 165240) on chromosome 7p14.1 cause Greig cephalopolysyndactyly syndrome&#34;
+    explanation: &gt;-
+      Sources the 7p14.1 cytogenetic location asserted in this record&#39;s notes.
+      The sentence sits in the paper&#39;s introduction, restating the established
+      GLI3 locus rather than reporting this cohort&#39;s own result.
   - reference: PMID:24736735
     reference_title: &#34;New insights into genotype-phenotype correlation for GLI3 mutations.&#34;
     supports: SUPPORT
@@ -6730,7 +7227,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pallister-Hall Syndrome", "mondoId": "MONDO:0007804", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pallister-Hall_Syndrome", "yamlRevision": "424af955655e"};
+        const OS_CONFIG = {"diseaseName": "Pallister-Hall Syndrome", "mondoId": "MONDO:0007804", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pallister-Hall_Syndrome", "yamlRevision": "451d7a901617"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

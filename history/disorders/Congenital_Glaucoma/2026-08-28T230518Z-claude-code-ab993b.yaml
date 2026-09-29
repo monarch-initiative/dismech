@@ -1,0 +1,304 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Congenital_Glaucoma
+  path: kb/disorders/Congenital_Glaucoma.yaml
+session:
+  id: 2026-08-28T230518Z-claude-code-ab993b
+  timestamp: '2026-08-28T23:05:18Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    agent_tool: claude-code
+links:
+  issues: []
+  prs: []
+  urls: []
+events:
+- type: REVIEW
+  outcome: needs_followup
+  sections:
+  - phenotypes
+  - pathophysiology
+  - treatments
+  - evidence
+  - references
+  summary: 'Review: Congenital Glaucoma (eye-disease evidence audit; Needs follow-up)'
+  details: |
+    # Review: Congenital Glaucoma
+
+    - **File:** `/home/user/dismech/kb/disorders/Congenital_Glaucoma.yaml`
+    - **Review date:** 2026-08-28
+    - **Mechanical snippet audit:** 127/127 snippets verified against cached references
+      (`uv run python -m dismech.reference_snippet_audit --schema src/dismech/schema/dismech.yaml --config conf/reference_validator_config.yaml`)
+
+    ## Verdict: NEEDS_FOLLOWUP
+
+    Two MAJOR findings: a negative model result attributed to the wrong zebrafish line
+    (finding 1, claim fidelity), and one quoted sentence carrying two different
+    `evidence_source` values in the same file (finding 2, misclassification — currently
+    grandfathered in the snippet-grading baseline, so CI is green on it).
+
+    This is otherwise a carefully built entry. Mechanism nodes are individually sourced,
+    review-derived statements are consistently labelled `OTHER` with the reason given
+    inline, contested claims are marked `PARTIAL` and carried into an explicit
+    `CONTROVERSY` discussion rather than resolved silently, and the CYP1B1 case-fraction
+    record states in its own notes that it is a fraction of *solved* families rather than
+    of all cases. The findings below are corrections to a good entry, not a rebuild.
+
+    ## Findings
+
+    ### 1. MAJOR — a `FAILS_TO_RECAPITULATE` claim is evidenced with a result from a different zebrafish line in a different study
+    - **Location:** `animal_models[2]` "Zebrafish cyp1b1 knockout"
+      (`genotype: cyp1b1 null`, `publication: PMID:39890032`),
+      `modeled_mechanisms[0]` → `Trabeculodysgenesis and Congenital Outflow Obstruction`,
+      evidence `PMID:39890032` (MODEL_ORGANISM, SUPPORT)
+    - **Entry claims:** the model "is included specifically because it does NOT reproduce
+      the glaucoma phenotype"; the link description states "Adult mutant eye morphology,
+      including the anterior chamber angle and cornea, is indistinguishable from wild type",
+      and the snippet is *"However, adult mutant eye morphology, including glaucoma related
+      tissues like the anterior chamber angles and the cornea, was similar to the wildtype
+      (WT)."*
+    - **Paper actually says:** that sentence sits in this paper's **introduction, describing
+      someone else's line**. Full context: *"A previous study, Alexandre-Moreno et al., 2021,
+      targeted Cyp1b1's exon one in zebrafish using CRISPR/Cas9. The study reports that
+      crispants displayed changes in egg volume, early developmental delays, and abnormal
+      cranial and jaw morphology at 6 days post fertilization (dpf). Adult mutants also
+      presented craniofacial defects. However, adult mutant eye morphology, including
+      glaucoma related tissues like the anterior chamber angles and the cornea, was similar
+      to the wildtype (WT)."* The line used in **this** paper is a different one — *"The line
+      used in the present study (named wh5) was generated using CRISPR Cas9 ... truncated at
+      388aa by an early stop codon"* — and this study reports **behavioural, metabolomic and
+      transcriptomic** phenotypes for wh5, never anterior-chamber-angle or corneal
+      morphology. Its own conclusion is *"While these findings could not point to specific
+      ocular defects over other neurobehavioral phenotypes ..."*, and wh5 mutants were in
+      fact abnormal on vision-based assays (*"Larval mutant zebrafish were hyperactive during
+      the vision-based larval photomotor response assay"*, *"mutant fish showed altered
+      behavior to visual stimuli"*) with 26 differentially abundant eye metabolites.
+    - **Why it matters:** the curated model is the wh5 line (it is tied by the entry to
+      `geo:GSE272589`, this paper's dataset), but the morphological negative result belongs
+      to Alexandre-Moreno et al. 2021, which is not cited anywhere in the entry. CLAUDE.md
+      makes `FAILS_TO_RECAPITULATE` a substantive negative claim that must carry its own
+      evidence; here the evidence is second-hand and about a different animal. The
+      field-level conclusion (zebrafish *cyp1b1* loss does not produce angle dysgenesis) is
+      probably right, but as curated the entry asserts of one model a measurement made in
+      another, and it states as "indistinguishable from wild type" a line whose cited paper
+      found visual-behaviour and ocular-metabolite abnormalities. Fix by citing
+      Alexandre-Moreno et al. 2021 for the morphology claim (and naming that line), or by
+      restating the link to describe what wh5 actually showed.
+
+    ### 2. MAJOR — the same quoted sentence is graded `HUMAN_CLINICAL` in one block and `IN_VITRO` in another
+    - **Location:** `PMID:9097971`, quote *"CYP1B1 gene has previously been mapped within the
+      GLC3A candidate region and its expression in the trabecular meshwork cells has been
+      demonstrated in this study."*
+      - `pathophysiology[1].evidence[1]` (CYP1B1 Deficiency node) — `supports: PARTIAL`,
+        `evidence_source: HUMAN_CLINICAL`
+      - `discussions[0].evidence[0]` (`cyp1b1_expression_site`) — `supports: SUPPORT`,
+        `evidence_source: IN_VITRO`, with the explanation "Evidence source is IN_VITRO
+        because this is a tissue expression experiment"
+    - **Why it matters:** `evidence_source` classifies the cited publication's evidence type,
+      so it cannot change because the quote moved blocks — the file contradicts itself about
+      what kind of experiment this sentence reports, and the two `explanation` fields
+      describe the *same* experiment while disagreeing about its class. The differing
+      `supports` values (PARTIAL vs SUPPORT) are legitimate and not part of this finding.
+      The divergence is real and detected by the repo's own guard, but is grandfathered:
+      `tests/snippet_grading_baseline.txt` line 86 carries
+      `1  kb/disorders/Congenital_Glaucoma.yaml  evidence_source  PMID:9097971
+      HUMAN_CLINICAL|IN_VITRO  CYP1B1 gene has previously been mapped ...`, so
+      `scripts/check_snippet_grading.py` passes and nothing surfaces it. The discussion's
+      `IN_VITRO` is the better grading (a trabecular-meshwork expression demonstration);
+      aligning the pathophysiology copy to `IN_VITRO` fixes it and lets the baseline row be
+      dropped. It also matters substantively: `HUMAN_CLINICAL` overstates the evidence tier
+      of a claim the entry's own discussion records as disputed.
+
+    ### 3. MINOR — GeneReviews graded `HUMAN_CLINICAL` once, `OTHER` sixteen times
+    - **Location:** `pathophysiology[8].evidence[1]` (Descemet Membrane Rupture node),
+      `PMID:20301314`, snippet *"Symptoms include photophobia, blepharospasm, and excessive
+      tearing. Typically, the diagnosis is made in the first year of life."*
+    - **Entry claims:** graded `evidence_source: HUMAN_CLINICAL`.
+    - **Why it matters:** the other 16 citations of this same retired GeneReviews chapter in
+      this file are `OTHER`, each with the explanation "GeneReviews is an expert-curated
+      clinical synthesis rather than a primary study" — which is the correct call. This is a
+      different sentence, so `check_snippet_grading.py` does not catch it, but the source's
+      publication class did not change between blocks. Should be `OTHER`.
+
+    ### 4. MINOR — prevalence note describes 4.0 as the "midpoint" of a range whose midpoint is 5.75
+    - **Location:** `prevalence[1]` (Western countries), `PMID:39941238`
+    - **Entry claims:** `rate_per_100000: 4.0`, `rate_low: 1.5`, `rate_high: 10.0`, notes:
+      "Reported as one in 10,000 to 68,000 people in Western countries; converted to cases
+      per 100,000 (100000/68000 = 1.5 to 100000/10000 = 10.0), with the midpoint recorded as
+      the point estimate."
+    - **Paper says:** *"Primary congenital glaucoma has a prevalence of one in 10,000-68,000
+      people in Western countries."*
+    - **Why it matters:** the bounds and their derivation are right, but the arithmetic
+      midpoint of 1.5 and 10.0 is 5.75, not 4.0 (4.0 is close to the geometric mean, 3.87).
+      The recorded point estimate is defensible; the note describing how it was obtained is
+      not. Either change the note to say geometric mean or set the value to 5.75.
+
+    ### 5. MINOR — `measure_type: ANNUAL_INCIDENCE` for a per-live-birth rate
+    - **Location:** `prevalence[0]` (Denmark 1977-2016), `PMID:31663689`
+    - **Entry claims:** `measure_type: ANNUAL_INCIDENCE`, `rate_per_100000: 4.8`.
+    - **Paper says:** *"Of 118 patients were identified, annual incidence of PCG was 4.8 per
+      100 000 live born."*
+    - **Why it matters:** the denominator is live births, which the schema's
+      `BIRTH_PREVALENCE` describes, not person-years of a general population as
+      `ANNUAL_INCIDENCE` implies. The entry follows the source's own wording, so this is a
+      modelling nit rather than a misreading — but as recorded, the Danish row and the
+      `POINT_PREVALENCE` row directly below it are not comparable in the way the shared
+      `rate_per_100000` column invites, and the Slovakian Roma row three lines down uses
+      `BIRTH_PREVALENCE` for the same kind of quantity.
+
+    ### 6. MINOR — the SVEP1 snippet is truncated before the clause that names its human support
+    - **Location:** `genetic[7]` SVEP1, evidence `PMID:38386645` (MODEL_ORGANISM, PARTIAL)
+    - **Entry claims:** snippet ends at "...reduce TEK expression in vascular endothelial
+      cells in animal models"; the `notes:` say "the supporting data are a proposal resting
+      on animal-model expression work, not an established diagnostic relationship", and the
+      explanation repeats that the basis is animal-model expression data.
+    - **Paper says (full sentence):** *"one study has proposed that the SVEP1 gene could be a
+      potent genetic modifier as SVEP1 loss of function alleles were demonstrated to reduce
+      TEK expression in vascular endothelial cells in animal models **and correlate with
+      increased disease severity in human families with PCG** [186]."*
+    - **Why it matters:** the quote is verbatim as far as it goes, but cutting it at the
+      comma removes the human half of the stated basis, and the notes then assert the basis
+      is animal-model work alone — which the same sentence contradicts. The error runs in
+      the conservative direction (the entry under-claims, and explicitly warns against
+      reporting SVEP1 as a cause), so no downstream claim is inflated; but the
+      characterisation of the source is inaccurate and `evidence_source: MODEL_ORGANISM` is
+      chosen on the strength of it.
+
+    ### 7. MINOR — a non-significant trend is described as a dose-response that "rises steeply"
+    - **Location:** `pathophysiology[5]` "Secondary Angle Obstruction in Anterior Segment
+      Dysgenesis"; evidence `PMID:37834882` (HUMAN_CLINICAL, SUPPORT)
+    - **Entry claims:** description — "in Peters anomaly the risk of glaucoma rises steeply
+      with the degree of anterior segment dysgenesis, from none in eyes with an isolated
+      posterior corneal defect to the majority of eyes once lens abnormalities are present";
+      explanation — "Quantifies the dose-response between severity of anterior segment
+      dysgenesis and glaucoma risk".
+    - **Paper says:** *"Stage 1 Peters anomaly had no glaucoma, 52% of Stage 2 had glaucoma,
+      and 75% of Stage 3 had glaucoma"* — quoted correctly, and the stage definitions match
+      the entry's gloss (Stage 1 = posterior corneal defect only; Stage 3 = corneal defect
+      with lens abnormalities). But the same paragraph reads *"the incidence of secondary
+      glaucoma tended to increase as the disease progressed (p = 0.052; Table 2)"*, i.e. a
+      **non-significant** Cochran–Armitage trend in 31 eyes of 20 patients, with only 2
+      Stage 1 eyes and 4 Stage 3 eyes.
+    - **Why it matters:** "rises steeply" and "dose-response" upgrade a borderline trend in a
+      single-centre retrospective series of tiny per-stratum n into an established gradient.
+
+    ### 8. MINOR — mechanistic assertions in node/treatment descriptions that no cited source states, one of them mildly cut against by the cited data
+    - **Locations and claims:**
+      - `pathophysiology[10]` "Optic Nerve Head Degeneration and Glaucomatous Cupping" —
+        "Reversal reflects recovery of the compliant immature lamina cribrosa rather than
+        regrowth of lost axons". The only evidence attached is `PMID:38755526`'s *"however
+        optic disc cupping can be reversible with treatment"*, which says nothing about the
+        lamina cribrosa. (Standard teaching, but unsourced here.)
+      - `pathophysiology[5]` — "angle incision surgery addresses a dysgenetic meshwork but
+        not an obliterated angle"; `treatments[0]` — "where the angle is obliterated by
+        adhesions rather than dysgenetic, as in some Peters anomaly eyes, angle incision is
+        much less effective". The cited Peters series found the predictor of trabeculotomy
+        failure was **corneal staphyloma** (*"among the four eyes where TLO was ineffective,
+        three had corneal staphyloma (p = 0.0331)"*), not adhesional stage — indeed *"all
+        four eyes that did not achieve IOP control with TLO alone were classified as Stage 2"*
+        (iridocorneal adhesion) while two Stage 3 (lenticulocorneal) eyes succeeded, and the
+        stage comparison was non-significant (p = 0.212).
+      - Entry `description` — "the nonsyndromic Mendelian disease of the GLC3A-GLC3E loci
+        (CYP1B1, LTBP2, TEK, ANGPT1)". ANGPT1 has no GLC3 designation, as the entry's own
+        `has_subtypes[6]` says ("No separate numbered GLC3 locus or MONDO subtype term has
+        been assigned").
+    - **Why it matters:** each is plausible clinical reasoning, but they are stated in the
+      same declarative register as the evidenced content, and the surgical one is the
+      clinically actionable claim of the treatment block. The Peters data attached to it
+      point at a different predictor.
+
+    ### 9. MINOR — clinical-trial descriptive details not verifiable from the repo, and one population mismatch
+    - **Location:** `clinical_trials[0..3]`
+    - **Entry claims:** enrolment figures ("51 participants", "44 participants") and
+      `status:` values (`COMPLETED` ×3, `UNKNOWN` ×1).
+    - **Cache says:** the four `references_cache/clinicaltrials_NCT*.md` files hold only
+      title + summary text; none carries enrolment or recruitment status, so nothing in the
+      repo checks these numbers. Separately, `clinical_trials[2]` (NCT04116450) is described
+      as a study "in congenital glaucoma", while the registry text reads *"25 eyes of 25
+      patients with primary congenital **or juvenile** glaucoma"* — the entry's own snippet
+      contains the "or juvenile" wording, but the description drops it.
+    - **Why it matters:** low risk (the quoted snippets themselves are exact and correctly
+      used), but the enrolment numbers are unfalsifiable from the cache, and the juvenile
+      arm matters for an entry that explicitly scopes juvenile-onset disease out to
+      `Juvenile_Open_Angle_Glaucoma.yaml`.
+
+    ## Non-findings (checked and clean)
+
+    - **Snippet verbatimness:** 127/127 mechanically verified; I additionally read each
+      quote in its source paragraph. No paraphrase, no fabricated quote. Two snippets that
+      look title-like (`PMID:28549150` "Primary congenital glaucoma (PCG) is isolated,
+      non-syndromic glaucoma that occurs in the first three years of life ..." and
+      `PMID:20301314` "Primary congenital glaucoma (PCG) is characterized by elevated
+      intraocular pressure ...") are body sentences carrying substantive content, correctly
+      used to define subtype boundaries and clinical features.
+    - **The `55%` vs `25%` tension in `PMID:38755526` is handled correctly.** The paper
+      reports both *"Twenty-five percent (5/20) of the solved families had primary congenital
+      glaucoma (PCG), while 75% (15/20) had secondary CG"* and *"CYP1B1 was the most
+      frequently implicated gene, accounting for 55% (11/20) of the solved families"* — not a
+      contradiction, because 5 of the 11 CYP1B1 families had secondary glaucoma phenotypes
+      (paper: *"Of the remaining 10 families, 5 exhibited PCG, whereas the remaining 5
+      exhibited secondary glaucoma"*). The entry's `case_fractions` notes say exactly the
+      right thing: "Share of the twenty solved families ... this is a fraction of solved
+      cases, not of all cases."
+    - **Named Entity Confusion:** none found. Gene→disease pairings all check out: CYP1B1
+      ↔ GLC3A/2p21, LTBP2 ↔ 14q24.3 with the GLC3C/GLC3D ambiguity preserved verbatim from
+      the source, TEK/ANGPT1 ↔ Schlemm canal, FOXC1/PITX2 ↔ Axenfeld-Rieger, PAX6 ↔ aniridia.
+      The GLC3C/GLC3D split is curated because the source itself leaves it open, and the
+      quote saying so is used in both places.
+    - **No model-organism-only support for a human claim.** `PMID:12624268` (Cyp1b1-/- and
+      Foxc1 mutant mice) and `PMID:29106382`/`PMID:27270174`'s mouse arms are always paired
+      with human genetic evidence on the same node or gene. `genetic[7]` SVEP1 is
+      MODEL_ORGANISM-only but is graded `PARTIAL`, typed `MODIFIER`, and its notes
+      explicitly forbid reporting SVEP1 as a cause — the right handling (see finding 6 for
+      the separate truncation issue).
+    - **Mixed `evidence_source` per reference is legitimate** for `PMID:19361779`,
+      `PMID:27270174`, `PMID:29106382`, `PMID:38755526`, `PMID:37834882`, `PMID:23218701`
+      and `PMID:38386645`: in each case the differing values sit on *different sentences*
+      reporting different study types (human cohort vs mouse arm vs review-prose
+      introduction), which CLAUDE.md explicitly endorses. Only `PMID:9097971` (finding 2)
+      and `PMID:20301314` (finding 3) are defects.
+    - **`conforms_to` anchors** (`anterior_segment_dysgenesis#...`, `glaucoma_optic_neuropathy#...`)
+      and `target_mechanisms` / `attaches_to` targets all name nodes that exist in this file
+      or in the referenced modules.
+    - **Ontology bindings** spot-checked against `cache/*/terms.csv`: `MONDO:0020366`,
+      `MONDO:0000365/0009277/0010968/0013121/0013122/0014998`, `HP:0000557`, `HP:0000485`,
+      `HP:6001217`, `HP:0007957`, `HP:0009926`, `HP:0000613`, `HP:0000643`, `HP:0007906`,
+      `HP:0007765`, `HP:0012796`, `HP:0000545`, `HP:0001089`, `HP:0000505`, `CL:0000008`,
+      `CL:4033097`, `CL:0002367`, `CL:0000740`, `UBERON:0004017/0004029/0005969/0006206`,
+      `GO:0002930/0048014/0001523/0004497` — all present with exactly matching labels.
+    - **`supports` grading:** the seven `PARTIAL` and one `REFUTE` items are each justified
+      in their explanations and are the right calls — notably the `REFUTE` on
+      `PMID:23218701`'s "not in the trabecular meshwork" sentence inside the expression-site
+      controversy, and the `PARTIAL` on the US-cohort LTBP2 negative result, which bounds
+      rather than refutes LTBP2 causality.
+
+    ## Coverage
+
+    - **Total evidence items in file:** 127 (66 `OTHER`, 45 `HUMAN_CLINICAL`,
+      13 `MODEL_ORGANISM`, 3 `IN_VITRO`; 119 `SUPPORT`, 7 `PARTIAL`, 1 `REFUTE`)
+    - **Examined:** 127 (100%), each against the cached reference body.
+    - **References cited in evidence:** 23 PMIDs + 4 ClinicalTrials.gov records — **all
+      present in `references_cache/`**.
+    - **Missing from cache:** `PMID:27149523` (feline LTBP2 congenital glaucoma) and
+      `PMID:34663817` (mouse outflow-pathway scRNA-seq). Both appear only as
+      `datasets[].publication` pointers with no snippet, so no snippet validation applies;
+      noted for completeness.
+    - **Heavy reliance on review prose:** 66 of 127 items (52%) are `OTHER` — GeneReviews,
+      narrative reviews, and citation-bearing introductions of primary papers. Each is
+      labelled with an inline reason, which is the correct handling under the repo's rules,
+      but the mechanism spine of the entry (neural-crest origin → trabeculodysgenesis →
+      IOP → RGC loss) rests substantially on `PMID:38755526`'s introduction rather than on
+      primary sources. Not a defect; worth knowing when this entry is reused.
+
+    ## Sections reviewed
+
+    `description`, `notes`, `disease_term`, `has_subtypes` (8, incl. subtype terms and
+    genes), `pathophysiology` (13 nodes, incl. `conforms_to`, `downstream` edges,
+    `genetic_context`, locations, cell types, GO annotations), `phenotypes` (13),
+    `inheritance` (2), `genetic` (8, incl. nested `inheritance` and `case_fractions`),
+    `prevalence` (3), `treatments` (5, incl. `target_mechanisms`), `diagnosis` (3),
+    `animal_models` (3, incl. `modeled_mechanisms`), `clinical_trials` (4),
+    `discussions` (2, incl. `proposed_experiments`), `classifications`, `datasets` (4),
+    `references`.

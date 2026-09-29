@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nocardiosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Nocardiosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Nocardiosis</h1>
+                
+                <p class="report-subtitle">Nocardiosis: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0017776" target="_blank" rel="noopener noreferrer">MONDO:0017776</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">28 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Nocardiosis: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Nocardiosis · <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0017776" target="_blank" rel="noopener noreferrer">MONDO:0017776</a> · <strong>Category:</strong> Infectious Disease
+<strong>Report type:</strong> Disease knowledge-base template (15 sections) · <strong>Iterations completed:</strong> 5 · <strong>Findings confirmed:</strong> 8 · <strong>Papers reviewed:</strong> 59
+<strong>Evidence base:</strong> Literature synthesis (PubMed). No patient-level data files were provided; all content is derived from aggregated disease-level literature (systematic reviews, multicenter cohorts, case series), not individual EHR data.</p>
+<hr />
+<h2>Summary</h2>
+<p>Nocardiosis is an <strong>opportunistic bacterial infection</strong> caused by aerobic, Gram-positive, weakly (partially) acid-fast, branching filamentous actinomycetes of the genus <em>Nocardia</em>. It is an <strong>environmentally acquired, non-heritable infectious disease</strong>: the organism lives in soil, decaying vegetation and water, and enters the host by <strong>inhalation</strong> (producing pulmonary disease, the primary presentation) or by <strong>traumatic inoculation</strong> (producing cutaneous/subcutaneous disease, including actinomycetoma). Its defining clinical feature is a strong propensity for <strong>hematogenous dissemination to the central nervous system</strong>, where it forms ring-enhancing brain abscesses carrying a case-fatality of roughly 20–30%. Because the etiology is infectious rather than genetic, the many template sections that assume a Mendelian/heritable disease (causal human genes, inheritance pattern, penetrance, germline variant classification, genetic screening) are <strong>Not Applicable</strong>; the molecular characterization instead centers on <strong>pathogen virulence factors</strong> and <strong>antimicrobial-resistance determinants</strong>.</p>
+<p>The disease disproportionately afflicts hosts with impaired <strong>cell-mediated immunity</strong>. The dominant risk factors — corticosteroid therapy, solid-organ and hematopoietic-cell transplantation, high calcineurin-inhibitor (tacrolimus) exposure, low CD4 counts (HIV/AIDS), and anti–GM-CSF autoantibodies — all converge on defective T-cell/macrophage killing. In solid-organ transplant recipients nocardiosis affects 0.04–3.5% of patients and confers a roughly 10-fold higher one-year mortality than in transplant recipients without infection. Diagnosis rests on demonstrating branching, beaded, weakly acid-fast filaments on microscopy, growth on culture (slow, days to weeks), and species-level identification by MALDI-TOF MS, 16S rRNA gene sequencing, MLSA, or whole-genome/metagenomic sequencing. Chest CT typically shows nodules/masses, consolidation and cavitation; brain MRI shows ring-enhancing abscesses with vasogenic edema.</p>
+<p>Treatment is prolonged (months) and <strong>species- and susceptibility-guided</strong>. <strong>Linezolid is universally active</strong> against <em>Nocardia</em>; trimethoprim-sulfamethoxazole (TMP-SMX) and amikacin cover &gt;90% of isolates and form the backbone of therapy, with carbapenems and third-generation cephalosporins used for severe/disseminated disease and neurosurgical drainage for brain abscesses. Resistance is species-specific and gene-encoded (e.g., <em>bla</em>FAR-1 in <em>N. farcinica</em>, <em>bla</em>AST-1 in <em>N. cyriacigeorgica</em>, <em>gyrA</em> mutations, 16S rRNA methyltransferases). Prevention is chiefly <strong>dose-dependent TMP-SMX chemoprophylaxis</strong> in high-risk immunosuppressed patients plus minimization of net immunosuppression; no vaccine exists for humans.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Nocardiosis is a localized or disseminated opportunistic infection caused by <em>Nocardia</em> spp., environmental actinomycetes. It most often begins as a subacute-to-chronic pulmonary infection and can spread hematogenously, with the CNS the most common secondary site, followed by skin/soft tissue. It is not contagious person-to-person.</p>
+<p><strong>Key identifiers.</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0017776" target="_blank" rel="noopener noreferrer">MONDO:0017776</a> (nocardiosis)
+- <strong>ICD-10:</strong> A43 (A43.0 pulmonary, A43.1 cutaneous, A43.8 other forms, A43.9 unspecified); <strong>ICD-11:</strong> 1C1F
+- <strong>MeSH:</strong> D009617 (Nocardia Infections)
+- <strong>OMIM / Orphanet:</strong> Not a Mendelian disorder — no OMIM disease number. Orphanet lists nocardiosis as a rare infectious disease.
+- <strong>Causative genus (NCBI Taxonomy):</strong> <em>Nocardia</em> (taxid 1817); key species include <em>N. asteroides</em>, <em>N. farcinica</em>, <em>N. cyriacigeorgica</em>, <em>N. brasiliensis</em>, <em>N. otitidiscaviarum</em>, <em>N. nova</em>, <em>N. seriolae</em> (fish).</p>
+<p><strong>Synonyms / alternative names.</strong> Nocardia infection; nocardial infection; actinomycetoma / Nocardial mycetoma (for the chronic subcutaneous form). Historically many cases were attributed to "<em>N. asteroides</em> complex" before molecular taxonomy split it into distinct species.</p>
+<p><strong>Information source.</strong> The evidence base is a mix of <strong>individual patient reports/case series</strong> (EHR-derived clinical cohorts) and <strong>aggregated disease-level resources</strong> (systematic reviews, multicenter case-control studies). No population-level germline registry applies.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause — infectious.</strong> Nocardiosis is caused by infection with <em>Nocardia</em> spp. As one review states, <em>"Nocardia are uncommon pathogens that disproportionately afflict the immunocompromised host"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29668123/">PMID: 29668123</a>). Acquisition is by inhalation of soil dust (pulmonary/disseminated disease) or by percutaneous trauma with soil/plant contamination (cutaneous disease, actinomycetoma).</p>
+<p><strong>Risk factors (host, non-genetic).</strong> Impaired <strong>cell-mediated immunity</strong> is the central predisposing state:
+- <strong>Corticosteroid therapy</strong> — the single most common predisposing factor; in a systematic review of CNS nocardiosis, corticosteroid use was present in 55.8% of patients (<a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>).
+- <strong>Solid-organ transplantation (SOT)</strong> — affects 0.04–3.5% of recipients; independent risk factors include high calcineurin-inhibitor trough levels (OR 6.11, 95% CI 2.58–14.51), tacrolimus use (OR 2.65, 95% CI 1.17–6.00) and corticosteroid dose (OR 1.12 per unit, 95% CI 1.03–1.22) (<a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">PMID: 27090987</a>).
+- <strong>Hematopoietic-cell transplantation (HCT)</strong> and delayed CD4 T-cell recovery.
+- <strong>High-dose methylprednisolone and CMV infection</strong> (independent risk factors in renal transplant recipients; <a href="https://pubmed.ncbi.nlm.nih.gov/39254072/">PMID: 39254072</a>).
+- <strong>HIV/AIDS with low CD4 counts.</strong>
+- <strong>Anti–GM-CSF autoantibodies / autoimmune pulmonary alveolar proteinosis</strong> (French multicenter study, <a href="https://pubmed.ncbi.nlm.nih.gov/38915339/" target="_blank" rel="noopener noreferrer">PMID 38915339</a>).
+- <strong>Chronic lung disease</strong> (bronchiectasis, COPD), <strong>diabetes mellitus</strong>, connective tissue disease, malignancy.
+- <strong>Sulfonamide allergy label</strong> — associated with higher nocardiosis risk in SOT (HR 3.85, 95% CI 1.44–10.30), likely via avoidance of protective TMP-SMX prophylaxis (<a href="https://pubmed.ncbi.nlm.nih.gov/39136148/">PMID: 39136148</a>).</p>
+<p><strong>Genetic risk factors (human host).</strong> No established Mendelian susceptibility gene. Rare monogenic immunodeficiencies affecting phagocyte/T-cell function (e.g., chronic granulomatous disease) can predispose to <em>Nocardia</em>, but there is no disease-causing germline locus. Anti–GM-CSF autoantibody-driven susceptibility is acquired, not inherited. <strong>This subsection is largely Not Applicable.</strong></p>
+<p><strong>Protective factors.</strong> <strong>TMP-SMX chemoprophylaxis</strong> reduces risk in a dose-dependent manner (see Section 13). No genetic protective variant is defined.</p>
+<p><strong>Gene–environment interactions.</strong> Not applicable in the human host in a Mendelian sense. The relevant interaction is <strong>iatrogenic immunosuppression × environmental exposure</strong> (soil/dust) — pharmacologic suppression of cell-mediated immunity converts an environmental saprophyte into a lethal pathogen.</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>Phenotypes are <strong>infection manifestations</strong>, not heritable traits. HPO terms below are suggested for knowledge-base mapping.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency / notes</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pulmonary infection (pneumonia, nodules, cavitation)</td>
+<td>Clinical/imaging</td>
+<td>~64% of cases (28/44) (<a href="https://pubmed.ncbi.nlm.nih.gov/41319540/">PMID: 41319540</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" rel="noopener noreferrer">HP:0002090</a> (Pneumonia); <a href="http://purl.obolibrary.org/obo/HP_0100750" target="_blank" rel="noopener noreferrer">HP:0100750</a> (Pulmonary nodules)</td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>Very common (100% in bacteremia series)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Cough, dyspnea</td>
+<td>Symptom</td>
+<td>Common in pulmonary disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a> (Cough); <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a> (Dyspnea)</td>
+</tr>
+<tr>
+<td>Brain abscess / CNS involvement</td>
+<td>Clinical</td>
+<td>Most common secondary site; 86.9% of CNS cases show brain abscess (<a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025186" target="_blank" rel="noopener noreferrer">HP:0025186</a> (Brain abscess); <a href="http://purl.obolibrary.org/obo/HP_0002383" target="_blank" rel="noopener noreferrer">HP:0002383</a> (Encephalitis)</td>
+</tr>
+<tr>
+<td>Focal neurological deficit / altered mental status</td>
+<td>Sign</td>
+<td>In CNS disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0034332" target="_blank" rel="noopener noreferrer">HP:0034332</a> (Cognitive decline); <a href="http://purl.obolibrary.org/obo/HP_0002011" target="_blank" rel="noopener noreferrer">HP:0002011</a> (CNS abnormality)</td>
+</tr>
+<tr>
+<td>Cutaneous/subcutaneous abscess, actinomycetoma</td>
+<td>Physical</td>
+<td>Primary cutaneous (immunocompetent) or metastatic (disseminated)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025503" target="_blank" rel="noopener noreferrer">HP:0025503</a> (Skin abscess)</td>
+</tr>
+<tr>
+<td>Disseminated multi-organ infection</td>
+<td>Clinical</td>
+<td>~30% (13/44) (<a href="https://pubmed.ncbi.nlm.nih.gov/41319540/">PMID: 41319540</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032262" target="_blank" rel="noopener noreferrer">HP:0032262</a> (Disseminated infection)</td>
+</tr>
+<tr>
+<td>Weight loss, malaise</td>
+<td>Constitutional</td>
+<td>Chronic presentations</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a> (Weight loss)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Age of onset:</strong> Predominantly adults; mean age ~55 ± 16 y in CNS series (<a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>). Not congenital.</li>
+<li><strong>Severity:</strong> Variable — from indolent cutaneous lesions to fatal disseminated/CNS disease.</li>
+<li><strong>Progression:</strong> Subacute to chronic; can be rapidly progressive in severely immunosuppressed hosts.</li>
+<li><strong>Quality-of-life impact:</strong> Substantial in disseminated/CNS disease (neurological sequelae, prolonged multi-month therapy, hospitalization); disease-specific QoL instruments are not established.</li>
+</ul>
+<hr />
+<h2>Section 4 — Genetic / Molecular Information</h2>
+<p><strong>Human causal genes: Not Applicable.</strong> Nocardiosis is infectious; there is no human causal gene, pathogenic germline variant, ACMG/AMP variant classification, modifier gene, inheritance-linked epigenetic lesion, or chromosomal abnormality. Sections requiring gnomAD allele frequency, somatic vs germline origin, and human variant nomenclature do not apply.</p>
+<p><strong>Molecular characterization instead centers on the pathogen genome.</strong> <em>Nocardia</em> virulence and resistance are gene-encoded (detailed in Sections 5, 6, 12). Genomic analysis of <em>N. seriolae</em> and clinical isolates identified virulence-associated genes including <em>sodA</em> (superoxide dismutase), <em>katG</em> (catalase), and mycolic-acid/cell-wall biosynthesis genes (<em>pks13</em>, <em>fadD32</em>, <em>pcaA</em>, <em>mftF</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/40827537/">PMID: 40827537</a>). Resistance determinants include <em>bla</em>FAR-1, <em>bla</em>AST-1, <em>aph(2″)</em>, <em>gyrA</em> Ser83Ala, and a 16S rRNA m1A1408 methyltransferase (<a href="https://pubmed.ncbi.nlm.nih.gov/37527397/">PMID: 37527397</a>).</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p><strong>Environmental reservoir.</strong> <em>Nocardia</em> is a ubiquitous soil saprophyte found in soil, decaying organic/plant matter, dust and water. Exposure to soil and dust (gardening, agriculture, construction) is the principal environmental risk; several case reports link disease to occupational/recreational soil exposure.</p>
+<p><strong>Lifestyle factors.</strong> Smoking and chronic lung disease increase pulmonary susceptibility; alcohol use and diabetes are frequent comorbidities. These are host-modifying rather than direct causal factors.</p>
+<p><strong>Infectious agents (the cause).</strong> Human disease is caused by multiple <em>Nocardia</em> species. Predominant clinical isolates include <em>N. asteroides</em>, <em>N. farcinica</em>, and <em>N. cyriacigeorgica</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41319540/">PMID: 41319540</a>); <em>N. brasiliensis</em> is the classic cause of actinomycetoma; <em>N. otitidiscaviarum</em> shows unpredictable susceptibility; <em>N. seriolae</em> causes fish nocardiosis. <em>N. farcinica</em> is characteristically multidrug-resistant and over-represented in brain/disseminated disease.</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Environmental exposure</strong> — the host inhales soil/dust aerosols containing <em>Nocardia</em>, <strong>or</strong> the organism is inoculated through broken skin (trauma). → leads to</li>
+<li><strong>Deposition in alveoli (or dermis)</strong> and encounter with resident macrophages. → leads to</li>
+<li><strong>Phagocytosis by macrophages</strong>, which would normally kill the organism. → but</li>
+<li><strong>Immune-evasion branch:</strong> <em>Nocardia</em> resists intracellular killing. Secreted <strong>catalase (<em>katG</em>) and superoxide dismutase (<em>sodA</em>)</strong> detoxify reactive oxygen species; the <strong>mycolic-acid–rich cell wall</strong> (built by <em>pks13</em>, <em>fadD32</em>, <em>pcaA</em>, <em>mftF</em>) resists phagolysosomal degradation; secreted <strong>proteases</strong> damage tissue and <strong>immunosuppressive metabolites (e.g., brasilicardin A)</strong> blunt local immunity (<a href="https://pubmed.ncbi.nlm.nih.gov/40827537/">PMID: 40827537</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33956121/">PMID: 33956121</a>). → results in</li>
+<li><strong>Intracellular survival and replication within macrophages</strong> — favored when host <strong>cell-mediated immunity is impaired</strong> (corticosteroids, calcineurin inhibitors, low CD4). → leads to</li>
+<li><strong>Local suppurative/granulomatous inflammation.</strong> In the lung: pneumonia, nodules, consolidation and cavitation. A local <strong>anti-inflammatory (immunosuppressive) microenvironment coexists with a systemic acquired immune response</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/22825801/">PMID: 22825801</a>). Nitric oxide (eNOS) is required for actinomycetoma lesion formation in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/33956121/">PMID: 33956121</a>). → then branches
+7a. <strong>Containment branch (competent immunity):</strong> granuloma / macrophage barrier walls off the organism → localized, indolent disease.
+7b. <strong>Dissemination branch (impaired immunity):</strong> organisms breach the local barrier and enter the bloodstream. → leads to</li>
+<li><strong>Hematogenous spread</strong> to the <strong>CNS</strong> (most common secondary site), skin/soft tissue, and other organs. → results in</li>
+<li><strong>Ring-enhancing brain abscess</strong> with surrounding vasogenic edema. → leads to</li>
+<li><strong>Clinical manifestation:</strong> focal neurological deficit, altered mental status, seizures; untreated or delayed, <strong>death</strong> (CNS case-fatality ~23%).</li>
+</ol>
+<p><em>(Steps 4–5 are supported by pathogen genomics and animal models; the human host-side detail is inferred from clinical association with cell-mediated immune defects rather than mechanistically demonstrated in humans.)</em></p>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways / cellular processes:</strong> Macrophage phagocytosis and oxidative burst; ROS detoxification; granuloma formation; chronic inflammation. Suggested GO terms: <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis), <a href="http://purl.obolibrary.org/obo/GO_0000302" target="_blank" rel="noopener noreferrer">GO:0000302</a> (response to reactive oxygen species), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0006801" target="_blank" rel="noopener noreferrer">GO:0006801</a> (superoxide metabolic process).</li>
+<li><strong>Protein dysfunction (pathogen):</strong> Mycolic-acid synthesis enzymes and antioxidant enzymes are gain-of-function virulence assets, not host defects.</li>
+<li><strong>Immune involvement:</strong> Host defect is impaired <strong>cell-mediated immunity</strong> (T-cell/macrophage axis); IFN-γ–driven macrophage activation is protective (demonstrated in fish models, <a href="https://pubmed.ncbi.nlm.nih.gov/33045332/">PMID: 33045332</a>).</li>
+<li><strong>Tissue damage mechanisms:</strong> Suppuration/necrosis (abscess), protease-mediated tissue destruction, granulomatous fibrosis.</li>
+<li><strong>Cell types (CL terms):</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), T cell (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), CD4+ T cell (<a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a>).</li>
+</ul>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> <strong>Lung</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>) — the portal of entry for inhaled disease; pulmonary infection in ~64% of cases.</li>
+<li><strong>Most common secondary organ:</strong> <strong>Brain</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>) — brain abscess in the vast majority of CNS cases.</li>
+<li><strong>Other sites:</strong> skin/subcutaneous tissue (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), bone/joint/bursa, pericardium, lymph nodes, bloodstream (bacteremia), eye, kidney.</li>
+<li><strong>Body systems:</strong> respiratory, nervous (CNS), integumentary, and (when disseminated) systemic/cardiovascular.</li>
+<li><strong>Tissue level:</strong> lung parenchyma (alveolar epithelium and interstitium), brain parenchyma, dermis/subcutis.</li>
+<li><strong>Cell populations (CL):</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>).</li>
+<li><strong>Subcellular (GO cellular component):</strong> phagosome/phagolysosome (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a> / <a href="http://purl.obolibrary.org/obo/GO_0032010" target="_blank" rel="noopener noreferrer">GO:0032010</a>) is the key intracellular niche.</li>
+<li><strong>Localization/lateralization:</strong> Pulmonary lesions often multifocal/bilateral; brain abscesses may be single or multiple, unilateral or bilateral.</li>
+</ul>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Predominantly <strong>adult</strong>; subacute to chronic (insidious) course. In SOT, median onset is <strong>17.5 months post-transplant</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">PMID: 27090987</a>). Acute fulminant presentations occur in severe immunosuppression.</li>
+<li><strong>Progression:</strong> From localized pulmonary focus to disseminated/CNS disease over weeks to months if untreated. Cavitation is more frequent in immunosuppressed and disseminated disease.</li>
+<li><strong>Course pattern:</strong> Progressive without treatment; treatment-responsive but requires <strong>prolonged (weeks to ≥6–12 months) therapy</strong> to prevent relapse.</li>
+<li><strong>Duration:</strong> Not self-limited; chronic if untreated.</li>
+<li><strong>Critical period:</strong> Early diagnosis and drainage are decisive — delay increases CNS/dissemination and mortality. Prophylaxis interruption during immunosuppression transitions is a recognized trigger.</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> <strong>Not Applicable</strong> — infectious, non-heritable. No inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency.</li>
+<li><strong>Epidemiology:</strong> Estimated incidence historically ~500–1,000 US cases/year (increasing with immunosuppressed populations); precise population incidence is uncertain and under-reported. In SOT, cumulative incidence 0.04–3.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">PMID: 27090987</a>).</li>
+<li><strong>Demographics:</strong> <strong>Male predominance</strong> (~70.8% male in CNS series); mean age ~55 y (<a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>). Notably, <strong>~34% of CNS cases were immunocompetent</strong>, so immunocompetence does not exclude the diagnosis.</li>
+<li><strong>Geographic distribution:</strong> Worldwide; actinomycetoma (<em>N. brasiliensis</em>) is more common in tropical/subtropical regions. Species distribution varies by region (e.g., <em>N. cyriacigeorgica</em> common in India, <a href="https://pubmed.ncbi.nlm.nih.gov/40112638/">PMID: 40112638</a>).</li>
+</ul>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Microbiology (gold standard).</strong> Direct microscopy of Gram-stained smears shows <strong>branching, beaded, filamentous Gram-positive rods</strong> that are <strong>weakly/partially acid-fast</strong> on modified Kinyoun stain. Gram-stained smears are emphasized as a valuable, easily-overlooked diagnostic step (<a href="https://pubmed.ncbi.nlm.nih.gov/36636850/">PMID: 36636850</a>). Culture is slow (days to weeks). Species identification uses <strong>MALDI-TOF MS, 16S rRNA gene sequencing, MLSA, WGS, and metagenomic next-generation sequencing (mNGS)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42258415/">PMID: 42258415</a>).</p>
+<p><strong>Imaging.</strong>
+- <strong>Chest CT:</strong> Multiple/solitary nodules or masses are the most common finding (94.12% in one series), with ground-glass opacities (76.47%), patchy consolidation (73.53%), and cavitation (52.94%) (<a href="https://pubmed.ncbi.nlm.nih.gov/37185005/">PMID: 37185005</a>). Cavitation is significantly more frequent in immunosuppressed than immunocompetent patients (<strong>85% vs 29%, p = 0.005</strong>, <a href="https://pubmed.ncbi.nlm.nih.gov/37185005/">PMID: 37185005</a>) and in disseminated vs localized disease (64.3% vs 32.8%, <a href="https://pubmed.ncbi.nlm.nih.gov/38529577/">PMID: 38529577</a>).
+- <strong>Brain MRI/CT (contrast):</strong> ring-enhancing abscess(es) with vasogenic edema.</p>
+<p><strong>Susceptibility testing.</strong> Broth microdilution (CLSI) for TMP-SMX, linezolid, amikacin, carbapenems, third-generation cephalosporins, amoxicillin-clavulanate, moxifloxacin, minocycline. Species identification predicts likely resistance patterns.</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> No formal scoring system; diagnosis is microbiological. Differential includes tuberculosis, actinomycosis, fungal infection (aspergillosis, cryptococcosis), metastatic malignancy and lung cancer — pulmonary and CNS nocardiosis frequently <strong>mimic malignancy</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42007821/">PMID: 42007821</a>).</p>
+<p><strong>Screening / genetic testing:</strong> Not applicable (no germline component).</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>CNS nocardiosis case-fatality:</strong> <strong>22.8%</strong> overall (<a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>); nocardial brain abscesses carry a <strong>20–55% mortality</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39780099/">PMID: 39780099</a>).</li>
+<li><strong>SOT nocardiosis:</strong> one-year all-cause mortality <strong>16.2% vs 1.3%</strong> in matched controls — a <strong>10-fold increase</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28329348/">PMID: 28329348</a>); 12-month mortality ~16.8% in a multicenter SOT cohort, with liver transplantation and shorter symptom-to-presentation time independently associated with death (<a href="https://pubmed.ncbi.nlm.nih.gov/36303280/">PMID: 36303280</a>).</li>
+<li><strong>Prognostic factors:</strong> immunosuppression intensity, CNS/disseminated involvement, species (<em>N. farcinica</em> worse), delayed diagnosis. <strong>Surgery improves survival</strong> in CNS disease (multivariate OR 2.4, 95% CI 0.99–4.11, p = 0.046, <a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>).</li>
+<li><strong>Complications:</strong> brain abscess rupture, respiratory failure, multi-organ dissemination, relapse if therapy is too short.</li>
+<li><strong>Recovery:</strong> Good with early, susceptibility-guided, adequately prolonged therapy plus drainage; poor when diagnosis is delayed.</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>Backbone pharmacotherapy.</strong> <em>Nocardia</em> susceptibility is favorable to a defined set of agents:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>Activity across isolates</th>
+<th>Notes</th>
+<th>Suggested NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Linezolid</strong></td>
+<td><strong>100%</strong> (universally active)</td>
+<td>Oxazolidinone; key for CNS/severe/resistant disease</td>
+<td>NCIT:C1649</td>
+</tr>
+<tr>
+<td><strong>TMP-SMX (cotrimoxazole)</strong></td>
+<td><strong>93%</strong></td>
+<td>Sulfonamide backbone; oral; prophylaxis + treatment</td>
+<td>NCIT:C312</td>
+</tr>
+<tr>
+<td><strong>Amikacin</strong></td>
+<td><strong>91%</strong></td>
+<td>Aminoglycoside; combination for severe disease</td>
+<td>NCIT:C233</td>
+</tr>
+<tr>
+<td><strong>Carbapenems (imipenem/meropenem)</strong></td>
+<td>High</td>
+<td>Severe/disseminated, CNS combination</td>
+<td>NCIT:C61796</td>
+</tr>
+<tr>
+<td><strong>Third-gen cephalosporins (ceftriaxone/cefotaxime)</strong></td>
+<td>Species-dependent</td>
+<td><em>N. farcinica</em> often resistant (<em>bla</em>FAR-1)</td>
+<td>NCIT:C548</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Data: Israeli WGS study of 138 strains — <em>"Linezolid was active against all isolates, followed by trimethoprim/sulfamethoxazole (93%) and amikacin (91%)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37527397/">PMID: 37527397</a>); Indian series — <em>"All tested isolates were susceptible to linezolid and 96% susceptible to amikacin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40112638/">PMID: 40112638</a>).</p>
+<p><strong>Species-specific resistance (gene-encoded):</strong> <em>bla</em>FAR-1 → ceftriaxone resistance in <em>N. farcinica</em>; <em>bla</em>AST-1 → amoxicillin-clavulanate resistance in <em>N. cyriacigeorgica</em>/<em>N. neocaledoniensis</em>; <em>aph(2″)</em> → tobramycin resistance; <em>gyrA</em> Ser83Ala → ciprofloxacin resistance; 16S rRNA m1A1408 methyltransferase → amikacin resistance (<a href="https://pubmed.ncbi.nlm.nih.gov/37527397/">PMID: 37527397</a>).</p>
+<p><strong>Treatment strategy.</strong>
+- <strong>Localized pulmonary/cutaneous:</strong> TMP-SMX (monotherapy can be effective in SOT — favorable outcome in 19/24 patients completing ≥30 days, <a href="https://pubmed.ncbi.nlm.nih.gov/34143917/">PMID: 34143917</a>).
+- <strong>Severe/disseminated/CNS:</strong> <strong>combination therapy</strong> (e.g., TMP-SMX + linezolid ± amikacin/carbapenem), often 2–3 drugs initially, then oral step-down; total duration typically <strong>6–12 months</strong> (longer in CNS/immunosuppressed).
+- <strong>Surgical drainage</strong> of brain and large soft-tissue abscesses improves outcomes.
+- <strong>Personalized approach:</strong> therapy is <strong>species/susceptibility-guided</strong> via molecular ID and antimicrobial susceptibility testing.
+- <strong>Pharmacogenomics:</strong> relevant to the sulfonamide component (sulfa hypersensitivity) but no <em>Nocardia</em>-specific PGx.</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> <strong>TMP-SMX chemoprophylaxis</strong> in high-risk immunosuppressed patients. An individual-patient-data meta-analysis of SOT recipients is titled <em>"Trimethoprim-sulfamethoxazole significantly reduces the risk of nocardiosis in solid organ transplant recipients"</em> and assessed <em>"its dose-response relationship, its effect on preventing disseminated nocardiosis, and the risk of TMP-SMX resistance in case of breakthrough infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37865337/">PMID: 37865337</a>). Protection is <strong>dose-dependent</strong>: low-dose (thrice-weekly, PJP-dosing) cotrimoxazole <em>"was not found to prevent nocardiosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">PMID: 27090987</a>), whereas higher/daily dosing is protective.</li>
+<li><strong>Breakthrough infections</strong> occur despite prophylaxis and in-vitro susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/42135975/">PMID: 42135975</a>), reflecting host-immunity and drug-exposure factors; prophylaxis <strong>rarely selects resistance</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29668123/">PMID: 29668123</a>).</li>
+<li><strong>Minimize net immunosuppression</strong> where clinically feasible.</li>
+<li><strong>Environmental/occupational caution:</strong> reduce soil/dust exposure in severely immunosuppressed patients (gloves, masks for gardening).</li>
+<li><strong>De-labeling sulfa allergy</strong> before transplant to preserve access to protective prophylaxis (<a href="https://pubmed.ncbi.nlm.nih.gov/39136148/">PMID: 39136148</a>).</li>
+<li><strong>Immunization:</strong> <strong>No human vaccine</strong> exists.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of affected hosts:</strong> Humans (<em>Homo sapiens</em>, <a href="https://bioregistry.io/NCBI:9606" target="_blank" rel="noopener noreferrer">NCBI:9606</a>) and many animals. <em>Nocardia</em> is a natural pathogen of <strong>fish</strong> (<em>N. seriolae</em>), <strong>dogs, cattle, and other mammals</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/4604823/">PMID: 4604823</a>).</li>
+<li><strong>Fish nocardiosis:</strong> <em>N. seriolae</em> causes chronic granulomatous disease in &gt;40 species of cultured marine/freshwater fish (largemouth bass, snakehead, amberjack, channel catfish), causing major aquaculture losses (<a href="https://pubmed.ncbi.nlm.nih.gov/38641217/">PMID: 38641217</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40827537/">PMID: 40827537</a>).</li>
+<li><strong>Comparative pathology:</strong> Granuloma formation is conserved across teleosts and mammals; teleost granulomas form a macrophage "barrier" via an epithelialization program (<a href="https://pubmed.ncbi.nlm.nih.gov/41443521/">PMID: 41443521</a>).</li>
+<li><strong>Zoonotic potential:</strong> Low/negligible for direct animal-to-human transmission; humans and animals are independently infected from the shared <strong>environmental soil/water reservoir</strong>.</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Murine models:</strong> The <strong>C57BL/6 footpad actinomycetoma model</strong> (<em>N. brasiliensis</em>) reproduces chronic granulomatous lesions; <strong>eNOS-knockout mice</strong> are protected from actinomycetoma, with increased T-cell proliferation and lower TNF-α — establishing that nitric oxide is required for lesion development (<a href="https://pubmed.ncbi.nlm.nih.gov/33956121/">PMID: 33956121</a>).</li>
+<li><strong>Fish models:</strong> Largemouth bass, snakehead (<em>Channa argus</em>), amberjack, and channel catfish infected with <em>N. seriolae</em> recapitulate chronic granulomatous disease and macrophage barrier biology; used to study pathogenesis, immune response (IFN-γ), and vaccine/adjuvant development (<a href="https://pubmed.ncbi.nlm.nih.gov/38641217/">PMID: 38641217</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41443521/">PMID: 41443521</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33045332/">PMID: 33045332</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29665356/">PMID: 29665356</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> Both systems reproduce <strong>granuloma formation, macrophage-centered immunity, and chronicity</strong>. Limitations: rodent/fish models do not fully mirror the human iatrogenic-immunosuppression context (transplant, corticosteroids) or human CNS abscess dissemination.</li>
+</ul>
+<hr />
+<h2>Key Findings (with expanded evidence)</h2>
+<h3>Finding 1 — Opportunistic infection: lung primary, CNS most common secondary site</h3>
+<p>In a retrospective series of 44 nocardiosis cases, pulmonary infection occurred in 28/44 (64%), disseminated disease in 13/44 (30%), and extrapulmonary single-organ disease in 3/44; 40/44 had comorbidities and 13/44 were on long-term glucocorticoids/immunosuppressants (<a href="https://pubmed.ncbi.nlm.nih.gov/41319540/">PMID: 41319540</a>). Predominant isolates were <em>N. asteroides</em>, <em>N. farcinica</em>, and <em>N. cyriacigeorgica</em>. The opportunistic nature is captured succinctly: <em>"Nocardia are uncommon pathogens that disproportionately afflict the immunocompromised host"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29668123/">PMID: 29668123</a>).</p>
+<h3>Finding 2 — CNS nocardiosis: ~23% case-fatality; <em>N. farcinica</em> predominates; surgery improves survival</h3>
+<p>A systematic review of adult CNS nocardiosis (129 papers) found mean age 55 ± 16 y, 70.8% male, <em>N. farcinica</em> the commonest species (39.6%), corticosteroid use the most common predisposing factor (55.8%), brain abscess in 86.9%, and <strong>overall case-fatality 22.8%</strong>; surgery independently improved survival (OR 2.4, 95% CI 0.99–4.11, p = 0.046) (<a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">PMID: 35700710</a>). Nocardial brain abscesses account for ~2% of all brain abscesses but carry <strong>20–55% mortality</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39780099/">PMID: 39780099</a>).</p>
+<h3>Finding 3 — Corticosteroids, transplantation and cell-mediated immune defects dominate risk</h3>
+<p>In renal transplant recipients, <em>"High-dose methylprednisolone and cytomegalovirus infection were independent risk factors for Nocardia infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/39254072/">PMID: 39254072</a>). TMP-SMX prophylaxis provides imperfect protection but does not select resistance: <em>"The use of TMP-SMX prophylaxis was not associated with TMP-SMX-resistant Nocardia"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/29668123/">PMID: 29668123</a>).</p>
+<h3>Finding 4 — Nocardiosis affects 0.04–3.5% of SOT recipients; immunosuppression intensity is the driver</h3>
+<p>The European multicenter case-control study (117 cases/234 controls) identified <em>"high calcineurin inhibitor trough levels in the month before diagnosis (odds ratio [OR], 6.11; 95% confidence interval [CI], 2.58-14.51), use of tacrolimus (OR, 2.65; 95% CI, 1.17-6.00) and corticosteroid dose (OR, 1.12; 95% CI, 1.03-1.22)"</em> as independent risk factors, and found <em>"low-dose cotrimoxazole prophylaxis was not found to prevent nocardiosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">PMID: 27090987</a>). One-year mortality was <em>"10-fold higher in SOT patients with nocardiosis than in those without"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/28329348/">PMID: 28329348</a>).</p>
+<h3>Finding 5 — Virulence: ROS-detoxifying enzymes, mycolic-acid wall, proteases, immunosuppressive metabolites</h3>
+<p>Genomics identified <em>"espG, mftF, pcaA, fadD32, pks13, narJ, feoB, sodA, katG and mceF"</em> virulence-associated genes (<a href="https://pubmed.ncbi.nlm.nih.gov/40827537/">PMID: 40827537</a>). <em>N. brasiliensis "produces proteases that may play a role in tissue damage, as well as immunosuppressive molecules, such as brasilicardin A"</em>, and nitric oxide is required for lesions: <em>"Inflammation and actinomycetoma were prevented in genetically modified [eNOS-knockout] mice infected with N. brasiliensis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33956121/">PMID: 33956121</a>).</p>
+<h3>Finding 6 — Linezolid universally active; TMP-SMX and amikacin &gt;90%; resistance species-specific</h3>
+<p><em>"Linezolid was active against all isolates, followed by trimethoprim/sulfamethoxazole (93%) and amikacin (91%)"</em>, with resistance linked to defined determinants such as <em>"blaFAR-1 in N. farcinica (resistance to ceftriaxone)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37527397/">PMID: 37527397</a>). An independent Indian cohort confirmed <em>"All tested isolates were susceptible to linezolid and 96 % susceptible to amikacin"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/40112638/">PMID: 40112638</a>).</p>
+<h3>Finding 7 — Diagnosis: microscopy/culture + molecular ID; characteristic CT and MRI findings</h3>
+<p>Pulmonary CT most commonly shows nodules/masses, ground-glass opacities, consolidation and cavitation — <em>"Multiple or solitary nodules represented the most common CT feature (n = 32, 94.12%), followed by ground-glass opacities (n = 26, 76.47%), patchy consolidations (n = 25, 73.53%), cavitations (n = 18, 52.94%)"</em> — with cavitation associated with immunosuppression (<em>"85% vs 29%, P = 0.005"</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/37185005/">PMID: 37185005</a>). Molecular species identification uses <em>"16S rRNA gene sequencing, multilocus sequence analysis (MLSA), matrix-assisted laser desorption ionization-time-of-flight mass spectrometry (MALDI-TOF MS), whole-genome sequencing (WGS), and metagenomic next-generation sequencing (mNGS)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/42258415/">PMID: 42258415</a>).</p>
+<h3>Finding 8 — Prevention: dose-dependent TMP-SMX prophylaxis; rarely selects resistance</h3>
+<p>The IPD meta-analysis assessed <em>"its dose-response relationship, its effect on preventing disseminated nocardiosis, and the risk of TMP-SMX resistance in case of breakthrough infection"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/37865337/">PMID: 37865337</a>), reconciling why <em>"low-dose cotrimoxazole prophylaxis was not found to prevent nocardiosis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">PMID: 27090987</a>) — protection is dose-dependent.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>ENVIRONMENT (soil, dust, water)
+│  inhalation / traumatic inoculation
+▼
+   ALVEOLAR (or dermal) DEPOSITION
+│  phagocytosis by macrophages
+▼
+   PATHOGEN IMMUNE EVASION ─── katG/sodA (ROS detox)
+│                  ├── mycolic-acid wall (pks13, fadD32, pcaA)
+│                  ├── secreted proteases (tissue damage)
+│                  └── brasilicardin A (local immunosuppression)
+▼
+   INTRACELLULAR SURVIVAL &amp; REPLICATION
+│  (permitted when host cell-mediated immunity is impaired:
+│   corticosteroids, calcineurin inhibitors, low CD4, anti–GM-CSF Ab)
+▼
+   LOCAL SUPPURATIVE / GRANULOMATOUS INFLAMMATION (pneumonia, nodules, cavitation)
+│
+├──[competent immunity]──► granuloma containment → localized disease
+│
+└──[impaired immunity]───► HEMATOGENOUS DISSEMINATION
+                       │
+                       ▼
+           CNS ► ring-enhancing BRAIN ABSCESS (+ skin, other organs)
+                       │
+                       ▼
+    focal deficit / altered mental status → DEATH (~20–30%)
+</code></pre>
+<p>The unifying theme is a <strong>two-hit model</strong>: (1) a pathogen equipped to survive inside macrophages and (2) a host whose <strong>cell-mediated immunity is pharmacologically or immunologically disabled</strong>. Upstream events are environmental exposure and immune-evasion virulence; the pivotal branch point is host immune competence, which determines containment versus dissemination. Therapeutic and preventive levers act at defined points: <strong>prophylaxis</strong> (block establishment), <strong>antibiotics</strong> (kill intracellular organisms), <strong>surgery</strong> (evacuate abscess), and <strong>immunosuppression minimization</strong> (restore containment).</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Study</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27090987/">27090987</a></td>
+<td>European SOT case-control (117/234)</td>
+<td>Quantifies immunosuppression risk factors; low-dose prophylaxis inadequate</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28329348/">28329348</a></td>
+<td>European SOT outcomes</td>
+<td>10-fold excess 1-year mortality</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29668123/">29668123</a></td>
+<td>Transplant review (Duke cohort)</td>
+<td>Opportunistic nature; prophylaxis does not select resistance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35700710/">35700710</a></td>
+<td>CNS systematic review (129 papers)</td>
+<td>22.8% case-fatality; <em>N. farcinica</em>; surgery benefit</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37527397/">37527397</a></td>
+<td>WGS of 138 isolates (Israel)</td>
+<td>Linezolid 100%; gene-encoded resistance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40112638/">40112638</a></td>
+<td>Indian susceptibility series</td>
+<td>Independent confirmation of linezolid/amikacin activity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37185005/">37185005</a></td>
+<td>CT of pulmonary nocardiosis</td>
+<td>CT feature frequencies; cavitation ↔ immunosuppression</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42258415/">42258415</a></td>
+<td>ID/AST review</td>
+<td>Molecular diagnostic methods</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37865337/">37865337</a></td>
+<td>IPD meta-analysis</td>
+<td>Dose-dependent TMP-SMX prevention</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40827537/">40827537</a></td>
+<td><em>N. seriolae</em> genomics</td>
+<td>Virulence genes (sodA, katG, mycolic-acid)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33956121/">33956121</a></td>
+<td>eNOS-KO mouse model</td>
+<td>Proteases, brasilicardin A; NO required for lesions</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39254072/">39254072</a></td>
+<td>Renal transplant (Pakistan)</td>
+<td>Methylprednisolone, CMV as independent risks</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39780099/">39780099</a></td>
+<td>CNS abscess case/review</td>
+<td>Brain-abscess frequency and 20–55% mortality</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36303280/">36303280</a></td>
+<td>SOT cohort (n=125)</td>
+<td>12-mo mortality; liver Tx and delay as prognostic factors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34143917/">34143917</a></td>
+<td>TMP-SMX monotherapy in SOT</td>
+<td>Monotherapy effective in most SOT cases</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39136148/">39136148</a></td>
+<td>Sulfa allergy label cohort</td>
+<td>Sulfa label ↑ nocardiosis risk (HR 3.85)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22825801/">22825801</a></td>
+<td><em>N. brasiliensis</em> immunology</td>
+<td>Systemic immunity vs local immunosuppressive microenvironment</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41443521/">41443521</a></td>
+<td>Teleost granuloma study</td>
+<td>Conserved macrophage-barrier granuloma biology</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Template mismatch.</strong> This template assumes a heritable/Mendelian disease. For an infectious disease, sections on causal human genes, inheritance, penetrance, germline variant classification, and genetic screening are <strong>Not Applicable</strong>; molecular content necessarily shifts to pathogen biology.</li>
+<li><strong>Epidemiology is under-characterized.</strong> True population incidence/prevalence is uncertain because nocardiosis is not reportable in most jurisdictions and is under-diagnosed. Regional species-distribution and burden data are inadequate in many settings.</li>
+<li><strong>Evidence quality.</strong> Much of the clinical literature is retrospective case series and single-center cohorts; randomized treatment trials are essentially absent. Treatment durations and regimens are guided by expert consensus, not RCTs.</li>
+<li><strong>Host-side mechanism is inferred.</strong> The requirement for intact cell-mediated immunity is established by clinical association and animal models; direct human mechanistic proof (which T-cell/macrophage pathways fail under specific drugs) is incomplete.</li>
+<li><strong>In-vitro/in-vivo discordance.</strong> Breakthrough disease despite in-vitro susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/42135975/">PMID: 42135975</a>) shows susceptibility testing imperfectly predicts outcome.</li>
+<li><strong>Species-level resistance heterogeneity.</strong> <em>N. otitidiscaviarum</em> and inter-strain variability complicate empiric therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/42143233/">PMID: 42143233</a>).</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Prospective incidence registry</strong> stratified by immunosuppression regimen to define modern population burden and optimal prophylaxis dosing/duration.</li>
+<li><strong>Randomized/adaptive trial of prophylaxis dosing</strong> (single-strength daily vs thrice-weekly) in SOT/HCT to formalize the dose-response signal from <a href="https://pubmed.ncbi.nlm.nih.gov/37865337/">PMID: 37865337</a>.</li>
+<li><strong>WGS-linked antimicrobial-resistance surveillance</strong> to build species→resistance prediction rules (extending <em>bla</em>FAR-1/<em>bla</em>AST-1/<em>gyrA</em>/16S-methyltransferase mapping) enabling genotype-guided empiric therapy before phenotypic AST returns.</li>
+<li><strong>Comparative-effectiveness study of TMP-SMX monotherapy vs combination</strong> for disseminated/CNS disease, powered for mortality (current analyses are underpowered, <a href="https://pubmed.ncbi.nlm.nih.gov/36303280/">PMID: 36303280</a>).</li>
+<li><strong>Host-immunity biomarkers</strong> (CD4 recovery, anti–GM-CSF autoantibody screening) to risk-stratify and target prophylaxis.</li>
+<li><strong>Rapid molecular diagnostics</strong> (mNGS/tNGS) validation to shorten time-to-species-ID and drainage decisions.</li>
+<li><strong>Mechanistic dissection</strong> of macrophage killing defects under calcineurin inhibitors/corticosteroids using human macrophage-<em>Nocardia</em> infection models to connect the two-hit model to actionable host-directed therapy.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 8 confirmed findings and 59 reviewed papers across 5 investigation iterations. Evidence types span human clinical cohorts/case-control studies, systematic reviews, pathogen genomics, and murine/teleost model-organism studies.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Nocardiosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Nocardiosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>29</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0025503</code> (1 mention) - the report calls it "Skin abscess"; HP calls it <strong>Anomalous coronary artery arising from the opposite sinus</strong></li>
+<li><code>HP:0032262</code> (1 mention) - the report calls it "Disseminated infection"; HP calls it <strong>Pulmonary tuberculosis</strong></li>
+<li><code>UBERON:0002048</code> (1 mention) - the report calls it "Lung", "Primary organ:<strong> </strong>Lung"; UBERON calls it <strong>lung</strong></li>
+<li><code>UBERON:0000955</code> (1 mention) - the report calls it "Brain", "Most common secondary organ:<strong> </strong>Brain"; UBERON calls it <strong>brain</strong></li>
+<li><code>UBERON:0002097</code> (1 mention) - the report calls it "Other sites:<strong> skin/subcutaneous tissue"; UBERON calls it </strong>skin of body**</li>
+<li><code>NCIT:C1649</code> (1 mention) - the report calls it "Oxazolidinone; key for CNS/severe/resistant disease"; NCIT calls it <strong>Allovectin-7</strong></li>
+<li><code>NCIT:C312</code> (1 mention) - the report calls it "Sulfonamide backbone; oral; prophylaxis + treatment"; NCIT calls it <strong>Bleomycin Sulfate</strong></li>
+<li><code>NCIT:C233</code> (1 mention) - the report calls it "Aminoglycoside; combination for severe disease"; NCIT calls it <strong>Aminoglutethimide</strong></li>
+<li><code>NCIT:C61796</code> (1 mention) - the report calls it "Severe/disseminated, CNS combination"; NCIT calls it <strong>Ivermectin</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0002048</code> - called "Lung", "Primary organ:<strong> </strong>Lung"</li>
+<li><code>UBERON:0000955</code> - called "Brain", "Most common secondary organ:<strong> </strong>Brain"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>NCBI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Nipah_Virus_Disease-falcon.html">← Nipah Virus Disease (Falcon)</a>
+                
+                
+                <a href="Noise_Induced_Hearing_Loss-claude_code.html">Noise Induced Hearing Loss (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Nocardiosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Nocardiosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

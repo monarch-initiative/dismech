@@ -1,0 +1,132 @@
+name: Claude Issue Dedupe
+
+on:
+  issues:
+    types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to check for duplicates
+        required: true
+        type: string
+      model:
+        description: Model override (empty uses agent-config.yaml)
+        type: string
+        default: ""
+
+permissions: {}
+
+concurrency:
+  group: issue-dedupe-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      candidates: ${{ steps.dedupe.outputs.structured_output }}
+      issue_number: ${{ steps.issue.outputs.number }}
+      fingerprint: ${{ steps.issue.outputs.fingerprint }}
+      last_human_comment: ${{ steps.issue.outputs.last_human_comment }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Check issue before searching
+        id: issue
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        with:
+          script: |
+            const { prepareSearch } = require('./.github/scripts/issue-duplicates.js');
+            const issue = await prepareSearch(github, context.repo, process.env.ISSUE_NUMBER);
+            if (issue) {
+              core.setOutput('number', issue.number);
+              core.setOutput('fingerprint', issue.fingerprint);
+              core.setOutput('last_human_comment', issue.lastHumanComment);
+            }
+
+      - name: Resolve agent config
+        if: steps.issue.outputs.number != ''
+        uses: ./.github/actions/resolve-agent-config
+        with:
+          workflow: claude-dedupe-issues
+          model-override: ${{ inputs.model }}
+
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        if: steps.issue.outputs.number != ''
+        uses: ./.github/actions/setup-claude-code
+
+      - name: Install uv for Langfuse tracing
+        if: steps.issue.outputs.number != ''
+        uses: astral-sh/setup-uv@v7
+
+      - name: Find and verify duplicate issues
+        if: steps.issue.outputs.number != ''
+        id: dedupe
+        uses: anthropics/claude-code-action@v1
+        env:
+          LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+          LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:claude-dedupe-issues",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
+          # Keep the .git suffix: the action validates marketplace URLs.
+          plugin_marketplaces: |
+            https://github.com/langfuse/Claude-Observability-Plugin.git
+          plugins: |
+            langfuse-observability@langfuse-observability
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.ANTHROPIC_API_KEY == '' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
+          github_token: ${{ github.token }}
+          # Analysis is read-only, including for issues opened by outside users
+          # or bots. A separate runner validates and publishes its result.
+          allowed_non_write_users: "*"
+          allowed_bots: "*"
+          prompt: "/dedupe ${{ github.repository }} ${{ steps.issue.outputs.number }}"
+          claude_args: |
+            --model ${{ env.AGENT_MODEL }}
+            --allowedTools "Agent,Task,Read,TodoWrite,Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search issues:*)"
+            --json-schema '{"type":"object","properties":{"duplicates":{"type":"array","maxItems":3,"items":{"type":"object","properties":{"number":{"type":"integer","minimum":1},"reason":{"type":"string","minLength":1,"maxLength":1000}},"required":["number","reason"],"additionalProperties":false}}},"required":["duplicates"],"additionalProperties":false}'
+
+  notify:
+    needs: search
+    if: needs.search.outputs.candidates != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      # Fresh checkout: the analyzing agent cannot alter the publishing code.
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Post duplicate notice
+        uses: actions/github-script@v8
+        env:
+          ISSUE_NUMBER: ${{ needs.search.outputs.issue_number }}
+          ISSUE_FINGERPRINT: ${{ needs.search.outputs.fingerprint }}
+          LAST_HUMAN_COMMENT: ${{ needs.search.outputs.last_human_comment }}
+          CANDIDATES: ${{ needs.search.outputs.candidates }}
+        with:
+          script: |
+            const { proposeDuplicates } = require('./.github/scripts/issue-duplicates.js');
+            await proposeDuplicates(github, context.repo, {
+              number: Number(process.env.ISSUE_NUMBER),
+              fingerprint: process.env.ISSUE_FINGERPRINT,
+              lastHumanComment: Number(process.env.LAST_HUMAN_COMMENT),
+              result: JSON.parse(process.env.CANDIDATES),
+            });

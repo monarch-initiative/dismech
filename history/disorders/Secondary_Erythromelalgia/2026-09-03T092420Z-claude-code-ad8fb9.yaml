@@ -1,0 +1,47 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Secondary_Erythromelalgia
+  path: kb/disorders/Secondary_Erythromelalgia.yaml
+session:
+  id: 2026-09-03T092420Z-claude-code-ad8fb9
+  timestamp: '2026-09-03T09:24:20Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues: []
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10681
+  urls: []
+events:
+- type: EDIT
+  outcome: changed
+  sections:
+  - diagnosis
+  - pathophysiology
+  - mappings
+  - discussions
+  summary: 'Close diagnostics gap for the immune route; split bundled node; add ICD10CM:I73.81
+    (PR #10681 review)'
+  details: |
+    Addresses the ai4c-reviewer CHANGES_REQUESTED review on PR #10681. CI was already green (test 3.13 success); the review raised one blocking content gap plus three suggestions.
+
+    BLOCKING - the new immune/dysautonomic mechanism arm had no matching diagnostic workup. The reviewer's strongest point was that PMID:35835622 was fetched into references_cache by the previous commit of this same PR and then never cited, and that it carries a sentence covering three of the gaps at once. Verified the quote against the cache before using it, including the two misspellings ('thryoid', 'hormon') which are present in the source abstract and are preserved verbatim because an evidence snippet must be an exact substring. Three changes:
+      1. JAK2 mutation testing added to the existing MPN-evaluation diagnosis entry, citing the blood-count/JAK2 sentence. The results prose now says why the confirmatory test matters here specifically: the flare precedes the haematological diagnosis by a median of 2.5 years, so a normal count does not close the question.
+      2. New diagnosis entry 'Serologic and small-fiber neuropathy workup for non-MPN causes' citing the TSH/ANA/small-fiber-neuropathy sentence. These are exactly the routes the immune_dysautonomic_route hypothesis is about, and they are the aspirin-resistant forms, so cause identification is what management turns on.
+      3. The skin punch biopsy entry previously described only platelet-arm histology. It now records that which stains are ordered decides which arm the biopsy can speak to: routine histology shows the platelet lesion, while C5b-9, type-I interferon and CD56 are needed for the immune route, so a routine-stain biopsy reported as unremarkable does not exclude it. Two PMID:39846717 evidence items added.
+    Both PMID:35835622 items are graded OTHER: it is a practical-approach review of the vascular acrosyndromes, not a report of primary data.
+
+    SUGGESTION TAKEN - node co-bundling. The reviewer flagged that 'Complement-Mediated Microvascular Injury and Autonomic Denervation of Acral Skin' carried complement/type-I-IFN endothelial injury and autonomic denervation under one biological_scale: TISSUE, which fits the denervation half but not the molecular/cellular half, and kept it as a suggestion because a pre-existing node sets the same house-style precedent. Taken anyway, because CLAUDE.md's single-value discipline is explicit that a node which would take two scale values bundles two claims and should be split. Now two atomic nodes:
+      - 'Complement-Mediated Microvascular Endothelial Injury' (CELLULAR) - C5b-9 deposition and endothelial type-I interferon signalling; keeps the CL:0011030 endothelial cell binding, the two GO processes, the arteriole location, and the PMID:23334520 NO_EVIDENCE counterweight.
+      - 'Autonomic Denervation of Acral Arteries and Eccrine Glands' (TISSUE) - the CD56 denervation finding; keeps the eccrine gland and arteriole locations.
+    They are parallel observations from one biopsy, not a causal chain, so no edge is drawn between them; each takes its own edge to the flare node, both tagged into immune_dysautonomic_route, and the upstream Non-Platelet Acquired Routes node now has an edge to each half with its own evidence. The denervation node's description carries the shunting connection, since arteriovenous shunts are autonomically controlled, and points at discussions#av_shunting_vs_occlusion_paradox; that discussion's attaches_to was repointed from the old bundled node to the denervation half.
+
+    SUGGESTION TAKEN - ICD-10-CM child code. The reviewer noted I73.81 exists. Verified with 'runoak -i sqlite:obo:icd10cm info ICD10CM:I73.81' -> 'Erythromelalgia'; OLS returns nothing for the icd10cm ontology, so the configured OAK adapter was the check that settled it. Added as a second mapping rather than replacing I73.8: the existing row records the cross-reference MONDO itself asserts (mapping_source MONDO:0035149) and removing it would lose that provenance. The new row is skos:broadMatch, not exactMatch, because I73.81 is 'Erythromelalgia' unqualified and so also covers the primary SCN9A form curated in Primary_Erythermalgia; an I73.81-coded cohort still cannot serve as a case definition for this entry. Both justifications now cross-reference each other.
+
+    SUGGESTION NOT TAKEN - consuming more of the 13 unused newly-cached PMIDs. The reviewer called this optional and noted PMID:27639908 is largely redundant with evidence already on the Non-Platelet Acquired Routes node. Agreed; the remainder are PV/ET prognosis papers that belong to Polycythemia_Vera and Essential_Thrombocythemia rather than here, which is the same deferral the entry already makes for the MPN pathophysiology.
+
+    VALIDATION. 'just validate-disorders' passes on the final bytes: schema clean, term validation passed, 116/116 snippets verified (up from 110). All offline gates green: duplicate-keys, entity-refs, causal-targets, enum-values, qualifier-terms, folded-hyphens, snippet-length, title-snippets, snippet-grading, environmental-evidence. The causal graph builds with 26 nodes, 18 edges and an empty orphan_targets set, so the split introduced no phantom nodes. The 18 pytest cases parametrized on this entry pass, as do the 33 history tests. Note that a full 'pytest tests/test_data.py' run over the whole corpus exceeds this environment's command timeout and was not completed; the per-entry and per-gate checks above are what was actually run, and CI's own test job was green on the parent commit.

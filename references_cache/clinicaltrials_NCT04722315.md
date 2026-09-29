@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT04722315"
+reference_id: clinicaltrials:NCT04722315
 title: Pilot Clinical Trial of Modified Atkins Diet for Kabuki Syndrome
 content_type: summary
+full_text_attempted: true
 ---
 
 # Pilot Clinical Trial of Modified Atkins Diet for Kabuki Syndrome

@@ -1,0 +1,176 @@
+---
+reference_id: DOI:10.1038/s41586-026-10468-w
+title: Integrated signatures define mutational processes in prostate cancer
+authors:
+- Andreas J. Gruber
+- André V. Olsen
+- Barbara Hernando
+- Kevin C. L. Cheng
+- Clarissa Gerhäuser
+- Marina Torres
+- Francesco Favero
+- Daria Kiriy
+- Ángel Fernández-Sanromán
+- Juan Maria Roldan-Romero
+- Lucy Barton
+- Diogo Pellegrina
+- G. Steven Bova
+- Daniel S. Brewer
+- Mark N. Brook
+- Benedikt Brors
+- Adam Butler
+- Géraldine Cancel-Tassin
+- Niall M. Corcoran
+- Olivier Cussenot
+- Abraham Gihawi
+- Etsehiwot G. Girma
+- Vincent J. Gnanapragasam
+- Anis A. Hamid
+- Vanessa M. Hayes
+- Housheng Hansen He
+- Christopher M. Hovens
+- Eddie L. Imada
+- G. Maria Jakobsdottir
+- Chol-Hee Jung
+- Francesca Khani
+- Zsofia Kote-Jarai
+- Philippe Lamy
+- Gregory Leeman
+- Massimo Loda
+- Pavlo Lutsik
+- Luigi Marchionni
+- Ramyar Molania
+- Anthony T. Papenfuss
+- Bernard Pope
+- Lucio R. Queiroz
+- Tobias Rausch
+- Brian Robinson
+- Atef Sahli
+- Karina D. Sørensen
+- Takafumi N. Yamaguchi
+- Sebastian Uhrig
+- Yaobo Xu
+- Claudio Zanettini
+- Alain Bergeron
+- Alan F. Rubin
+- Alastair D. Lamb
+- Alejandro Berlin
+- Aleksandra S. Ziuboniewicz
+- Andrew Erickson
+- Andrew Ryan
+- Andy G. Lynch
+- Angelo Corso Faini
+- Anne Nguyen
+- Anne Warren
+- Aravind Sankar
+- Arfa Mehmood
+- Balthasar C. Schlotmann
+- Beng Lim
+- Bethany K. Campbell
+- Breon Feran
+- Charlie E. Massie
+- Chen Hong
+- Chris Foster
+- Christoph Plass
+- Christopher Wirth
+- Colin Collins
+- Corinna Grima
+- Dan J. Woodcock
+- Daniel Barrowdale
+- Daniel J. Park
+- Emre Esentürk
+- Esther Baena
+- Fabian Falkenbach
+- Filippo Pederzoli
+- Giselle Kerry
+- Giuseppe N. Fanelli
+- Grace Hall
+- Harveer Dev
+- Holger Sültmann
+- Hubert Pakula
+- Ian Mills
+- Jan Korbel
+- Jennifer Ureta
+- Jessica Heilmann
+- Jingjing Zhang
+- Jocelyn Sietsma Penington
+- Jue Jiang
+- Justin Bedő
+- Justin S. Peters
+- Keiran Raine
+- Ken Chow
+- Kira Furlano
+- Lars Feuerbach
+- Lena Voith von Voithenberg
+- Marek Cmero
+- Markus Graefen
+- Matthew K. H. Hong
+- Matthew Wakefield
+- Matti Nykter
+- Melissa Cheung
+- Michael Borre
+- Michael J. Clarkson
+- Michael Kerger
+- Michael Scherer
+- Mohamed Omar
+- Nana Mensah
+- Natalie Kurganovs
+- Nening Dennis
+- Noora Al-Muftah
+- Parsa Pirhady
+- Patrick McCoy
+- Peter Georgeson
+- Peter Van Loo
+- Philip Dundee
+- Pier Vitale Nuzzo
+- Pierre Tennstedt
+- Pramit M. Phal
+- Radoslaw Lach
+- Rajbir N. Batra
+- Simon Pacey
+- Ronnie Rodrigues Pereira
+- Ruining Dong
+- Ryan Carelli
+- Ryan Stuchbery
+- Sam Norden
+- Samson Olofinsae
+- Silvia Rodrigues
+- Stefano Mangiola
+- Thomas Keane
+- Toby Milne-Clark
+- Tony Costello
+- Valeriia Haberland
+- Vivien Holmes
+- Weerachai Jaratlerdsiri
+- Wi Burns
+- Wikum Dinalankara
+- William J. Hutchison
+- Xiaotong He
+- Yidan Pan
+- Yong-Jie Lu
+- Yunfan Fu
+- Yves Fradet
+- Ronald Simon
+- Guido Sauter
+- Ros A. Eeles
+- Colin S. Cooper
+- Robert G. Bristow
+- David C. Wedge
+- Thorsten Schlomm
+- Geoff Macintyre
+- Jüri Reimand
+- Joachim Weischenfeldt
+journal: Nature
+year: '2026'
+doi: 10.1038/s41586-026-10468-w
+content_type: unavailable
+is_preprint: false
+full_text_attempted: true
+---
+
+# Integrated signatures define mutational processes in prostate cancer
+**Authors:** Andreas J. Gruber, André V. Olsen, Barbara Hernando, Kevin C. L. Cheng, Clarissa Gerhäuser, Marina Torres, Francesco Favero, Daria Kiriy, Ángel Fernández-Sanromán, Juan Maria Roldan-Romero, Lucy Barton, Diogo Pellegrina, G. Steven Bova, Daniel S. Brewer, Mark N. Brook, Benedikt Brors, Adam Butler, Géraldine Cancel-Tassin, Niall M. Corcoran, Olivier Cussenot, Abraham Gihawi, Etsehiwot G. Girma, Vincent J. Gnanapragasam, Anis A. Hamid, Vanessa M. Hayes, Housheng Hansen He, Christopher M. Hovens, Eddie L. Imada, G. Maria Jakobsdottir, Chol-Hee Jung, Francesca Khani, Zsofia Kote-Jarai, Philippe Lamy, Gregory Leeman, Massimo Loda, Pavlo Lutsik, Luigi Marchionni, Ramyar Molania, Anthony T. Papenfuss, Bernard Pope, Lucio R. Queiroz, Tobias Rausch, Brian Robinson, Atef Sahli, Karina D. Sørensen, Takafumi N. Yamaguchi, Sebastian Uhrig, Yaobo Xu, Claudio Zanettini, Alain Bergeron, Alan F. Rubin, Alastair D. Lamb, Alejandro Berlin, Aleksandra S. Ziuboniewicz, Andrew Erickson, Andrew Ryan, Andy G. Lynch, Angelo Corso Faini, Anne Nguyen, Anne Warren, Aravind Sankar, Arfa Mehmood, Balthasar C. Schlotmann, Beng Lim, Bethany K. Campbell, Breon Feran, Charlie E. Massie, Chen Hong, Chris Foster, Christoph Plass, Christopher Wirth, Colin Collins, Corinna Grima, Dan J. Woodcock, Daniel Barrowdale, Daniel J. Park, Emre Esentürk, Esther Baena, Fabian Falkenbach, Filippo Pederzoli, Giselle Kerry, Giuseppe N. Fanelli, Grace Hall, Harveer Dev, Holger Sültmann, Hubert Pakula, Ian Mills, Jan Korbel, Jennifer Ureta, Jessica Heilmann, Jingjing Zhang, Jocelyn Sietsma Penington, Jue Jiang, Justin Bedő, Justin S. Peters, Keiran Raine, Ken Chow, Kira Furlano, Lars Feuerbach, Lena Voith von Voithenberg, Marek Cmero, Markus Graefen, Matthew K. H. Hong, Matthew Wakefield, Matti Nykter, Melissa Cheung, Michael Borre, Michael J. Clarkson, Michael Kerger, Michael Scherer, Mohamed Omar, Nana Mensah, Natalie Kurganovs, Nening Dennis, Noora Al-Muftah, Parsa Pirhady, Patrick McCoy, Peter Georgeson, Peter Van Loo, Philip Dundee, Pier Vitale Nuzzo, Pierre Tennstedt, Pramit M. Phal, Radoslaw Lach, Rajbir N. Batra, Simon Pacey, Ronnie Rodrigues Pereira, Ruining Dong, Ryan Carelli, Ryan Stuchbery, Sam Norden, Samson Olofinsae, Silvia Rodrigues, Stefano Mangiola, Thomas Keane, Toby Milne-Clark, Tony Costello, Valeriia Haberland, Vivien Holmes, Weerachai Jaratlerdsiri, Wi Burns, Wikum Dinalankara, William J. Hutchison, Xiaotong He, Yidan Pan, Yong-Jie Lu, Yunfan Fu, Yves Fradet, Ronald Simon, Guido Sauter, Ros A. Eeles, Colin S. Cooper, Robert G. Bristow, David C. Wedge, Thorsten Schlomm, Geoff Macintyre, Jüri Reimand, Joachim Weischenfeldt
+**Journal:** Nature (2026)
+**DOI:** [10.1038/s41586-026-10468-w](https://doi.org/10.1038/s41586-026-10468-w)
+
+## Content

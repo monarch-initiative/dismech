@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reticular Dysgenesis · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Reticular Dysgenesis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Reticular Dysgenesis</h1>
+                
+                <p class="report-subtitle">Reticular Dysgenesis (AK2 Deficiency): Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-05</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009973" target="_blank" rel="noopener noreferrer">MONDO:0009973</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Reticular Dysgenesis (AK2 Deficiency): Comprehensive Disease-Characteristics Report</h1>
+<h2>Executive summary</h2>
+<p>Reticular dysgenesis (RD) is an exceptionally rare, autosomal-recessive inborn error of immunity and one of the most severe forms of severe combined immunodeficiency (SCID). Biallelic loss-of-function variants in <strong>AK2</strong>, encoding mitochondrial adenylate kinase 2, cause congenital arrest of granulocytic and lymphoid differentiation. Classical disease presents at birth with persistent agranulocytosis, profound lymphopenia, invasive bacterial or fungal infection, promyelocyte-stage marrow arrest, and congenital sensorineural hearing loss. Without hematopoietic reconstitution, classical RD is usually fatal in early infancy. Allogeneic hematopoietic stem-cell transplantation (HSCT) is the only established curative treatment for its hematologic and immune manifestations; durable donor <strong>myeloid as well as lymphoid</strong> engraftment is essential. Hearing loss generally persists after HSCT. The best quantitative clinical evidence remains the international 32-patient survey published in 2017 because the extreme rarity of RD has precluded large prospective studies. Recent 2023–2024 literature principally refines the broader immunometabolic and diagnostic context rather than replacing that cohort evidence. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-1-6">hoenig2017reticulardysgenesisinternational pages 1-6</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>)</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Knowledge-base field</th>
+<th>Compact annotation</th>
+<th>Evidence type</th>
+<th>Key source(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Identity</td>
+<td><strong>Reticular dysgenesis (RD)</strong>; congenital aleukocytosis; AK2 deficiency; a particularly severe form of SCID. <strong><a href="http://purl.obolibrary.org/obo/MONDO_0009973" target="_blank" rel="noopener noreferrer">MONDO:0009973</a>; OMIM/<a href="https://bioregistry.io/MIM:267500" target="_blank" rel="noopener noreferrer">MIM:267500</a>.</strong> Suggested ontology: <a href="http://purl.obolibrary.org/obo/MONDO_0009973" target="_blank" rel="noopener noreferrer">MONDO:0009973</a>; HPO term for severe combined immunodeficiency.</td>
+<td>Aggregated disease resources; human cohort</td>
+<td>Hoenig et al., <em>Blood</em>, May 2017; DOI: <a href="https://doi.org/10.1182/blood-2016-11-745638">10.1182/blood-2016-11-745638</a>. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</td>
+</tr>
+<tr>
+<td>Genetics</td>
+<td>Autosomal recessive disease caused by <strong>biallelic germline loss-of-function variants in AK2</strong> (adenylate kinase 2; <a href="https://bioregistry.io/MIM:103020" target="_blank" rel="noopener noreferrer">MIM:103020</a>), at chromosome 1p35.1. The 2017 cohort identified <strong>22 variants among 30 patients from 27 families</strong>; classes included missense, nonsense, splice-site, and 1–5,000-nucleotide deletions. Of 23 homozygous cases, <strong>16 had a consanguineous background</strong>. No reliable genotype–phenotype correlation has been established.</td>
+<td>Human cohort</td>
+<td>Discovery PMID: <strong>19043416</strong>; Hoenig et al., 2017. (OpenTargets Search: Reticular dysgenesis-AK2, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</td>
+</tr>
+<tr>
+<td>Hallmark phenotype and onset</td>
+<td>Congenital persistent agranulocytosis or profound neutropenia, severe lymphopenia, early bacterial or fungal infection, promyelocyte-stage marrow arrest, and sensorineural hearing loss. In the international cohort, <strong>27/29 (93%)</strong> presented in the first month and 20/27 in the first week; bacterial sepsis occurred in <strong>17/29 (59%)</strong>, omphalitis in <strong>5/29 (17%)</strong>, anemia in <strong>14/32 (44%)</strong>, and thrombocytopenia in <strong>14/31 (45%)</strong>. Prematurity occurred in <strong>11/29 (38%)</strong> and small-for-gestational-age birth in <strong>18/29 (62%)</strong>. Suggested HPO concepts: agranulocytosis, neutropenia, lymphopenia, recurrent bacterial infection, omphalitis, anemia, thrombocytopenia, sensorineural hearing impairment, prematurity, and small for gestational age.</td>
+<td>Human cohort</td>
+<td>Hoenig et al., 2017. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, hoenig2017reticulardysgenesisinternational media 6dc0a8e5)</td>
+</tr>
+<tr>
+<td>Immunology and marrow</td>
+<td>All cohort patients had lymphopenia and persistent agranulocytosis; T-cell counts were universally low. Maternal T cells were detected in <strong>13/23 (57%)</strong>, with an allo-reactive rash in 4/13. Normal NK- and B-cell numbers occurred in only <strong>2/24</strong> and <strong>4/25</strong>, respectively. Marrow showed promyelocytic arrest in <strong>22/26</strong>, hypoplasia in 9/26, hyperplasia in 5/26, and dysmorphic lymphopoiesis in 9/26. Suggested HPO concepts: abnormal T-, B-, and NK-cell counts; maternal lymphocyte engraftment; myeloid maturation arrest.</td>
+<td>Human cohort</td>
+<td>Hoenig et al., 2017. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, hoenig2017reticulardysgenesisinternational media 9d1f21c4)</td>
+</tr>
+<tr>
+<td>Molecular mechanism</td>
+<td>AK2 resides in the mitochondrial intermembrane space and catalyzes <strong>ATP + AMP ⇌ 2 ADP</strong>. AK2 loss disrupts adenine-nucleotide homeostasis, ADP supply to oxidative phosphorylation, ATP production, proliferation, survival, and lymphoid and granulocyte differentiation. Patient cells show reduced oxygen consumption and ATP production, with increased reactive oxygen species, mitochondrial mass, and membrane permeability. Suggested GO concepts: adenylate kinase activity, adenine-nucleotide homeostasis, oxidative phosphorylation, mitochondrial ATP synthesis, regulation of reactive oxygen species, granulocyte differentiation, and lymphocyte differentiation. Suggested GO cellular component: mitochondrial intermembrane space.</td>
+<td>Human case; in vitro</td>
+<td>Ghaloul-Gonzalez et al., <em>Scientific Reports</em>, October 2019; DOI: <a href="https://doi.org/10.1038/s41598-019-51922-2">10.1038/s41598-019-51922-2</a>. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-6-7">ghaloulgonzalez2019reticulardysgenesisand pages 6-7</a>)</td>
+</tr>
+<tr>
+<td>Purine-metabolic and single-cell findings</td>
+<td>Single-cell RNA sequencing of marrow from two patients implicated altered RNA catabolism and ribonucleoprotein synthesis. CRISPR AK2-null human HSPCs showed increased AMP and IMP, depleted NAD+ and aspartate, reduced cellular RNA, ribosomal-subunit expression and protein synthesis, and profound hypoproliferation. AMP-deaminase inhibition normalized IMP but worsened the phenotype, suggesting that AMP catabolism may be compensatory. These findings were <strong>preprint evidence as of 2021</strong>.</td>
+<td>Human marrow scRNA-seq; CRISPR HSPCs; preprint</td>
+<td>Wang et al., bioRxiv, posted September 28, 2021; DOI: <a href="https://doi.org/10.1101/2021.07.05.450633">10.1101/2021.07.05.450633</a>. (<a href="#ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3">wang2021reticulardysgenesisassociatedadenylate pages 1-3</a>)</td>
+</tr>
+<tr>
+<td>Diagnosis</td>
+<td>Suspect RD in a neonate with profound leukopenia, combined lymphopenia and G-CSF-unresponsive agranulocytosis, marrow promyelocytic arrest, and failed hearing assessment. Evaluate CBC with differential, lymphocyte subsets and function, immunoglobulins, marrow morphology, maternal T-cell engraftment, auditory brainstem response, and <strong>TREC newborn screening</strong>. Confirm using AK2 sequencing plus deletion and duplication analysis. RNA sequencing can establish pathogenic splice effects, as demonstrated for <strong>c.330+5G&gt;A</strong>, which causes exon 3 skipping. Suggested HPO concepts: low TREC, absent naïve T cells, reduced mitogen response, and bilateral sensorineural deafness.</td>
+<td>Human case; human cohort</td>
+<td>Ichikawa et al., <em>Cold Spring Harbor Molecular Case Studies</em>, June 2020; DOI: <a href="https://doi.org/10.1101/mcs.a005017">10.1101/mcs.a005017</a>. (<a href="#ref-hoenig2018recentadvancesin-pages-24-29">hoenig2018recentadvancesin pages 24-29</a>, <a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>)</td>
+</tr>
+<tr>
+<td>Treatment and outcomes</td>
+<td><strong>Allogeneic HSCT is the only established curative therapy</strong> for the hematopoietic and immunologic disease. Stable donor myeloid—not merely T-cell—engraftment is essential; conditioning with a myeloablative component is generally needed. In the cohort, 31 patients received 47 HSCTs at a median age of <strong>2.4 months</strong>; 13 required retransplantation. Overall survival was <strong>21/31 (68%)</strong>. T-cell-replete graft survival was <strong>13/14 (93%)</strong>, HLA-identical family graft survival was 6/6, unrelated-donor survival was <strong>7/8 (88%)</strong>, and haploidentical T-cell-depleted graft survival was <strong>8/17 (47%)</strong>. All five unconditioned haploidentical grafts failed. Suggested NCIT concepts: hematopoietic stem cell transplantation, allogeneic bone-marrow transplantation, cord-blood transplantation, and myeloablative conditioning.</td>
+<td>Human cohort</td>
+<td>Hoenig et al., 2017; subsequent EBMT/ESID guidance supports conditioning because unconditioned RD transplantation carries a high primary-graft-failure risk. (<a href="#ref-hoenig2018recentadvancesin-pages-16-21">hoenig2018recentadvancesin pages 16-21</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-1-6">hoenig2017reticulardysgenesisinternational pages 1-6</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</td>
+</tr>
+<tr>
+<td>Prognosis and disability</td>
+<td>Untreated classical RD is usually fatal in infancy from overwhelming infection. Seven post-HSCT deaths occurred within six months, mainly from infection; later deaths reflected failure of durable donor myelopoiesis. Among 21 long-term survivors, <strong>19 retained hearing impairment</strong>, managed with hearing aids or cochlear implants; HSCT does not reliably correct the nonhematopoietic inner-ear defect. Quality-of-life burden includes hearing-related language and communication impairment and intensive transplant follow-up.</td>
+<td>Human cohort</td>
+<td>Hoenig et al., 2017. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-1-6">hoenig2017reticulardysgenesisinternational pages 1-6</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</td>
+</tr>
+<tr>
+<td>Models</td>
+<td><strong>Zebrafish ak2 deficiency</strong> recapitulates reduced HSPCs, impaired myeloid, lymphoid, and erythroid development, oxidative stress, apoptosis, and anemia. <strong>Patient-derived iPSCs</strong> reproduce promyelocyte arrest and an increased AMP/ADP ratio; antioxidant treatment restores granulocytic differentiation in vitro and rescues zebrafish hematopoietic phenotypes. Homozygous <strong>Ak2-null mice are embryonic lethal before embryonic day 7</strong>, limiting their utility for postnatal RD. Suggested organisms: <em>Danio rerio</em> (NCBI Taxon:7955), <em>Mus musculus</em> (NCBI Taxon:10090), and <em>Drosophila melanogaster</em> (NCBI Taxon:7227).</td>
+<td>Zebrafish; patient iPSC; mouse</td>
+<td>Rissone et al., <em>Journal of Experimental Medicine</em>, July 6, 2015; DOI: <a href="https://doi.org/10.1084/jem.20141286">10.1084/jem.20141286</a>. (<a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>, rissone2015reticulardysgenesis–associatedak2 pages 1-2)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: Compact evidence table covering the identity, genetics, phenotype, mechanism, diagnosis, treatment, prognosis, and models of AK2-related reticular dysgenesis. It highlights quantitative findings from the 32-patient international cohort and labels each source by evidence type.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition and identifiers</h3>
+<ul>
+<li><strong>Preferred name:</strong> Reticular dysgenesis.</li>
+<li><strong>MONDO:</strong> <strong><a href="http://purl.obolibrary.org/obo/MONDO_0009973" target="_blank" rel="noopener noreferrer">MONDO:0009973</a></strong>.</li>
+<li><strong>OMIM/MIM phenotype:</strong> <strong>267500</strong>.</li>
+<li><strong>Causal gene:</strong> <strong>AK2</strong>, adenylate kinase 2; OMIM gene <strong>103020</strong>; Ensembl <strong>ENSG00000004455</strong>.</li>
+<li><strong>Synonyms:</strong> congenital aleukocytosis, aleukocytosis, reticular dysplasia, AK2 deficiency, AK2-related severe combined immunodeficiency, SCID with agranulocytosis, and SCID with sensorineural deafness.</li>
+<li><strong>Category:</strong> Mendelian disease; inborn error of immunity; autosomal-recessive SCID.</li>
+<li><strong>MeSH/ICD:</strong> RD is generally indexed under SCID, combined immunodeficiency, congenital neutropenia/agranulocytosis, or primary immunodeficiency rather than having a consistently used disease-specific MeSH or ICD-10/ICD-11 code. A knowledge base should retain <a href="http://purl.obolibrary.org/obo/MONDO_0009973" target="_blank" rel="noopener noreferrer">MONDO:0009973</a> and OMIM 267500 as the disease-specific identifiers and map ICD coding at the broader SCID/immunodeficiency level after jurisdictional validation.</li>
+</ul>
+<p>Open Targets gives the strongest disease association to AK2 and cites the two 2009 gene-discovery reports, including PMID <strong>19043416</strong>. Lower-scoring RAC2 and HOXA11-AS associations should not be represented as established causes of canonical RD: activating RAC2 disease can phenocopy neonatal leukopenia/SCID but is a differential diagnosis. (OpenTargets Search: Reticular dysgenesis-AK2)</p>
+<p>The evidence is mostly <strong>aggregated disease-level evidence</strong> from international cohorts and curated resources, supplemented by individual case reports and experimental patient samples. It is not derived from population-scale EHR analysis.</p>
+<h2>2. Etiology, risk, and protective factors</h2>
+<h3>Causal factor</h3>
+<p>Canonical RD is caused by <strong>biallelic germline pathogenic variants in AK2</strong>. The resulting deficiency of mitochondrial intermembrane-space adenylate kinase disrupts adenine-nucleotide homeostasis and hematopoietic differentiation. It is not caused by infection, toxin, diet, or lifestyle. Infections are downstream consequences of immunodeficiency rather than etiologic agents. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>)</p>
+<h3>Genetic risk</h3>
+<p>Each child of two heterozygous carriers has a 25% probability of being affected, a 50% probability of being an unaffected carrier, and a 25% probability of inheriting neither familial allele. Consanguinity substantially increases the chance that both parents carry the same rare allele: 16 of 23 homozygous patients in the international cohort had a consanguineous background. Familial recurrence and geographic clustering reflect recessive inheritance rather than environmental exposure. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</p>
+<p>Hypomorphic alleles can produce delayed or nonclassical disease, including combined immunodeficiency or hypogammaglobulinemia without complete agranulocytosis. A homozygous <strong>c.622T&gt;C, p.Ser208Pro</strong> allele caused an atypical Old Order Amish presentation with later sepsis, some G-CSF response, and residual lymphocyte generation. Marked clinical variability among patients with the recurrent c.524G&gt;A allele also argues against a simple genotype–phenotype rule. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-6-7">ghaloulgonzalez2019reticulardysgenesisand pages 6-7</a>, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-2-3">ghaloulgonzalez2019reticulardysgenesisand pages 2-3</a>)</p>
+<h3>Environmental, protective, and gene–environment factors</h3>
+<p>No reproducible environmental, dietary, occupational, sex-specific, epigenetic, or lifestyle risk factor is known. No naturally occurring protective human AK2 allele or validated modifier gene has been established. Avoidance of pathogens reduces complications but does not alter the congenital differentiation defect. Antioxidants rescued hematopoietic phenotypes in zebrafish and patient-derived iPSCs, but this is experimental rescue—not established human prevention or disease-modifying treatment. (<a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>, rissone2015reticulardysgenesis–associatedak2 pages 1-2)</p>
+<h2>3. Phenotypes</h2>
+<p>The phenotype is congenital, usually severe and rapidly progressive through infection unless HSCT restores hematopoiesis. In the international cohort, 27/29 patients with presentation data (<strong>93%</strong>) presented in the first month; 20 of those 27 presented in the first week. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</p>
+<ul>
+<li><strong>Persistent agranulocytosis/profound neutropenia</strong>—laboratory abnormality and cardinal sign; congenital, severe, generally stable until corrected by donor myelopoiesis; often unresponsive to G-CSF. Suggested HPO: <strong>Agranulocytosis</strong>, <strong>Neutropenia</strong>, <strong>Severe congenital neutropenia</strong>.</li>
+<li><strong>Lymphopenia/SCID</strong>—all 32 cohort patients were lymphopenic and all had low T-cell numbers; B- and NK-cell numbers were normal in only 4/25 and 2/24 tested patients. Residual cells may be nonfunctional. Suggested HPO: <strong>Lymphopenia</strong>, <strong>T-cell deficiency</strong>, <strong>B-cell deficiency</strong>, <strong>Abnormal NK-cell count</strong>, <strong>Severe combined immunodeficiency</strong>. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</li>
+<li><strong>Myeloid maturation arrest</strong>—marrow promyelocytic arrest occurred in 22/26; marrow was hypoplastic in 9/26, hyperplastic in 5/26, and showed dysmorphic lymphopoiesis in 9/26. Suggested HPO: <strong>Abnormality of bone-marrow cell morphology</strong>, <strong>Myeloid maturation arrest</strong>. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, hoenig2017reticulardysgenesisinternational media 9d1f21c4)</li>
+<li><strong>Severe early infection</strong>—bacterial sepsis occurred in 17/29 (<strong>59%</strong>) and omphalitis in 5/29 (<strong>17%</strong>). Cultured organisms included <em>Staphylococcus aureus</em>, group-B streptococcus, <em>E. coli</em>, <em>Pseudomonas aeruginosa</em>, and <em>Candida albicans</em>. Suggested HPO: <strong>Recurrent bacterial infections</strong>, <strong>Sepsis</strong>, <strong>Omphalitis</strong>, <strong>Recurrent fungal infections</strong>. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, hoenig2017reticulardysgenesisinternational media 6dc0a8e5)</li>
+<li><strong>Sensorineural hearing loss</strong>—typically congenital, bilateral, moderate-to-profound, and persistent after hematopoietic correction. Suggested HPO: <strong>Sensorineural hearing impairment</strong>, <strong>Congenital hearing impairment</strong>, <strong>Bilateral sensorineural hearing impairment</strong>. (<a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>)</li>
+<li><strong>Anemia and thrombocytopenia</strong>—anemia occurred in 14/32 (<strong>44%</strong>) and thrombocytopenia in 14/31 (<strong>45%</strong>). Suggested HPO: <strong>Anemia</strong>, <strong>Thrombocytopenia</strong>. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</li>
+<li><strong>Prematurity/growth restriction</strong>—11/29 (<strong>38%</strong>) were premature and 18/29 (<strong>62%</strong>) small for gestational age. Suggested HPO: <strong>Premature birth</strong>, <strong>Small for gestational age</strong>. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</li>
+<li><strong>Maternal T-cell engraftment/Omenn-like inflammation</strong>—maternal cells were detected in 13/23 (<strong>57%</strong>); 4/13 had an allo-reactive exanthem. Rare manifestations include erythroderma, lymphadenopathy, diarrhea, hepatomegaly, and oligoclonal lymphocytosis. Suggested HPO: <strong>Erythroderma</strong>, <strong>Diarrhea</strong>, <strong>Lymphadenopathy</strong>, <strong>Hepatomegaly</strong>. (<a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</li>
+</ul>
+<p>No RD-specific EQ-5D, SF-36, PROMIS, or utility-value study was found. Quality-of-life burden is nevertheless substantial: protective isolation, repeated hospitalization, transplant toxicity, persistent hearing disability, hearing-device use, and risk of delayed language development.</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Gene and protein</h3>
+<p><strong>AK2</strong> encodes adenylate kinase 2, located predominantly in the mitochondrial intermembrane space. It catalyzes <strong>ATP + AMP ⇌ 2 ADP</strong>, helping supply ADP for mitochondrial ATP synthesis. AK2 is particularly nonredundant in developing neutrophils and lymphocytes because cytosolic AK1 expression is limited in these lineages. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3">wang2021reticulardysgenesisassociatedadenylate pages 1-3</a>)</p>
+<h3>Variant spectrum</h3>
+<p>The 2017 cohort found 22 distinct AK2 variants in 30 genetically characterized patients from 27 families. Classes included missense, nonsense, frameshift/small indel, splice-site, and deletions extending from one to approximately 5,000 nucleotides across all coding exons. Most classical alleles behave as loss-of-function variants. Examples include p.Arg175 substitutions, p.Tyr152Thrfs<em>12, p.Arg103Trp, p.Glu9</em>, p.Gly205Aspfs*92, and multikilobase deletions. The visualized cohort table documents allelic and geographic heterogeneity. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, hoenig2017reticulardysgenesisinternational media 9d1f21c4, hoenig2017reticulardysgenesisinternational media f7dd7c2d)</p>
+<p>The intronic <strong>c.330+5G&gt;A</strong> allele was initially a VUS; massively parallel RNA analysis demonstrated exon 3 skipping and supported pathogenic reclassification. This is an important example of RNA sequencing resolving a noncanonical splice variant. (<a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>)</p>
+<p>Variants are constitutional <strong>germline</strong> variants, not somatic drivers. Pathogenic alleles are expected to be absent or extremely rare in population databases, but no single aggregate gnomAD carrier frequency is reliable because numerous private alleles exist. Variant-level frequencies should therefore be imported directly from the current gnomAD release. No recurrent chromosomal aneuploidy, translocation, repeat expansion, mitochondrial-DNA lesion, or disease-specific epigenetic signature is established.</p>
+<h2>5. Environmental information</h2>
+<p>Environmental toxins, radiation, smoking, alcohol, diet, exercise, pollution, and occupational exposures have no demonstrated causal role. Bacteria, fungi, CMV, and other pathogens are complications or diagnostic triggers, not causes. Classical RD particularly predisposes to very early bacterial and fungal disease; Pneumocystis and acquired CMV were relatively uncommon in the international series, although individual atypical cases have developed CMV disease. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>, <a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-2-3">ghaloulgonzalez2019reticulardysgenesisand pages 2-3</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic germline loss-of-function in AK2 leads to</strong> absent or markedly reduced mitochondrial AK2 protein.</li>
+<li><strong>Loss of AK2 activity leads to</strong> defective ATP-plus-AMP-to-ADP phosphotransfer in the mitochondrial intermembrane space.</li>
+<li><strong>Reduced local ADP generation leads to</strong> impaired adenine-nucleotide balance, reduced oxidative phosphorylation and ATP production, and increased AMP/ADP ratio.</li>
+<li><strong>Bioenergetic disequilibrium leads to</strong> increased mitochondrial ROS, membrane permeability and stress, with impaired proliferation and survival of hematopoietic stem/progenitor cells.</li>
+<li><strong>AK2 deficiency also leads to</strong> NAD+ and aspartate depletion, AMP accumulation/deamination, increased IMP, and disturbed purine/ribonucleotide metabolism; this branch is supported by patient marrow and CRISPR-HSPC experiments but parts remain mechanistically inferred.</li>
+<li><strong>Energy, redox, and purine imbalance leads to</strong> reduced RNA abundance, ribosomal-subunit expression and protein synthesis, causing a hypoproliferative differentiation checkpoint.</li>
+<li><strong>Checkpoint failure leads to</strong> promyelocyte-stage granulocytic arrest and defective T-, B-, and NK-lineage maturation.</li>
+<li><strong>Granulocytic arrest leads to</strong> congenital agranulocytosis and overwhelming bacterial/fungal infection, while lymphoid arrest leads to SCID and low TRECs.</li>
+<li><strong>AK2 dysfunction in inner-ear sensory cells leads to</strong> congenital sensorineural hearing loss; the detailed human cell-death sequence is less directly demonstrated than the hematopoietic mechanism.</li>
+<li><strong>HSCT leads to</strong> replacement of defective hematopoietic progenitors and can correct immune and marrow disease, but <strong>does not replace inner-ear cells</strong>, so deafness usually persists. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>, <a href="#ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3">wang2021reticulardysgenesisassociatedadenylate pages 1-3</a>, rissone2015reticulardysgenesis–associatedak2 pages 1-2)</li>
+</ol>
+<p>Patient cells showed reduced oxygen-consumption rate, extracellular acidification, proton-production rate, and ATP, with increased ROS, mitochondrial mass, and membrane permeability. AK2-knockdown progenitors had poor proliferation/survival and blocked granulocyte and lymphoid differentiation. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-6-7">ghaloulgonzalez2019reticulardysgenesisand pages 6-7</a>)</p>
+<p>Patient-marrow single-cell RNA sequencing implicated altered RNA catabolism and ribonucleoprotein synthesis. CRISPR-disrupted primary human HSPCs had increased AMP and IMP, depleted NAD+ and aspartate, and diminished RNA/protein synthesis. AMP-deaminase inhibition normalized IMP but worsened differentiation, suggesting AMP catabolism is partly adaptive. This work was initially reported as a 2021 preprint and should be annotated accordingly unless the final peer-reviewed 2024 Blood publication is separately ingested. (<a href="#ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3">wang2021reticulardysgenesisassociatedadenylate pages 1-3</a>)</p>
+<p><strong>Suggested GO biological processes/functions:</strong> adenylate kinase activity; adenine-nucleotide homeostasis; oxidative phosphorylation; mitochondrial ATP synthesis; cellular response to oxidative stress; regulation of ROS; hematopoietic stem-cell differentiation; granulocyte differentiation; lymphocyte differentiation; apoptotic process; purine-nucleotide metabolic process; ribosome biogenesis; translation.</p>
+<p><strong>Suggested GO cellular components:</strong> mitochondrial intermembrane space, mitochondrion, mitochondrial inner membrane, cytosol, ribosome.</p>
+<p><strong>Suggested Cell Ontology concepts:</strong> hematopoietic stem cell, hematopoietic multipotent progenitor, common myeloid progenitor, granulocyte-monocyte progenitor, promyelocyte, neutrophil, common lymphoid progenitor, T cell, B cell, natural-killer cell, erythroid progenitor, megakaryocyte, and inner-ear hair cell.</p>
+<p>No validated RD-specific plasma metabolomic, lipidomic, proteomic, spatial-transcriptomic, or DNA-methylation biomarker is ready for clinical use.</p>
+<h2>7. Anatomical structures affected</h2>
+<p>The principal organ is <strong>bone marrow</strong>, with secondary involvement of thymus and peripheral lymphoid organs through deficient lymphoid cellularity. Blood shows profound granulocyte and lymphocyte depletion. The <strong>inner ear/cochlea</strong> is the principal nonhematopoietic structure affected. Infection secondarily damages skin/umbilicus, lungs, liver, and other organs; bronchiectasis may follow recurrent pneumonia. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-2-3">ghaloulgonzalez2019reticulardysgenesisand pages 2-3</a>)</p>
+<p>Suggested anatomy terms include <strong>UBERON bone marrow</strong>, <strong>blood</strong>, <strong>thymus</strong>, <strong>lymph node</strong>, <strong>spleen</strong>, <strong>inner ear</strong>, <strong>cochlea</strong>, and <strong>organ of Corti</strong>. No lateralization is characteristic; hearing loss is generally bilateral. At subcellular level, the mitochondrial intermembrane space is primary, with downstream inner-membrane/OXPHOS and cytosolic purine/ribosome effects.</p>
+<h2>8. Temporal development</h2>
+<p>RD is congenital. Agranulocytosis and lymphopenia are usually detectable at birth, followed acutely by infection in the first days or weeks. Untreated disease progresses rapidly to fatal sepsis. There is no spontaneous remission of classical disease. Hypomorphic AK2 disease can present later and fluctuate with partial lineage production, but it remains clinically serious. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-6-7">ghaloulgonzalez2019reticulardysgenesisand pages 6-7</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</p>
+<p>The critical therapeutic window is <strong>before severe infection and organ damage</strong>. In the international cohort, first HSCT occurred at mean 3.5 months, median 2.4 months, range 0.5–11.1 months. Newborn TREC screening and recognition of neonatal agranulocytosis allow intervention before infection, although TREC screening alone does not characterize the myeloid defect. (<a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</p>
+<h2>9. Inheritance and population</h2>
+<p>Inheritance is autosomal recessive. Classical biallelic loss-of-function appears highly penetrant, but expressivity varies, particularly with hypomorphic alleles. Anticipation is not expected. Germline mosaicism has not emerged as a characteristic mechanism, although residual recurrence risk cannot be excluded after an apparently de novo event.</p>
+<p>True prevalence and annual incidence are unknown. RD is far below the usual rare-disease threshold and has been represented by only dozens of molecularly confirmed patients in published cohorts. The 2017 survey assembled 32 patients from 29 families treated at 15 centers in 11 countries, illustrating global distribution and ascertainment limitations. The sex ratio was 17 male to 15 female, consistent with autosomal inheritance. Patients originated from Europe, the Middle East, Turkey, Japan, Cape Verde, and the Americas. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, hoenig2017reticulardysgenesisinternational media 6dc0a8e5)</p>
+<p>No robust population-wide carrier frequency or validated founder prevalence is available. Recurrent regional alleles exist—for example among families from the Arabian Peninsula—but phenotypic heterogeneity and sparse sampling make the term “founder mutation” inappropriate without haplotype evidence. Consanguinity is an important ascertainment and recurrence factor.</p>
+<h2>10. Diagnostics</h2>
+<h3>Diagnostic workflow</h3>
+<ol>
+<li><strong>Immediate CBC with differential:</strong> congenital severe neutropenia/agranulocytosis plus lymphopenia is the key combination.</li>
+<li><strong>Lymphocyte phenotyping and function:</strong> CD3/CD4/CD8, naïve T cells, CD19, NK cells, mitogen proliferation, immunoglobulins, and NK function. Detect maternal T-cell engraftment using STR, HLA flow cytometry, or sex-chromosome methods where relevant.</li>
+<li><strong>SCID newborn screen:</strong> low or absent TRECs should trigger urgent confirmatory immunology. A reported patient had fewer than 200 TRECs/µL at 28 days. (<a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>)</li>
+<li><strong>Marrow examination:</strong> seek promyelocyte-stage myeloid arrest, variable cellularity, and dysmorphic lymphopoiesis.</li>
+<li><strong>Audiology:</strong> newborn otoacoustic-emission testing and confirmatory auditory brainstem response.</li>
+<li><strong>Molecular confirmation:</strong> rapid SCID/congenital-neutropenia panel including AK2, or rapid exome/genome sequencing, followed by segregation analysis. Include exon-level deletion/duplication detection because large deletions occur.</li>
+<li><strong>Functional/RNA studies:</strong> use RT-PCR or RNA sequencing for noncanonical splice VUS; assess AK2 protein or mitochondrial function in unresolved cases. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, <a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>)</li>
+</ol>
+<p>Single-gene AK2 sequencing is efficient when the phenotype is classic. WES/WGS is preferred when presentation is atypical or when RAC2, ADA, RAG1/2, DCLRE1C, IL2RG, congenital-neutropenia genes, marrow-failure syndromes, or mitochondrial disorders remain plausible. CMA, karyotype, FISH, mitochondrial-DNA testing, and repeat-expansion testing are not routine first-line tests unless another diagnosis is suspected.</p>
+<h3>Differential diagnosis</h3>
+<p>Important alternatives include other SCIDs; ADA deficiency; RAG-related SCID/Omenn syndrome; ELANE-, HAX1-, G6PC3-, JAGN1-, VPS45-, and CLPB-related congenital neutropenia; WHIM syndrome; Shwachman–Diamond syndrome; Barth syndrome; GATA2 deficiency; congenital infection; neonatal alloimmune neutropenia; and activating <strong>RAC2</strong> disease. Hearing loss plus congenital agranulocytosis and profound lymphopenia strongly favors AK2-RD, but the 2024 RAC2 case demonstrates that transient T−B−NK− leukopenia can initially mimic RD and requires molecular/functional resolution. (OpenTargets Search: Reticular dysgenesis-AK2, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>)</p>
+<h2>11. Outcome and prognosis</h2>
+<p>Without successful hematopoietic reconstitution, classical RD is essentially fatal early in life. In the international cohort, one child died of Candida sepsis before transplantation. Among 31 transplanted patients, 21 survived (<strong>68%</strong>) with mean follow-up 7.9 years, range 0.6–23.6 years. Seven deaths occurred within six months, primarily from infection; later deaths followed failure of durable donor myelopoiesis and recurrent agranulocytosis. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-1-6">hoenig2017reticulardysgenesisinternational pages 1-6</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>)</p>
+<p>Prognostic factors include infection and organ damage at transplant, donor/graft type, conditioning intensity, durable donor myeloid chimerism, graft failure, GVHD, and treatment-center experience. Persistent or recurrent ANC below 500/µL after recovery indicates graft failure and poor prognosis. Nineteen of 21 long-term survivors retained hearing impairment, requiring hearing aids or cochlear implantation. No validated molecular prognostic biomarker beyond genotype, residual function, and lineage-specific donor chimerism exists. (<a href="#ref-hoenig2018recentadvancesin-pages-16-21">hoenig2018recentadvancesin pages 16-21</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>)</p>
+<h2>12. Treatment</h2>
+<h3>Definitive therapy</h3>
+<p><strong>Allogeneic HSCT</strong> is the only established curative intervention for hematologic and immunologic RD. Suggested NCIT concepts are hematopoietic stem-cell transplantation, allogeneic bone-marrow transplantation, cord-blood transplantation, peripheral-blood stem-cell transplantation, myeloablative conditioning, and graft-versus-host-disease prophylaxis.</p>
+<p>Unlike SCIDs in which mature donor T-cell engraftment may suffice, RD requires engraftment of donor HSCs capable of producing neutrophils. Unconditioned or nonmyeloablative T-cell-depleted transplantation has a high failure rate. Complete or high-level donor myeloid chimerism is desirable; recurrent neutropenia after loss of myeloid chimerism should prompt early retransplantation rather than indefinite G-CSF. (<a href="#ref-hoenig2018recentadvancesin-pages-16-21">hoenig2018recentadvancesin pages 16-21</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>)</p>
+<p>Quantitative 2017 outcomes were:</p>
+<ul>
+<li>31 patients received 47 transplants; 13 required a second transplant.</li>
+<li>Overall survival: <strong>21/31 (68%)</strong>.</li>
+<li>T-cell-replete graft survival: <strong>13/14 (93%)</strong>.</li>
+<li>HLA-identical family donor survival: <strong>6/6</strong>.</li>
+<li>Unrelated-donor survival: <strong>7/8 (88%)</strong>.</li>
+<li>Haploidentical T-cell-depleted survival: <strong>8/17 (47%)</strong>.</li>
+<li>All five unconditioned initial haploidentical procedures failed.</li>
+<li>Busulfan-conditioned T-cell-depleted grafts engrafted in 6/11; no graft failure was reported with busulfan-conditioned T-cell-replete grafts in that cohort.</li>
+<li>GVHD occurred in 52%; grade III/IV GVHD occurred in 16%. (<a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-11-15">hoenig2017reticulardysgenesisinternational pages 11-15</a>)</li>
+</ul>
+<p>These observational data support a conditioning regimen containing an adequately myeloablative component, frequently busulfan-based, individualized for infection, organ function, donor, and center expertise. They do not establish one universally superior regimen.</p>
+<h3>Supportive treatment</h3>
+<p>Before immune reconstitution: protective isolation; aggressive culture-directed antibacterial and antifungal treatment; antimicrobial prophylaxis according to SCID protocols; immunoglobulin replacement when indicated; CMV-safe, leukoreduced and irradiated blood products; nutritional support; and avoidance of live vaccines. G-CSF may provide transient benefit in atypical disease but does not cure classical RD; prolonged use is concerning because two reported patients subsequently developed myelodysplasia. (<a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-2-3">ghaloulgonzalez2019reticulardysgenesisand pages 2-3</a>, <a href="#ref-hoenig2018recentadvancesin-pages-16-21">hoenig2018recentadvancesin pages 16-21</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-15-19">hoenig2017reticulardysgenesisinternational pages 15-19</a>)</p>
+<p>Hearing aids, cochlear implantation, early speech-language therapy, and educational support are required because HSCT usually does not reverse deafness.</p>
+<h3>Experimental therapy and trials</h3>
+<p>No approved AK2-targeted drug, RNA therapy, enzyme replacement, or gene therapy exists, and the trial search identified no RD-specific interventional study. Broad SCID natural-history and transplantation studies may enroll relevant patients, but their results cannot be assumed to be RD-specific. Ex-vivo correction of autologous CD34+ cells and CRISPR/AAV approaches are conceptually attractive but remain preclinical; durable correction of long-term repopulating HSCs and robust myeloid output are unresolved. Antioxidants and metabolic manipulation remain experimental and must not delay HSCT. (<a href="#ref-alaqeel2026reticulardysgenesiscaused-pages-9-10">alaqeel2026reticulardysgenesiscaused pages 9-10</a>, rissone2015reticulardysgenesis–associatedak2 pages 1-2)</p>
+<p>No disease-specific pharmacogenomic recommendation is established.</p>
+<h2>13. Prevention</h2>
+<p>Primary lifestyle prevention is not possible. The effective prevention strategy is <strong>genetic</strong>:</p>
+<ul>
+<li>carrier testing for relatives after identification of familial variants;</li>
+<li>cascade testing and genetic counseling;</li>
+<li>prenatal diagnosis by chorionic-villus or amniotic-fluid testing;</li>
+<li>preimplantation genetic testing for monogenic disease;</li>
+<li>early testing of at-risk newborn siblings.</li>
+</ul>
+<p>Secondary prevention consists of universal SCID TREC newborn screening, immediate CBC and immunophenotyping after an abnormal screen, rapid molecular diagnosis, pathogen avoidance, and early HSCT before infection. TREC screening may detect the lymphoid component, while CBC is needed to expose agranulocytosis. Tertiary prevention includes antimicrobial prophylaxis, immunoglobulin replacement, CMV-safe transfusion practices, avoidance of live vaccines, monitoring of donor myeloid chimerism, early audiology, and hearing/language rehabilitation. (<a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-1-6">hoenig2017reticulardysgenesisinternational pages 1-6</a>)</p>
+<p>Household contacts and patients should follow specialist SCID vaccination guidance; live vaccines must not be administered to an affected infant before immune reconstitution. Vaccination does not prevent the genetic disease itself.</p>
+<h2>14. Other species and natural disease</h2>
+<p>No well-established naturally occurring veterinary counterpart or zoonotic form was identified. RD is not transmissible. Orthologous AK2 is evolutionarily conserved.</p>
+<p>Relevant taxa include <em>Homo sapiens</em> (NCBI Taxon <strong>9606</strong>), <em>Mus musculus</em> (<strong>10090</strong>), <em>Danio rerio</em> (<strong>7955</strong>), and <em>Drosophila melanogaster</em> (<strong>7227</strong>). Zebrafish and fly phenotypes are experimentally induced genetic models, not evidence of a common naturally occurring animal disease. No breed-specific VBO annotation is currently justified.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<ul>
+<li><strong>Zebrafish ak2 deficiency:</strong> reduces HSPCs and disrupts myeloid, lymphoid, and erythroid development; increases ROS, apoptosis, and anemia. Antioxidants rescue hematopoietic phenotypes. Strengths are conserved hematopoiesis, live imaging, and rapid genetic/drug screening; limitations include species-specific immunity and developmental anatomy. (<a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>, rissone2015reticulardysgenesis–associatedak2 pages 1-2)</li>
+<li><strong>Patient-derived iPSCs:</strong> reproduce increased AMP/ADP ratio and promyelocyte arrest; antioxidant treatment restores granulocytic differentiation. They support a cell-autonomous mechanism but do not reproduce whole-organism infection, marrow niche, transplantation, or hearing outcomes. (rissone2015reticulardysgenesis–associatedak2 pages 1-2)</li>
+<li><strong>CRISPR AK2-null primary human HSPCs:</strong> reproduce energy, purine, ribosome, protein-synthesis, and myeloid-maturation defects. This is highly relevant to human granulopoiesis but is an engineered ex-vivo model. (<a href="#ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3">wang2021reticulardysgenesisassociatedadenylate pages 1-3</a>)</li>
+<li><strong>Mouse:</strong> homozygous Ak2 knockout is embryonically lethal before embryonic day 7, limiting conventional postnatal disease modeling; conditional lineage-specific models may be more informative. (<a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>)</li>
+<li><strong>Drosophila:</strong> Dak2 deficiency causes developmental growth arrest and death, demonstrating conserved bioenergetic necessity but only limited immunologic correspondence. (<a href="#ref-hoenig2018recentadvancesin-pages-7-12">hoenig2018recentadvancesin pages 7-12</a>)</li>
+</ul>
+<h2>Evidence appraisal and recent developments</h2>
+<p>The central human evidence consists of the 2009 AK2 discovery work (PMID <strong>19043416</strong>), the 32-patient international cohort published in <em>Blood</em> in May 2017 (DOI <a href="https://doi.org/10.1182/blood-2016-11-745638">10.1182/blood-2016-11-745638</a>), the mechanistic zebrafish/iPSC study published July 6, 2015 (DOI <a href="https://doi.org/10.1084/jem.20141286">10.1084/jem.20141286</a>), the atypical mitochondriopathy case published October 2019 (DOI <a href="https://doi.org/10.1038/s41598-019-51922-2">10.1038/s41598-019-51922-2</a>), and the RNA-validated splice case published June 2020 (DOI <a href="https://doi.org/10.1101/mcs.a005017">10.1101/mcs.a005017</a>). (OpenTargets Search: Reticular dysgenesis-AK2, <a href="#ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2">ghaloulgonzalez2019reticulardysgenesisand pages 1-2</a>, <a href="#ref-ichikawa2020reticulardysgenesiscaused-pages-1-2">ichikawa2020reticulardysgenesiscaused pages 1-2</a>, <a href="#ref-hoenig2017reticulardysgenesisinternational-pages-6-11">hoenig2017reticulardysgenesisinternational pages 6-11</a>, rissone2015reticulardysgenesis–associatedak2 pages 1-2)</p>
+<p>A representative exact abstract statement from the 2015 primary study is: “<strong>Our results link hematopoietic cell fate in AK2 deficiency to cellular energy depletion and increased oxidative stress.</strong>” The same abstract reports that antioxidant treatment rescued zebrafish hematopoiesis and restored granulocytic differentiation of AK2-deficient iPSCs. (rissone2015reticulardysgenesis–associatedak2 pages 1-2)</p>
+<p>A representative exact abstract statement from the purine-metabolism work is: “<strong>AMP accumulation and its detrimental effects on ribonucleotide synthesis capacity may contribute to the failure of myelopoiesis in Reticular Dysgenesis.</strong>” This evidence incorporated patient-marrow single-cell RNA sequencing and CRISPR-disrupted human HSPCs but was initially available as a September 28, 2021 bioRxiv preprint, DOI <a href="https://doi.org/10.1101/2021.07.05.450633">10.1101/2021.07.05.450633</a>. (<a href="#ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3">wang2021reticulardysgenesisassociatedadenylate pages 1-3</a>)</p>
+<p>Recent 2023–2024 research increasingly frames RD as an immunometabolic checkpoint disorder of granulopoiesis and emphasizes oxidative phosphorylation, redox balance, and purine/ribosome homeostasis. However, no 2023–2024 study retrieved here supplied a larger RD-specific prospective cohort, randomized treatment comparison, validated biomarker, or clinical gene-therapy result. Therefore, the 2017 transplant statistics remain the most defensible disease-specific quantitative estimates, while newer mechanistic claims should be labeled by evidence type and publication status.</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-pages-15-19"></a>(hoenig2017reticulardysgenesisinternational pages 15-19): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-pages-6-11"></a>(hoenig2017reticulardysgenesisinternational pages 6-11): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-pages-1-6"></a>(hoenig2017reticulardysgenesisinternational pages 1-6): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-pages-11-15"></a>(hoenig2017reticulardysgenesisinternational pages 11-15): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ghaloulgonzalez2019reticulardysgenesisand-pages-1-2"></a>(ghaloulgonzalez2019reticulardysgenesisand pages 1-2): Lina Ghaloul-Gonzalez, Al-Walid Mohsen, Anuradha Karunanidhi, Bianca Seminotti, Hey Chong, Suneeta Madan-Khetarpal, Jessica Sebastian, Catherine Walsh Vockley, Miguel Reyes-Múgica, Mark T. Vander Lugt, and Jerry Vockley. Reticular dysgenesis and mitochondriopathy induced by adenylate kinase 2 deficiency with atypical presentation. Scientific Reports, Oct 2019. URL: <a href="https://doi.org/10.1038/s41598-019-51922-2" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-019-51922-2</a>, <a href="https://doi.org/10.1038/s41598-019-51922-2" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-019-51922-2</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-reticular-dysgenesis-ak2"></a>(OpenTargets Search: Reticular dysgenesis-AK2): Open Targets Query (Reticular dysgenesis-AK2, 3 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-media-6dc0a8e5"></a>(hoenig2017reticulardysgenesisinternational media 6dc0a8e5): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-media-9d1f21c4"></a>(hoenig2017reticulardysgenesisinternational media 9d1f21c4): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ghaloulgonzalez2019reticulardysgenesisand-pages-6-7"></a>(ghaloulgonzalez2019reticulardysgenesisand pages 6-7): Lina Ghaloul-Gonzalez, Al-Walid Mohsen, Anuradha Karunanidhi, Bianca Seminotti, Hey Chong, Suneeta Madan-Khetarpal, Jessica Sebastian, Catherine Walsh Vockley, Miguel Reyes-Múgica, Mark T. Vander Lugt, and Jerry Vockley. Reticular dysgenesis and mitochondriopathy induced by adenylate kinase 2 deficiency with atypical presentation. Scientific Reports, Oct 2019. URL: <a href="https://doi.org/10.1038/s41598-019-51922-2" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-019-51922-2</a>, <a href="https://doi.org/10.1038/s41598-019-51922-2" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-019-51922-2</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-wang2021reticulardysgenesisassociatedadenylate-pages-1-3"></a>(wang2021reticulardysgenesisassociatedadenylate pages 1-3): Wenqing Wang, Andrew DeVilbiss, Martin Arreola, Thomas Mathews, Zhiyu Zhao, Misty Martin-Sandoval, Giorgia Benegiamo, Avni Awani, Ludger Goeminne, Daniel Dever, Yusuke Nakauchi, Mara Pavel-Dinu, Waleed Al-Herz, Luigi Noratangelo, Matthew H. Porteus, Johan Auwerx, Sean J. Morrison, and Katja G. Weinacht. Reticular dysgenesis-associated adenylate kinase 2 deficiency causes failure of myelopoiesis through disordered purine metabolism. bioRxiv, Jul 2021. URL: <a href="https://doi.org/10.1101/2021.07.05.450633" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/2021.07.05.450633</a>, <a href="https://doi.org/10.1101/2021.07.05.450633" target="_blank" rel="noopener noreferrer">doi:10.1101/2021.07.05.450633</a>. This article has 1 citations.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2018recentadvancesin-pages-24-29"></a>(hoenig2018recentadvancesin pages 24-29): Manfred Hoenig, Ulrich Pannicke, Hubert B. Gaspar, and Klaus Schwarz. Recent advances in understanding the pathogenesis and management of reticular dysgenesis. British Journal of Haematology, 180:644-653, Mar 2018. URL: <a href="https://doi.org/10.1111/bjh.15045" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjh.15045</a>, <a href="https://doi.org/10.1111/bjh.15045" target="_blank" rel="noopener noreferrer">doi:10.1111/bjh.15045</a>. This article has 40 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-ichikawa2020reticulardysgenesiscaused-pages-1-2"></a>(ichikawa2020reticulardysgenesiscaused pages 1-2): Shoji Ichikawa, Susan Prockop, Charlotte Cunningham-Rundles, Travis Sifers, Blair R. Conner, Sitao Wu, Rachid Karam, Michael F. Walsh, and Elise Fiala. Reticular dysgenesis caused by an intronic pathogenic variant in ak2. Cold Spring Harbor Molecular Case Studies, 6:a005017, Jun 2020. URL: <a href="https://doi.org/10.1101/mcs.a005017" target="_blank" rel="noopener noreferrer">https://doi.org/10.1101/mcs.a005017</a>, <a href="https://doi.org/10.1101/mcs.a005017" target="_blank" rel="noopener noreferrer">doi:10.1101/mcs.a005017</a>. This article has 4 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2018recentadvancesin-pages-16-21"></a>(hoenig2018recentadvancesin pages 16-21): Manfred Hoenig, Ulrich Pannicke, Hubert B. Gaspar, and Klaus Schwarz. Recent advances in understanding the pathogenesis and management of reticular dysgenesis. British Journal of Haematology, 180:644-653, Mar 2018. URL: <a href="https://doi.org/10.1111/bjh.15045" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjh.15045</a>, <a href="https://doi.org/10.1111/bjh.15045" target="_blank" rel="noopener noreferrer">doi:10.1111/bjh.15045</a>. This article has 40 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2018recentadvancesin-pages-7-12"></a>(hoenig2018recentadvancesin pages 7-12): Manfred Hoenig, Ulrich Pannicke, Hubert B. Gaspar, and Klaus Schwarz. Recent advances in understanding the pathogenesis and management of reticular dysgenesis. British Journal of Haematology, 180:644-653, Mar 2018. URL: <a href="https://doi.org/10.1111/bjh.15045" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/bjh.15045</a>, <a href="https://doi.org/10.1111/bjh.15045" target="_blank" rel="noopener noreferrer">doi:10.1111/bjh.15045</a>. This article has 40 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-rissone2015reticulardysgenesis-associatedak2-pages-1-2"></a>(rissone2015reticulardysgenesis–associatedak2 pages 1-2): Alberto Rissone, Katja Gabriele Weinacht, Giancarlo la Marca, Kevin Bishop, Elisa Giocaliere, Jayashree Jagadeesh, Kerstin Felgentreff, Kerry Dobbs, Waleed Al-Herz, Marypat Jones, Settara Chandrasekharappa, Martha Kirby, Stephen Wincovitch, Karen Lyn Simon, Yuval Itan, Alex DeVine, Thorsten Schlaeger, Axel Schambach, Raman Sood, Luigi D. Notarangelo, and Fabio Candotti. Reticular dysgenesis–associated ak2 protects hematopoietic stem and progenitor cell development from oxidative stress. The Journal of Experimental Medicine, 212:1185-1202, Jul 2015. URL: <a href="https://doi.org/10.1084/jem.20141286" target="_blank" rel="noopener noreferrer">https://doi.org/10.1084/jem.20141286</a>, <a href="https://doi.org/10.1084/jem.20141286" target="_blank" rel="noopener noreferrer">doi:10.1084/jem.20141286</a>. This article has 78 citations.</p>
+</li>
+<li>
+<p><a id="ref-ghaloulgonzalez2019reticulardysgenesisand-pages-2-3"></a>(ghaloulgonzalez2019reticulardysgenesisand pages 2-3): Lina Ghaloul-Gonzalez, Al-Walid Mohsen, Anuradha Karunanidhi, Bianca Seminotti, Hey Chong, Suneeta Madan-Khetarpal, Jessica Sebastian, Catherine Walsh Vockley, Miguel Reyes-Múgica, Mark T. Vander Lugt, and Jerry Vockley. Reticular dysgenesis and mitochondriopathy induced by adenylate kinase 2 deficiency with atypical presentation. Scientific Reports, Oct 2019. URL: <a href="https://doi.org/10.1038/s41598-019-51922-2" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/s41598-019-51922-2</a>, <a href="https://doi.org/10.1038/s41598-019-51922-2" target="_blank" rel="noopener noreferrer">doi:10.1038/s41598-019-51922-2</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-hoenig2017reticulardysgenesisinternational-media-f7dd7c2d"></a>(hoenig2017reticulardysgenesisinternational media f7dd7c2d): Manfred Hoenig, Chantal Lagresle-Peyrou, Ulrich Pannicke, Luigi D. Notarangelo, Fulvio Porta, Andrew R. Gennery, Mary Slatter, Morton J. Cowan, Polina Stepensky, Hamoud Al-Mousa, Daifulah Al-Zahrani, Sung-Yun Pai, Waleed Al Herz, Hubert B. Gaspar, Paul Veys, Koichi Oshima, Kohsuke Imai, Hiromasa Yabe, Lenora M. Noroski, Nico M. Wulffraat, Karl-Walter Sykora, Pere Soler-Palacin, Hideki Muramatsu, Mariam Al Hilali, Despina Moshous, Klaus-Michael Debatin, Catharina Schuetz, Eva-Maria Jacobsen, Ansgar S. Schulz, Klaus Schwarz, Alain Fischer, Wilhelm Friedrich, and Marina Cavazzana. Reticular dysgenesis: international survey on clinical presentation, transplantation, and outcome. Blood, 129 21:2928-2938, May 2017. URL: <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/blood-2016-11-745638</a>, <a href="https://doi.org/10.1182/blood-2016-11-745638" target="_blank" rel="noopener noreferrer">doi:10.1182/blood-2016-11-745638</a>. This article has 52 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-alaqeel2026reticulardysgenesiscaused-pages-9-10"></a>(alaqeel2026reticulardysgenesiscaused pages 9-10): Bothainah Alaqeel, Faiz Aljohani, Nora Alrumayan, Ali Al-Ahmari, Reem Mohammed, Hawazen Alsaedi, Mouhab Ayas, Sultan Albuhairi, Sahar Elshorbagi, Rand Arnaout, Anas M. Alazami, Bander Alsaud, and Hamoud Al-Mousa. Reticular dysgenesis caused by ak2 deficiency: clinical spectrum and hematopoietic stem cell transplantation outcomes in 10 patients from a single-center. Frontiers in Immunology, Apr 2026. URL: <a href="https://doi.org/10.3389/fimmu.2026.1829403" target="_blank" rel="noopener noreferrer">https://doi.org/10.3389/fimmu.2026.1829403</a>, <a href="https://doi.org/10.3389/fimmu.2026.1829403" target="_blank" rel="noopener noreferrer">doi:10.3389/fimmu.2026.1829403</a>. This article has 1 citations and is from a peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Reticular_Dysgenesis-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a>
+<img alt="## Context ID: pqac-00000020 Table 1 provides information on the clinical presentation of 32 patients with reticular dysgenesis, including age at presentation a" src="../../research/Reticular_Dysgenesis-deep-research-falcon_artifacts/image-1.png" /></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>7</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0009973</code> (5 mentions) - the report calls it "if available"; MONDO calls it <strong>reticular dysgenesis</strong></li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>MIM</code>, <code>Taxon</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="RET_Rearranged_NSCLC-openscientist.html">← RET-Rearranged Non-Small Cell Lung Cancer (OpenScientist)</a>
+                
+                
+                <a href="Retinal_Arterial_Tortuosity-falcon.html">Retinal Arterial Tortuosity (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Reticular_Dysgenesis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Reticular_Dysgenesis-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
