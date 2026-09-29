@@ -55697,10 +55697,15 @@ window.searchData = [
       "Organ-Specific Tropism",
       "ER and HER2 Receptor Heterogeneity",
       "Angiogenic Outgrowth",
-      "Immune Evasion in Metastatic Niches"
+      "Immune Evasion in Metastatic Niches",
+      "TP53 Loss of Function"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "mammary gland epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002327"
+    ],
     "biological_processes": [
       "epithelial to mesenchymal transition",
       "cell migration",
@@ -55708,7 +55713,8 @@ window.searchData = [
       "estrogen receptor signaling pathway",
       "cell surface receptor protein tyrosine kinase signaling pathway",
       "angiogenesis",
-      "negative regulation of immune response"
+      "negative regulation of immune response",
+      "signal transduction by p53 class mediator"
     ],
     "phenotypes": [
       "Headache",
@@ -55743,7 +55749,7 @@ window.searchData = [
     ],
     "genes": [
       "ESR1",
-      "ERBB2 (HER2)",
+      "ERBB2",
       "PIK3CA",
       "TP53"
     ],
@@ -55763,11 +55769,11 @@ window.searchData = [
     "source_file": "Breast_Carcinoma.yaml",
     "page_url": "../pages/disorders/Breast_Carcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Breast Fibroadenoma",
@@ -56455,6 +56461,110 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Brucella Melitensis Brucellosis",
+    "disease_id": "MONDO:0001972",
+    "category": "Infectious Disease",
+    "parents": [
+      "Brucellosis"
+    ],
+    "creation_date": "2026-09-29T05:55:32Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brucella melitensis brucellosis is a small-ruminant-associated form of human brucellosis caused by the facultatively intracellular bacterium Brucella melitensis. Humans are infected through unpasteurized sheep/goat dairy products, contact with infected animals or birth products, and occupational or laboratory aerosol exposure; the resulting disease is a systemic febrile brucellosis syndrome that can relapse or seed focal complications when it is not treated with prolonged combination antibiotics.",
+    "pathophysiology": [
+      "Brucella melitensis zoonotic acquisition",
+      "Phagocyte Brucella-containing vacuole formation",
+      "VirB-dependent ER-derived replicative vacuole maturation",
+      "Brucella Omp25-dependent macrophage immune evasion",
+      "Th1 cytokine-dependent containment failure",
+      "Autophagic Brucella-containing vacuole egress",
+      "Hematogenous dissemination",
+      "Osteoarticular seeding",
+      "Cardiac valve seeding",
+      "Genitourinary seeding",
+      "Chronic splenic myeloid reservoir formation",
+      "Persistent multisystem infection",
+      "Granulomatous reticuloendothelial inflammation",
+      "Requirement for Cell-Penetrant Antimicrobials"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451"
+    ],
+    "biological_processes": [
+      "Response to Antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Joint pain",
+      "Hepatosplenomegaly",
+      "Elevated transaminases",
+      "Arthritis",
+      "Sacroiliitis",
+      "Spondylitis",
+      "Endocarditis",
+      "Epididymo-orchitis"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002829",
+      "HP:0001433",
+      "HP:0002910",
+      "HP:0001369",
+      "HP:0012317",
+      "HP:0033631",
+      "HP:0100584",
+      "HP:0100796"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "IL4 rs2243250 susceptibility allele",
+      "IL18 rs1946519 susceptibility allele",
+      "TGFB1 polymorphisms with negative pooled association",
+      "TNF-238 focal-disease modifier",
+      "TLR4 Asp299Gly susceptibility allele"
+    ],
+    "treatments": [
+      "Doxycycline-rifampicin combination therapy",
+      "Doxycycline-streptomycin combination therapy",
+      "Doxycycline-gentamicin combination therapy"
+    ],
+    "environmental": [
+      "Fresh milk, undercooked meat, and household livestock exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Brucella_Melitensis_Brucellosis.yaml",
+    "page_url": "../pages/disorders/Brucella_Melitensis_Brucellosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 14,
+    "num_genes": 5,
+    "num_treatments": 3,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Brucellosis",
     "disease_id": "MONDO:0005683",
     "category": "Infectious Disease",
@@ -56464,7 +56574,9 @@ window.searchData = [
     ],
     "creation_date": "2026-05-08T13:18:32Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Brucella melitensis brucellosis"
+    ],
     "description": "Brucellosis is a zoonotic bacterial infection caused by Brucella species, typically acquired through exposure to infected animals, contaminated animal products, or unpasteurized dairy products. Clinical illness often presents as a systemic febrile syndrome and may relapse or involve focal complications.",
     "pathophysiology": [
       "Zoonotic acquisition and inoculation",
@@ -252439,8 +252551,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "PKP2_Cardiomyopathy",
@@ -344469,17 +344581,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3241,
-  "total_subtypes": 4435,
-  "total_disorders_and_subtypes": 7676,
-  "total_unique_evidence_sources": 47555,
-  "total_unique_publications": 44566,
+  "total_disorder_pages": 3242,
+  "total_subtypes": 4436,
+  "total_disorders_and_subtypes": 7678,
+  "total_unique_evidence_sources": 47579,
+  "total_unique_publications": 44590,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3236,
-  "total_unique_pathological_events": 20713,
+  "total_pathographs": 3237,
+  "total_unique_pathological_events": 20722,
   "total_modules": 179,
-  "total_research_reports": 3357,
+  "total_research_reports": 3358,
   "total_classifications": 20,
   "total_comorbidities": 51,
   "total_groupings": 109
