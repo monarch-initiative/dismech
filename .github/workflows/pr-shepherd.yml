@@ -2,8 +2,7 @@ name: 00 · PR Shepherd
 
 on:
   schedule:
-    - cron: "37 */4 * * *"  # agent + merge controller every 4h
-    - cron: "37 1-3,5-7,9-11,13-15,17-19,21-23 * * *"  # merge controller only in intervening hours
+    - cron: "37 * * * *"  # hourly, offset from the curation scanner
   workflow_dispatch:
     inputs:
       max_prs:
@@ -121,6 +120,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      checks: read
       pull-requests: read
     env:
       DRY_RUN: ${{ inputs.dry_run || false }}
@@ -297,6 +297,11 @@ jobs:
           fi
           uv run --no-project python scripts/pr_shepherd_policy.py "${args[@]}"
 
+      - name: Set up latest Claude Code
+        id: setup-claude-code
+        if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
+        uses: ./.github/actions/setup-claude-code
+
       - name: Run PR Shepherd
         id: pr-shepherd
         if: ${{ steps.pr-candidates.outputs.pr_numbers != '' }}
@@ -311,7 +316,11 @@ jobs:
           LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
           LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
           LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+          CC_LANGFUSE_TRACE_TAGS: >-
+            ["repo:${{ github.repository }}", "workflow:pr-shepherd",
+            "run:${{ github.run_id }}", "attempt:${{ github.run_attempt }}", "job:${{ github.job }}"]
         with:
+          path_to_claude_code_executable: ${{ steps.setup-claude-code.outputs.executable }}
           # Auth: prefer ANTHROPIC_API_KEY (pay-per-use, no weekly subscription
           # cap); fall back to the OAuth token only when no API key is set. The
           # conditional keeps exactly one non-empty, so the action never has to
@@ -444,7 +453,8 @@ jobs:
               the PR. Never use a blanket ours/theirs resolution for generated directories,
               drop either side's unique cache entries, or replace a whole cache from main.
               Regenerate reference and term caches only through their supported commands.
-              Never read, write, edit, or stage the frozen dataset-accession JSON cache.
+              Never read, recreate, or restore the retired dataset-accession JSON cache.
+              If an old PR carries it, keep its deletion without reading or merging its contents.
             - Before any push, verify the remote head and assignment again. If the head moved,
               stop that push and re-inspect; never overwrite another contributor's work.
               Reconfirm `isCrossRepository == false`; stop if that cannot be established.

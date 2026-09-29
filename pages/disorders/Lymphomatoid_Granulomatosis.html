@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4810,6 +4849,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ebv-immunosurveillance" data-dismech-node="Defective EBV Immunosurveillance" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective EBV Immunosurveillance</div>
 
+
                 <div class="item-desc">Latent EBV, carried by most of the adult population, escapes control in a host whose cell-mediated surveillance of EBV-infected B cells is quantitatively or qualitatively impaired. Every patient treated at the reporting national centre had moderately to severely reduced circulating CD3-positive T cells with the deficit falling more heavily on the CD8-positive compartment, and none had a recognised primary immunodeficiency - so the defect is inferred to be pre-existing and subtle rather than syndromic. Recognised syndromic and iatrogenic causes of the same defect exist and predispose to the disease.</div>
 
 
@@ -5017,6 +5057,7 @@ This pathophysiological event involves decreased T cell mediated immunity (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outgrowth-of-ebv-positive-atypical-b-cells" data-dismech-node="Outgrowth of EBV-Positive Atypical B Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Outgrowth of EBV-Positive Atypical B Cells</div>
 
+
                 <div class="item-desc">EBV-infected B cells expressing latent viral proteins proliferate and accumulate in extranodal tissue. Their number and density per high-power field is precisely what histologic grade measures, so this node is the one the grading system quantifies. Nodal and bone marrow compartments are spared, which is one of the features that separates the disease from other EBV-positive B-cell lymphoproliferations.</div>
 
 
@@ -5218,6 +5259,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ineffective-angiocentric-reactive-t-cell-response" data-dismech-node="Ineffective Angiocentric Reactive T-cell Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Ineffective Angiocentric Reactive T-cell Response</div>
+
 
                 <div class="item-desc">A dense reactive T-cell infiltrate, CD4-predominant rather than CD8, gathers around and invades vessel walls without clearing the EBV-positive B cells. The interferon-inducible chemokines CXCL9 and CXCL10 localise to reactive cells in viable tissue at the edge of necrotic areas rather than to the malignant cells, which is the basis for attributing the vascular damage to the host response rather than to the tumour. The vascular injury is angiocentric and angiodestructive but is not a primary vasculitis - the vessel wall is damaged by lymphocytic invasion, not by an immune-mediated attack on the wall itself.</div>
 
@@ -5472,6 +5514,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulative-necrosis-and-multi-organ-tissue-destruction" data-dismech-node="Coagulative Necrosis and Multi-organ Tissue Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulative Necrosis and Multi-organ Tissue Destruction</div>
 
+
                 <div class="item-desc">Coagulative necrosis follows the vascular damage and is present at every grade, focal in grade 1 and often extensive in grades 2 and 3. In the lung this produces the bilateral nodules, sometimes cavitating, that define the radiologic picture; in skin, central nervous system, liver and kidney it produces the corresponding extranodal lesions.</div>
 
 
@@ -5699,6 +5742,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-selection-and-high-grade-transformation" data-dismech-node="Clonal Selection and High-Grade Transformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Selection and High-Grade Transformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">With continued proliferation under a persistent surveillance defect, the EBV-infected B-cell population shifts from polyclonal to monoclonal. Immunoglobulin gene rearrangement is clonal in 8% of grade 1, 50% of grade 2 and 69% of grade 3 lesions - a monotonic gradient that is the molecular reading of the grading system. At grade 3 the lesion is no longer separable from an EBV-positive large B-cell lymphoma, which is why the treatment strategy switches from restoring immunity to killing the clone. No recurrent chromosomal abnormality has been found, so this transformation is not anchored to a known cytogenetic driver.</div>
 
@@ -6010,7 +6060,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilateral Pulmonary Nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral pulmonary nodules or masses, often peribronchovascular and lower-lobe predominant and sometimes cavitating. Lung involvement is essentially universal, and its absence should prompt reconsideration of the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033608\"}}, {\"id\": \"Clonal Selection and High-Grade Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With continued proliferation under a persistent surveillance defect, the EBV-infected B-cell population shifts from polyclonal to monoclonal. Immunoglobulin gene rearrangement is clonal in 8% of grade 1, 50% of grade 2 and 69% of grade 3 lesions - a monotonic gradient that is the molecular reading of the grading system. At grade 3 the lesion is no longer separable from an EBV-positive large B-cell lymphoma, which is why the treatment strategy switches from restoring immunity to killing the clone. No recurrent chromosomal abnormality has been found, so this transformation is not anchored to a known cytogenetic driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"EBV-positive atypical B cell\"], \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Coagulative Necrosis and Multi-organ Tissue Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coagulative necrosis follows the vascular damage and is present at every grade, focal in grade 1 and often extensive in grades 2 and 3. In the lung this produces the bilateral nodules, sometimes cavitating, that define the radiologic picture; in skin, central nervous system, liver and kidney it produces the corresponding extranodal lesions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell death\"], \"locations\": [\"lung\", \"brain\", \"skin of body\", \"kidney\", \"liver\"]}}, {\"id\": \"DA-EPOCH-R\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Six three-weekly cycles of dose-adjusted etoposide, prednisone, vincristine, cyclophosphamide, doxorubicin and rituximab for high-grade disease, which is treated as immune-independent. Complete responses were seen in 47% of evaluable patients. Toxicity is the trade-off: serious adverse events occurred in 64% of chemotherapy-treated patients against 25% of those on interferon alfa-2b.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"etoposide\", \"prednisone\", \"vincristine\", \"cyclophosphamide\", \"doxorubicin\", \"rituximab\"]}}, {\"id\": \"Defective EBV Immunosurveillance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Latent EBV, carried by most of the adult population, escapes control in a host whose cell-mediated surveillance of EBV-infected B cells is quantitatively or qualitatively impaired. Every patient treated at the reporting national centre had moderately to severely reduced circulating CD3-positive T cells with the deficit falling more heavily on the CD8-positive compartment, and none had a recognised primary immunodeficiency - so the defect is inferred to be pre-existing and subtle rather than syndromic. Recognised syndromic and iatrogenic causes of the same defect exist and predispose to the disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"viral latency\", \"T cell mediated immunity\"]}}, {\"id\": \"Ineffective Angiocentric Reactive T-cell Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A dense reactive T-cell infiltrate, CD4-predominant rather than CD8, gathers around and invades vessel walls without clearing the EBV-positive B cells. The interferon-inducible chemokines CXCL9 and CXCL10 localise to reactive cells in viable tissue at the edge of necrotic areas rather than to the malignant cells, which is the basis for attributing the vascular damage to the host response rather than to the tumour. The vascular injury is angiocentric and angiodestructive but is not a primary vasculitis - the vessel wall is damaged by lymphocytic invasion, not by an immune-mediated attack on the wall itself.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"chemokine-mediated signaling pathway\", \"inflammatory response\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Interferon Alfa-2b\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dose-escalated subcutaneous interferon alfa-2b, from 7.5 million international units three times weekly and continued for up to a year past best response, for low-grade disease. The rationale is explicitly mechanistic: low-grade disease is treated as immune-dependent, so the intervention augments the host response to EBV rather than killing the clone. In the phase 2 trial it produced complete responses in 61% of evaluable patients and was substantially better tolerated than chemotherapy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"recombinant interferon alfa-2b\"]}}, {\"id\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBV-infected B cells expressing latent viral proteins proliferate and accumulate in extranodal tissue. Their number and density per high-power field is precisely what histologic grade measures, so this node is the one the grading system quantifies. Nodal and bone marrow compartments are spared, which is one of the features that separates the disease from other EBV-positive B-cell lymphoproliferations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"EBV-positive atypical B cell\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"lung\"]}}], \"edges\": [{\"source\": \"Defective EBV Immunosurveillance\", \"target\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cytotoxic control permits EBV-infected B cells to expand rather than be cleared.\"}, {\"source\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"target\": \"Ineffective Angiocentric Reactive T-cell Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding EBV-positive population recruits a large but ineffective reactive T-cell infiltrate.\"}, {\"source\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"target\": \"Clonal Selection and High-Grade Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued proliferation under persistent immune failure selects for transformed clones.\"}, {\"source\": \"Ineffective Angiocentric Reactive T-cell Response\", \"target\": \"Coagulative Necrosis and Multi-organ Tissue Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vascular invasion and destruction produce ischaemic coagulative necrosis in the involved tissue.\"}, {\"source\": \"Coagulative Necrosis and Multi-organ Tissue Destruction\", \"target\": \"Bilateral Pulmonary Nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Necrotic angiocentric lesions in the lung are what imaging shows as bilateral nodules.\"}, {\"source\": \"Interferon Alfa-2b\", \"target\": \"Defective EBV Immunosurveillance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"DA-EPOCH-R\", \"target\": \"Clonal Selection and High-Grade Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bilateral Pulmonary Nodules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral pulmonary nodules or masses, often peribronchovascular and lower-lobe predominant and sometimes cavitating. Lung involvement is essentially universal, and its absence should prompt reconsideration of the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033608\"}}, {\"id\": \"Clonal Selection and High-Grade Transformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With continued proliferation under a persistent surveillance defect, the EBV-infected B-cell population shifts from polyclonal to monoclonal. Immunoglobulin gene rearrangement is clonal in 8% of grade 1, 50% of grade 2 and 69% of grade 3 lesions - a monotonic gradient that is the molecular reading of the grading system. At grade 3 the lesion is no longer separable from an EBV-positive large B-cell lymphoma, which is why the treatment strategy switches from restoring immunity to killing the clone. No recurrent chromosomal abnormality has been found, so this transformation is not anchored to a known cytogenetic driver.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"EBV-positive atypical B cell\"], \"biological_processes\": [\"cell population proliferation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Coagulative Necrosis and Multi-organ Tissue Destruction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coagulative necrosis follows the vascular damage and is present at every grade, focal in grade 1 and often extensive in grades 2 and 3. In the lung this produces the bilateral nodules, sometimes cavitating, that define the radiologic picture; in skin, central nervous system, liver and kidney it produces the corresponding extranodal lesions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell death\"], \"locations\": [\"lung\", \"brain\", \"skin of body\", \"kidney\", \"liver\"]}}, {\"id\": \"DA-EPOCH-R\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Six three-weekly cycles of dose-adjusted etoposide, prednisone, vincristine, cyclophosphamide, doxorubicin and rituximab for high-grade disease, which is treated as immune-independent. Complete responses were seen in 47% of evaluable patients. Toxicity is the trade-off: serious adverse events occurred in 64% of chemotherapy-treated patients against 25% of those on interferon alfa-2b.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"etoposide\", \"prednisone\", \"vincristine\", \"cyclophosphamide\", \"doxorubicin\", \"rituximab\"]}}, {\"id\": \"Defective EBV Immunosurveillance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Latent EBV, carried by most of the adult population, escapes control in a host whose cell-mediated surveillance of EBV-infected B cells is quantitatively or qualitatively impaired. Every patient treated at the reporting national centre had moderately to severely reduced circulating CD3-positive T cells with the deficit falling more heavily on the CD8-positive compartment, and none had a recognised primary immunodeficiency - so the defect is inferred to be pre-existing and subtle rather than syndromic. Recognised syndromic and iatrogenic causes of the same defect exist and predispose to the disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"viral latency\", \"T cell mediated immunity\"]}}, {\"id\": \"Ineffective Angiocentric Reactive T-cell Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A dense reactive T-cell infiltrate, CD4-predominant rather than CD8, gathers around and invades vessel walls without clearing the EBV-positive B cells. The interferon-inducible chemokines CXCL9 and CXCL10 localise to reactive cells in viable tissue at the edge of necrotic areas rather than to the malignant cells, which is the basis for attributing the vascular damage to the host response rather than to the tumour. The vascular injury is angiocentric and angiodestructive but is not a primary vasculitis - the vessel wall is damaged by lymphocytic invasion, not by an immune-mediated attack on the wall itself.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"chemokine-mediated signaling pathway\", \"inflammatory response\"], \"locations\": [\"blood vessel\"]}}, {\"id\": \"Interferon Alfa-2b\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dose-escalated subcutaneous interferon alfa-2b, from 7.5 million international units three times weekly and continued for up to a year past best response, for low-grade disease. The rationale is explicitly mechanistic: low-grade disease is treated as immune-dependent, so the intervention augments the host response to EBV rather than killing the clone. In the phase 2 trial it produced complete responses in 61% of evaluable patients and was substantially better tolerated than chemotherapy.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"recombinant interferon alfa-2b\"]}}, {\"id\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"EBV-infected B cells expressing latent viral proteins proliferate and accumulate in extranodal tissue. Their number and density per high-power field is precisely what histologic grade measures, so this node is the one the grading system quantifies. Nodal and bone marrow compartments are spared, which is one of the features that separates the disease from other EBV-positive B-cell lymphoproliferations.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"EBV-positive atypical B cell\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"lung\"]}}], \"edges\": [{\"source\": \"Defective EBV Immunosurveillance\", \"target\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cytotoxic control permits EBV-infected B cells to expand rather than be cleared.\"}, {\"source\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"target\": \"Ineffective Angiocentric Reactive T-cell Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanding EBV-positive population recruits a large but ineffective reactive T-cell infiltrate.\"}, {\"source\": \"Outgrowth of EBV-Positive Atypical B Cells\", \"target\": \"Clonal Selection and High-Grade Transformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Continued proliferation under persistent immune failure selects for transformed clones.\"}, {\"source\": \"Ineffective Angiocentric Reactive T-cell Response\", \"target\": \"Coagulative Necrosis and Multi-organ Tissue Destruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Vascular invasion and destruction produce ischaemic coagulative necrosis in the involved tissue.\"}, {\"source\": \"Coagulative Necrosis and Multi-organ Tissue Destruction\", \"target\": \"Bilateral Pulmonary Nodules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Necrotic angiocentric lesions in the lung are what imaging shows as bilateral nodules.\"}, {\"source\": \"Interferon Alfa-2b\", \"target\": \"Defective EBV Immunosurveillance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"DA-EPOCH-R\", \"target\": \"Clonal Selection and High-Grade Transformation\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>

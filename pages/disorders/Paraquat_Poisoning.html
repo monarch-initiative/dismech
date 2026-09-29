@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4504,6 +4543,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ingestion-of-concentrated-paraquat" data-dismech-node="Ingestion of Concentrated Paraquat" data-dismech-type="pathophysiology">
                 <div class="item-name">Ingestion of Concentrated Paraquat</div>
 
+
                 <div class="item-desc">The exposure event. Deaths follow accidental or deliberate ingestion of concentrated herbicide formulations; cutaneous and mucosal contact are also reported routes. Dose sets the tempo rather than merely the severity: fulminant poisoning above roughly 40 mg/kg kills within two to three days, while lower doses produce the slower fibrotic course. Paraquat is a leading agent in the wider problem of fatal pesticide self-poisoning, which the global literature places at roughly a third of all suicides worldwide.</div>
 
 
@@ -4637,6 +4677,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-caustic-oropharyngeal-and-gastrointestinal-injury" data-dismech-node="Caustic Oropharyngeal and Gastrointestinal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Caustic Oropharyngeal and Gastrointestinal Injury</div>
+
 
                 <div class="item-desc">Direct corrosive injury where concentrated herbicide contacts mucosa. It begins focally, most often on the tongue, and with delay becomes multifocal and diffuse, involving buccal mucosa and then oropharynx and oesophagus. Lesions ulcerate and bleed, and can perforate the tract with consequent mediastinitis and pneumomediastinum. This arm is not merely cosmetic - severe mucositis is associated with systemic complications including acute kidney injury, which is what makes the oral findings prognostically informative.</div>
 
@@ -4849,6 +4890,7 @@ This pathophysiological event involves increased mucosal ulceration and necrosis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polyamine-transporter-mediated-pulmonary-accumulation" data-dismech-node="Polyamine-Transporter-Mediated Pulmonary Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Polyamine-Transporter-Mediated Pulmonary Accumulation</div>
+
 
                 <div class="item-desc">The reason the lung is the target organ. Paraquat is a substrate of the polyamine transport system, which is abundantly expressed in the membranes of alveolar type I and type II cells and Clara (club) cells. Transport is against the concentration gradient, so pulmonary concentrations reach six to ten times plasma levels, and - critically for treatment timing - paraquat is retained in lung even once blood levels begin to fall. This is why measures that lower the plasma level late have limited effect on the lung burden already established.</div>
 
@@ -5117,6 +5159,7 @@ This pathophysiological event involves polyamine transporter accepting paraquat 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-redox-cycling-and-catalytic-superoxide-generation" data-dismech-node="Redox Cycling and Catalytic Superoxide Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Redox Cycling and Catalytic Superoxide Generation</div>
 
+
                 <div class="item-desc">The rate-limiting molecular lesion. Paraquat undergoes one-electron reduction to a cation radical, which is reoxidised by molecular oxygen; the reoxidation regenerates the parent paraquat cation and releases superoxide. Because the toxicant is regenerated, one paraquat molecule generates reactive oxygen species catalytically rather than being consumed, which is why very small intracellular quantities are lethal and why no stoichiometric scavenger has succeeded as an antidote. The cycle also consumes reducing equivalents, compounding oxidative injury with a loss of antioxidant reserve. The reduction is localised: paraquat is carried into the mitochondrial matrix in a membrane-potential-dependent manner as the dication rather than the radical, and is there reduced principally by complex I in mammalian mitochondria.</div>
 
 
@@ -5340,6 +5383,7 @@ This pathophysiological event involves increased overwhelmed cellular oxidative 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-epithelial-injury-and-cell-death" data-dismech-node="Alveolar Epithelial Injury and Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Epithelial Injury and Cell Death</div>
+
 
                 <div class="item-desc">Oxidative injury to the alveolar epithelium, expressed as alveolitis and alveolar damage with mitochondrial injury and cell death. Cell death here is not apoptosis alone: rat work implicates ferroptosis - iron-dependent lipid peroxidative death - driven by Keap1 upregulation and Nrf2 degradation, which connects the redox arm to the fibrotic one through a distinct death programme. This is the destructive phase that precedes and licenses the fibrotic one.</div>
 
@@ -5581,6 +5625,7 @@ This pathophysiological event involves increased iron-dependent lipid peroxidati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-driven-mesenchymal-transition-of-alveolar-epithelium" data-dismech-node="TGF-beta-Driven Mesenchymal Transition of Alveolar Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta-Driven Mesenchymal Transition of Alveolar Epithelium</div>
 
+
                 <div class="item-desc">The step that converts injury into fibrosis, and it is dose-dependent in a way that matters clinically. In alveolar epithelial cells, short high-dose paraquat causes apoptotic death, whereas prolonged low-dose exposure instead drives transformation into spindle-shaped mesenchymal-like cells that lose E-cadherin, gain alpha-smooth muscle actin and secrete fibronectin. The transformation is TGF-beta1-dependent - a receptor antagonist abolishes it - and it confers resistance to cell death, so the cells that survive are precisely the ones that make matrix. This is why subacute, lower-dose poisoning produces the delayed fibrotic course rather than simply a milder version of the fulminant one.</div>
 
 
@@ -5818,6 +5863,7 @@ This pathophysiological event involves increased TGF-beta1 signalling driving th
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-pulmonary-fibrosis" data-dismech-node="Progressive Pulmonary Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Pulmonary Fibrosis</div>
 
+
                 <div class="item-desc">The delayed fibroproliferative phase, and the characteristic cause of death in patients who survive the acute multiorgan insult. Fibrosis obliterates the gas-exchange surface over two to three weeks, producing progressive respiratory failure. Its delayed onset is what makes paraquat poisoning unusual among acute toxidromes: a patient can appear to stabilise and still die of the exposure a fortnight later.</div>
 
 
@@ -5989,6 +6035,7 @@ This pathophysiological event involves increased collagen fibril deposition, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-injury-and-acute-kidney-injury" data-dismech-node="Proximal Tubular Injury and Acute Kidney Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Tubular Injury and Acute Kidney Injury</div>
+
 
                 <div class="item-desc">Necrosis of the proximal convoluted tubule, where paraquat distribution is high. The kidney concentrates paraquat by an active transport route of its own, distinct from the lung&#39;s: the organic cation transporter hOCT2 (SLC22A2) and the extrusion transporter hMATE1 both carry paraquat, and expressing either in cells raises both uptake and cytotoxicity by an order of magnitude. Renal failure therefore matters three times over - as organ injury, as the route by which most of an absorbed dose leaves the body, and because the very transporters that clear paraquat are what load the tubular cell with it.</div>
 
@@ -6206,6 +6253,7 @@ This pathophysiological event involves increased hOCT2- and hMATE1-mediated tubu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury" data-dismech-node="Hepatocellular Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury</div>
 
+
                 <div class="item-desc">Acute liver injury from damage to the smooth endoplasmic reticulum and mitochondria of hepatocytes, in which paraquat also distributes highly.</div>
 
 
@@ -6297,6 +6345,7 @@ This pathophysiological event involves increased hOCT2- and hMATE1-mediated tubu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-involvement" data-dismech-node="Cardiac Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Involvement</div>
+
 
                 <div class="item-desc">A real but poorly characterised arm, curated at the strength the evidence actually supports. Paraquat causes multiorgan injury including the heart, and dose-dependent falls in heart rate, blood pressure and cardiac contractility are documented in anaesthetised rodents. In humans the picture is thin: the source curated here states plainly that little to no evidence exists on the haemodynamic and cardiac electromechanical effects of acute poisoning, and reports severe bradycardia refractory to anticholinergics as an unusual manifestation.</div>
 
@@ -6398,6 +6447,7 @@ This pathophysiological event involves increased hOCT2- and hMATE1-mediated tubu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiorgan-failure-and-death" data-dismech-node="Multiorgan Failure and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiorgan Failure and Death</div>
+
 
                 <div class="item-desc">The convergent outcome. Reported case fatality reaches 90%, and can follow even low doses. There is no antidote with specific effects, so the case fatality reflects the toxicology rather than any failure of supportive care.</div>
 
@@ -6509,11 +6559,13 @@ This pathophysiological event involves increased hOCT2- and hMATE1-mediated tubu
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Thoracic Cavity<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Thoracic Cavity<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7532,6 +7584,105 @@ This clinical feature is Severe oral mucosal ulceration, annotated with Oral ulc
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute Respiratory Distress Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Acute Respiratory Distress Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0033677</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Acute respiratory distress syndrome (HP:0033677), qualified as temporality acute. HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: ACUTE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42266604" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266604" target="_blank">PMID:42266604</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He progressed to severe ARDS within 48 h (PaO2/FiO2 ratio &lt; 100 mmHg, radiographic involvement &gt; 85%), failing lung-protective ventilation."</div>
+
+
+                <div class="evidence-explanation">Documents severe ARDS with its physiological and radiographic criteria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
                     <span class="cat-count">1</span>
                 </summary>
@@ -7550,10 +7701,10 @@ This clinical feature is Severe oral mucosal ulceration, annotated with Oral ulc
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6001021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6001021</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6001021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:6001021</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cervical and thoracic subcutaneous emphysema, annotated with Subcutaneous emphysema (HP:6001021), qualified as temporality acute. HP:6001021 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7628,11 +7779,11 @@ This clinical feature is Cervical and thoracic subcutaneous emphysema, annotated
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary Fibrosis" data-dismech-type="phenotype">
@@ -7649,10 +7800,10 @@ This clinical feature is Cervical and thoracic subcutaneous emphysema, annotated
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002206</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002206</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Progressive pulmonary fibrosis, annotated with Pulmonary fibrosis (HP:0002206), qualified as course progressive. HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7739,10 +7890,10 @@ This clinical feature is Progressive pulmonary fibrosis, annotated with Pulmonar
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory failure (HP:0002878), qualified as temporality acute. HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7800,96 +7951,6 @@ This clinical feature is Respiratory failure (HP:0002878), qualified as temporal
 
 
                 <div class="evidence-explanation">Documents fatal progressive respiratory failure as the terminal event in a poisoned patient. Replaces an earlier snippet that spoke only to overall mortality and, by its own explanation, did not evidence this phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-acute-respiratory-distress-syndrome" data-dismech-node="Acute Respiratory Distress Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Acute Respiratory Distress Syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0033677</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Acute respiratory distress syndrome (HP:0033677), qualified as temporality acute. HP:0033677 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: ACUTE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42266604" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42266604" target="_blank">PMID:42266604</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He progressed to severe ARDS within 48 h (PaO2/FiO2 ratio &lt; 100 mmHg, radiographic involvement &gt; 85%), failing lung-protective ventilation."</div>
-
-
-                <div class="evidence-explanation">Documents severe ARDS with its physiological and radiographic criteria.</div>
 
 
 
@@ -7999,7 +8060,7 @@ This clinical feature is Dyspnea (HP:0002094), qualified as temporality acute; c
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Thoracic Cavity

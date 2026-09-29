@@ -1,20 +1,24 @@
 # Central runtime configuration for the agentic AI GitHub Actions.
 #
 # This is the single source of truth for which Claude model backs each agent
-# workflow. It is read at run time by the composite action
-# `.github/actions/resolve-agent-config`, which resolves the effective model and
-# exports it as the `AGENT_MODEL` environment variable (and a step output). To
-# bump a model tier repo-wide, edit this file — no workflow YAML changes needed.
+# workflow. Single-model workflows use `.github/actions/resolve-agent-config`
+# to export `AGENT_MODEL`; curation-scanner calls the resolver in --matrix mode
+# and passes each row's model directly to Claude Code. See docs/agent-config.md.
 #
-# Resolution order (highest priority first):
+# Single-model resolution order (highest priority first):
 #   1. an explicit per-run override (a workflow_dispatch `model:` input, passed
 #      to the action as `model-override`),
-#   2. the per-workflow `model:` (or `models:` for a matrix) below,
+#   2. the per-workflow `model:` below,
 #   3. `default_model`.
+# Matrix rows each require their own model: no fallback or per-run override.
 #
 # Keys under `workflows:` are the workflow file stem under .github/workflows/.
-# The values here mirror each workflow's previous effective default, so adopting
-# this config is behaviour-preserving.
+# Follow the latest model in each family via Claude Code's aliases. Release
+# upgrades need no config edits; exact model IDs are for temporary rollbacks.
+# All managed workflows install the latest CLI with setup-claude-code so alias
+# mappings are not held back by the upstream action's bundled SDK.
+# Changing default_model alone affects none of the current workflows: all have
+# explicit models (including matrix rows).
 #
 # Scope note: this centralises the *AI model* for the agentic workflows only.
 # Cron cadence stays in `.github/cron-profiles.yaml` (GitHub can't parameterise
@@ -22,7 +26,7 @@
 # (issue #5218). `provider` is reserved for a future provider abstraction and is
 # not yet consumed.
 
-default_model: claude-opus-5
+default_model: opus
 provider: anthropic
 
 workflows:
@@ -32,42 +36,42 @@ workflows:
   curation-scanner:
     matrix:
       - effort: low_effort
-        model: claude-haiku-4-5-20251001
+        model: haiku
         selector: "label:curation label:low_effort"
       - effort: medium_effort
-        model: claude-sonnet-5
+        model: sonnet
         selector: "label:curation label:medium_effort -label:low_effort"
       - effort: high_effort
-        model: claude-opus-5
+        model: opus
         selector: "label:curation -label:low_effort -label:medium_effort"
 
   discussion-scanner:
-    model: claude-sonnet-5
+    model: sonnet
 
   claude-dedupe-issues:
-    model: claude-sonnet-5
+    model: sonnet
 
   knowledge-gap-scan:
-    model: claude-haiku-4-5-20251001
+    model: haiku
 
   literature-scan:
-    model: claude-haiku-4-5-20251001
+    model: haiku
 
   preprint-scan:
-    model: claude-haiku-4-5-20251001
+    model: haiku
 
   post-review-agent:
-    model: claude-opus-5
+    model: opus
 
   pr-shepherd:
-    model: claude-opus-5
+    model: opus
 
   weekly-compliance:
-    model: claude-opus-5
+    model: opus
 
   claude-code-review:
-    model: claude-opus-5
+    model: opus
 
   # The interactive @claude mention responder (claude.yml).
   claude:
-    model: claude-opus-5
+    model: opus

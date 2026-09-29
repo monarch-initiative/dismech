@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4099,6 +4138,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-tricyclic-antidepressant-burden" data-dismech-node="Systemic Tricyclic Antidepressant Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Tricyclic Antidepressant Burden</div>
 
+
                 <div class="item-desc">Absorbed parent drug and, for some TCAs, active metabolites produce toxic systemic and tissue exposure. Lipid solubility, extensive protein binding, variable metabolism and delayed gastrointestinal absorption influence the course. The contributions of individual pharmacological targets differ among drugs and patients.</div>
 
 
@@ -4263,6 +4303,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-fast-sodium-channel-blockade" data-dismech-node="Cardiac Fast Sodium Channel Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Fast Sodium Channel Blockade</div>
+
 
                 <div class="item-desc">Tricyclic exposure inhibits cardiac fast sodium-channel function. Amitriptyline depresses the phase 0 upstroke in isolated Purkinje fibers in a rate-dependent manner. Recovery kinetics differ between drugs; experimental recovery times should not be treated as a single class-wide value or a clinical dosing rule.</div>
 
@@ -4523,6 +4564,7 @@ This pathophysiological event involves decreased cardiac voltage-gated sodium ch
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slowed-his-purkinje-and-myocardial-conduction" data-dismech-node="Slowed His-Purkinje and Myocardial Conduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Slowed His-Purkinje and Myocardial Conduction</div>
 
+
                 <div class="item-desc">Slowed conduction through specialized conducting tissue and working myocardium contributes to QRS widening and conduction block. PR changes and drug-induced Brugada-pattern ECGs can also occur; an acquired Brugada pattern does not by itself diagnose an inherited arrhythmia syndrome.</div>
 
 
@@ -4692,6 +4734,7 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmogenesis" data-dismech-node="Ventricular Arrhythmogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Arrhythmogenesis</div>
 
+
                 <div class="item-desc">Conduction abnormalities and, in some cases, disturbed repolarization create susceptibility to ventricular dysrhythmias. Conduction-related monomorphic tachycardia and repolarization-related torsades have different mechanisms; ventricular fibrillation and arrest may complicate severe toxicity.</div>
 
 
@@ -4815,6 +4858,7 @@ This pathophysiological event involves ventricular cardiomyocyte, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-herg-potassium-channel-blockade" data-dismech-node="hERG Potassium Channel Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">hERG Potassium Channel Blockade</div>
+
 
                 <div class="item-desc">Imipramine and amitriptyline inhibit hERG-mediated potassium current in expression systems. Amitriptyline also reduced IKr in isolated rat atrial myocytes. Voltage and use dependence depend on the drug and assay; these experiments do not directly measure receptor occupancy or current in poisoned patients.</div>
 
@@ -5060,6 +5104,7 @@ This pathophysiological event involves decreased rapid delayed-rectifier potassi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slowed-cardiac-phase-0-depolarization" data-dismech-node="Slowed Cardiac Phase 0 Depolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Slowed Cardiac Phase 0 Depolarization</div>
 
+
                 <div class="item-desc">The amplitude and maximum rate of the fast cardiac action-potential upstroke decrease. This depolarization defect is distinct from the potassium-current-related repolarization branch.</div>
 
 
@@ -5227,6 +5272,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-ventricular-repolarization" data-dismech-node="Delayed Ventricular Repolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Ventricular Repolarization</div>
 
+
                 <div class="item-desc">Reduced repolarizing potassium current can delay ventricular repolarization and contribute to QT prolongation. Torsades de pointes is reported but uncommon; QT also includes the depolarization interval, so a prolonged QT in a wide-QRS tracing is not a pure measurement of hERG inhibition.</div>
 
 
@@ -5386,6 +5432,7 @@ This pathophysiological event involves decreased ventricular membrane repolariza
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-myocardial-contractility" data-dismech-node="Reduced Myocardial Contractility" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Myocardial Contractility</div>
 
+
                 <div class="item-desc">Myocardial depression reduces pump function in severe poisoning. Channel effects and dysrhythmias can contribute, but the cited clinical synthesis does not quantitatively separate these contributions.</div>
 
 
@@ -5535,6 +5582,7 @@ This pathophysiological event involves decreased cardiac muscle contraction (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-alpha-1-adrenergic-receptor-blockade" data-dismech-node="Vascular Alpha-1 Adrenergic Receptor Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Alpha-1 Adrenergic Receptor Blockade</div>
+
 
                 <div class="item-desc">Antagonism of vascular alpha-1 adrenergic signaling reduces vasoconstrictor tone and can contribute to hypotension.</div>
 
@@ -5686,6 +5734,7 @@ This pathophysiological event involves decreased alpha1-adrenergic receptor acti
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-systemic-vascular-resistance" data-dismech-node="Reduced Systemic Vascular Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Systemic Vascular Resistance</div>
 
+
                 <div class="item-desc">Vasodilation reduces systemic vascular resistance and contributes to low arterial pressure, with or without substantial myocardial depression.</div>
 
 
@@ -5801,6 +5850,7 @@ This pathophysiological event involves decreased vascular associated smooth musc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circulatory-failure" data-dismech-node="Circulatory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Circulatory Failure</div>
+
 
                 <div class="item-desc">Inadequate circulatory function can reflect myocardial depression, dysrhythmia, vasodilation and volume-related contributions. Severe hypotension may progress to shock or arrest; shock is not necessarily purely cardiogenic.</div>
 
@@ -5933,6 +5983,7 @@ This pathophysiological event involves decreased vascular associated smooth musc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-acidaemia" data-dismech-node="Systemic Acidaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Acidaemia</div>
 
+
                 <div class="item-desc">Metabolic and respiratory acidosis can complicate severe poisoning. Hypoperfusion, inadequate ventilation and seizures can contribute. Lower pH increases the free pharmacologically active drug fraction and can aggravate cardiac sodium-channel toxicity, creating a feedback loop.</div>
 
 
@@ -6022,6 +6073,7 @@ This pathophysiological event involves decreased vascular associated smooth musc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-muscarinic-acetylcholine-receptor-antagonism" data-dismech-node="Muscarinic Acetylcholine Receptor Antagonism" data-dismech-type="pathophysiology">
                 <div class="item-name">Muscarinic Acetylcholine Receptor Antagonism</div>
+
 
                 <div class="item-desc">Tricyclic drugs inhibit muscarinic receptor signaling, producing peripheral and central antimuscarinic manifestations. This toxidrome overlaps other poisonings and neither confirms TCA exposure nor excludes severe cardiotoxicity when absent.</div>
 
@@ -6216,6 +6268,7 @@ This pathophysiological event involves decreased muscarinic acetylcholine recept
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-norepinephrine-reuptake-inhibition" data-dismech-node="Neuronal Norepinephrine Reuptake Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Norepinephrine Reuptake Inhibition</div>
 
+
                 <div class="item-desc">Inhibition of norepinephrine reuptake contributes to autonomic stimulation, including sinus tachycardia. TCAs also affect serotonin transport, but the cited cardiovascular causal link is specifically to norepinephrine uptake.</div>
 
 
@@ -6385,6 +6438,7 @@ This pathophysiological event involves decreased norepinephrine reuptake transpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-depression" data-dismech-node="Central Nervous System Depression" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Depression</div>
 
+
                 <div class="item-desc">Toxic exposure can cause drowsiness, reduced consciousness and coma, with impaired ventilation or airway protection in severe cases. Clinical severity is variable; coma is not an inevitable response to every toxic ingestion.</div>
 
 
@@ -6511,6 +6565,7 @@ This pathophysiological event involves decreased norepinephrine reuptake transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-neuronal-hyperexcitability" data-dismech-node="Central Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Neuronal Hyperexcitability</div>
+
 
                 <div class="item-desc">TCA poisoning can lower seizure threshold through multiple pharmacological and physiological influences. Experimental GABAA effects offer one possible route. A selected intubated/comatose case-control study associated post-admission seizures with death, but this is not a validated universal prognostic rule or evidence that QRS duration measures brain drug exposure.</div>
 
@@ -6673,6 +6728,7 @@ This pathophysiological event involves decreased norepinephrine reuptake transpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-free-tricyclic-antidepressant-fraction" data-dismech-node="Increased Free Tricyclic Antidepressant Fraction" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Free Tricyclic Antidepressant Fraction</div>
 
+
                 <div class="item-desc">Acidosis can increase the unbound pharmacologically active fraction of circulating TCA. A change in free fraction is distinct from an increase in total body drug amount.</div>
 
 
@@ -6753,6 +6809,7 @@ This pathophysiological event involves decreased norepinephrine reuptake transpo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gastrointestinal-motility" data-dismech-node="Reduced Gastrointestinal Motility" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Gastrointestinal Motility</div>
 
+
                 <div class="item-desc">Antimuscarinic effects slow gastrointestinal motility, causing decreased bowel sounds and potentially ileus, while delaying absorption of ingested drug.</div>
 
 
@@ -6830,6 +6887,7 @@ This pathophysiological event involves decreased norepinephrine reuptake transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-histamine-h1-receptor-inhibition" data-dismech-node="Histamine H1 Receptor Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Histamine H1 Receptor Inhibition</div>
+
 
                 <div class="item-desc">Histamine H1 receptor blockade contributes to TCA sedation. Profound coma is a clinical toxic effect with multiple possible contributions, not a receptor-specific readout.</div>
 
@@ -7020,6 +7078,7 @@ This pathophysiological event involves decreased histamine H1 receptor activity,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gabaa-receptor-current" data-dismech-node="Reduced GABAA Receptor Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GABAA Receptor Current</div>
+
 
                 <div class="item-desc">Selected TCAs reduce GABA-elicited chloride current or uptake in experimental systems. Imipramine and nortriptyline inhibited recombinant α5β3γ2 receptors but had no significant effect on the tested α1β3γ2 subtype at 100 μM. Rat cortical assays also showed inhibition by amitriptyline. These findings support a possible contribution to neuroexcitation, not a proven single cause of clinical seizures.</div>
 
@@ -7269,25 +7328,25 @@ This pathophysiological event involves decreased GABA-A receptor activity (GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(11)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Metabolism<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Respiratory<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8207,6 +8266,91 @@ This clinical feature is Torsade de pointes (HP:0001664). HP:0001664 is a phenot
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ileus" data-dismech-node="Ileus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ileus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002595</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ileus (HP:0002595). HP:0002595 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.clintox.org/wp-content/uploads/2016/05/Tricyclic-antidepressant-poisoning.pdf" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.clintox.org/wp-content/uploads/2016/05/Tricyclic-antidepressant-poisoning.pdf" target="_blank">url:https://www.clintox.org/wp-content/uploads/2016/05/Tricyclic-antidepressant-poisoning.pdf</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other signs of TCA poisoning include palpita tions, tachycardia, hyperten- sion, ileus, tremors, myoclonu s, confusion, delirium, and lethargy."</div>
+
+
+                <div class="evidence-explanation">This is the guideline’s acute-poisoning clinical list; spacing in the PDF extraction is preserved.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">2</span>
                 </summary>
@@ -8225,10 +8369,10 @@ This clinical feature is Torsade de pointes (HP:0001664). HP:0001664 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0011499</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011499" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0011499</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mydriasis (HP:0011499). HP:0011499 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8301,10 +8445,10 @@ This clinical feature is Mydriasis (HP:0011499). HP:0011499 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000622</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8365,7 +8509,7 @@ This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
@@ -8386,10 +8530,10 @@ This clinical feature is Blurred vision (HP:0000622). HP:0000622 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000016</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000016" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000016</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8450,7 +8594,7 @@ This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -8471,10 +8615,10 @@ This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000217</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000217" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000217</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8535,7 +8679,7 @@ This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
@@ -8556,10 +8700,10 @@ This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011951</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011951" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011951</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8620,7 +8764,7 @@ This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phen
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -8641,10 +8785,10 @@ This clinical feature is Aspiration pneumonia (HP:0011951). HP:0011951 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000958</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000958</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8705,7 +8849,7 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -8726,10 +8870,10 @@ This clinical feature is Dry skin (HP:0000958). HP:0000958 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0011448</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011448" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0011448</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ankle clonus (HP:0011448). HP:0011448 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8790,7 +8934,7 @@ This clinical feature is Ankle clonus (HP:0011448). HP:0011448 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -8811,10 +8955,10 @@ This clinical feature is Ankle clonus (HP:0011448). HP:0011448 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001941" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001941</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001941" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001941</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acidosis (HP:0001941). HP:0001941 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8889,10 +9033,10 @@ This clinical feature is Acidosis (HP:0001941). HP:0001941 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperthermia, annotated with Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8965,10 +9109,10 @@ This clinical feature is Hyperthermia, annotated with Fever (HP:0001945). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0100598</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0100598</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9029,7 +9173,7 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -9050,10 +9194,10 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001259</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001259</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9126,10 +9270,10 @@ This clinical feature is Coma (HP:0001259). HP:0001259 is a phenotype from the H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9260,10 +9404,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9336,10 +9480,10 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0031258</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031258" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0031258</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9412,10 +9556,10 @@ This clinical feature is Delirium (HP:0031258). HP:0031258 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000713</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000713" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000713</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Agitation (HP:0000713). HP:0000713 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9488,10 +9632,10 @@ This clinical feature is Agitation (HP:0000713). HP:0000713 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002329</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002329" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0002329</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Drowsiness (HP:0002329). HP:0002329 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9564,10 +9708,10 @@ This clinical feature is Drowsiness (HP:0002329). HP:0002329 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9640,10 +9784,10 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001337</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9716,10 +9860,10 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001336</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001336</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9780,7 +9924,7 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -9803,10 +9947,10 @@ This clinical feature is Myoclonus (HP:0001336). HP:0001336 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002791</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002791" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002791</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory depression, annotated with Hypoventilation (HP:0002791). HP:0002791 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9879,10 +10023,10 @@ This clinical feature is Respiratory depression, annotated with Hypoventilation 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9926,91 +10070,6 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
                 <div class="evidence-explanation">The guideline explicitly lists severe pulmonary complications; this does not establish their incidence or one shared mechanism.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ileus" data-dismech-node="Ileus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ileus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002595" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0002595</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ileus (HP:0002595). HP:0002595 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.clintox.org/wp-content/uploads/2016/05/Tricyclic-antidepressant-poisoning.pdf" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.clintox.org/wp-content/uploads/2016/05/Tricyclic-antidepressant-poisoning.pdf" target="_blank">url:https://www.clintox.org/wp-content/uploads/2016/05/Tricyclic-antidepressant-poisoning.pdf</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other signs of TCA poisoning include palpita tions, tachycardia, hyperten- sion, ileus, tremors, myoclonu s, confusion, delirium, and lethargy."</div>
-
-
-                <div class="evidence-explanation">This is the guideline’s acute-poisoning clinical list; spacing in the PDF extraction is preserved.</div>
 
 
 
@@ -10100,6 +10159,9 @@ This disease-associated gene is CYP2D6 (hgnc:2625). hgnc:2625 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10174,6 +10236,9 @@ This disease-associated gene is CYP2C19 (hgnc:2621). hgnc:2621 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

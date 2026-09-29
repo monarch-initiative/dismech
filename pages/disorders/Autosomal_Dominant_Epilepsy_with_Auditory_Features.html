@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4822,6 +4861,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-lgi1-variants" data-dismech-node="Heterozygous LGI1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous LGI1 Variants</div>
 
+
                 <div class="item-desc">Pathogenic heterozygous LGI1 variants cause a reduced-penetrance dominant epilepsy. Experimental allele classes include impaired secretion and impaired ligand interaction; gene dosage, altered mutant protein and complete knockout preparations are not interchangeable.</div>
 
 
@@ -4933,6 +4973,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-lgi1-secretion" data-dismech-node="Reduced LGI1 Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced LGI1 Secretion</div>
+
 
                 <div class="item-desc">Selected pathogenic LGI1 variants reduce extracellular availability through abnormal folding, intracellular retention or degradation. E383A is one experimentally characterized example; secretion-competent pathogenic variants also occur.</div>
 
@@ -5069,6 +5110,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-lgi1-adam22-binding" data-dismech-node="Reduced LGI1-ADAM22 Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced LGI1-ADAM22 Binding</div>
 
+
                 <div class="item-desc">Some secreted variants impair interaction with ADAM22. The S473L dimerization/binding result is distinct from secretion failure and does not define every pathogenic allele.</div>
 
 
@@ -5165,6 +5207,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-lgi1-linked-synaptic-complex" data-dismech-node="Disrupted LGI1-Linked Synaptic Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted LGI1-Linked Synaptic Complex</div>
+
 
                 <div class="item-desc">LGI1 supports an extracellular complex involving ADAM22, ADAM23 and associated synaptic scaffolds. Loss of available or functional ligand can disrupt this organization. Receptor association does not make every downstream ion-channel response direct or identical across preparations.</div>
 
@@ -5275,6 +5318,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ampa-receptor-mediated-transmission" data-dismech-node="Reduced AMPA Receptor-Mediated Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced AMPA Receptor-Mediated Transmission</div>
 
+
                 <div class="item-desc">Reduced AMPA receptor-mediated transmission is observed in one LGI1-null hippocampal preparation. Other genetic or antibody preparations show increased evoked excitation. This node records a preparation-specific phenotype and is not linked as a proven driver of hyperexcitability.</div>
 
 
@@ -5339,6 +5383,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-axon-initial-segment-kv1-1-density" data-dismech-node="Reduced Axon Initial Segment Kv1.1 Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Axon Initial Segment Kv1.1 Density</div>
+
 
                 <div class="item-desc">LGI1-deficient CA3 neurons in organotypic mouse hippocampal slices show reduced AIS Kv1.1 immunostaining, reversed by local LGI1 expression. Localization and electrical current are measured separately.</div>
 
@@ -5437,6 +5482,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-kv1-mediated-d-type-current" data-dismech-node="Reduced Kv1-Mediated D-Type Current" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Kv1-Mediated D-Type Current</div>
 
+
                 <div class="item-desc">A slowly inactivating potassium-current deficit is measured in LGI1-deficient cultured mouse CA3 neurons. LGI1 restoration and Kv1 blockade support its contribution to altered excitability in this preparation.</div>
 
 
@@ -5533,6 +5579,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-intrinsic-neuronal-excitability" data-dismech-node="Increased Intrinsic Neuronal Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Intrinsic Neuronal Excitability</div>
+
 
                 <div class="item-desc">LGI1-deficient CA3 neurons in organotypic culture can fire more readily, with local LGI1 restoration reducing excitability. This is not universal across cell types or preparations: other knockout studies found unchanged baseline intrinsic properties.</div>
 
@@ -5651,6 +5698,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-axon-initial-segment" data-dismech-node="Shortened Axon Initial Segment" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Axon Initial Segment</div>
 
+
                 <div class="item-desc">AIS shortening accompanies LGI1 deficiency in cultured CA3 neurons and is partly reversed by local restoration. A compensatory homeostatic role is proposed, without proof that shortening causes the increased excitability.</div>
 
 
@@ -5732,6 +5780,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-postnatal-dendritic-pruning" data-dismech-node="Impaired Postnatal Dendritic Pruning" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Postnatal Dendritic Pruning</div>
+
 
                 <div class="item-desc">In the 835delC BAC transgene model, dentate granule-cell dendritic maturation is perturbed during postnatal development. The model retains endogenous alleles and is not evidence that every human variant acts through a fixed developmental lesion.</div>
 
@@ -5832,6 +5881,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-excitatory-synaptic-transmission" data-dismech-node="Increased Excitatory Synaptic Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Excitatory Synaptic Transmission</div>
+
 
                 <div class="item-desc">In selected null and 835delC transgenic preparations, excitatory synaptic currents or miniature-event frequency increase while measured inhibitory currents remain similar. This observation is distinct from intrinsic excitability and from the reduced AMPA response in other preparations.</div>
 
@@ -5958,6 +6008,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptic-network-activity" data-dismech-node="Epileptic Network Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptic Network Activity</div>
+
 
                 <div class="item-desc">LGI1 perturbations can support hypersynchronous epileptic activity in animal and isolated hippocampal preparations. Which cellular changes are necessary for human auditory-feature epilepsy, and why the human symptoms preferentially involve auditory/language networks, remain unresolved.</div>
 
@@ -6133,6 +6184,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-seizures-with-auditory-features" data-dismech-node="Focal Seizures with Auditory Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Seizures with Auditory Features</div>
 
+
                 <div class="item-desc">Human focal seizures engage auditory or language-related networks and may impair awareness or spread to bilateral convulsive seizures. Clinical semiology suggests lateral temporal involvement; mouse hippocampal findings do not directly establish the human site or subjective experience.</div>
 
 
@@ -6285,6 +6337,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-reln-variants" data-dismech-node="Heterozygous RELN Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous RELN Variants</div>
 
+
                 <div class="item-desc">Heterozygous pathogenic RELN variants cause a reduced-penetrance ADEAF form. Clinical similarity to LGI1 disease does not demonstrate a common molecular route.</div>
 
 
@@ -6372,6 +6425,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-reelin-secretion" data-dismech-node="Reduced Reelin Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Reelin Secretion</div>
+
 
                 <div class="item-desc">Selected epilepsy-associated mutant reelin proteins show impaired trafficking and reduced secretion in transfected-cell assays. A loss of extracellular function is a proposed epileptogenic mechanism, without direct measurement of the corresponding patient brain pathway.</div>
 
@@ -6516,6 +6570,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-mutant-reelin-autophagic-processing" data-dismech-node="Increased Mutant Reelin Autophagic Processing" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Mutant Reelin Autophagic Processing</div>
 
+
                 <div class="item-desc">Mutant reelin overexpression is associated with autophagy-marker accumulation and increased LC3 flux in a cell model. The experiment does not establish that autophagy is the sole cause of reduced secretion or a clinical treatment target.</div>
 
 
@@ -6598,6 +6653,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-circulating-reelin" data-dismech-node="Reduced Circulating Reelin" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Circulating Reelin</div>
 
+
                 <div class="item-desc">Immunoblotting in four variant carriers showed reduced serum 310-kDa reelin relative to controls, with four assay experiments. Brain secretion and signaling were not directly measured; a serum concentration is not equivalent to a neuronal mechanism.</div>
 
 
@@ -6662,6 +6718,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-mical1-variants" data-dismech-node="Heterozygous MICAL1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous MICAL1 Variants</div>
+
 
                 <div class="item-desc">Selected heterozygous MICAL1 variants are associated with familial or de novo auditory-feature epilepsy. Functional gain-of-function support is variant specific; rare variants with normal assays remain uncertain.</div>
 
@@ -6771,6 +6828,7 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-mical1-oxidoreductase-activity" data-dismech-node="Increased MICAL1 Oxidoreductase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased MICAL1 Oxidoreductase Activity</div>
+
 
                 <div class="item-desc">Selected variants increase NADPH-dependent H2O2 production in transfected-cell lysate assays. COS7 cell contraction provides a separate morphology proxy. These findings support altered MICAL1 regulation without directly demonstrating neuronal actin oxidation, axon guidance or patient synaptic dysfunction.</div>
 
@@ -6939,9 +6997,9 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(10)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6950,8 +7008,95 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-olfactory-seizures" data-dismech-node="Focal Olfactory Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal Olfactory Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Focal sensory seizure with olfactory features</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011161" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0011161</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal sensory seizure with olfactory features (HP:0011161). HP:0011161 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301709" target="_blank">PMID:20301709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Less commonly, other ictal symptoms may occur, including sensory symptoms (visual, olfactory, vertiginous, or cephalic) or motor, psychic, and autonomic symptoms."</div>
+
+
+                <div class="evidence-explanation">GeneReviews includes this ictal symptom class; no quantitative frequency is inferred.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-focal-sensory-seizure-with-auditory-features" data-dismech-node="Focal Sensory Seizure with Auditory Features" data-dismech-type="phenotype">
@@ -6968,10 +7113,10 @@ This pathophysiological event involves decreased protein secretion (GO:0009306).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011158" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0011158</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011158" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0011158</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal sensory seizure with auditory features (HP:0011158). HP:0011158 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7046,10 +7191,10 @@ This clinical feature is Focal sensory seizure with auditory features (HP:001115
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032696" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0032696</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032696" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0032696</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal cognitive seizure with receptive dysphasia/aphasia (HP:0032696). HP:0032696 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7122,10 +7267,10 @@ This clinical feature is Focal cognitive seizure with receptive dysphasia/aphasi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0008765</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008765" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0008765</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Auditory hallucination (HP:0008765). HP:0008765 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7200,10 +7345,10 @@ This clinical feature is Auditory hallucination (HP:0008765). HP:0008765 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0007334</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0007334</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:0007334). HP:0007334 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7278,403 +7423,12 @@ This clinical feature is Bilateral tonic-clonic seizure with focal onset (HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0011165</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Focal sensory seizure with visual features (HP:0011165). HP:0011165 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301709" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301709" target="_blank">PMID:20301709</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Less commonly, other ictal symptoms may occur, including sensory symptoms (visual, olfactory, vertiginous, or cephalic) or motor, psychic, and autonomic symptoms."</div>
-
-
-                <div class="evidence-explanation">GeneReviews includes this ictal symptom class; no quantitative frequency is inferred.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-autonomic-seizures" data-dismech-node="Focal Autonomic Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal Autonomic Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0011154</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0011165</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Focal autonomic seizure (HP:0011154). HP:0011154 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301709" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301709" target="_blank">PMID:20301709</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Less commonly, other ictal symptoms may occur, including sensory symptoms (visual, olfactory, vertiginous, or cephalic) or motor, psychic, and autonomic symptoms."</div>
-
-
-                <div class="evidence-explanation">GeneReviews includes this ictal symptom class; no quantitative frequency is inferred.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-interictal-eeg-abnormality" data-dismech-node="Interictal EEG Abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Interictal EEG Abnormality
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002353</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28142128" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28142128" target="_blank">PMID:28142128</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The interictal EEG recordings showed epileptiform abnormalities or focal slow waves in 80% of patients, localized over the temporal regions, with marked left predominance and conventional 1,5T MRI scans were not contributory."</div>
-
-
-                <div class="evidence-explanation">The reported percentage concerns the 15 available RELN recordings, not all carriers or an umbrella frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-impaired-awareness-seizures" data-dismech-node="Focal Impaired Awareness Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal Impaired Awareness Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002384</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28142128" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28142128" target="_blank">PMID:28142128</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"focal seizures with impairment of consciousness by 6 patients (25%)"</div>
-
-
-                <div class="evidence-explanation">Direct category count in the selected RELN clinical cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-noise-triggered-reflex-seizures" data-dismech-node="Noise-Triggered Reflex Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Noise-Triggered Reflex Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0020207</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28142128" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28142128" target="_blank">PMID:28142128</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Sudden noises and noisy environments could precipitate the seizures in 2 cases (8%) belonging to 2 families."</div>
-
-
-                <div class="evidence-explanation">Selected RELN family observations support sound-triggered seizures without a disease-wide band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-olfactory-seizures" data-dismech-node="Focal Olfactory Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal Olfactory Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Focal sensory seizure with olfactory features</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011161" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0011161</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Focal sensory seizure with olfactory features (HP:0011161). HP:0011161 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Focal sensory seizure with visual features (HP:0011165). HP:0011165 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7747,10 +7501,10 @@ This clinical feature is Focal sensory seizure with olfactory features (HP:00111
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0032759</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032759" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0032759</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Focal sensory seizure with vestibular features (HP:0032759). HP:0032759 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7794,6 +7548,310 @@ This clinical feature is Focal sensory seizure with vestibular features (HP:0032
 
 
                 <div class="evidence-explanation">GeneReviews includes this ictal symptom class; no quantitative frequency is inferred.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-autonomic-seizures" data-dismech-node="Focal Autonomic Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal Autonomic Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011154" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0011154</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal autonomic seizure (HP:0011154). HP:0011154 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301709" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301709" target="_blank">PMID:20301709</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Less commonly, other ictal symptoms may occur, including sensory symptoms (visual, olfactory, vertiginous, or cephalic) or motor, psychic, and autonomic symptoms."</div>
+
+
+                <div class="evidence-explanation">GeneReviews includes this ictal symptom class; no quantitative frequency is inferred.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interictal-eeg-abnormality" data-dismech-node="Interictal EEG Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Interictal EEG Abnormality
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28142128" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28142128" target="_blank">PMID:28142128</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The interictal EEG recordings showed epileptiform abnormalities or focal slow waves in 80% of patients, localized over the temporal regions, with marked left predominance and conventional 1,5T MRI scans were not contributory."</div>
+
+
+                <div class="evidence-explanation">The reported percentage concerns the 15 available RELN recordings, not all carriers or an umbrella frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-impaired-awareness-seizures" data-dismech-node="Focal Impaired Awareness Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Focal Impaired Awareness Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002384" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002384</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal impaired awareness seizure (HP:0002384). HP:0002384 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28142128" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28142128" target="_blank">PMID:28142128</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"focal seizures with impairment of consciousness by 6 patients (25%)"</div>
+
+
+                <div class="evidence-explanation">Direct category count in the selected RELN clinical cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-noise-triggered-reflex-seizures" data-dismech-node="Noise-Triggered Reflex Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Noise-Triggered Reflex Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0020207</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28142128" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28142128" target="_blank">PMID:28142128</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sudden noises and noisy environments could precipitate the seizures in 2 cases (8%) belonging to 2 families."</div>
+
+
+                <div class="evidence-explanation">Selected RELN family observations support sound-triggered seizures without a disease-wide band.</div>
 
 
 
@@ -7879,6 +7937,9 @@ This disease-associated gene is LGI1 (hgnc:6572). hgnc:6572 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7990,6 +8051,9 @@ This disease-associated gene is RELN (hgnc:9957). hgnc:9957 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8093,6 +8157,9 @@ This disease-associated gene is MICAL1 (hgnc:20619). hgnc:20619 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

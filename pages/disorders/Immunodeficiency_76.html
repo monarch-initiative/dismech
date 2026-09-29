@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4218,6 +4257,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fcho1-loss-of-function" data-dismech-node="FCHO1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">FCHO1 Loss of Function</div>
 
+
                 <div class="item-desc">The initiating lesion. Biallelic FCHO1 variants either abolish the protein, mislocalise it, or leave it unable to bind its partners. FCHO1 acts at the very start of clathrin-coated pit formation - binding PI(4,5)P2 through the F-BAR domain, EPS15 and cargo through the mu-homology domain, and allosterically activating AP-2 through its linker.</div>
 
 
@@ -4278,6 +4318,8 @@ This pathophysiological event involves FCHO1 (hgnc:29002). hgnc:29002 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4290,6 +4332,9 @@ This pathophysiological event involves FCHO1 (hgnc:29002). hgnc:29002 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4385,6 +4430,7 @@ This pathophysiological event involves FCHO1 (hgnc:29002). hgnc:29002 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-clathrin-coated-pit-formation" data-dismech-node="Impaired Clathrin-Coated Pit Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Clathrin-Coated Pit Formation</div>
+
 
                 <div class="item-desc">Nascent clathrin-coated pits fail to assemble properly. This is the step FCHO1 exists to perform, and it is measured directly by live-cell imaging in cells expressing the patient variants.</div>
 
@@ -4499,6 +4545,7 @@ This pathophysiological event involves decreased clathrin coat assembly (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-clathrin-mediated-endocytosis" data-dismech-node="Defective Clathrin-Mediated Endocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Clathrin-Mediated Endocytosis</div>
+
 
                 <div class="item-desc">Cargo that depends on clathrin is internalised poorly. The defect is partial rather than absolute, and it is selective for the clathrin route - in the same patient cells a clathrin-independent internalisation pathway is preserved, which is the internal control that makes the attribution specific.
 The two founding cohorts disagree about how selective it is, and the disagreement is on the same cargo in the same cell type. Calzoni et al. report transferrin internalisation as minimally detectable in patient T cells; Lyszkiewicz et al. report transferrin receptor endocytosis as apparently unaffected in FCHO1-deficient cells, and draw the broader conclusion that FCHO1 deficiency does not generally impair clathrin-dependent processes. Both results are curated below as SUPPORT and REFUTE items on this node rather than resolved in prose. Neither paper addresses the other, and the entry does not choose between them: what is agreed is that FCHO1&#39;s requirement is cargo-selective, and the TCR arm below is the cargo both cohorts implicate.</div>
@@ -4714,6 +4761,7 @@ This pathophysiological event involves decreased clathrin-dependent endocytosis 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-t-cell-receptor-signalling-and-proliferation" data-dismech-node="Defective T-Cell Receptor Signalling and Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective T-Cell Receptor Signalling and Proliferation</div>
+
 
                 <div class="item-desc">Patient T cells activate but do not expand. Early and late activation markers come up normally, so the block is downstream of receptor engagement, in the proliferative response itself - two to four rounds of division against five to seven in controls. The second-messenger failure is measured: calcium mobilisation is impaired, which is what ties the trafficking lesion to TCR signalling rather than leaving proliferation as an unexplained endpoint. The effector consequence is selective - IL-2 and IFN-gamma production fall while TNF-alpha is comparable to control, so this is not a globally sick cell.</div>
 
@@ -5047,6 +5095,13 @@ This pathophysiological event involves decreased interleukin-2 production (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thymic-t-cell-development" data-dismech-node="Impaired Thymic T-Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thymic T-Cell Development</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">A developmental contribution to the lymphopenia, and the point on which the two founding cohorts disagree. Lyszkiewicz et al. title their paper for a role in T-cell development and support it pharmacologically: chlorpromazine inhibition of clathrin-mediated endocytosis during in vitro T-cell development held cells at the DN3 stage, with only 30-35% reaching double-positive against more than 50% untreated. The experiment carries its own specificity control - B-cell and granulocyte development from the same progenitors were unaffected - so it is not general toxicity.
 Graded HYPOTHETICAL for the human disease, for two reasons the entry should not paper over. The developmental evidence is pharmacological CME inhibition in an in vitro system, not an FCHO1-deficient thymus; and Calzoni et al. found preserved T-cell repertoire diversity, composition and clonal abundance in a patient, which is what a normal thymic output looks like. The two arms are not strictly incompatible - a partial developmental delay can coexist with a normal emergent repertoire - but no source reconciles them, and this node records the open question rather than resolving it.</div>
 
@@ -5280,6 +5335,7 @@ This pathophysiological event involves decreased alpha-beta T cell differentiati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-activation-induced-t-cell-death" data-dismech-node="Increased Activation-Induced T-Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Activation-Induced T-Cell Death</div>
 
+
                 <div class="item-desc">Rather than dividing, activated patient T cells accumulate hypodiploid DNA content and drop out of S and G2/M. This is a second, additive route to the lymphopenia alongside the proliferation block.</div>
 
 
@@ -5429,6 +5485,7 @@ This pathophysiological event involves increased activation-induced cell death o
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-lymphopenia" data-dismech-node="T-Cell Lymphopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">T-Cell Lymphopenia</div>
+
 
                 <div class="item-desc">The immunological centrepiece. CD4+ T-cell deficiency is the one finding shared by every reported patient, with severity ranging from a moderate CD4 reduction to a near-absent T- and B-cell compartment.
 How the pool is lost is contested between the two founding cohorts, and the entry records that rather than picking a side. Calzoni et al. argue for peripheral loss - defective proliferation and activation-induced death rather than impaired thymic output - and support it with preserved T-cell repertoire diversity, composition and clonal abundance in a patient. Lyszkiewicz et al. argue for a developmental contribution, supported by pharmacological CME inhibition delaying differentiation at the DN3 to double-positive transition. Both upstream nodes are curated and both feed this one; the peripheral arm carries direct patient measurements, the developmental arm carries an in vitro pharmacological model, and that asymmetry is reflected in their mechanism_confidence gradings rather than in the prose.</div>
@@ -5645,6 +5702,13 @@ This pathophysiological event involves decreased T cell homeostasis (GO:0043029)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-humoral-immunity" data-dismech-node="Impaired Humoral Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Humoral Immunity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">B-cell lymphopenia and hypogammaglobulinemia, the entry&#39;s two most prevalent immunological findings after the T-cell defect. Nine of ten patients in the second cohort were hypogammaglobulinemic, and B-cell lymphopenia is variable but reaches near-absence in the most severely affected.
 Graded HYPOTHETICAL because the mechanism is inferred, not measured. Loss of CD4 help is the conventional explanation and is why this node hangs off T-Cell Lymphopenia, but no source in these cohorts tests whether the B-cell deficit is T-cell-dependent or B-cell-intrinsic - and FCHO1 is expressed in B cells too, so a cell-intrinsic contribution is not excluded. The edge is curated so the humoral findings are reachable from the pathograph; its confidence grading is what says the route is assumed.</div>
 
@@ -5793,6 +5857,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-severe-and-opportunistic-infection" data-dismech-node="Susceptibility to Severe and Opportunistic Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Severe and Opportunistic Infection</div>
 
+
                 <div class="item-desc">Recurrent and severe infection from early childhood, spanning bacterial, mycobacterial, viral and fungal organisms, including opportunists such as Pneumocystis jirovecii, disseminated Mycobacterium genavense and Cryptosporidium.</div>
 
 
@@ -5853,6 +5918,13 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-lymphomagenesis" data-dismech-node="B-Cell Lymphomagenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">B-Cell Lymphomagenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">An unusually high lymphoma burden for a cohort this size - four of the fifteen founding patients. Both diffuse large B-cell lymphoma and Hodgkin lymphoma have been reported, and both EBV-positive and EBV-negative cases occur. Graded HYPOTHETICAL because no source in this entry demonstrates the mechanism; failed T-cell surveillance is the plausible explanation, not a measured one, and the EBV-negative case argues against a purely viral route.</div>
 
@@ -5962,7 +6034,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only definitive treatment. Reported outcomes include long-term survival with full donor chimerism, cleared pre-transplant infections and normal immune function off immunoglobulin replacement. It does not reliably correct growth failure, and post-transplant lymphoproliferative disease has occurred.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"B-Cell Lymphomagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An unusually high lymphoma burden for a cohort this size - four of the fifteen founding patients. Both diffuse large B-cell lymphoma and Hodgkin lymphoma have been reported, and both EBV-positive and EBV-negative cases occur. Graded HYPOTHETICAL because no source in this entry demonstrates the mechanism; failed T-cell surveillance is the plausible explanation, not a measured one, and the EBV-negative case argues against a purely viral route.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Decreased circulating immunoglobulin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogammaglobulinemia, present in all but one patient of the ten-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004313\"}}, {\"id\": \"Decreased total B cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"B-cell lymphopenia, present in a subset and severe enough in some to approach a severe combined immunodeficiency phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010976\"}}, {\"id\": \"Defective Clathrin-Mediated Endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cargo that depends on clathrin is internalised poorly. The defect is partial rather than absolute, and it is selective for the clathrin route - in the same patient cells a clathrin-independent internalisation pathway is preserved, which is the internal control that makes the attribution specific.\\nThe two founding cohorts disagree about how selective it is, and the disagreement is on the same cargo in the same cell type. Calzoni et al. report transferrin internalisation as minimally detectable in patient T cells; Lyszkiewicz et al. report transferrin receptor endocytosis as apparently unaffected in FCHO1-deficient cells, and draw the broader conclusion that FCHO1 deficiency does not generally impair clathrin-dependent processes. Both results are curated below as SUPPORT and REFUTE items on this node rather than resolved in prose. Neither paper addresses the other, and the entry does not choose between them: what is agreed is that FCHO1\u0027s requirement is cargo-selective, and the TCR arm below is the cargo both cohorts implicate.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"clathrin-dependent endocytosis\"]}}, {\"id\": \"Defective T-Cell Receptor Signalling and Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient T cells activate but do not expand. Early and late activation markers come up normally, so the block is downstream of receptor engagement, in the proliferative response itself - two to four rounds of division against five to seven in controls. The second-messenger failure is measured: calcium mobilisation is impaired, which is what ties the trafficking lesion to TCR signalling rather than leaving proliferation as an unexplained endpoint. The effector consequence is selective - IL-2 and IFN-gamma production fall while TNF-alpha is comparable to control, so this is not a globally sick cell.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"T cell receptor signaling pathway\", \"calcium-mediated signaling\", \"T cell proliferation\", \"interleukin-2 production\"]}}, {\"id\": \"FCHO1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FCHO1\"], \"gene_terms\": [{\"label\": \"FCHO1\", \"id\": \"hgnc:29002\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FCHO1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Biallelic FCHO1 variants either abolish the protein, mislocalise it, or leave it unable to bind its partners. FCHO1 acts at the very start of clathrin-coated pit formation - binding PI(4,5)P2 through the F-BAR domain, EPS15 and cargo through the mu-homology domain, and allosterically activating AP-2 through its linker.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FCHO1\"], \"gene_terms\": [{\"label\": \"FCHO1\", \"id\": \"hgnc:29002\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin, used to cover the hypogammaglobulinemia while patients await transplantation and discontinued after successful engraftment. It addresses the antibody deficit only, not the T-cell defect.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"human immunoglobulin G\"]}}, {\"id\": \"Impaired Clathrin-Coated Pit Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nascent clathrin-coated pits fail to assemble properly. This is the step FCHO1 exists to perform, and it is measured directly by live-cell imaging in cells expressing the patient variants.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"clathrin coat assembly\"]}}, {\"id\": \"Impaired Humoral Immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B-cell lymphopenia and hypogammaglobulinemia, the entry\u0027s two most prevalent immunological findings after the T-cell defect. Nine of ten patients in the second cohort were hypogammaglobulinemic, and B-cell lymphopenia is variable but reaches near-absence in the most severely affected.\\nGraded HYPOTHETICAL because the mechanism is inferred, not measured. Loss of CD4 help is the conventional explanation and is why this node hangs off T-Cell Lymphopenia, but no source in these cohorts tests whether the B-cell deficit is T-cell-dependent or B-cell-intrinsic - and FCHO1 is expressed in B cells too, so a cell-intrinsic contribution is not excluded. The edge is curated so the humoral findings are reachable from the pathograph; its confidence grading is what says the route is assumed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Impaired Thymic T-Cell Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A developmental contribution to the lymphopenia, and the point on which the two founding cohorts disagree. Lyszkiewicz et al. title their paper for a role in T-cell development and support it pharmacologically: chlorpromazine inhibition of clathrin-mediated endocytosis during in vitro T-cell development held cells at the DN3 stage, with only 30-35% reaching double-positive against more than 50% untreated. The experiment carries its own specificity control - B-cell and granulocyte development from the same progenitors were unaffected - so it is not general toxicity.\\nGraded HYPOTHETICAL for the human disease, for two reasons the entry should not paper over. The developmental evidence is pharmacological CME inhibition in an in vitro system, not an FCHO1-deficient thymus; and Calzoni et al. found preserved T-cell repertoire diversity, composition and clonal abundance in a patient, which is what a normal thymic output looks like. The two arms are not strictly incompatible - a partial developmental delay can coexist with a normal emergent repertoire - but no source reconciles them, and this node records the open question rather than resolving it.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell differentiation\", \"alpha-beta T cell differentiation\"]}}, {\"id\": \"Increased Activation-Induced T-Cell Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rather than dividing, activated patient T cells accumulate hypodiploid DNA content and drop out of S and G2/M. This is a second, additive route to the lymphopenia alongside the proliferation block.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"activation-induced cell death of T cells\"]}}, {\"id\": \"Susceptibility to Severe and Opportunistic Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent and severe infection from early childhood, spanning bacterial, mycobacterial, viral and fungal organisms, including opportunists such as Pneumocystis jirovecii, disseminated Mycobacterium genavense and Cryptosporidium.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"T-Cell Lymphopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immunological centrepiece. CD4+ T-cell deficiency is the one finding shared by every reported patient, with severity ranging from a moderate CD4 reduction to a near-absent T- and B-cell compartment.\\nHow the pool is lost is contested between the two founding cohorts, and the entry records that rather than picking a side. Calzoni et al. argue for peripheral loss - defective proliferation and activation-induced death rather than impaired thymic output - and support it with preserved T-cell repertoire diversity, composition and clonal abundance in a patient. Lyszkiewicz et al. argue for a developmental contribution, supported by pharmacological CME inhibition delaying differentiation at the DN3 to double-positive transition. Both upstream nodes are curated and both feed this one; the peripheral arm carries direct patient measurements, the developmental arm carries an in vitro pharmacological model, and that asymmetry is reflected in their mechanism_confidence gradings rather than in the prose.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"T cell homeostasis\"]}}], \"edges\": [{\"source\": \"FCHO1 Loss of Function\", \"target\": \"Impaired Clathrin-Coated Pit Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without functional FCHO1 the nascent coat does not assemble normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Clathrin-Coated Pit Formation\", \"target\": \"Defective Clathrin-Mediated Endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer and less competent coated pits mean less cargo internalised.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Clathrin-Mediated Endocytosis\", \"target\": \"Defective T-Cell Receptor Signalling and Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TCR internalisation depends on the clathrin route in the FCHO1-deficient setting, and its failure leaves T cells unresponsive to receptor triggering.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Clathrin-Mediated Endocytosis\", \"target\": \"Impaired Thymic T-Cell Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second founding cohort\u0027s arm. Blocking clathrin-mediated endocytosis during in vitro T-cell development delays differentiation, placing a requirement for the pathway upstream of the periphery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Clathrin-Mediated Endocytosis\", \"target\": \"Increased Activation-Induced T-Cell Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated patient cells die rather than divide. Clathrin has an established role in mitosis, which the authors propose as the link, but the intermediate steps are not established here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective T-Cell Receptor Signalling and Proliferation\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to expand, compounded by death on activation, depletes the peripheral pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A developmental delay would reduce the number of T cells reaching the periphery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Activation-Induced T-Cell Death\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells lost at each activation event fail to accumulate as a peripheral pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"T-Cell Lymphopenia\", \"target\": \"Impaired Humoral Immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the CD4 compartment removes the T-cell help that B cells need for class switching and antibody production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"T-Cell Lymphopenia\", \"target\": \"Susceptibility to Severe and Opportunistic Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the CD4 compartment removes helper function for cellular and humoral responses alike.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"T-Cell Lymphopenia\", \"target\": \"B-Cell Lymphomagenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired T-cell immune surveillance is the conventional explanation for lymphoma in a combined immunodeficiency, and several of the reported lymphomas were EBV-associated. It is not established mechanistically in these cohorts, and one reported lymphoma was EBV-negative.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Humoral Immunity\", \"target\": \"Decreased total B cell count\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Humoral Immunity\", \"target\": \"Decreased circulating immunoglobulin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Humoral Immunity\", \"target\": \"Susceptibility to Severe and Opportunistic Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent antibody adds a humoral component to the infection susceptibility already driven by the T-cell defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Impaired Humoral Immunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Susceptibility to Severe and Opportunistic Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FCHO1\", \"target\": \"FCHO1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only definitive treatment. Reported outcomes include long-term survival with full donor chimerism, cleared pre-transplant infections and normal immune function off immunoglobulin replacement. It does not reliably correct growth failure, and post-transplant lymphoproliferative disease has occurred.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"B-Cell Lymphomagenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An unusually high lymphoma burden for a cohort this size - four of the fifteen founding patients. Both diffuse large B-cell lymphoma and Hodgkin lymphoma have been reported, and both EBV-positive and EBV-negative cases occur. Graded HYPOTHETICAL because no source in this entry demonstrates the mechanism; failed T-cell surveillance is the plausible explanation, not a measured one, and the EBV-negative case argues against a purely viral route.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Decreased circulating immunoglobulin concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogammaglobulinemia, present in all but one patient of the ten-patient cohort.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004313\"}}, {\"id\": \"Decreased total B cell count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"B-cell lymphopenia, present in a subset and severe enough in some to approach a severe combined immunodeficiency phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010976\"}}, {\"id\": \"Defective Clathrin-Mediated Endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cargo that depends on clathrin is internalised poorly. The defect is partial rather than absolute, and it is selective for the clathrin route - in the same patient cells a clathrin-independent internalisation pathway is preserved, which is the internal control that makes the attribution specific.\\nThe two founding cohorts disagree about how selective it is, and the disagreement is on the same cargo in the same cell type. Calzoni et al. report transferrin internalisation as minimally detectable in patient T cells; Lyszkiewicz et al. report transferrin receptor endocytosis as apparently unaffected in FCHO1-deficient cells, and draw the broader conclusion that FCHO1 deficiency does not generally impair clathrin-dependent processes. Both results are curated below as SUPPORT and REFUTE items on this node rather than resolved in prose. Neither paper addresses the other, and the entry does not choose between them: what is agreed is that FCHO1\u0027s requirement is cargo-selective, and the TCR arm below is the cargo both cohorts implicate.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"clathrin-dependent endocytosis\"]}}, {\"id\": \"Defective T-Cell Receptor Signalling and Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient T cells activate but do not expand. Early and late activation markers come up normally, so the block is downstream of receptor engagement, in the proliferative response itself - two to four rounds of division against five to seven in controls. The second-messenger failure is measured: calcium mobilisation is impaired, which is what ties the trafficking lesion to TCR signalling rather than leaving proliferation as an unexplained endpoint. The effector consequence is selective - IL-2 and IFN-gamma production fall while TNF-alpha is comparable to control, so this is not a globally sick cell.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"CD8-positive, alpha-beta T cell\"], \"biological_processes\": [\"T cell receptor signaling pathway\", \"calcium-mediated signaling\", \"T cell proliferation\", \"interleukin-2 production\"]}}, {\"id\": \"FCHO1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"FCHO1\"], \"gene_terms\": [{\"label\": \"FCHO1\", \"id\": \"hgnc:29002\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"FCHO1 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion. Biallelic FCHO1 variants either abolish the protein, mislocalise it, or leave it unable to bind its partners. FCHO1 acts at the very start of clathrin-coated pit formation - binding PI(4,5)P2 through the F-BAR domain, EPS15 and cargo through the mu-homology domain, and allosterically activating AP-2 through its linker.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FCHO1\"], \"gene_terms\": [{\"label\": \"FCHO1\", \"id\": \"hgnc:29002\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Immunoglobulin Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravenous immunoglobulin, used to cover the hypogammaglobulinemia while patients await transplantation and discontinued after successful engraftment. It addresses the antibody deficit only, not the T-cell defect.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"human immunoglobulin G\"]}}, {\"id\": \"Impaired Clathrin-Coated Pit Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nascent clathrin-coated pits fail to assemble properly. This is the step FCHO1 exists to perform, and it is measured directly by live-cell imaging in cells expressing the patient variants.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"clathrin coat assembly\"]}}, {\"id\": \"Impaired Humoral Immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"B-cell lymphopenia and hypogammaglobulinemia, the entry\u0027s two most prevalent immunological findings after the T-cell defect. Nine of ten patients in the second cohort were hypogammaglobulinemic, and B-cell lymphopenia is variable but reaches near-absence in the most severely affected.\\nGraded HYPOTHETICAL because the mechanism is inferred, not measured. Loss of CD4 help is the conventional explanation and is why this node hangs off T-Cell Lymphopenia, but no source in these cohorts tests whether the B-cell deficit is T-cell-dependent or B-cell-intrinsic - and FCHO1 is expressed in B cells too, so a cell-intrinsic contribution is not excluded. The edge is curated so the humoral findings are reachable from the pathograph; its confidence grading is what says the route is assumed.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Impaired Thymic T-Cell Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A developmental contribution to the lymphopenia, and the point on which the two founding cohorts disagree. Lyszkiewicz et al. title their paper for a role in T-cell development and support it pharmacologically: chlorpromazine inhibition of clathrin-mediated endocytosis during in vitro T-cell development held cells at the DN3 stage, with only 30-35% reaching double-positive against more than 50% untreated. The experiment carries its own specificity control - B-cell and granulocyte development from the same progenitors were unaffected - so it is not general toxicity.\\nGraded HYPOTHETICAL for the human disease, for two reasons the entry should not paper over. The developmental evidence is pharmacological CME inhibition in an in vitro system, not an FCHO1-deficient thymus; and Calzoni et al. found preserved T-cell repertoire diversity, composition and clonal abundance in a patient, which is what a normal thymic output looks like. The two arms are not strictly incompatible - a partial developmental delay can coexist with a normal emergent repertoire - but no source reconciles them, and this node records the open question rather than resolving it.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell differentiation\", \"alpha-beta T cell differentiation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Increased Activation-Induced T-Cell Death\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rather than dividing, activated patient T cells accumulate hypodiploid DNA content and drop out of S and G2/M. This is a second, additive route to the lymphopenia alongside the proliferation block.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"activation-induced cell death of T cells\"]}}, {\"id\": \"Susceptibility to Severe and Opportunistic Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent and severe infection from early childhood, spanning bacterial, mycobacterial, viral and fungal organisms, including opportunists such as Pneumocystis jirovecii, disseminated Mycobacterium genavense and Cryptosporidium.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"T-Cell Lymphopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immunological centrepiece. CD4+ T-cell deficiency is the one finding shared by every reported patient, with severity ranging from a moderate CD4 reduction to a near-absent T- and B-cell compartment.\\nHow the pool is lost is contested between the two founding cohorts, and the entry records that rather than picking a side. Calzoni et al. argue for peripheral loss - defective proliferation and activation-induced death rather than impaired thymic output - and support it with preserved T-cell repertoire diversity, composition and clonal abundance in a patient. Lyszkiewicz et al. argue for a developmental contribution, supported by pharmacological CME inhibition delaying differentiation at the DN3 to double-positive transition. Both upstream nodes are curated and both feed this one; the peripheral arm carries direct patient measurements, the developmental arm carries an in vitro pharmacological model, and that asymmetry is reflected in their mechanism_confidence gradings rather than in the prose.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"T cell homeostasis\"]}}], \"edges\": [{\"source\": \"FCHO1 Loss of Function\", \"target\": \"Impaired Clathrin-Coated Pit Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without functional FCHO1 the nascent coat does not assemble normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Clathrin-Coated Pit Formation\", \"target\": \"Defective Clathrin-Mediated Endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fewer and less competent coated pits mean less cargo internalised.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Clathrin-Mediated Endocytosis\", \"target\": \"Defective T-Cell Receptor Signalling and Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TCR internalisation depends on the clathrin route in the FCHO1-deficient setting, and its failure leaves T cells unresponsive to receptor triggering.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Clathrin-Mediated Endocytosis\", \"target\": \"Impaired Thymic T-Cell Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The second founding cohort\u0027s arm. Blocking clathrin-mediated endocytosis during in vitro T-cell development delays differentiation, placing a requirement for the pathway upstream of the periphery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective Clathrin-Mediated Endocytosis\", \"target\": \"Increased Activation-Induced T-Cell Death\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activated patient cells die rather than divide. Clathrin has an established role in mitosis, which the authors propose as the link, but the intermediate steps are not established here.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective T-Cell Receptor Signalling and Proliferation\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to expand, compounded by death on activation, depletes the peripheral pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Thymic T-Cell Development\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A developmental delay would reduce the number of T cells reaching the periphery.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased Activation-Induced T-Cell Death\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells lost at each activation event fail to accumulate as a peripheral pool.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"T-Cell Lymphopenia\", \"target\": \"Impaired Humoral Immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the CD4 compartment removes the T-cell help that B cells need for class switching and antibody production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"T-Cell Lymphopenia\", \"target\": \"Susceptibility to Severe and Opportunistic Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the CD4 compartment removes helper function for cellular and humoral responses alike.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"T-Cell Lymphopenia\", \"target\": \"B-Cell Lymphomagenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired T-cell immune surveillance is the conventional explanation for lymphoma in a combined immunodeficiency, and several of the reported lymphomas were EBV-associated. It is not established mechanistically in these cohorts, and one reported lymphoma was EBV-negative.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Humoral Immunity\", \"target\": \"Decreased total B cell count\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Humoral Immunity\", \"target\": \"Decreased circulating immunoglobulin concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Humoral Immunity\", \"target\": \"Susceptibility to Severe and Opportunistic Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent antibody adds a humoral component to the infection susceptibility already driven by the T-cell defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"T-Cell Lymphopenia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Impaired Humoral Immunity\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunoglobulin Replacement Therapy\", \"target\": \"Susceptibility to Severe and Opportunistic Infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"FCHO1\", \"target\": \"FCHO1 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7016,6 +7088,9 @@ This disease-associated gene is FCHO1 (hgnc:29002). hgnc:29002 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7109,6 +7184,9 @@ This disease-associated gene is FCHO2 (hgnc:25180). hgnc:25180 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

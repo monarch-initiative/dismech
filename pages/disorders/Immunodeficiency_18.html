@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4547,6 +4586,7 @@ Where the developmental block sits in humans has never been shown directly. No t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cd3e-loss-of-function-variants" data-dismech-node="Biallelic CD3E Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CD3E Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Frameshift, nonsense and splice variants on both alleles. Reported changes include a homozygous two-base deletion in exon 5 that truncates the chain in its extracellular domain, a frameshift found in two Turkish siblings, a homozygous splice-site change that abolishes the protein, and nonsense alleles found in Egyptian and Pakistani families. Two hypomorphic alleles in the original family behaved differently: they permitted some correctly processed protein, which is why that patient was not a classical severe combined immunodeficiency.</div>
 
 
@@ -4699,6 +4739,7 @@ This pathophysiological event involves CD3E (hgnc:1674). hgnc:1674 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-cd3epsilon-chain" data-dismech-node="Loss of the CD3epsilon Chain" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the CD3epsilon Chain</div>
 
+
                 <div class="item-desc">Complete absence of the CD3epsilon polypeptide. Because CD3epsilon is the common partner of both CD3gamma and CD3delta, its loss takes out the gamma-epsilon and delta-epsilon dimers together, which is why it is more damaging than loss of either partner alone. In mouse thymocytes, disrupting the gene also strongly suppresses expression of CD3gamma and CD3delta, although that turned out to reflect the arrest rather than transcriptional control by CD3epsilon itself.</div>
 
 
@@ -4775,6 +4816,7 @@ This pathophysiological event involves CD3E (hgnc:1674). hgnc:1674 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-residual-unstable-cd3epsilon-in-partial-deficiency" data-dismech-node="Residual Unstable CD3epsilon in Partial Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Residual Unstable CD3epsilon in Partial Deficiency</div>
 
+
                 <div class="item-desc">The hypomorphic branch. Two CD3E alleles that reduce but do not abolish production of the chain leave a T-cell compartment that exists but carries about a tenth of the normal surface receptor. This is the mechanistic basis of the mild end of the spectrum and the reason severity in this disorder is not uniform. It is curated as its own node because it produces a different downstream chain from the null branch: attenuated signalling in T cells that are present, rather than absence of the cells.</div>
 
 
@@ -4850,6 +4892,7 @@ This pathophysiological event involves CD3E (hgnc:1674). hgnc:1674 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-pre-tcr-and-tcr-complex-assembly" data-dismech-node="Failure of pre-TCR and TCR Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of pre-TCR and TCR Complex Assembly</div>
+
 
                 <div class="item-desc">The pre-TCR (pre-TCRalpha with TCRbeta) and the mature alpha-beta TCR both reach the surface only as complexes with the CD3gamma-epsilon, CD3delta-epsilon and zeta-zeta dimers. Losing CD3epsilon removes two of the three, and the receptor is neither assembled nor exported. Note that TCRbeta gene rearrangement itself proceeds normally, so the defect is in receptor assembly and signalling rather than in recombination.</div>
 
@@ -4947,6 +4990,7 @@ This pathophysiological event involves absent T cell receptor complex (GO:004210
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-pre-tcr-signaling-at-beta-selection" data-dismech-node="Blocked Pre-TCR Signaling at Beta-Selection" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Pre-TCR Signaling at Beta-Selection</div>
+
 
                 <div class="item-desc">Beta-selection is the checkpoint at which a double-negative thymocyte that has made a productive TCRbeta rearrangement is licensed to survive, divide and proceed to the double-positive stage. The pre-TCR is the sensor, and without CD3epsilon it cannot signal, so the checkpoint reads every thymocyte as having failed.</div>
 
@@ -5128,6 +5172,7 @@ This pathophysiological event involves absent T cell receptor signaling pathway 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrest-of-thymocyte-development" data-dismech-node="Arrest of Thymocyte Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrest of Thymocyte Development</div>
+
 
                 <div class="item-desc">Thymopoiesis stops. In the mouse the arrest is at the CD44-low CD25-positive double-negative stage, phenocopying RAG deficiency despite intact rearrangement. In humans the stage has never been established directly, because no thymus was available from the CD3epsilon-deficient family; what is established is the outcome, that absence of CD3epsilon abrogates human T-cell development altogether.</div>
 
@@ -5322,6 +5367,7 @@ This pathophysiological event involves absent T cell differentiation in thymus (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-peripheral-t-cells" data-dismech-node="Absent Peripheral T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Peripheral T Cells</div>
 
+
                 <div class="item-desc">No circulating CD3-positive T cells, with normal or high B-cell counts and present NK cells. The selectivity is the point: only the T lineage requires the pre-TCR, so B and NK development proceed normally, and the resulting T-B+NK+ pattern is what a diagnostic flow panel sees. Thymic output measured as T-cell receptor excision circles is undetectable, which is what makes the disorder visible to newborn screening.</div>
 
 
@@ -5443,6 +5489,7 @@ This pathophysiological event involves absent T cell (CL:0000084). CL:0000084 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-surface-tcr-cd3-with-impaired-t-cell-activation" data-dismech-node="Reduced Surface TCR/CD3 with Impaired T-Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Surface TCR/CD3 with Impaired T-Cell Activation</div>
+
 
                 <div class="item-desc">The hypomorphic outcome. T cells develop and populate the periphery, but carry roughly a tenth of the normal density of surface receptor and cannot be triggered to proliferate through CD3 or CD2. The immunodeficiency here is functional rather than numerical, and it is the reason this disorder cannot be described as uniformly a severe combined immunodeficiency.</div>
 
@@ -5575,6 +5622,7 @@ This pathophysiological event involves decreased alpha-beta T cell receptor comp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cellular-immunity" data-dismech-node="Failure of Cellular Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Cellular Immunity</div>
 
+
                 <div class="item-desc">The clinical endpoint of both branches. In the null form it is catastrophic: candidiasis, protracted diarrhoea, pneumonitis and failure to thrive in the first months, and death from disseminated cytomegalovirus or adenovirus without immune reconstitution. In the hypomorphic form it is a milder susceptibility to infection in a child who has T cells.</div>
 
 
@@ -5635,6 +5683,7 @@ This pathophysiological event involves decreased alpha-beta T cell receptor comp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-t-cell-help-to-b-cells" data-dismech-node="Loss of T-Cell Help to B Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of T-Cell Help to B Cells</div>
+
 
                 <div class="item-desc">B cells are numerically normal but functionally unsupported. IgM is detectable, IgA is not, and IgG falls once maternal antibody wanes. The clearest demonstration comes from a transplanted patient in whom only the T-cell lineage was of donor origin: humoral immunity was adequate for six years and then failed, with loss of switched memory B cells, as T-helper support declined.</div>
 
@@ -5839,9 +5888,11 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6230,8 +6281,93 @@ This clinical feature is Persistent diarrhea, annotated with Diarrhea (HP:000201
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-candidiasis" data-dismech-node="Oral candidiasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oral candidiasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Chronic oral candidiasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oral candidiasis, annotated with Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No frequency band is asserted. The count comes from a T-B+ SCID cohort in which JAK3 predominates and CD3E accounts for one patient, so the cohort proportion is a frequency for that mixed genotype set and not for this disease. The numerator and denominator are stated in the snippet.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33040328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33040328" target="_blank">PMID:33040328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All patients had the classic clinical picture for SCID, including failure to thrive (n = 20), oral candidiasis (n = 17), persistent diarrhea (n = 14), pneumonia (n = 13), napkin dermatitis (n = 10), skin rash (n = 7), otitis media (n = 3) and meningitis (n = 2)."</div>
+
+
+                <div class="evidence-explanation">Gives oral candidiasis in 17 of 20 patients in the T-B+ SCID cohort that includes a CD3E patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-combined-immunodeficiency" data-dismech-node="Severe combined immunodeficiency" data-dismech-type="phenotype">
@@ -6248,10 +6384,10 @@ This clinical feature is Persistent diarrhea, annotated with Diarrhea (HP:000201
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0004430</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004430</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe combined immunodeficiency (HP:0004430). HP:0004430 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6347,10 +6483,10 @@ This clinical feature is Severe combined immunodeficiency (HP:0004430). HP:00044
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005390" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005390</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005390" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005390</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent opportunistic infections (HP:0005390). HP:0005390 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6390,82 +6526,6 @@ This clinical feature is Recurrent opportunistic infections (HP:0005390). HP:000
 
 
                 <div class="evidence-explanation">The infection spectrum in the T-B+ SCID cohort containing a CD3E patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oral-candidiasis" data-dismech-node="Oral candidiasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oral candidiasis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Chronic oral candidiasis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0009098</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oral candidiasis, annotated with Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-                    <div class="item-desc">No frequency band is asserted. The count comes from a T-B+ SCID cohort in which JAK3 predominates and CD3E accounts for one patient, so the cohort proportion is a frequency for that mixed genotype set and not for this disease. The numerator and denominator are stated in the snippet.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33040328" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33040328" target="_blank">PMID:33040328</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All patients had the classic clinical picture for SCID, including failure to thrive (n = 20), oral candidiasis (n = 17), persistent diarrhea (n = 14), pneumonia (n = 13), napkin dermatitis (n = 10), skin rash (n = 7), otitis media (n = 3) and meningitis (n = 2)."</div>
-
-
-                <div class="evidence-explanation">Gives oral candidiasis in 17 of 20 patients in the T-B+ SCID cohort that includes a CD3E patient.</div>
 
 
 
@@ -6557,7 +6617,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6704,6 +6764,9 @@ This disease-associated gene is CD3E (hgnc:1674). hgnc:1674 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

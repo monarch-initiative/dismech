@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5486,6 +5525,7 @@ This readout reports on L-glutamate transmembrane transport (GO:0015813). GO:001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc1a2-trimerization-domain-missense-variant" data-dismech-node="SLC1A2 Trimerization-Domain Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC1A2 Trimerization-Domain Missense Variant</div>
 
+
                 <div class="item-desc">The initiating lesion is a heterozygous de novo missense substitution in SLC1A2, which encodes the trimeric glutamate transporter EAAT2 (GLT-1). All three recurrent disease variants - p.Gly82Arg, p.Leu85Pro and p.Pro289Arg - localize to the trimerization domain of the transporter rather than to the transport domain, so the primary molecular event is a defect of subunit assembly and trafficking within the obligate trimer rather than a simple catalytic-site lesion. This node captures the single molecular trigger.</div>
 
 
@@ -5779,6 +5819,7 @@ This pathophysiological event involves decreased L-glutamate transmembrane trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-suppression-of-wild-type-eaat2" data-dismech-node="Dominant-Negative Suppression of Wild-Type EAAT2" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Suppression of Wild-Type EAAT2</div>
 
+
                 <div class="item-desc">Because EAAT2 functions as an obligate trimer, a trimerization-domain variant subunit co-assembles with wild-type subunits into mixed trimers and suppresses their function. The Leu85Pro variant reduces - but does not eliminate - wild-type SLC1A2 protein localization and transport activity, cutting glutamate transport by roughly a third relative to wild-type alone. This explains the central genotype paradox of the disorder: simple heterozygous loss of one SLC1A2 allele is not epileptogenic, so the dominant-negative effect is what pushes carriers below a critical threshold of functional transporter (inferred to lie somewhere between 0 and 50 percent of wild-type).</div>
 
 
@@ -5962,6 +6003,7 @@ This pathophysiological event involves decreased L-glutamate transmembrane trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-astrocytic-glutamate-clearance" data-dismech-node="Impaired Astrocytic Glutamate Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Astrocytic Glutamate Clearance</div>
+
 
                 <div class="item-desc">EAAT2 is expressed in astrocytes and presynaptic nerve terminals and is the principal L-glutamate uptake carrier of the mammalian brain; together with EAAT1/SLC1A3 it mediates the bulk of glutamate clearance from the synaptic cleft. Disease-linked variants significantly decrease glutamate uptake, cell surface expression of the transporter, and glutamate-elicited transport current, so synaptically released glutamate is no longer removed at the normal rate. This is the central effector of the canonical mechanism.</div>
 
@@ -6232,6 +6274,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutant-eaat2-anion-pore-glutamate-efflux" data-dismech-node="Mutant EAAT2 Anion Pore Glutamate Efflux" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutant EAAT2 Anion Pore Glutamate Efflux</div>
 
+
                 <div class="item-desc">EAAT2 is not only a secondary active transporter but also an anion channel. The pore-lining Gly82Arg and Leu85Pro substitutions enlarge the anion pore enough to permit passage of L-glutamate itself, converting the mutant transporter into a glutamate EFFLUX pathway - a gain of function that adds to, rather than merely subtracts from, the uptake defect. Pro289Arg instead decreases uptake while increasing anion current. This arm predicts that selective EAAT anion-channel antagonists, not uptake enhancers, would be the rational therapy, and is modeled as a distinct mechanistic hypothesis.</div>
 
 
@@ -6429,6 +6472,7 @@ This pathophysiological event involves abnormal L-glutamate transmembrane transp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-store-operated-calcium-entry" data-dismech-node="Disturbed Store-Operated Calcium Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Store-Operated Calcium Entry</div>
 
+
                 <div class="item-desc">An emerging, less-established arm: the three disease variants appear to disturb STIM1/Orai1-mediated store-operated calcium entry at the endoplasmic reticulum, with GLT-1 proposed as a new partner of the SOCE machinery. If confirmed, this would add a calcium-signaling component to the disorder that is independent of extracellular glutamate handling. It is curated as an EMERGING hypothesis rather than part of the canonical chain.</div>
 
 
@@ -6562,6 +6606,7 @@ This pathophysiological event involves abnormal store-operated calcium entry (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-glutamate-accumulation-and-excitotoxicity" data-dismech-node="Extracellular Glutamate Accumulation and Excitotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular Glutamate Accumulation and Excitotoxicity</div>
+
 
                 <div class="item-desc">Whether by failed uptake or by efflux through the widened anion pore, the net result is elevated extracellular glutamate in the synaptic cleft and interstitial space. Excessive activation of glutamate receptors produces excitotoxic injury. The causal sufficiency of this step is established in model organisms: GLT-1 null mice show lethal spontaneous seizures attributable to elevated residual brain glutamate, and eaat2a-null zebrafish show recurrent seizures coinciding with an abrupt rise in extracellular glutamate.</div>
 
@@ -6818,6 +6863,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-inhibition-imbalance-and-neuronal-hyperexcitability" data-dismech-node="Excitation-Inhibition Imbalance and Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-Inhibition Imbalance and Neuronal Hyperexcitability</div>
 
+
                 <div class="item-desc">Sustained elevation of extracellular glutamate shifts cortical networks toward net excitation, prolonging and broadening neuronal excitation because the duration and extent of glutamatergic signaling is normally terminated by EAAT2 uptake. The resulting hyperexcitable, hypersynchronous state is the substrate for the multifocal and generalized epileptiform discharges seen on EEG. Notably, animal models show that this hyperexcitability coexists with reduced BASAL network activity, so the disorder is a dysregulation of excitability rather than a uniform increase.</div>
 
 
@@ -7014,6 +7060,7 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-seizure-generation-and-epileptogenesis" data-dismech-node="Seizure Generation and Epileptogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizure Generation and Epileptogenesis</div>
 
+
                 <div class="item-desc">The hyperexcitable neuronal state increases the propensity for seizure generation and epileptogenesis. In this disorder, that shared epilepsy effector step links glutamate-driven network hyperexcitability to the recurrent neonatal-onset seizure syndrome modeled downstream, without conflating the generic network process with its specific clinical phenotype.</div>
 
 
@@ -7121,6 +7168,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-excitotoxic-neuronal-and-white-matter-injury" data-dismech-node="Progressive Excitotoxic Neuronal and White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Excitotoxic Neuronal and White Matter Injury</div>
+
 
                 <div class="item-desc">Cumulative neuronal damage from excessive glutamate-receptor activation accrues over time and is visible on serial neuroimaging. Brain MRI is normal for the first several months of life and only from around five months begins to show delayed myelination, thinning of the corpus callosum, and cerebral cortical atrophy. The initially normal imaging is mechanistically important: it argues that the structural abnormality is an acquired consequence of ongoing excitotoxicity rather than a primary malformation, and it defines a therapeutic window before injury accumulates.</div>
 
@@ -7314,6 +7362,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-refractory-neonatal-onset-multifocal-epilepsy" data-dismech-node="Refractory Neonatal-Onset Multifocal Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Refractory Neonatal-Onset Multifocal Epilepsy</div>
 
+
                 <div class="item-desc">Seizures begin between two days and six weeks of life, typically as focal motor events (often tonic or myoclonic) and progress to multiple seizure types including epileptic spasms, myoclonic seizures, focal and generalized tonic seizures, and tonic-clonic seizures. Seizures are systematically refractory to multiple antiseizure medications, and EEG shows multifocal and generalized epileptiform discharges on an abnormal background, including modified and classic hypsarrhythmia.</div>
 
 
@@ -7437,6 +7486,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-and-epileptic-encephalopathy" data-dismech-node="Developmental and Epileptic Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental and Epileptic Encephalopathy</div>
+
 
                 <div class="item-desc">The convergent organism-level outcome: severe global developmental delay in essentially all affected individuals, with cortical visual impairment, axial hypotonia, spasticity and/or joint contractures, and kyphoscoliosis. Both the ongoing epileptic activity and the underlying excitotoxic injury contribute to the developmental impairment, which is the defining feature of a developmental AND epileptic encephalopathy as opposed to a pure epilepsy.</div>
 
@@ -8960,6 +9010,9 @@ This disease-associated gene is SLC1A2 (hgnc:10940). hgnc:10940 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

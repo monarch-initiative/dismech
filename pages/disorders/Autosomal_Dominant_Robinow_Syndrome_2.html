@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4581,6 +4620,7 @@ A second, older model proposes a different mechanism for the same phenotype: tha
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dvl1-penultimate-exon-frameshift-escaping-nonsense-mediated-decay" data-dismech-node="DVL1 Penultimate-Exon Frameshift Escaping Nonsense-Mediated Decay" data-dismech-type="pathophysiology">
                 <div class="item-name">DVL1 Penultimate-Exon Frameshift Escaping Nonsense-Mediated Decay</div>
 
+
                 <div class="item-desc">The variants are confined to the penultimate exon, so the premature termination codon falls in the last exon and the transcript escapes nonsense-mediated decay. Both wild-type and variant transcripts are detectable in patient leukocytes, so the altered protein is genuinely made.</div>
 
 
@@ -4675,6 +4715,8 @@ This genetic context concerns DVL1 (hgnc:3084). hgnc:3084 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: penultimate-exon -1 frameshift escaping nonsense-mediated decay</span>
 
 
@@ -4690,6 +4732,9 @@ This genetic context concerns DVL1 (hgnc:3084). hgnc:3084 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
 
     <div class="context-notes">DOMINANT_NEGATIVE is a mechanistic reading of an NMD-escaping altered-C-terminus allele expressed alongside wild type. The 2026 functional work supports a mixed picture — reduced signalling shared with a plain truncation, plus a nuclear mislocalization unique to the frameshift — which no single enum value captures cleanly. See the ``dvl1_frameshift_mode_of_action`` discussion.</div>
@@ -4795,6 +4840,7 @@ This genetic context concerns DVL1 (hgnc:3084). hgnc:3084 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-wnt-signal-transduction-through-dishevelled" data-dismech-node="Reduced WNT Signal Transduction Through Dishevelled" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced WNT Signal Transduction Through Dishevelled</div>
+
 
                 <div class="item-desc">In luciferase assays in facial mesenchyme, wild-type DVL1 activates both canonical and JNK-PCP WNT signalling, while the frameshift protein and a plain stop codon at the same position both signal significantly less. The loss-of-signalling component is therefore attributable to the missing wild-type C-terminus and is shared with an ordinary truncation.</div>
 
@@ -4944,6 +4990,7 @@ This pathophysiological event involves decreased Wnt signaling pathway, planar c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-mislocalization-of-altered-dishevelled" data-dismech-node="Nuclear Mislocalization of Altered Dishevelled" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear Mislocalization of Altered Dishevelled</div>
 
+
                 <div class="item-desc">Dishevelled is a cytoplasmic signal transducer. The protein made from the frameshift allele is found in the nucleus instead, while both wild-type DVL1 and the stop-codon construct stay cytoplasmic. In Drosophila, only the frameshift allele perturbs morphogenesis and signalling. This is the component of the allele&#39;s effect that a simple loss of the C-terminus does not reproduce, and the authors raise altered nuclear transcription as the candidate consequence.</div>
 
 
@@ -5074,6 +5121,7 @@ This pathophysiological event involves decreased Wnt signaling pathway, planar c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-planar-cell-polarity-in-developing-skeleton-and-face" data-dismech-node="Disrupted Planar Cell Polarity in Developing Skeleton and Face" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Planar Cell Polarity in Developing Skeleton and Face</div>
+
 
                 <div class="item-desc">The shared endpoint of every Robinow genotype: loss of the polarized, directional cell behaviour that PCP signalling governs, in the growth plate, the frontonasal midline and the genital tubercle. The developmental decomposition — reduced presomitic mesoderm, perturbed chondrocyte differentiation, midline outgrowth failure, genital tubercle reduction — comes from the Ror2-null mouse and is inherited here by pathway membership rather than demonstrated for DVL1.</div>
 
@@ -5246,6 +5294,7 @@ This pathophysiological event involves decreased chondrocyte differentiation (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cranial-bone-mineral-density" data-dismech-node="Increased Cranial Bone Mineral Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Cranial Bone Mineral Density</div>
+
 
                 <div class="item-desc">The DVL1-specific bone phenotype. High-resolution peripheral quantitative CT in molecularly confirmed patients shows a distinctive pattern — low cortical but increased trabecular bone mineral density, with fewer and thicker trabeculations — and cranial osteosclerosis is confined to the DVL1 (and one GPC4) genotype.</div>
 
@@ -6223,6 +6272,9 @@ This disease-associated gene is DVL1 (hgnc:3084). hgnc:3084 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

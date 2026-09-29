@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 27</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 28</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Juvenile%20Paget%20Disease"
@@ -4014,7 +4053,7 @@ The extraskeletal disease is where OPG&#39;s non-osteoclastic roles surface, and
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">27</div>
+                <div class="stat-value">28</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4297,6 +4336,13 @@ The extraskeletal disease is where OPG&#39;s non-osteoclastic roles surface, and
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tnfrsf11b-loss-of-function" data-dismech-node="Biallelic TNFRSF11B Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TNFRSF11B Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous or compound-heterozygous loss-of-function variants in TNFRSF11B (whole-gene/multi-exon deletions, splice, and ligand-binding-domain missense alleles) abolish or cripple secreted osteoprotegerin. The initiating lesion of the predominant form; the Whyte 2002 index Navajo patients carried a homozygous ~100 kb deletion and had undetectable circulating OPG.</div>
 
 
@@ -4354,9 +4400,14 @@ This genetic context concerns TNFRSF11B (hgnc:11909). hgnc:11909 is a gene from 
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4487,6 +4538,13 @@ This genetic context concerns TNFRSF11B (hgnc:11909). hgnc:11909 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-opg-decoy-inhibition-of-rankl" data-dismech-node="Loss of OPG Decoy Inhibition of RANKL" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of OPG Decoy Inhibition of RANKL</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Osteoprotegerin normally acts as a soluble decoy receptor that binds RANKL and prevents it from engaging RANK on osteoclast precursors. With OPG absent, RANKL is no longer sequestered and is free to drive RANK signalling — the single molecular switch that connects the genetic lesion to accelerated osteoclastogenesis.</div>
 
@@ -4659,6 +4717,13 @@ This pathophysiological event involves negative regulation of bone resorption (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unopposed-rank-rankl-osteoclastogenesis" data-dismech-node="Unopposed RANK-RANKL Osteoclastogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Unopposed RANK-RANKL Osteoclastogenesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Free RANKL engages RANK on osteoclast precursors, driving markedly increased osteoclast differentiation. This is the step denosumab (an anti-RANKL antibody) targets, restoring pharmacologically the ligand neutralisation the missing OPG can no longer provide.</div>
 
 
@@ -4829,6 +4894,13 @@ This pathophysiological event involves increased positive regulation of osteocla
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-osteoclastic-bone-resorption" data-dismech-node="Accelerated Osteoclastic Bone Resorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Osteoclastic Bone Resorption</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Excess, hyperactive osteoclasts resorb bone throughout the skeleton at a grossly accelerated rate. In the OPG-null mouse this is directly observed as numerous osteoclasts with rapidly remodelling bone, recapitulating the human disease.</div>
 
@@ -5027,6 +5099,13 @@ This pathophysiological event involves increased bone resorption (GO:0045453). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-disorganized-woven-bone-formation" data-dismech-node="Compensatory Disorganized Woven-Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Disorganized Woven-Bone Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Coupled osteoblastic formation increases in response to the resorptive drive but cannot organise, so resorbed bone is replaced by structurally disorganised woven bone rather than mature lamellar bone across the whole skeleton — the generalised (not focal) counterpart of the adult pagetic mosaic.</div>
 
 
@@ -5173,6 +5252,13 @@ This pathophysiological event involves increased ossification (disorganized, wov
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-high-turnover-osteopathy" data-dismech-node="Generalized High-Turnover Osteopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized High-Turnover Osteopathy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The whole-skeleton, high-turnover disease state: osteopenic, mechanically inferior woven bone that bows, fractures, expands the calvarium and skull base, and spills grossly elevated alkaline phosphatase into serum. Downstream are the clinical manifestations and the ALP laboratory signature.</div>
 
 
@@ -5295,6 +5381,13 @@ This pathophysiological event involves increased ossification (disorganized, wov
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-and-skull-base-hyperostosis" data-dismech-node="Cranial and Skull-Base Hyperostosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial and Skull-Base Hyperostosis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">High-turnover remodelling of the calvarium and skull base produces diploic thickening, basilar/orbital-roof and sphenoid sclerosis, an enlarged clivus, and progressive macrocephaly; the thickened temporal bone and ossicular disease contribute the conductive component of hearing loss.</div>
 
 
@@ -5374,6 +5467,13 @@ This pathophysiological event involves increased ossification (disorganized, wov
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-opg-deficiency-and-spiral-ganglion-degeneration" data-dismech-node="Cochlear OPG Deficiency and Spiral Ganglion Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear OPG Deficiency and Spiral Ganglion Degeneration</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A skeleton-independent arm. Spiral-ganglion cells secrete OPG at high levels; in the OPG-null mouse, OPG loss causes demyelination and degeneration of the cochlear nerve and sensitises spiral-ganglion cells to apoptosis (via ERK), producing a primary sensorineural hearing loss that compounds the conductive loss from ossicular/temporal-bone disease. The human sensorineural component is inferred from this model plus the clinical deafness of JPD, so the node is marked provisional.</div>
 
@@ -5566,6 +5666,13 @@ This pathophysiological event involves increased neuron apoptotic process (spira
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-vascular-and-bruch-membrane-calcification" data-dismech-node="Ectopic Vascular and Bruch-Membrane Calcification" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Vascular and Bruch-Membrane Calcification</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">A hypothesised extraskeletal arm reflecting OPG&#39;s vascular-protective role. OPG/RANKL dysfunction is proposed to promote calcification of Bruch membrane (producing angioid streaks liable to choroidal neovascularisation) and of arterial walls (vascular microcalcification with a predisposition to carotid and iliac aneurysms). The clinical associations are well documented; the mechanistic link is inferential, and the retinopathy notably progresses despite good skeletal disease control, indicating partial uncoupling from the osteoclast axis.</div>
 
 
@@ -5697,7 +5804,7 @@ This pathophysiological event involves increased neuron apoptotic process (spira
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Osteoclastic Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess, hyperactive osteoclasts resorb bone throughout the skeleton at a grossly accelerated rate. In the OPG-null mouse this is directly observed as numerous osteoclasts with rapidly remodelling bone, recapitulating the human disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"multinucleated osteoclast\"], \"biological_processes\": [\"bone resorption\"], \"animal_models\": [{\"name\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Tnfrsf11b (Opg) homozygous knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Opg-null mice show enhanced osteoclastic resorption and progressive skeletal disease.\"}]}}, {\"id\": \"Angioid Streaks and Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinopathy (retinal pigment epithelium mottling, peripapillary atrophy, angioid streaks, choroidal neovascularisation) that can progress to vision loss and does so even under adequate skeletal disease control. In the Kerr series retinal abnormalities were present in 12 of 14 examined eyes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001102\"}}, {\"id\": \"Anti-VEGF Intravitreal Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal anti-vascular-endothelial-growth-factor agents (bevacizumab, aflibercept) for the choroidal neovascularisation that complicates JPD angioid-streak retinopathy \\u2014 the ocular treatment arm. It targets the neovascular complication rather than the underlying bone disease, and is part of the ophthalmologic surveillance/management that continues independently of skeletal disease control. In the long-term denosumab cohort one subject with sudden vision loss had almost full visual recovery after intravitreal bevacizumab and aflibercept.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bevacizumab\", \"aflibercept\"]}}, {\"id\": \"Auricular Ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ossification of the elastic auricular cartilage (rigid pinnae sparing the lobe), a newly recognised feature of OPG-deficiency JPD, possibly exacerbated by bisphosphonate treatment; occasionally involves the auditory canal.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005103\"}}, {\"id\": \"Biallelic TNFRSF11B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound-heterozygous loss-of-function variants in TNFRSF11B (whole-gene/multi-exon deletions, splice, and ligand-binding-domain missense alleles) abolish or cripple secreted osteoprotegerin. The initiating lesion of the predominant form; the Whyte 2002 index Navajo patients carried a homozygous ~100 kb deletion and had undetectable circulating OPG.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"TNFRSF11B\", \"id\": \"hgnc:11909\"}]}}}, {\"id\": \"Bisphosphonate Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line and best-established therapy. IV pamidronate or zoledronic acid, or oral alendronate/ibandronate, suppress the accelerated osteoclastic resorption, normalise or near-normalise ALP and other turnover markers, prevent new fractures, halt deformity progression, and produce striking motor-developmental recovery when started early in childhood and continued through growth. Turnover suppression relapses if treatment is discontinued; therapy is not curative.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pamidronate\", \"zoledronic acid\", \"alendronic acid\"]}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal pain that tracks turnover activity and responds to anti-resorptive therapy; in the long-term denosumab cohort baseline pain scores of 9/10 and 7/10 fell to 0-5/10 after treatment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A skeleton-independent arm. Spiral-ganglion cells secrete OPG at high levels; in the OPG-null mouse, OPG loss causes demyelination and degeneration of the cochlear nerve and sensitises spiral-ganglion cells to apoptosis (via ERK), producing a primary sensorineural hearing loss that compounds the conductive loss from ossicular/temporal-bone disease. The human sensorineural component is inferred from this model plus the clinical deafness of JPD, so the node is marked provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\"], \"biological_processes\": [\"neuron apoptotic process (spiral ganglion)\"], \"animal_models\": [{\"name\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Tnfrsf11b (Opg) homozygous knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"OPG-null mice reproduce the cochlear-nerve degeneration and sensorineural loss of JPD.\"}]}}, {\"id\": \"Compensatory Disorganized Woven-Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coupled osteoblastic formation increases in response to the resorptive drive but cannot organise, so resorbed bone is replaced by structurally disorganised woven bone rather than mature lamellar bone across the whole skeleton \\u2014 the generalised (not focal) counterpart of the adult pagetic mosaic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"ossification (disorganized, woven)\"]}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive component from resorption/deformity of the middle-ear ossicles and temporal-bone disease; in the RANK-duplication case, deafness involved missing ossicles and eroded cochleas.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Cranial and Skull-Base Hyperostosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-turnover remodelling of the calvarium and skull base produces diploic thickening, basilar/orbital-roof and sphenoid sclerosis, an enlarged clivus, and progressive macrocephaly; the thickened temporal bone and ossicular disease contribute the conductive component of hearing loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Denosumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A humanised anti-RANKL monoclonal antibody \\u2014 the most direct pharmacologic mimic of the missing OPG, neutralising the RANKL that OPG can no longer sequester. Achieves good skeletal control (ALP normalisation, pain relief) in JPD but carries a substantial risk of severe hypocalcemia when high pretreatment turnover is abruptly shut off, so calcium must be monitored closely; pediatric use in particular demands caution. Does not reliably prevent retinopathy progression.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"denosumab\"]}}, {\"id\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hypothesised extraskeletal arm reflecting OPG\u0027s vascular-protective role. OPG/RANKL dysfunction is proposed to promote calcification of Bruch membrane (producing angioid streaks liable to choroidal neovascularisation) and of arterial walls (vascular microcalcification with a predisposition to carotid and iliac aneurysms). The clinical associations are well documented; the mechanistic link is inferential, and the retinopathy notably progresses despite good skeletal disease control, indicating partial uncoupling from the osteoclast axis.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Elevated Serum Alkaline Phosphatase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Grossly elevated serum ALP (often \u003e10-15x ULN) is the cardinal laboratory signature and principal activity/monitoring marker \\u2014 the basis of the historical name \\\"hyperphosphatasia\\\". In the Czech case ALP reached 75.75 \\u00b5kat/L at age four, ~15x ULN.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003155\"}}, {\"id\": \"Generalized High-Turnover Osteopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The whole-skeleton, high-turnover disease state: osteopenic, mechanically inferior woven bone that bows, fractures, expands the calvarium and skull base, and spills grossly elevated alkaline phosphatase into serum. Downstream are the clinical manifestations and the ALP laboratory signature.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spinal curvature with vertebral compression; radiographs show coarse trabeculae and framed/compressed vertebral bodies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002751\"}}, {\"id\": \"Loss of OPG Decoy Inhibition of RANKL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoprotegerin normally acts as a soluble decoy receptor that binds RANKL and prevents it from engaging RANK on osteoclast precursors. With OPG absent, RANKL is no longer sequestered and is free to drive RANK signalling \\u2014 the single molecular switch that connects the genetic lesion to accelerated osteoclastogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast (OPG source)\"], \"biological_processes\": [\"negative regulation of bone resorption\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive skull enlargement from calvarial/skull-base hyperostosis; head circumference reached +2.6 SD by age four in the Czech case.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The primary and best-validated JPD model. Osteoprotegerin-null mice show numerous osteoclasts and rapidly remodelling woven bone (recapitulating the skeletal disease), and reproduce the dual deafness of JPD \\u2014 conductive loss from ossicular resorption plus sensorineural loss from cochlear-nerve degeneration.\"}, {\"id\": \"Progressive Long-Bone Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bowing of the weight-bearing long bones, worsening through the adolescent growth spurt if untreated; a defining and near-universal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006487\"}}, {\"id\": \"Recombinant Osteoprotegerin (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Direct protein replacement of the missing decoy receptor. In two adult siblings, once-weekly subcutaneous recombinant OPG suppressed bone resorption and increased bone mass over 15 months with only mild hypocalcemia/ hypophosphatemia \\u2014 proof of mechanism for OPG replacement, but never developed into an approved product (denosumab is the practical RANKL-pathway therapeutic).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent long-bone fractures from infancy/early childhood, often with minimal trauma; in the Czech case the first fracture (a femoral-neck infraction) occurred at age three.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002757\"}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive sensorineural loss from OPG-dependent cochlear-nerve degeneration (see the cochlear pathophysiology node), typically layered on a conductive component. Very common in JPD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment/short stature, correlating with disease severity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Free RANKL engages RANK on osteoclast precursors, driving markedly increased osteoclast differentiation. This is the step denosumab (an anti-RANKL antibody) targets, restoring pharmacologically the ligand neutralisation the missing OPG can no longer provide.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast precursor (monocyte-macrophage lineage)\"], \"biological_processes\": [\"positive regulation of osteoclast differentiation\"]}}, {\"id\": \"Vascular Calcification and Arterial Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised vascular microcalcification with a predisposition to arterial aneurysm (internal carotid, iliac), reflecting OPG\u0027s vascular-protective role (\\\"osteovasculoprotegerin\\\"). Reported at case-report level.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003207\"}}, {\"id\": \"Vertebral Compression Fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral body compression from the mechanically inferior high-turnover bone; the Czech patient showed discrete compression of the C3-C5 vertebral bodies radiographically.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002953\"}}], \"edges\": [{\"source\": \"Biallelic TNFRSF11B Loss of Function\", \"target\": \"Loss of OPG Decoy Inhibition of RANKL\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TNFRSF11B Loss of Function\", \"target\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TNFRSF11B Loss of Function\", \"target\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of OPG Decoy Inhibition of RANKL\", \"target\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"target\": \"Accelerated Osteoclastic Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Osteoclastic Bone Resorption\", \"target\": \"Compensatory Disorganized Woven-Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Osteoclastic Bone Resorption\", \"target\": \"Generalized High-Turnover Osteopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Compensatory Disorganized Woven-Bone Formation\", \"target\": \"Generalized High-Turnover Osteopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Progressive Long-Bone Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Recurrent Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Vertebral Compression Fracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Elevated Serum Alkaline Phosphatase\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Auricular Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Cranial and Skull-Base Hyperostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial and Skull-Base Hyperostosis\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial and Skull-Base Hyperostosis\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"target\": \"Angioid Streaks and Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"target\": \"Vascular Calcification and Arterial Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bisphosphonate Therapy\", \"target\": \"Accelerated Osteoclastic Bone Resorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Denosumab\", \"target\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Osteoprotegerin (investigational)\", \"target\": \"Loss of OPG Decoy Inhibition of RANKL\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-VEGF Intravitreal Therapy\", \"target\": \"Angioid Streaks and Retinopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"target\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"OPG-null mice reproduce the cochlear-nerve degeneration and sensorineural loss of JPD.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse cochlear ageing/degeneration biology differs from human; the model demonstrates the mechanism but the human sensorineural component remains inferred from it.\"}, {\"source\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"target\": \"Accelerated Osteoclastic Bone Resorption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Opg-null mice show enhanced osteoclastic resorption and progressive skeletal disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Osteoclastic Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excess, hyperactive osteoclasts resorb bone throughout the skeleton at a grossly accelerated rate. In the OPG-null mouse this is directly observed as numerous osteoclasts with rapidly remodelling bone, recapitulating the human disease.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"multinucleated osteoclast\"], \"biological_processes\": [\"bone resorption\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Tnfrsf11b (Opg) homozygous knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Opg-null mice show enhanced osteoclastic resorption and progressive skeletal disease.\"}]}}, {\"id\": \"Angioid Streaks and Retinopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive retinopathy (retinal pigment epithelium mottling, peripapillary atrophy, angioid streaks, choroidal neovascularisation) that can progress to vision loss and does so even under adequate skeletal disease control. In the Kerr series retinal abnormalities were present in 12 of 14 examined eyes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001102\"}}, {\"id\": \"Anti-VEGF Intravitreal Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Intravitreal anti-vascular-endothelial-growth-factor agents (bevacizumab, aflibercept) for the choroidal neovascularisation that complicates JPD angioid-streak retinopathy \\u2014 the ocular treatment arm. It targets the neovascular complication rather than the underlying bone disease, and is part of the ophthalmologic surveillance/management that continues independently of skeletal disease control. In the long-term denosumab cohort one subject with sudden vision loss had almost full visual recovery after intravitreal bevacizumab and aflibercept.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"bevacizumab\", \"aflibercept\"]}}, {\"id\": \"Auricular Ossification\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ossification of the elastic auricular cartilage (rigid pinnae sparing the lobe), a newly recognised feature of OPG-deficiency JPD, possibly exacerbated by bisphosphonate treatment; occasionally involves the auditory canal.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0005103\"}}, {\"id\": \"Biallelic TNFRSF11B Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound-heterozygous loss-of-function variants in TNFRSF11B (whole-gene/multi-exon deletions, splice, and ligand-binding-domain missense alleles) abolish or cripple secreted osteoprotegerin. The initiating lesion of the predominant form; the Whyte 2002 index Navajo patients carried a homozygous ~100 kb deletion and had undetectable circulating OPG.\", \"meta\": {\"evidence_count\": 3, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"TNFRSF11B\", \"id\": \"hgnc:11909\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Bisphosphonate Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line and best-established therapy. IV pamidronate or zoledronic acid, or oral alendronate/ibandronate, suppress the accelerated osteoclastic resorption, normalise or near-normalise ALP and other turnover markers, prevent new fractures, halt deformity progression, and produce striking motor-developmental recovery when started early in childhood and continued through growth. Turnover suppression relapses if treatment is discontinued; therapy is not curative.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pamidronate\", \"zoledronic acid\", \"alendronic acid\"]}}, {\"id\": \"Bone Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal pain that tracks turnover activity and responds to anti-resorptive therapy; in the long-term denosumab cohort baseline pain scores of 9/10 and 7/10 fell to 0-5/10 after treatment.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002653\"}}, {\"id\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A skeleton-independent arm. Spiral-ganglion cells secrete OPG at high levels; in the OPG-null mouse, OPG loss causes demyelination and degeneration of the cochlear nerve and sensitises spiral-ganglion cells to apoptosis (via ERK), producing a primary sensorineural hearing loss that compounds the conductive loss from ossicular/temporal-bone disease. The human sensorineural component is inferred from this model plus the clinical deafness of JPD, so the node is marked provisional.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"spiral ganglion neuron\"], \"biological_processes\": [\"neuron apoptotic process (spiral ganglion)\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"species\": \"Mouse\", \"genotype\": \"Tnfrsf11b (Opg) homozygous knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"OPG-null mice reproduce the cochlear-nerve degeneration and sensorineural loss of JPD.\"}]}}, {\"id\": \"Compensatory Disorganized Woven-Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Coupled osteoblastic formation increases in response to the resorptive drive but cannot organise, so resorbed bone is replaced by structurally disorganised woven bone rather than mature lamellar bone across the whole skeleton \\u2014 the generalised (not focal) counterpart of the adult pagetic mosaic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"ossification (disorganized, woven)\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Conductive Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Conductive component from resorption/deformity of the middle-ear ossicles and temporal-bone disease; in the RANK-duplication case, deafness involved missing ossicles and eroded cochleas.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000405\"}}, {\"id\": \"Cranial and Skull-Base Hyperostosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"High-turnover remodelling of the calvarium and skull base produces diploic thickening, basilar/orbital-roof and sphenoid sclerosis, an enlarged clivus, and progressive macrocephaly; the thickened temporal bone and ossicular disease contribute the conductive component of hearing loss.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Denosumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A humanised anti-RANKL monoclonal antibody \\u2014 the most direct pharmacologic mimic of the missing OPG, neutralising the RANKL that OPG can no longer sequester. Achieves good skeletal control (ALP normalisation, pain relief) in JPD but carries a substantial risk of severe hypocalcemia when high pretreatment turnover is abruptly shut off, so calcium must be monitored closely; pediatric use in particular demands caution. Does not reliably prevent retinopathy progression.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"denosumab\"]}}, {\"id\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A hypothesised extraskeletal arm reflecting OPG\u0027s vascular-protective role. OPG/RANKL dysfunction is proposed to promote calcification of Bruch membrane (producing angioid streaks liable to choroidal neovascularisation) and of arterial walls (vascular microcalcification with a predisposition to carotid and iliac aneurysms). The clinical associations are well documented; the mechanistic link is inferential, and the retinopathy notably progresses despite good skeletal disease control, indicating partial uncoupling from the osteoclast axis.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Elevated Serum Alkaline Phosphatase\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Grossly elevated serum ALP (often \u003e10-15x ULN) is the cardinal laboratory signature and principal activity/monitoring marker \\u2014 the basis of the historical name \\\"hyperphosphatasia\\\". In the Czech case ALP reached 75.75 \\u00b5kat/L at age four, ~15x ULN.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003155\"}}, {\"id\": \"Generalized High-Turnover Osteopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The whole-skeleton, high-turnover disease state: osteopenic, mechanically inferior woven bone that bows, fractures, expands the calvarium and skull base, and spills grossly elevated alkaline phosphatase into serum. Downstream are the clinical manifestations and the ALP laboratory signature.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive spinal curvature with vertebral compression; radiographs show coarse trabeculae and framed/compressed vertebral bodies.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002751\"}}, {\"id\": \"Loss of OPG Decoy Inhibition of RANKL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoprotegerin normally acts as a soluble decoy receptor that binds RANKL and prevents it from engaging RANK on osteoclast precursors. With OPG absent, RANKL is no longer sequestered and is free to drive RANK signalling \\u2014 the single molecular switch that connects the genetic lesion to accelerated osteoclastogenesis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoblast (OPG source)\"], \"biological_processes\": [\"negative regulation of bone resorption\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive skull enlargement from calvarial/skull-base hyperostosis; head circumference reached +2.6 SD by age four in the Czech case.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The primary and best-validated JPD model. Osteoprotegerin-null mice show numerous osteoclasts and rapidly remodelling woven bone (recapitulating the skeletal disease), and reproduce the dual deafness of JPD \\u2014 conductive loss from ossicular resorption plus sensorineural loss from cochlear-nerve degeneration.\"}, {\"id\": \"Progressive Long-Bone Deformity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive bowing of the weight-bearing long bones, worsening through the adolescent growth spurt if untreated; a defining and near-universal feature.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0006487\"}}, {\"id\": \"Recombinant Osteoprotegerin (investigational)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Direct protein replacement of the missing decoy receptor. In two adult siblings, once-weekly subcutaneous recombinant OPG suppressed bone resorption and increased bone mass over 15 months with only mild hypocalcemia/ hypophosphatemia \\u2014 proof of mechanism for OPG replacement, but never developed into an approved product (denosumab is the practical RANKL-pathway therapeutic).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent long-bone fractures from infancy/early childhood, often with minimal trauma; in the Czech case the first fracture (a femoral-neck infraction) occurred at age three.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002757\"}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive sensorineural loss from OPG-dependent cochlear-nerve degeneration (see the cochlear pathophysiology node), typically layered on a conductive component. Very common in JPD.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth impairment/short stature, correlating with disease severity.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"TNFRSF11B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNFRSF11B\"], \"gene_terms\": [{\"label\": \"TNFRSF11B\", \"id\": \"hgnc:11909\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Free RANKL engages RANK on osteoclast precursors, driving markedly increased osteoclast differentiation. This is the step denosumab (an anti-RANKL antibody) targets, restoring pharmacologically the ligand neutralisation the missing OPG can no longer provide.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast precursor (monocyte-macrophage lineage)\"], \"biological_processes\": [\"positive regulation of osteoclast differentiation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Vascular Calcification and Arterial Aneurysm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalised vascular microcalcification with a predisposition to arterial aneurysm (internal carotid, iliac), reflecting OPG\u0027s vascular-protective role (\\\"osteovasculoprotegerin\\\"). Reported at case-report level.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0003207\"}}, {\"id\": \"Vertebral Compression Fracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vertebral body compression from the mechanically inferior high-turnover bone; the Czech patient showed discrete compression of the C3-C5 vertebral bodies radiographically.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002953\"}}], \"edges\": [{\"source\": \"Biallelic TNFRSF11B Loss of Function\", \"target\": \"Loss of OPG Decoy Inhibition of RANKL\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TNFRSF11B Loss of Function\", \"target\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic TNFRSF11B Loss of Function\", \"target\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of OPG Decoy Inhibition of RANKL\", \"target\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"target\": \"Accelerated Osteoclastic Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Osteoclastic Bone Resorption\", \"target\": \"Compensatory Disorganized Woven-Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Osteoclastic Bone Resorption\", \"target\": \"Generalized High-Turnover Osteopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Compensatory Disorganized Woven-Bone Formation\", \"target\": \"Generalized High-Turnover Osteopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Progressive Long-Bone Deformity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Recurrent Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Bone Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Vertebral Compression Fracture\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Elevated Serum Alkaline Phosphatase\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Auricular Ossification\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Generalized High-Turnover Osteopathy\", \"target\": \"Cranial and Skull-Base Hyperostosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial and Skull-Base Hyperostosis\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cranial and Skull-Base Hyperostosis\", \"target\": \"Conductive Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"target\": \"Angioid Streaks and Retinopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ectopic Vascular and Bruch-Membrane Calcification\", \"target\": \"Vascular Calcification and Arterial Aneurysm\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Bisphosphonate Therapy\", \"target\": \"Accelerated Osteoclastic Bone Resorption\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Denosumab\", \"target\": \"Unopposed RANK-RANKL Osteoclastogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Recombinant Osteoprotegerin (investigational)\", \"target\": \"Loss of OPG Decoy Inhibition of RANKL\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Anti-VEGF Intravitreal Therapy\", \"target\": \"Angioid Streaks and Retinopathy\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"target\": \"Cochlear OPG Deficiency and Spiral Ganglion Degeneration\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"OPG-null mice reproduce the cochlear-nerve degeneration and sensorineural loss of JPD.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Mouse cochlear ageing/degeneration biology differs from human; the model demonstrates the mechanism but the human sensorineural component remains inferred from it.\"}, {\"source\": \"Opg-knockout mouse (Tnfrsf11b-/-)\", \"target\": \"Accelerated Osteoclastic Bone Resorption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Opg-null mice show enhanced osteoclastic resorption and progressive skeletal disease.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\"}, {\"source\": \"TNFRSF11B\", \"target\": \"Biallelic TNFRSF11B Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6940,6 +7047,9 @@ This disease-associated gene is TNFRSF11B (hgnc:11909). hgnc:11909 is a gene fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7039,6 +7149,9 @@ This disease-associated gene is TNFRSF11A (hgnc:11908). hgnc:11908 is a gene fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7109,6 +7222,9 @@ This disease-associated gene is SP7 (hgnc:17321). hgnc:17321 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

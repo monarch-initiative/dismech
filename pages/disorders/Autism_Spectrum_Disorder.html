@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -6181,6 +6220,13 @@ This readout reports on regulation of synaptic plasticity (GO:0048167). GO:00481
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-neurodevelopmental-liability" data-dismech-node="Polygenic neurodevelopmental liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic neurodevelopmental liability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Common inherited variants of individually small effect contribute substantially to ASD susceptibility. Their aggregate influence is heterogeneous across people and clinical presentations and is neither necessary nor sufficient for an individual diagnosis.</div>
 
 
@@ -6316,6 +6362,13 @@ This pathophysiological event involves nervous system development (GO:0007399). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rare-coding-and-copy-number-variant-liability" data-dismech-node="Rare coding and copy-number variant liability" data-dismech-type="pathophysiology">
                 <div class="item-name">Rare coding and copy-number variant liability</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.</div>
 
 
@@ -6424,6 +6477,13 @@ This pathophysiological event involves nervous system development (GO:0007399). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterogeneous-neurodevelopmental-molecular-effects" data-dismech-node="Heterogeneous neurodevelopmental molecular effects" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterogeneous neurodevelopmental molecular effects</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Human genetic studies recurrently implicate synaptic formation, transcriptional regulation, chromatin remodeling, neuronal maturation, and corticogenesis. These are pathway-level convergences across subsets, not a molecular lesion demonstrated in every autistic person.</div>
 
@@ -6595,6 +6655,13 @@ This pathophysiological event involves chromatin remodeling (GO:0006338). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distributed-developmental-circuit-differences" data-dismech-node="Distributed developmental circuit differences" data-dismech-type="pathophysiology">
                 <div class="item-name">Distributed developmental circuit differences</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Post-mortem, imaging, and electrophysiological studies identify subtle, distributed group-level differences rather than a characteristic gross lesion. Direction and location vary by cohort, age, task, method, and subgroup. These observations are not individual diagnostic biomarkers.</div>
 
 
@@ -6699,6 +6766,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-inhibition-and-synaptic-signaling-differences-in-studied-subgroups" data-dismech-node="Excitation-inhibition and synaptic-signaling differences in studied subgroups" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-inhibition and synaptic-signaling differences in studied subgroups</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">E/I imbalance is a useful research framework supported by particular genetic syndromes, cellular models, and group-level studies, but direction, cell type, region, and developmental timing differ. mGluR5, GABAergic, and glutamatergic findings must not be generalized from biologically defined subsets to all ASD.</div>
 
@@ -6823,6 +6897,13 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-and-neuroinflammatory-associations-in-studied-groups" data-dismech-node="Immune and neuroinflammatory associations in studied groups" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune and neuroinflammatory associations in studied groups</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Studies report group-level cytokine, oxidative-stress, glial, and connectivity associations. Sampling, medication, co-occurring illness, tissue, age, and subgroup differences complicate interpretation. These associations do not establish that neuroinflammation causes core autism in all people, and blood-brain-barrier findings are subtle or context dependent.</div>
 
@@ -6981,6 +7062,13 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gut-microbiome-associations-in-studied-groups" data-dismech-node="Gut microbiome associations in studied groups" data-dismech-type="pathophysiology">
                 <div class="item-name">Gut microbiome associations in studied groups</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Microbiome composition and metabolite differences have been reported in some ASD cohorts, especially those selected for gastrointestinal symptoms. Diet, medication, geography, age, constipation, sequencing methods, and reverse causation are major confounders. A causal microbiome-to-core-autism pathway and a generalizable microbial biomarker remain unproven.</div>
 
 
@@ -7078,6 +7166,13 @@ This pathophysiological event involves neuroinflammatory response (GO:0150076). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-convergent-transcriptional-effects-in-human-stem-cell-models" data-dismech-node="Convergent transcriptional effects in human stem-cell models" data-dismech-type="pathophysiology">
                 <div class="item-name">Convergent transcriptional effects in human stem-cell models</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In iPSC-derived neural progenitor and cortical organoid models carrying selected ASD-associated mutations, mutation-specific early changes partly converge later on shared transcriptional networks. The result is a model system observation across selected genotypes, not proof of a universal cortical program in autistic brains.</div>
 
@@ -7234,7 +7329,7 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Nonverbal Communicative Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent difficulty integrating or using eye gaze, facial expression, gesture, body language, or other nonverbal communication in social interaction. Manifestation and severity vary with age, language, culture, context, and compensatory strategies.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000758\"}}, {\"id\": \"Convergent transcriptional effects in human stem-cell models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In iPSC-derived neural progenitor and cortical organoid models carrying selected ASD-associated mutations, mutation-specific early changes partly converge later on shared transcriptional networks. The result is a model system observation across selected genotypes, not proof of a universal cortical program in autistic brains.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"regulation of DNA-templated transcription\"]}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spoken-language delay occurs in a clinically important subset and can drive early referral, but it is not required for ASD and fluent or precocious language does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Distributed developmental circuit differences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-mortem, imaging, and electrophysiological studies identify subtle, distributed group-level differences rather than a characteristic gross lesion. Direction and location vary by cohort, age, task, method, and subgroup. These observations are not individual diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"]}}, {\"id\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E/I imbalance is a useful research framework supported by particular genetic syndromes, cellular models, and group-level studies, but direction, cell type, region, and developmental timing differ. mGluR5, GABAergic, and glutamatergic findings must not be generalized from biologically defined subsets to all ASD.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chemical synaptic transmission\"]}}, {\"id\": \"Gut microbiome associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microbiome composition and metabolite differences have been reported in some ASD cohorts, especially those selected for gastrointestinal symptoms. Diet, medication, geography, age, constipation, sequencing methods, and reverse causation are major confounders. A causal microbiome-to-core-autism pathway and a generalizable microbial biomarker remain unproven.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Heterogeneous neurodevelopmental molecular effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human genetic studies recurrently implicate synaptic formation, transcriptional regulation, chromatin remodeling, neuronal maturation, and corticogenesis. These are pathway-level convergences across subsets, not a molecular lesion demonstrated in every autistic person.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"synapse organization\", \"chromatin remodeling\"]}}, {\"id\": \"Immune and neuroinflammatory associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Studies report group-level cytokine, oxidative-stress, glial, and connectivity associations. Sampling, medication, co-occurring illness, tissue, age, and subgroup differences complicate interpretation. These associations do not establish that neuroinflammation causes core autism in all people, and blood-brain-barrier findings are subtle or context dependent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neuroinflammatory response\"]}}, {\"id\": \"Individualized developmental and behavioral intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Goal-directed developmental and behavioral programs can improve selected communication, adaptive, cognitive, play, or social-engagement outcomes in some young children. Program model, intensity, acceptability, access, outcomes, and response vary. Evidence does not support a promise of normalization or one mandatory program for every child; goals should be selected collaboratively and monitored for benefit and burden.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Melatonin for co-occurring sleep disturbance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Melatonin can improve total sleep time, sleep latency, or sleep efficiency for some autistic children with sleep disturbance after behavioral and environmental contributors are assessed. Trial heterogeneity is substantial; benefit is symptom-targeted rather than treatment of autism as a whole, and dose, formulation, interactions, and adverse effects require clinical review.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"melatonin\"]}}, {\"id\": \"Polygenic neurodevelopmental liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common inherited variants of individually small effect contribute substantially to ASD susceptibility. Their aggregate influence is heterogeneous across people and clinical presentations and is neither necessary nor sufficient for an individual diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nervous system development\"]}}, {\"id\": \"Prenatal and early-childhood heavy metal exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal and early-childhood exposure to lead, mercury, cadmium, and arsenic has been examined as a possible contributor to ASD risk. The reported associations are metal specific and inconsistent: reviews of human epidemiological studies report a more consistent association for lead and mercury than for arsenic and cadmium, while acknowledging residual confounding and heterogeneous exposure-assessment methods. This is a contested population-level exposure association, not an established cause of an individual diagnosis, and the reviewed evidence does not support a blanket claim that heavy metals cause ASD.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Prenatal valproate exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"In a Danish population cohort, maternal valproate use during pregnancy was associated with increased offspring ASD risk after adjustment for maternal epilepsy. This is a population-level medication-exposure association, not a deterministic explanation for an individual diagnosis; pregnancy treatment decisions require individualized assessment of maternal seizure and fetal risks rather than abrupt medication changes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rare coding and copy-number variant liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Restricted and Repetitive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted or repetitive motor behavior, speech, object use, interests, or insistence on sameness forms one required diagnostic domain, but no single narrow behavior is present in every person.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000723\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep-wake problems are among the most frequent co-occurring conditions, with heterogeneous insomnia, circadian, breathing, and movement phenotypes. Sleep problems warrant their own clinical evaluation rather than attribution to a universal immune-pineal mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Polygenic neurodevelopmental liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polygenic liability influences neurodevelopment through many unresolved regulatory and cellular routes rather than one canonical cascade.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Different rare variants perturb distinct developmental pathways that may partly converge, but pleiotropy and mutation-specific effects remain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Convergent transcriptional effects in human stem-cell models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selected rare ASD-associated mutations produce mutation-specific and partly convergent transcriptional effects in human stem-cell-derived neural models; this is a model-system route, not a universal human-brain mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Molecular perturbations can alter neuronal development and circuit function through mutation-, cell-type-, and developmental-stage-specific routes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the subgroup-specific E/I hypothesis, synaptic and transcriptional perturbations may alter excitation or inhibition through genotype-, region-, cell-type-, and developmental-stage-specific routes.\", \"hypothesis_groups\": [\"subgroup_ei_synaptic_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental circuit differences may contribute to social-communication phenotypes through multiple routes; no single circuit signature is necessary or sufficient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Restricted and Repetitive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed developmental differences may contribute to repetitive and inflexible behavior, without implying one universal cognitive or circuit cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune and neuroinflammatory associations in studied groups\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, immune and metabolic differences are associated with synaptic and network measures; directionality and mediation of clinical traits remain unestablished.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gut microbiome associations in studied groups\", \"target\": \"Immune and neuroinflammatory associations in studied groups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, dysbiosis may affect immune and neuroinflammatory signaling. Confounding and reverse causation remain major alternatives.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal valproate exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The best-evidenced environmental association in this entry: a population cohort reporting increased risk after adjustment for maternal epilepsy, which is the confounder that would otherwise explain it. Recorded as predisposing and never as triggering, because this entry is careful throughout that these are population-level risk associations and not explanations for an individual diagnosis, and because the exposure\u0027s own description warns against abrupt medication changes in pregnancy. No cited sentence follows valproate to any molecular step, so the intermediates are unknown despite the node being molecular.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal and early-childhood heavy metal exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the valproate link and carrying its own contradiction on purpose. The same review that reports a comparatively consistent adjusted association for lead and mercury reports inconsistent associations for arsenic and cadmium, and bounds its own conclusion to certain populations and exposure conditions. All three sentences are carried here, so the reader of the pathograph meets the metal-by-metal disagreement rather than a uniform risk factor. The candidate mechanisms named in this exposure\u0027s notes are recorded there as candidates and are not asserted by any link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Melatonin for co-occurring sleep disturbance\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Nonverbal Communicative Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistent difficulty integrating or using eye gaze, facial expression, gesture, body language, or other nonverbal communication in social interaction. Manifestation and severity vary with age, language, culture, context, and compensatory strategies.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000758\"}}, {\"id\": \"Convergent transcriptional effects in human stem-cell models\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In iPSC-derived neural progenitor and cortical organoid models carrying selected ASD-associated mutations, mutation-specific early changes partly converge later on shared transcriptional networks. The result is a model system observation across selected genotypes, not proof of a universal cortical program in autistic brains.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"regulation of DNA-templated transcription\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Delayed Speech and Language Development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spoken-language delay occurs in a clinically important subset and can drive early referral, but it is not required for ASD and fluent or precocious language does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000750\"}}, {\"id\": \"Distributed developmental circuit differences\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Post-mortem, imaging, and electrophysiological studies identify subtle, distributed group-level differences rather than a characteristic gross lesion. Direction and location vary by cohort, age, task, method, and subgroup. These observations are not individual diagnostic biomarkers.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"brain\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"E/I imbalance is a useful research framework supported by particular genetic syndromes, cellular models, and group-level studies, but direction, cell type, region, and developmental timing differ. mGluR5, GABAergic, and glutamatergic findings must not be generalized from biologically defined subsets to all ASD.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chemical synaptic transmission\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Gut microbiome associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Microbiome composition and metabolite differences have been reported in some ASD cohorts, especially those selected for gastrointestinal symptoms. Diet, medication, geography, age, constipation, sequencing methods, and reverse causation are major confounders. A causal microbiome-to-core-autism pathway and a generalizable microbial biomarker remain unproven.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Heterogeneous neurodevelopmental molecular effects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human genetic studies recurrently implicate synaptic formation, transcriptional regulation, chromatin remodeling, neuronal maturation, and corticogenesis. These are pathway-level convergences across subsets, not a molecular lesion demonstrated in every autistic person.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"synapse organization\", \"chromatin remodeling\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Immune and neuroinflammatory associations in studied groups\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Studies report group-level cytokine, oxidative-stress, glial, and connectivity associations. Sampling, medication, co-occurring illness, tissue, age, and subgroup differences complicate interpretation. These associations do not establish that neuroinflammation causes core autism in all people, and blood-brain-barrier findings are subtle or context dependent.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"neuroinflammatory response\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Individualized developmental and behavioral intervention\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Goal-directed developmental and behavioral programs can improve selected communication, adaptive, cognitive, play, or social-engagement outcomes in some young children. Program model, intensity, acceptability, access, outcomes, and response vary. Evidence does not support a promise of normalization or one mandatory program for every child; goals should be selected collaboratively and monitored for benefit and burden.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Melatonin for co-occurring sleep disturbance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Melatonin can improve total sleep time, sleep latency, or sleep efficiency for some autistic children with sleep disturbance after behavioral and environmental contributors are assessed. Trial heterogeneity is substantial; benefit is symptom-targeted rather than treatment of autism as a whole, and dose, formulation, interactions, and adverse effects require clinical review.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"melatonin\"]}}, {\"id\": \"Polygenic neurodevelopmental liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Common inherited variants of individually small effect contribute substantially to ASD susceptibility. Their aggregate influence is heterogeneous across people and clinical presentations and is neither necessary nor sufficient for an individual diagnosis.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"nervous system development\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Prenatal and early-childhood heavy metal exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal and early-childhood exposure to lead, mercury, cadmium, and arsenic has been examined as a possible contributor to ASD risk. The reported associations are metal specific and inconsistent: reviews of human epidemiological studies report a more consistent association for lead and mercury than for arsenic and cadmium, while acknowledging residual confounding and heterogeneous exposure-assessment methods. This is a contested population-level exposure association, not an established cause of an individual diagnosis, and the reviewed evidence does not support a blanket claim that heavy metals cause ASD.\", \"meta\": {\"evidence_count\": 7}}, {\"id\": \"Prenatal valproate exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"In a Danish population cohort, maternal valproate use during pregnancy was associated with increased offspring ASD risk after adjustment for maternal epilepsy. This is a population-level medication-exposure association, not a deterministic explanation for an individual diagnosis; pregnancy treatment decisions require individualized assessment of maternal seizure and fetal risks rather than abrupt medication changes.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Rare coding and copy-number variant liability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of autistic people carry rare protein-truncating, damaging missense, or copy-number variants with larger effects. These variants are enriched in clinically ascertained ASD but show variable penetrance and pleiotropy with developmental delay and other neurodevelopmental outcomes; they do not make ASD a collection of simple Mendelian subtypes.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Restricted and Repetitive Behavior\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Restricted or repetitive motor behavior, speech, object use, interests, or insistence on sameness forms one required diagnostic domain, but no single narrow behavior is present in every person.\", \"meta\": {\"evidence_count\": 1, \"severity\": \"Variable\", \"term_id\": \"HP:0000723\"}}, {\"id\": \"Sleep Disturbance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sleep-wake problems are among the most frequent co-occurring conditions, with heterogeneous insomnia, circadian, breathing, and movement phenotypes. Sleep problems warrant their own clinical evaluation rather than attribution to a universal immune-pineal mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002360\"}}], \"edges\": [{\"source\": \"Polygenic neurodevelopmental liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Polygenic liability influences neurodevelopment through many unresolved regulatory and cellular routes rather than one canonical cascade.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Different rare variants perturb distinct developmental pathways that may partly converge, but pleiotropy and mutation-specific effects remain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Rare coding and copy-number variant liability\", \"target\": \"Convergent transcriptional effects in human stem-cell models\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Selected rare ASD-associated mutations produce mutation-specific and partly convergent transcriptional effects in human stem-cell-derived neural models; this is a model-system route, not a universal human-brain mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Molecular perturbations can alter neuronal development and circuit function through mutation-, cell-type-, and developmental-stage-specific routes.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Heterogeneous neurodevelopmental molecular effects\", \"target\": \"Excitation-inhibition and synaptic-signaling differences in studied subgroups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the subgroup-specific E/I hypothesis, synaptic and transcriptional perturbations may alter excitation or inhibition through genotype-, region-, cell-type-, and developmental-stage-specific routes.\", \"hypothesis_groups\": [\"subgroup_ei_synaptic_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental circuit differences may contribute to social-communication phenotypes through multiple routes; no single circuit signature is necessary or sufficient.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Distributed developmental circuit differences\", \"target\": \"Restricted and Repetitive Behavior\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Distributed developmental differences may contribute to repetitive and inflexible behavior, without implying one universal cognitive or circuit cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Immune and neuroinflammatory associations in studied groups\", \"target\": \"Distributed developmental circuit differences\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, immune and metabolic differences are associated with synaptic and network measures; directionality and mediation of clinical traits remain unestablished.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Gut microbiome associations in studied groups\", \"target\": \"Immune and neuroinflammatory associations in studied groups\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Within the emerging modifier hypothesis, dysbiosis may affect immune and neuroinflammatory signaling. Confounding and reverse causation remain major alternatives.\", \"hypothesis_groups\": [\"immune_microbiome_modifier_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal valproate exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"The best-evidenced environmental association in this entry: a population cohort reporting increased risk after adjustment for maternal epilepsy, which is the confounder that would otherwise explain it. Recorded as predisposing and never as triggering, because this entry is careful throughout that these are population-level risk associations and not explanations for an individual diagnosis, and because the exposure\u0027s own description warns against abrupt medication changes in pregnancy. No cited sentence follows valproate to any molecular step, so the intermediates are unknown despite the node being molecular.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Prenatal and early-childhood heavy metal exposure\", \"target\": \"Heterogeneous neurodevelopmental molecular effects\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Graded below the valproate link and carrying its own contradiction on purpose. The same review that reports a comparatively consistent adjusted association for lead and mercury reports inconsistent associations for arsenic and cadmium, and bounds its own conclusion to certain populations and exposure conditions. All three sentences are carried here, so the reader of the pathograph meets the metal-by-metal disagreement rather than a uniform risk factor. The candidate mechanisms named in this exposure\u0027s notes are recorded there as candidates and are not asserted by any link.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Abnormal Nonverbal Communicative Behavior\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Individualized developmental and behavioral intervention\", \"target\": \"Delayed Speech and Language Development\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Melatonin for co-occurring sleep disturbance\", \"target\": \"Sleep Disturbance\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8223,6 +8318,9 @@ This disease-associated gene is CHD8 (hgnc:20153). hgnc:20153 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8291,6 +8389,9 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -8367,6 +8468,9 @@ This disease-associated gene is DYRK1A (hgnc:3091). hgnc:3091 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8435,6 +8539,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

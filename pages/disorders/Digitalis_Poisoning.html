@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5150,6 +5189,7 @@ Two features set the clinical problem apart. Potassium leaks out of every cell w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-cardiac-glycoside-excess" data-dismech-node="Systemic Cardiac Glycoside Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Cardiac Glycoside Excess</div>
 
+
                 <div class="item-desc">Tissue concentrations of digoxin or another cardiac glycoside above what the myocardium tolerates. Reached three ways that behave differently: a single large ingestion in someone not already taking the drug, an extra dose on top of chronic therapy, and slow accumulation at an unchanged dose when renal clearance falls or a P-glycoprotein inhibitor is added. The distinction matters clinically, and the mechanism predicts why: a sudden large inhibition redistributes potassium faster than the kidney can compensate, which is the usual explanation for hyperkalemia being described as an acute-pattern finding.</div>
 
 
@@ -5355,6 +5395,7 @@ Two features set the clinical problem apart. Potassium leaks out of every cell w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sodium-potassium-atpase-inhibition" data-dismech-node="Sodium-Potassium ATPase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Sodium-Potassium ATPase Inhibition</div>
+
 
                 <div class="item-desc">Blockade of the sarcolemmal sodium pump. This is simultaneously the therapeutic mechanism and the toxic one - what changes with dose is the fraction of pumps occupied, not the kind of effect - which is the structural reason digitalis has no margin between efficacy and harm.</div>
 
@@ -5599,6 +5640,7 @@ This pathophysiological event involves decreased P-type sodium:potassium-exchang
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-sodium-accumulation" data-dismech-node="Intracellular Sodium Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular Sodium Accumulation</div>
 
+
                 <div class="item-desc">Rising cytosolic sodium in the cardiomyocyte, the immediate consequence of a pump that is no longer extruding it.</div>
 
 
@@ -5734,6 +5776,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sodium-calcium-exchanger-calcium-extrusion" data-dismech-node="Reduced Sodium-Calcium Exchanger Calcium Extrusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Sodium-Calcium Exchanger Calcium Extrusion</div>
+
 
                 <div class="item-desc">Loss of calcium export through NCX1, the exchanger that normally trades three sodium ions inward for one calcium ion outward. Nothing is wrong with the exchanger; its driving gradient has been spent.</div>
 
@@ -5876,6 +5919,7 @@ This pathophysiological event involves decreased calcium:sodium antiporter activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcoplasmic-reticulum-calcium-overload" data-dismech-node="Sarcoplasmic Reticulum Calcium Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcoplasmic Reticulum Calcium Overload</div>
+
 
                 <div class="item-desc">Calcium accumulating in the cytosol and, through SERCA, in the sarcoplasmic reticulum. At therapeutic occupancy this is the positive inotropic effect; past a threshold the store holds more than it can retain.</div>
 
@@ -6054,6 +6098,7 @@ This pathophysiological event involves ATP2A2 (hgnc:812). hgnc:812 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spontaneous-diastolic-calcium-release" data-dismech-node="Spontaneous Diastolic Calcium Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Spontaneous Diastolic Calcium Release</div>
 
+
                 <div class="item-desc">Unscheduled release of stored calcium through the ryanodine receptor after repolarization is complete - calcium arriving when the cell should be electrically quiet.</div>
 
 
@@ -6197,6 +6242,7 @@ This pathophysiological event involves increased release of sequestered calcium 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-afterdepolarization" data-dismech-node="Delayed Afterdepolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Afterdepolarization</div>
+
 
                 <div class="item-desc">A depolarizing hump after repolarization. Below threshold it is invisible; above it, the cell fires a beat nobody asked for.</div>
 
@@ -6388,6 +6434,7 @@ This pathophysiological event involves dysregulated cardiac muscle cell action p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-triggered-automaticity" data-dismech-node="Triggered Automaticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Triggered Automaticity</div>
 
+
                 <div class="item-desc">Ectopic beats arising from afterdepolarizations rather than from the sinus node. Named without a chamber because the foci are not confined to the ventricle: the same mechanism in the atrioventricular junction produces the accelerated junctional rhythm this entry also records, and the bound cell type CL:0002068 Purkinje myocyte spans the conduction system. When two foci with alternating exit pathways through the fascicles take turns, the result is bidirectional ventricular tachycardia. That pattern is a recognised presentation of this poisoning but is not specific to it; the phenotype entry of the same name records the differential and cites it.</div>
 
 
@@ -6524,6 +6571,7 @@ This pathophysiological event involves Purkinje myocyte (CL:0002068). CL:0002068
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-vagal-tone" data-dismech-node="Increased Vagal Tone" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Vagal Tone</div>
 
+
                 <div class="item-desc">Enhanced parasympathetic outflow to the sinus and atrioventricular nodes, a separate action of the drug from its effect on the myocyte, and the half of the toxidrome responsible for slowing rather than for ectopy.</div>
 
 
@@ -6568,6 +6616,7 @@ This pathophysiological event involves Purkinje myocyte (CL:0002068). CL:0002068
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrioventricular-conduction-block" data-dismech-node="Atrioventricular Conduction Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrioventricular Conduction Block</div>
+
 
                 <div class="item-desc">Slowed conduction and lengthened refractoriness at the atrioventricular node. Combined with the ectopy above this produces the entry&#39;s defining pattern: a heart firing too much in one place and conducting too little in another.</div>
 
@@ -6694,6 +6743,7 @@ This pathophysiological event involves dysregulated AV node cell action potentia
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-potassium-shift" data-dismech-node="Extracellular Potassium Shift" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular Potassium Shift</div>
 
+
                 <div class="item-desc">Potassium moving out of cells body-wide because the pump that returns it is inhibited. This is a systemic readout of how thoroughly the pump has been blocked, and it carries prognostic information: the cited series found death risk rising with serum potassium and more steeply with hyperkalemia that persisted. It is described as a feature of acute poisoning rather than of slow accumulation, where renal handling has time to compensate, though no cached source in this entry states that contrast directly.</div>
 
 
@@ -6807,6 +6857,7 @@ This pathophysiological event involves dysregulated potassium ion homeostasis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-direct-cardiac-ion-channel-block" data-dismech-node="Direct Cardiac Ion Channel Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Direct Cardiac Ion Channel Block</div>
+
 
                 <div class="item-desc">Inhibition of the L-type calcium current and of the rapid delayed rectifier potassium current by the glycoside itself, demonstrated with cytosolic calcium chelated and the sodium pump already blocked - so neither the calcium-overload chain nor pump inhibition accounts for it.
 The agent caveat is large enough to state plainly: the effect was measured mostly in bufadienolides, which are toad-derived, and the two cardenolides tested - ouabain and pecilocerin A, the class digoxin belongs to - showed around 10 to 15 per cent inhibition with IC50s above 100 micromolar, which is to say essentially none at attainable concentrations. Digoxin itself was not tested. The node is retained because the mechanism is real and this entry covers bufadienolide sources, but it should not be read as operating in ordinary digoxin poisoning.</div>
@@ -7035,6 +7086,7 @@ This pathophysiological event involves decreased delayed rectifier potassium cha
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-sodium-potassium-atpase-inhibition" data-dismech-node="Retinal Sodium-Potassium ATPase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Sodium-Potassium ATPase Inhibition</div>
 
+
                 <div class="item-desc">Proposed inhibition of the same pump in retinal cells, offered as the explanation for the yellow-tinged vision and haloes. Retained as a node because the visual signs are real and old; marked as a hypothesis because the human retinal-level evidence is not there.</div>
 
 
@@ -7133,6 +7185,7 @@ This pathophysiological event involves decreased P-type sodium:potassium-exchang
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-and-gastrointestinal-pump-inhibition" data-dismech-node="Central and Gastrointestinal Pump Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Central and Gastrointestinal Pump Inhibition</div>
+
 
                 <div class="item-desc">Proposed inhibition of the sodium pump in the gastrointestinal tract and in the area postrema, offered as the explanation for the nausea, vomiting and confusion. Modelled as a node so that the non-cardiac features are not left unexplained in the graph, and grouped under the extracardiac hypothesis because the site of action is inferred rather than shown.</div>
 
@@ -7303,6 +7356,7 @@ This pathophysiological event involves decreased P-type sodium:potassium-exchang
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hemodynamic-collapse" data-dismech-node="Hemodynamic Collapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Hemodynamic Collapse</div>
+
 
                 <div class="item-desc">Failure of cardiac output from the combined bradyarrhythmia, block and ventricular tachyarrhythmia. The proximate cause of death in fatal digitalis poisoning; the myocardium is not structurally injured.</div>
 
@@ -8171,6 +8225,9 @@ This disease-associated gene is ABCB1 (hgnc:40). hgnc:40 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
 

@@ -150,7 +150,7 @@ def test_agent_recovers_abandoned_code_prs_and_preserves_cache_and_history_guard
     )
     assert "Never use a blanket ours/theirs resolution" in prompt
     assert (
-        "Never read, write, edit, or stage the frozen dataset-accession JSON cache"
+        "Never read, recreate, or restore the retired dataset-accession JSON cache"
         in prompt
     )
     assert "Never force-push, rebase, reset, or rewrite PR history" in prompt

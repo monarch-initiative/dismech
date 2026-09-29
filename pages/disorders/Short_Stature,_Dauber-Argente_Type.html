@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4433,6 +4472,7 @@
 
 
 
+
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
 
@@ -4477,6 +4517,8 @@ This genetic context concerns PAPPA2 (hgnc:14615). hgnc:14615 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4489,6 +4531,9 @@ This genetic context concerns PAPPA2 (hgnc:14615). hgnc:14615 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous frameshift, nonsense or inactivating missense PAPPA2 variants abolish pappalysin-2 proteolytic activity. Loss is complete in vitro even for the single-residue p.Ala1033Val substitution.</div>
 
@@ -4600,6 +4645,7 @@ This pathophysiological event involves IGFBP-cleaving metalloendopeptidase activ
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-cleave-igfbp-3-and-igfbp-5" data-dismech-node="Failure to Cleave IGFBP-3 and IGFBP-5" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Cleave IGFBP-3 and IGFBP-5</div>
 
+
                 <div class="item-desc">Uncleaved high-affinity binding proteins accumulate. IGFBP-3 and IGFBP-5, once loaded with IGF, also bind the acid-labile subunit to form the approximately 150 kDa ternary complex that extends IGF-1&#39;s half-life. That complex is the reservoir, and cleaving its binding protein is how the reservoir is opened.</div>
 
 
@@ -4675,6 +4721,7 @@ This pathophysiological event involves IGFBP-cleaving metalloendopeptidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igf-1-sequestration-in-the-ternary-complex" data-dismech-node="IGF-1 Sequestration in the Ternary Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">IGF-1 Sequestration in the Ternary Complex</div>
+
 
                 <div class="item-desc">The disease&#39;s defining state, and the reason it is diagnostically counterintuitive: circulating total IGF-1, IGFBP-3, IGFBP-5, ALS and IGF-II are all elevated while free IGF-1 falls. A clinician measuring total IGF-1 sees a value that looks reassuring or even high, in a child whose tissues are IGF-1 starved.</div>
 
@@ -4759,6 +4806,7 @@ This pathophysiological event involves IGFBP-cleaving metalloendopeptidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-igf-1-negative-feedback-on-gh-secretion" data-dismech-node="Loss of IGF-1 Negative Feedback on GH Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of IGF-1 Negative Feedback on GH Secretion</div>
+
 
                 <div class="item-desc">Because pituitary GH secretion is restrained by free IGF-1, sequestration lifts that brake and spontaneous GH secretion rises. This node is what makes the drug choice obvious: the axis is already running GH at above-normal output against a blocked release step, so rhGH would add more of a signal that is not the limiting one. rhIGF-1 supplies the product instead, and the fall in spontaneous GH secretion after it is given is the confirmation that the feedback loop was intact all along and simply starved of ligand.</div>
 
@@ -4845,6 +4893,7 @@ This pathophysiological event involves IGFBP-cleaving metalloendopeptidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-igf-1-receptor-signaling-at-the-growth-plate" data-dismech-node="Reduced IGF-1 Receptor Signaling at the Growth Plate" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced IGF-1 Receptor Signaling at the Growth Plate</div>
+
 
                 <div class="item-desc">Diminished IGF-1 receptor signalling in growth-plate chondrocytes and bone, with systemic effects on lean mass and insulin sensitivity. That this node is the operative one is shown by therapy: supplying exogenous IGF-1, which changes nothing upstream, restores growth.</div>
 
@@ -5002,6 +5051,7 @@ This pathophysiological event involves decreased insulin-like growth factor rece
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-postnatal-growth-failure-and-skeletal-deficit" data-dismech-node="Progressive Postnatal Growth Failure and Skeletal Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Postnatal Growth Failure and Skeletal Deficit</div>
 
+
                 <div class="item-desc">The clinical endpoint: progressive postnatal short stature with moderate microcephaly, thin long bones and mildly reduced bone mineral density.</div>
 
 
@@ -5106,6 +5156,7 @@ This pathophysiological event involves decreased insulin-like growth factor rece
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-resistance" data-dismech-node="Insulin Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Resistance</div>
 
+
                 <div class="item-desc">Insulin resistance, with mild fasting hyperinsulinaemia on normal glucose tolerance testing in the index family, improving under rhIGF-1.</div>
 
 
@@ -5204,7 +5255,7 @@ This pathophysiological event involves decreased insulin-like growth factor rece
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure to Cleave IGFBP-3 and IGFBP-5\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Uncleaved high-affinity binding proteins accumulate. IGFBP-3 and IGFBP-5, once loaded with IGF, also bind the acid-labile subunit to form the approximately 150 kDa ternary complex that extends IGF-1\u0027s half-life. That complex is the reservoir, and cleaving its binding protein is how the reservoir is opened.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IGF-1 Sequestration in the Ternary Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease\u0027s defining state, and the reason it is diagnostically counterintuitive: circulating total IGF-1, IGFBP-3, IGFBP-5, ALS and IGF-II are all elevated while free IGF-1 falls. A clinician measuring total IGF-1 sees a value that looks reassuring or even high, in a child whose tissues are IGF-1 starved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin resistance, with mild fasting hyperinsulinaemia on normal glucose tolerance testing in the index family, improving under rhIGF-1.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because pituitary GH secretion is restrained by free IGF-1, sequestration lifts that brake and spontaneous GH secretion rises. This node is what makes the drug choice obvious: the axis is already running GH at above-normal output against a blocked release step, so rhGH would add more of a signal that is not the limiting one. rhIGF-1 supplies the product instead, and the fall in spontaneous GH secretion after it is given is the confirmation that the feedback loop was intact all along and simply starved of ligand.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of PAPP-A2 Proteolytic Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"IGFBP-cleaving metalloendopeptidase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous frameshift, nonsense or inactivating missense PAPPA2 variants abolish pappalysin-2 proteolytic activity. Loss is complete in vitro even for the single-residue p.Ala1033Val substitution.\", \"gene_terms\": [{\"label\": \"PAPPA2\", \"id\": \"hgnc:14615\"}]}}}, {\"id\": \"PAPPA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAPPA2\"], \"gene_terms\": [{\"label\": \"PAPPA2\", \"id\": \"hgnc:14615\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"PAPPA2 p.Ala1033Val\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense in the second index family. Despite being a single amino-acid substitution it abolishes proteolytic activity entirely in vitro.\"}, {\"id\": \"PAPPA2 p.D643fs25*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous frameshift in the Spanish index family; carriers have undetectable PAPP-A2 activity and are the two siblings in whom rhIGF-1 was first trialled.\"}, {\"id\": \"PAPPA2 p.Glu886*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense variant in exon 7 reported in the Saudi confirming family.\"}, {\"id\": \"Pappa2 constitutive knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Normal size at birth with postnatal growth retardation and reduced adult femur and body length, reproducing the human postnatal-onset pattern. Notably, bone mineral density is not significantly affected in the mouse although it is reduced in patients.\"}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive postnatal growth failure with normal size at birth, deepening with age relative to mid-parental target height.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008897\"}}, {\"id\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: progressive postnatal short stature with moderate microcephaly, thin long bones and mildly reduced bone mineral density.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Pappa2 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pappa2 homozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse reproduces normal birth size followed by postnatal growth retardation and reduced long-bone length.\"}]}}, {\"id\": \"Recombinant Human IGF-1 (Mecasermin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"rhIGF-1 given twice daily at escalating doses (40 to 120 micrograms/kg) supplies free hormone downstream of the blocked release step. In the two Spanish p.D643fs25* siblings, one-year data showed increased growth velocity and height with no hypoglycaemia or other adverse effects, and six-year data showed both reaching target height with progressive normalisation of bone mineral density and increased lean mass. Total IGF-1 and IGFBP-3 stay elevated throughout, so they cannot be used to monitor response.\\nThat clean safety record is specific to those two patients and should not be read as a property of the treatment. In a separately reported family the older brother developed severe headaches from raised intracranial hypertension, attributed to the rhIGF-1, and therapy was discontinued; the symptoms resolved on stopping. Intracranial hypertension is a recognised class effect of mecasermin, so it is the adverse event to monitor for rather than an isolated curiosity.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"mecasermin\"]}}, {\"id\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diminished IGF-1 receptor signalling in growth-plate chondrocytes and bone, with systemic effects on lean mass and insulin sensitivity. That this node is the operative one is shown by therapy: supplying exogenous IGF-1, which changes nothing upstream, restores growth.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\"]}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone mineral density is below average and, notably, normalises progressively under rhIGF-1 therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}], \"edges\": [{\"source\": \"Loss of PAPP-A2 Proteolytic Activity\", \"target\": \"Failure to Cleave IGFBP-3 and IGFBP-5\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PAPP-A2\u0027s physiological substrates, IGFBP-3 and IGFBP-5, go uncleaved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Cleave IGFBP-3 and IGFBP-5\", \"target\": \"IGF-1 Sequestration in the Ternary Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IGF-1 remains bound in the ternary complex rather than being released as free hormone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IGF-1 Sequestration in the Ternary Complex\", \"target\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Free IGF-1 restrains pituitary GH output; reducing it lifts that brake.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IGF-1 Sequestration in the Ternary Complex\", \"target\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Only free IGF-1 engages the receptor, so reduced free hormone means reduced signalling regardless of total concentration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"target\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced growth-plate signalling produces progressive short stature, thin long bones and reduced bone mineral density.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"target\": \"Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 bioactivity is accompanied by insulin resistance, which also improves on rhIGF-1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This node is the mechanism behind the observed growth phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 signalling in bone produces the below-average bone mineral density, which normalises when signalling is restored.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin Resistance\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This node is the mechanism behind the observed metabolic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recombinant Human IGF-1 (Mecasermin)\", \"target\": \"IGF-1 Sequestration in the Ternary Complex\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pappa2 constitutive knockout mouse\", \"target\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse reproduces normal birth size followed by postnatal growth retardation and reduced long-bone length.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Bone mineral density is explicitly unaffected in the knockout mouse but is reduced in patients, so the model does not cover the bone-density arm of this node. The growth deficit is also strongly sex-dimorphic in the mouse (10% in males versus 25-30% in females), a dimorphism not established in the small human series.\"}, {\"source\": \"PAPPA2 p.D643fs25*\", \"target\": \"PAPPA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PAPPA2 p.Ala1033Val\", \"target\": \"PAPPA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PAPPA2 p.Glu886*\", \"target\": \"PAPPA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Failure to Cleave IGFBP-3 and IGFBP-5\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Uncleaved high-affinity binding proteins accumulate. IGFBP-3 and IGFBP-5, once loaded with IGF, also bind the acid-labile subunit to form the approximately 150 kDa ternary complex that extends IGF-1\u0027s half-life. That complex is the reservoir, and cleaving its binding protein is how the reservoir is opened.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"IGF-1 Sequestration in the Ternary Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The disease\u0027s defining state, and the reason it is diagnostically counterintuitive: circulating total IGF-1, IGFBP-3, IGFBP-5, ALS and IGF-II are all elevated while free IGF-1 falls. A clinician measuring total IGF-1 sees a value that looks reassuring or even high, in a child whose tissues are IGF-1 starved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Insulin Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Insulin resistance, with mild fasting hyperinsulinaemia on normal glucose tolerance testing in the index family, improving under rhIGF-1.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Insulin resistance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000855\"}}, {\"id\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because pituitary GH secretion is restrained by free IGF-1, sequestration lifts that brake and spontaneous GH secretion rises. This node is what makes the drug choice obvious: the axis is already running GH at above-normal output against a blocked release step, so rhGH would add more of a signal that is not the limiting one. rhIGF-1 supplies the product instead, and the fall in spontaneous GH secretion after it is given is the confirmation that the feedback loop was intact all along and simply starved of ligand.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Loss of PAPP-A2 Proteolytic Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"IGFBP-cleaving metalloendopeptidase activity\"], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous frameshift, nonsense or inactivating missense PAPPA2 variants abolish pappalysin-2 proteolytic activity. Loss is complete in vitro even for the single-residue p.Ala1033Val substitution.\", \"gene_terms\": [{\"label\": \"PAPPA2\", \"id\": \"hgnc:14615\"}]}}}, {\"id\": \"PAPPA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAPPA2\"], \"gene_terms\": [{\"label\": \"PAPPA2\", \"id\": \"hgnc:14615\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 3}}, {\"id\": \"PAPPA2 p.Ala1033Val\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense in the second index family. Despite being a single amino-acid substitution it abolishes proteolytic activity entirely in vitro.\"}, {\"id\": \"PAPPA2 p.D643fs25*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous frameshift in the Spanish index family; carriers have undetectable PAPP-A2 activity and are the two siblings in whom rhIGF-1 was first trialled.\"}, {\"id\": \"PAPPA2 p.Glu886*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous nonsense variant in exon 7 reported in the Saudi confirming family.\"}, {\"id\": \"Pappa2 constitutive knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Normal size at birth with postnatal growth retardation and reduced adult femur and body length, reproducing the human postnatal-onset pattern. Notably, bone mineral density is not significantly affected in the mouse although it is reduced in patients.\"}, {\"id\": \"Postnatal growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive postnatal growth failure with normal size at birth, deepening with age relative to mid-parental target height.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0008897\"}}, {\"id\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: progressive postnatal short stature with moderate microcephaly, thin long bones and mildly reduced bone mineral density.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Pappa2 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Pappa2 homozygous null\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The mouse reproduces normal birth size followed by postnatal growth retardation and reduced long-bone length.\"}]}}, {\"id\": \"Recombinant Human IGF-1 (Mecasermin)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"rhIGF-1 given twice daily at escalating doses (40 to 120 micrograms/kg) supplies free hormone downstream of the blocked release step. In the two Spanish p.D643fs25* siblings, one-year data showed increased growth velocity and height with no hypoglycaemia or other adverse effects, and six-year data showed both reaching target height with progressive normalisation of bone mineral density and increased lean mass. Total IGF-1 and IGFBP-3 stay elevated throughout, so they cannot be used to monitor response.\\nThat clean safety record is specific to those two patients and should not be read as a property of the treatment. In a separately reported family the older brother developed severe headaches from raised intracranial hypertension, attributed to the rhIGF-1, and therapy was discontinued; the symptoms resolved on stopping. Intracranial hypertension is a recognised class effect of mecasermin, so it is the adverse event to monitor for rather than an isolated curiosity.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"mecasermin\"]}}, {\"id\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Diminished IGF-1 receptor signalling in growth-plate chondrocytes and bone, with systemic effects on lean mass and insulin sensitivity. That this node is the operative one is shown by therapy: supplying exogenous IGF-1, which changes nothing upstream, restores growth.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"growth plate chondrocyte\"], \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\"]}}, {\"id\": \"Reduced bone mineral density\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone mineral density is below average and, notably, normalises progressively under rhIGF-1 therapy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004349\"}}], \"edges\": [{\"source\": \"Loss of PAPP-A2 Proteolytic Activity\", \"target\": \"Failure to Cleave IGFBP-3 and IGFBP-5\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"PAPP-A2\u0027s physiological substrates, IGFBP-3 and IGFBP-5, go uncleaved.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure to Cleave IGFBP-3 and IGFBP-5\", \"target\": \"IGF-1 Sequestration in the Ternary Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IGF-1 remains bound in the ternary complex rather than being released as free hormone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IGF-1 Sequestration in the Ternary Complex\", \"target\": \"Loss of IGF-1 Negative Feedback on GH Secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Free IGF-1 restrains pituitary GH output; reducing it lifts that brake.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"IGF-1 Sequestration in the Ternary Complex\", \"target\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Only free IGF-1 engages the receptor, so reduced free hormone means reduced signalling regardless of total concentration.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"target\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced growth-plate signalling produces progressive short stature, thin long bones and reduced bone mineral density.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced IGF-1 Receptor Signaling at the Growth Plate\", \"target\": \"Insulin Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 bioactivity is accompanied by insulin resistance, which also improves on rhIGF-1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"target\": \"Postnatal growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This node is the mechanism behind the observed growth phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"target\": \"Reduced bone mineral density\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced IGF-1 signalling in bone produces the below-average bone mineral density, which normalises when signalling is restored.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Insulin Resistance\", \"target\": \"Insulin resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This node is the mechanism behind the observed metabolic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Recombinant Human IGF-1 (Mecasermin)\", \"target\": \"IGF-1 Sequestration in the Ternary Complex\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pappa2 constitutive knockout mouse\", \"target\": \"Progressive Postnatal Growth Failure and Skeletal Deficit\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse reproduces normal birth size followed by postnatal growth retardation and reduced long-bone length.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Bone mineral density is explicitly unaffected in the knockout mouse but is reduced in patients, so the model does not cover the bone-density arm of this node. The growth deficit is also strongly sex-dimorphic in the mouse (10% in males versus 25-30% in females), a dimorphism not established in the small human series.\"}, {\"source\": \"PAPPA2\", \"target\": \"Loss of PAPP-A2 Proteolytic Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAPPA2 p.D643fs25*\", \"target\": \"PAPPA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PAPPA2 p.Ala1033Val\", \"target\": \"PAPPA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"PAPPA2 p.Glu886*\", \"target\": \"PAPPA2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5777,6 +5828,9 @@ This disease-associated gene is PAPPA2 (hgnc:14615). hgnc:14615 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5851,6 +5905,12 @@ This disease-associated gene is PAPPA2 (hgnc:14615). hgnc:14615 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous frameshift in the Spanish index family; carriers have undetectable PAPP-A2 activity and are the two siblings in whom rhIGF-1 was first trialled.</div>
 
 
@@ -5875,6 +5935,12 @@ This disease-associated gene is PAPPA2 (hgnc:14615). hgnc:14615 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous missense in the second index family. Despite being a single amino-acid substitution it abolishes proteolytic activity entirely in vitro.</div>
 
 
@@ -5897,6 +5963,12 @@ This disease-associated gene is PAPPA2 (hgnc:14615). hgnc:14615 is a gene from t
         PAPPA2 p.Glu886*
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous nonsense variant in exon 7 reported in the Saudi confirming family.</div>

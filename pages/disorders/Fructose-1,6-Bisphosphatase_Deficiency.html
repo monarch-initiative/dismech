@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4582,6 +4621,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fbp1-fructose-1-6-bisphosphatase-deficiency" data-dismech-node="FBP1 Fructose-1,6-Bisphosphatase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">FBP1 Fructose-1,6-Bisphosphatase Deficiency</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function FBP1 variants deplete cytosolic fructose-1,6-bisphosphatase activity in the liver. The enzyme hydrolyzes fructose-1,6-bisphosphate to fructose-6-phosphate, the irreversible step that commits carbon to glucose synthesis rather than back to glycolysis, so its loss is an enzymatic block in the last steps of gluconeogenesis. Residual activity in patient leukocytes is typically under 10% of normal.</div>
 
 
@@ -4857,6 +4897,7 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-gluconeogenesis" data-dismech-node="Impaired Hepatic Gluconeogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic Gluconeogenesis</div>
 
+
                 <div class="item-desc">With the fructose-1,6-bisphosphatase step blocked, the hepatocyte cannot convert lactate, glycerol, and gluconeogenic amino acids into glucose. Glycogenolysis still works, so glucose homeostasis is maintained in the fed and early-fasted state; the defect becomes clinically apparent only once glycogen stores run down and the liver must switch to de novo glucose production. Neonates are especially vulnerable because glycogen stores are small.</div>
 
 
@@ -5046,6 +5087,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gluconeogenic-substrate-accumulation-and-energy-deficit" data-dismech-node="Gluconeogenic Substrate Accumulation and Energy Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Gluconeogenic Substrate Accumulation and Energy Deficit</div>
+
 
                 <div class="item-desc">Substrates that would normally be consumed by gluconeogenesis build up behind the block. Lactate accumulates and drives a high-anion-gap lactic acidosis; glycerol and glycerol-3-phosphate spill into urine (and can produce spurious pseudo-hypertriglyceridemia on glycerol-blanked triglyceride assays); urate rises. A catabolic stress — fever, fasting, reduced intake, vomiting, infection, or a large fructose load — sharply increases demand for hepatic glucose output and converts the compensated state into a crisis.</div>
 
@@ -5284,6 +5326,7 @@ This pathophysiological event involves abnormal fructose metabolic process (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fasting-hypoglycemia" data-dismech-node="Fasting Hypoglycemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Fasting Hypoglycemia</div>
 
+
                 <div class="item-desc">Blood glucose falls when fasting outlasts hepatic glycogen. Because lipolysis and ketogenesis remain intact, the hypoglycemia is ketotic — a key discriminator from fatty-acid oxidation defects, which give hypoketotic hypoglycemia. Between episodes children are asymptomatic and normoglycemic.</div>
 
 
@@ -5422,6 +5465,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-metabolic-decompensation" data-dismech-node="Acute Metabolic Decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Metabolic Decompensation</div>
+
 
                 <div class="item-desc">The central effector is a stereotyped crisis of ketotic hypoglycemia plus high-anion-gap lactic acidosis, usually with hepatomegaly and transaminase elevation. Unlike the urea-cycle and organic-acidemia conformers of this module, hyperammonemia is not a feature; the acid load is lactate and ketoacid. First decompensation is almost always before two years of age.</div>
 
@@ -5562,6 +5606,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-steatosis-and-liver-injury" data-dismech-node="Hepatic Steatosis and Liver Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Steatosis and Liver Injury</div>
 
+
                 <div class="item-desc">Liver involvement is near-universal and is not confined to crises. In a French series every one of 18 patients had liver abnormalities — hepatomegaly (8/18), transaminase elevation (6/15), or a bright (steatotic) liver on ultrasound (7/11) — during routine follow-up as well as during acute episodes (hepatomegaly 10/17, transaminase elevation 13/16, bright liver 4/14), and acute liver failure occurred in 6/14 during crises. This reframes FBP1 deficiency as a chronic hepatic disorder warranting long-term liver surveillance, not only an episodic hypoglycemic one.</div>
 
 
@@ -5656,6 +5701,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-metabolic-encephalopathy-and-multiorgan-crisis" data-dismech-node="Acute Metabolic Encephalopathy and Multiorgan Crisis" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Metabolic Encephalopathy and Multiorgan Crisis</div>
+
 
                 <div class="item-desc">Neuroglycopenia combined with lactic acidosis produces hyperventilation, apneic spells, seizures, and lethargy or coma. Most treated children have normal growth and psychomotor development, but profound or prolonged hypoglycemia can leave permanent neurological deficit, and untreated continued catabolism progresses to multiorgan failure involving liver, brain, and later heart, with high mortality.</div>
 
@@ -6885,6 +6931,9 @@ This disease-associated gene is FBP1 (hgnc:3606). hgnc:3606 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4953,6 +4992,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-fetal-barrier-disruption" data-dismech-node="Maternal-Fetal Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal-Fetal Barrier Disruption</div>
 
+
                 <div class="item-desc">Disruption at the placental interface, cervical veins or uterine injury may permit transfer of fetal-compartment material. These routes are proposed triggers; a specific breach is not demonstrated in every affected patient.</div>
 
 
@@ -5050,6 +5090,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-material-entry-into-maternal-circulation" data-dismech-node="Fetal Material Entry into Maternal Circulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Material Entry into Maternal Circulation</div>
+
 
                 <div class="item-desc">Entry of fetal-compartment material is a proposed initiating exposure. Detection of squamous cells alone neither establishes AFE nor proves obstructive embolization; such cells can occur without the syndrome.</div>
 
@@ -5212,6 +5253,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-inflammatory-mediator-activation" data-dismech-node="Maternal Inflammatory Mediator Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Inflammatory Mediator Activation</div>
 
+
                 <div class="item-desc">An abnormal inflammatory response is a leading model. A 2026 reanalysis found markedly elevated IL-6, IL-8 and IL-10 in two banked samples from one fatal clinically diagnosed case, including admission before overt collapse. Fever developed after epidural analgesia, no autopsy was performed, and microbial versus sterile triggers were unresolved. The observation does not establish a universal fetal-antigen trigger, a prediction test, or efficacy of immunomodulation.</div>
 
 
@@ -5355,6 +5397,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-activation" data-dismech-node="Complement Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement Activation</div>
+
 
                 <div class="item-desc">Reduced C3 and C4 concentrations in small clinical series are compatible with complement activation, but concentrations alone do not identify the pathway, prove consumption or establish its causal role. Normal labor also changes complement measurements.</div>
 
@@ -5511,6 +5554,7 @@ This pathophysiological event involves increased complement activation (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-c1-esterase-inhibitor-activity" data-dismech-node="Reduced C1 Esterase Inhibitor Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced C1 Esterase Inhibitor Activity</div>
 
+
                 <div class="item-desc">A retrospective Japanese registry study measured lower activity in 106 AFE cases than in 88 uncomplicated deliveries and lower values in 21 fatal than 85 nonfatal cases. This is an association, not proof that reduced activity precedes collapse or results from consumption; prognostic utility and replacement efficacy remain unvalidated.</div>
 
 
@@ -5608,6 +5652,7 @@ This pathophysiological event involves increased complement activation (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-mast-cell-degranulation" data-dismech-node="Pulmonary Mast Cell Degranulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Mast Cell Degranulation</div>
+
 
                 <div class="item-desc">Extracellular tryptase and mast-cell observations in selected fatal cases support local pulmonary degranulation. Negative or inconsistent serum tryptase and urinary histamine results in other samples constrain a systemic biomarker claim, but do not refute tissue degranulation. Necessity and causal contribution remain unresolved.</div>
 
@@ -5744,6 +5789,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vasoconstriction" data-dismech-node="Pulmonary Vasoconstriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vasoconstriction</div>
 
+
                 <div class="item-desc">Pulmonary vasoconstriction is proposed to raise vascular resistance during acute cardiopulmonary AFE. The responsible mediators and their contributions vary and have not been resolved by the clinical observations.</div>
 
 
@@ -5819,6 +5865,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-pulmonary-hypertension" data-dismech-node="Acute Pulmonary Hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Pulmonary Hypertension</div>
+
 
                 <div class="item-desc">A rise in pulmonary vascular pressure increases right ventricular afterload. This is a clinically recognized hemodynamic pattern, rather than an obligatory finding in every AFE definition.</div>
 
@@ -5896,6 +5943,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-right-ventricular-failure" data-dismech-node="Acute Right Ventricular Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Right Ventricular Failure</div>
 
+
                 <div class="item-desc">Acute right ventricular dilation and systolic impairment may occur during the initial collapse. Echocardiography guides recognition and support; this does not establish a universal fixed sequence in all patients.</div>
 
 
@@ -5972,6 +6020,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-left-ventricular-filling" data-dismech-node="Impaired Left Ventricular Filling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Left Ventricular Filling</div>
 
+
                 <div class="item-desc">Right ventricular dilation and leftward septal displacement can impair left ventricular filling and systemic output. This mechanical consequence is distinct from intrinsic left ventricular contractile dysfunction.</div>
 
 
@@ -6047,6 +6096,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-ventricular-contractile-dysfunction" data-dismech-node="Left Ventricular Contractile Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Left Ventricular Contractile Dysfunction</div>
+
 
                 <div class="item-desc">Left ventricular systolic dysfunction can develop after the initial insult. Myocardial hypoxia and circulating depressant effects have been proposed, but the relative contribution and temporal sequence are not resolved for each patient.</div>
 
@@ -6133,6 +6183,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-systemic-perfusion" data-dismech-node="Reduced Systemic Perfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Systemic Perfusion</div>
+
 
                 <div class="item-desc">Reduced cardiac output and, in bleeding cases, loss of circulating volume compromise maternal organ perfusion. Shock and cardiac arrest can result; the clinical presentation need not pass through every proposed cardiac phase.</div>
 
@@ -6234,6 +6285,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-edema-formation" data-dismech-node="Pulmonary Edema Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Edema Formation</div>
 
+
                 <div class="item-desc">Pulmonary edema may have hydrostatic and permeability-related contributions during AFE and subsequent critical illness. Left ventricular failure, inflammatory lung injury and resuscitation-related fluid overload should not be treated as interchangeable or universally present.</div>
 
 
@@ -6317,6 +6369,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pulmonary-gas-exchange" data-dismech-node="Impaired Pulmonary Gas Exchange" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Pulmonary Gas Exchange</div>
+
 
                 <div class="item-desc">Severe ventilation-perfusion mismatch and edema impair oxygenation and may produce respiratory failure. Hypoxemia also worsens myocardial oxygen supply and systemic oxygen delivery.</div>
 
@@ -6442,6 +6495,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulation-cascade-activation" data-dismech-node="Coagulation Cascade Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulation Cascade Activation</div>
 
+
                 <div class="item-desc">Elevated prothrombin fragment 1+2 supports thrombin generation in selected AFE patients with DIC. The Japanese comparison included 27 pretransfusion samples selected from 789 DIC cases among 2059 registry reports; it does not establish DIC frequency in unselected AFE or identify the initiating tissue-factor activity.</div>
 
 
@@ -6542,6 +6596,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-plasmin-generation" data-dismech-node="Excessive Plasmin Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Plasmin Generation</div>
 
+
                 <div class="item-desc">Elevated plasmin–antiplasmin complexes and fibrin degradation markers support excessive fibrinolysis in selected coagulopathic cases. The absence of a significant PF1+2–PIC correlation within 27 AFE samples does not prove independence from coagulation or a difference from the comparator correlation. Samples followed variable blood loss and fluid administration.</div>
 
 
@@ -6617,6 +6672,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-functional-fibrinogen" data-dismech-node="Reduced Functional Fibrinogen" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Functional Fibrinogen</div>
+
 
                 <div class="item-desc">Severely reduced Clauss fibrinogen can reflect consumption, degradation and impaired fibrin polymerization. Their separate contributions were not quantified in the selected Japanese cohort, which did not measure fibrinogen antigen or a functional-to-antigen ratio.</div>
 
@@ -6727,6 +6783,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hemostasis" data-dismech-node="Impaired Hemostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hemostasis</div>
 
+
                 <div class="item-desc">Loss of functional fibrinogen, other clotting-factor deficits and platelet abnormalities impair hemostasis and can produce severe obstetric or diffuse bleeding. The degree of thrombocytopenia varies; three relatively platelet-preserved cases do not define the whole disease.</div>
 
 
@@ -6812,6 +6869,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-tissue-oxygen-deprivation" data-dismech-node="Maternal Tissue Oxygen Deprivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Tissue Oxygen Deprivation</div>
+
 
                 <div class="item-desc">Reduced systemic perfusion and hypoxemia compromise tissue oxygen delivery, potentially contributing to cerebral and other organ injury. Individual seizures or focal cerebral infarctions are not fully explained by this general pathway.</div>
 
@@ -6904,6 +6962,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-oxygen-deprivation" data-dismech-node="Fetal Oxygen Deprivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Oxygen Deprivation</div>
+
 
                 <div class="item-desc">Maternal cardiopulmonary compromise can reduce oxygen delivery to a fetus still in utero. This downstream fetal consequence is conditional on timing; neonatal outcomes also depend on gestation and other conditions.</div>
 
@@ -7155,11 +7214,11 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8467,7 +8526,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-acute-hypoxaemia" data-dismech-node="Acute Hypoxaemia" data-dismech-type="phenotype">
@@ -8746,6 +8805,82 @@ This clinical feature is Respiratory failure (HP:0002878), qualified as temporal
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchospasm" data-dismech-node="Bronchospasm" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bronchospasm
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Bronchoconstriction</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_4000007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:4000007</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bronchoconstriction (HP:4000007). HP:4000007 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33345954" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33345954" target="_blank">PMID:33345954</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"| Bronchospasm | 5/34 (14.7) | 2/10 (20.0) | 0.7 |"</div>
+
+
+                <div class="evidence-explanation">Selected voluntary registry, variable available-data denominators; no population frequency inferred.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cough
@@ -8760,10 +8895,10 @@ This clinical feature is Respiratory failure (HP:0002878), qualified as temporal
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012735</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8843,10 +8978,10 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0100749</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100749" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100749</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8909,84 +9044,8 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bronchospasm" data-dismech-node="Bronchospasm" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bronchospasm
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Bronchoconstriction</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_4000007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:4000007</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bronchoconstriction (HP:4000007). HP:4000007 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33345954" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33345954" target="_blank">PMID:33345954</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"| Bronchospasm | 5/34 (14.7) | 2/10 (20.0) | 0.7 |"</div>
-
-
-                <div class="evidence-explanation">Selected voluntary registry, variable available-data denominators; no population frequency inferred.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-uterine-atony" data-dismech-node="Uterine Atony" data-dismech-type="phenotype">
                     <div class="item-name">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5114,6 +5153,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vps33a-missense-variant-destabilisation-and-proteasomal-degradation" data-dismech-node="VPS33A Missense Variant Destabilisation and Proteasomal Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">VPS33A Missense Variant Destabilisation and Proteasomal Degradation</div>
 
+
                 <div class="item-desc">Biallelic missense variants in VPS33A destabilise the folded protein and target it for proteasomal degradation, so the steady-state intracellular abundance of intact full-length VPS33A falls. The 3D crystal structure of human VPS33A predicts that replacement of arginine 498 by tryptophan de-stabilises folding; the same instability-plus-degradation mechanism is documented for the juvenile p.Arg200Pro variant. The functional consequence is hypomorphic loss of function through protein instability, not gain of function or dominant-negative activity, and mutant protein can be rescued by proteasome inhibition.</div>
 
 
@@ -5283,6 +5323,7 @@ This pathophysiological event involves VPS33A (hgnc:18179). hgnc:18179 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hops-and-corvet-tethering-complex-depletion" data-dismech-node="HOPS and CORVET Tethering Complex Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">HOPS and CORVET Tethering Complex Depletion</div>
 
+
                 <div class="item-desc">VPS33A is a core component of the class C core vacuole/endosome tethering (CORVET) and the homotypic fusion and protein sorting (HOPS) complexes, which have essential functions in the endocytic pathway. Because VPS33A is shared by both complexes, its depletion is not isolated: patient cells show reduced abundance of the other HOPS and CORVET components as well, so both the early-endosome (CORVET) and late-endosome/lysosome (HOPS) tethering arms are simultaneously compromised.</div>
 
 
@@ -5446,6 +5487,7 @@ This pathophysiological event involves decreased CORVET complex (GO:0033263). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endosome-lysosome-tethering-and-fusion" data-dismech-node="Impaired Endosome-Lysosome Tethering and Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endosome-Lysosome Tethering and Fusion</div>
+
 
                 <div class="item-desc">With HOPS and CORVET depleted, the tethering and fusion events that carry endocytic cargo from early through late endosomes into the lysosome become inefficient. Patient fibroblasts show vacuolation with disordered endosomal/lysosomal compartments, elevated EEA1 (required at early/late endosome fusion and early-endosome sorting), altered Golgi morphology, and abnormal endocytic trafficking of lactosylceramide and other glycosphingolipids. This node is the mechanistic pivot of MPSPS: it is a delivery failure upstream of catabolism, not a catabolic block, and it is what distinguishes MPSPS from every classical mucopolysaccharidosis.</div>
 
@@ -5725,6 +5767,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycosaminoglycan-accumulation-with-normal-lysosomal-hydrolase-activity" data-dismech-node="Glycosaminoglycan Accumulation With Normal Lysosomal Hydrolase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycosaminoglycan Accumulation With Normal Lysosomal Hydrolase Activity</div>
 
+
                 <div class="item-desc">Heparan, dermatan and (variably) chondroitin sulphate accumulate and are excreted in excess in the urine, and plasma heparan sulphate is extraordinarily elevated - around 60 times the normal reference range and six times the level seen in classical MPS patients. Sialylated conjugates, sialooligosaccharides, elevated beta-D-galactosylsphingosine and cholesterol and sphingolipid abnormalities are also reported. The defining biochemical signature of MPSPS is that all of this occurs with entirely normal activity of the cognate lysosomal hydrolases: it is substrate accumulation without an enzyme deficiency.</div>
 
 
@@ -5979,6 +6022,7 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolysosomal-compartment-expansion-and-over-acidification" data-dismech-node="Endolysosomal Compartment Expansion and Over-Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Endolysosomal Compartment Expansion and Over-Acidification</div>
 
+
                 <div class="item-desc">Failed tethering and fusion leave an expanded endocytic compartment that is abnormally acidified. Lysosomal over-acidification was detected in patient-derived and VPS33A-depleted cells in the original description, and increased endolysosomal acidification with an expanded endocytic compartment was independently confirmed in the juvenile p.Arg200Pro form. Autophagy markers LC3-II and p62 are elevated in p.Arg200Pro fibroblasts, indicating a block in autophagic flux, though the original p.Arg498Trp study did not detect an autophagic defect (see the autophagy-discrepancy discussion below).</div>
 
 
@@ -6178,6 +6222,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-podocyte-storage-and-glomerular-destruction" data-dismech-node="Renal Podocyte Storage and Glomerular Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Podocyte Storage and Glomerular Destruction</div>
+
 
                 <div class="item-desc">The kidney is one of the two most discriminating &#34;plus&#34; targets. Storage in podocytes converts them to foam cells and destroys glomerular architecture, producing nephrotic-range proteinuria, hypoalbuminaemia, and rising creatinine, cholesterol and uric acid. Histology shows extensive destruction of glomerular structures by foamy podocytes, with periglomerular fibrosis and interstitial inflammation.</div>
 
@@ -6401,6 +6446,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-hypoplasia-and-peripheral-cytopenias" data-dismech-node="Bone Marrow Hypoplasia and Peripheral Cytopenias" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Hypoplasia and Peripheral Cytopenias</div>
 
+
                 <div class="item-desc">The haematopoietic system is the second discriminating &#34;plus&#34; target. Progressive anaemia and thrombocytopenia develop and correlate with histologically hypoplastic bone marrow; neutropenia/leukopenia, coagulation abnormalities and platelet dysfunction are also reported. Secondary haemophagocytic lymphohistiocytosis has occurred in at least one longer-surviving patient.</div>
 
 
@@ -6581,6 +6627,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-multisystem-disease-with-plus-features" data-dismech-node="Progressive Multisystem Disease With Plus Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Multisystem Disease With Plus Features</div>
+
 
                 <div class="item-desc">The clinical endpoint is a rapidly progressive multisystem disease that looks like a mucopolysaccharidosis - coarse facial features, skeletal abnormalities/dysostosis multiplex, hepatosplenomegaly, respiratory problems, developmental delay and excess urinary GAG - with, superimposed on it, congenital heart defects and renal and haematopoietic disease that are not typical of conventional MPS. For the p.Arg498Trp founder form the outcome is fatal cardiorespiratory failure at 10-20 months.</div>
 
@@ -9832,6 +9879,9 @@ This disease-associated gene is VPS33A (hgnc:18179). hgnc:18179 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -11226,10 +11276,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
                 </div>
 
-                <div class="evidence-snippet">"Mitral and tricuspid valve defects and pulmonary hypertension progressed from moderate to severe within 3"</div>
+                <div class="evidence-snippet">"Previously, we reported a novel disease of impaired glycosaminoglycans (GAGs) metabolism without deficiency of known lysosomal enzymes-mucopolysaccharidosis-plus syndrome (MPSPS). MPSPS, whose pathophysiology is not elucidated, is an autosomal recessive multisystem disorder caused by a specific..."</div>
 
 
-                <div class="evidence-explanation">Quantifies the pace of cardiac deterioration.</div>
+                <div class="evidence-explanation">Identifies p.R498W VPS33A mucopolysaccharidosis-plus syndrome, severe infantile disease and cardiac progression from moderate to severe over three to four months, with rapidly progressive multisystem involvement.</div>
 
 
 
@@ -13621,9 +13671,24 @@ progression:
     reference_title: &#34;Mucopolysaccharidosis-Plus Syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Mitral and tricuspid valve defects and pulmonary hypertension progressed from moderate to severe within 3&#34;
+    snippet: &gt;-
+      Previously, we reported a novel disease of impaired glycosaminoglycans (GAGs) metabolism
+      without deficiency of known lysosomal enzymes-mucopolysaccharidosis-plus syndrome (MPSPS).
+      MPSPS, whose pathophysiology is not elucidated, is an autosomal recessive multisystem disorder
+      caused by a specific mutation p.R498W in the VPS33A gene. ... Disease is very severe,
+      prognosis is unfavorable and most of patients died at age of 10-20 months. ... Such acute
+      conditions since the beginning tended to more frequent and each time the child’s condition
+      worsened. Most patients developed congenital heart defects. Mitral and tricuspid valve defects
+      and pulmonary hypertension progressed from moderate to severe within 3–4 months. ... All MPSPS
+      patients showed recurrent infections of the upper respiratory tract in infancy or early
+      childhood. MPSPS is a multisystem disorder with severe phenotype. In addition to clinical
+      phenotype of conventional MPS, MPSPS patients present with hematopoietic disorders, renal
+      involvement and congenital heart defects. Individuals affected by MPSPS share similar symptoms
+      that progress rapidly.
     explanation: &gt;-
-      Quantifies the pace of cardiac deterioration.
+      Identifies p.R498W VPS33A mucopolysaccharidosis-plus syndrome, severe infantile disease and
+      cardiac progression from moderate to severe over three to four months, with rapidly
+      progressive multisystem involvement.
 - phase: Terminal
   subtype: Infantile
   age_range: 10-20 months
@@ -14452,7 +14517,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mucopolysaccharidosis-Plus Syndrome", "mondoId": "MONDO:0015012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mucopolysaccharidosis-Plus_Syndrome", "yamlRevision": "b2432f682b06"};
+        const OS_CONFIG = {"diseaseName": "Mucopolysaccharidosis-Plus Syndrome", "mondoId": "MONDO:0015012", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mucopolysaccharidosis-Plus_Syndrome", "yamlRevision": "65449a9ce235"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

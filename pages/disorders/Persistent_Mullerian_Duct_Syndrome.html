@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4630,6 +4669,7 @@ This subtype is caused by variation in AMHR2 (hgnc:465). hgnc:465 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-amh-ligand-or-amhr2-receptor-loss-of-function" data-dismech-node="AMH Ligand or AMHR2 Receptor Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">AMH Ligand or AMHR2 Receptor Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants abolish either the anti-Mullerian hormone ligand secreted by fetal Sertoli cells (type I) or the type II serine/threonine kinase receptor AMHR2 that receives it (type II). About 12 percent of clinically diagnosed cases carry no identified variant in either gene, implying at least one further pathway component.</div>
 
 
@@ -4885,6 +4925,7 @@ This pathophysiological event involves anti-Mullerian hormone receptor activity 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-amh-receptor-signaling-in-mullerian-duct-mesenchyme" data-dismech-node="Failed AMH Receptor Signaling in Mullerian Duct Mesenchyme" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed AMH Receptor Signaling in Mullerian Duct Mesenchyme</div>
 
+
                 <div class="item-desc">AMHR2 is expressed on the mesenchyme surrounding the Mullerian duct epithelium. Ligand binding to AMHR2 recruits a shared type I BMP receptor (BMPR1A/ALK3, with ACVR1 also implicated) and activates receptor-regulated SMADs. Loss of ligand or receptor collapses the whole cascade at its first step, so the downstream SMAD-dependent transcriptional program that dismantles the duct is never run.</div>
 
 
@@ -5137,6 +5178,7 @@ This pathophysiological event involves decreased SMAD protein signal transductio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-mullerian-duct-regression" data-dismech-node="Failure of Mullerian Duct Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Mullerian Duct Regression</div>
 
+
                 <div class="item-desc">Mullerian duct regression is a developmentally scheduled event confined to a narrow window of male fetal differentiation; AMH signaling is required during that window and cannot act later. When the signal fails, the ducts are not dismantled and differentiate along their default path into uterus, Fallopian tubes, and upper vagina.</div>
 
 
@@ -5307,6 +5349,7 @@ This pathophysiological event occurs in Mullerian duct (UBERON:0003890). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-leydig-cell-androgen-production-and-signaling" data-dismech-node="Preserved Leydig Cell Androgen Production and Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Leydig Cell Androgen Production and Signaling</div>
+
 
                 <div class="item-desc">AMH and testosterone are two independent arms of male differentiation with different sources and different targets. PMDS breaks only the AMH arm. Leydig cells, testosterone biosynthesis, and androgen receptor signaling are all intact, which is why this is a dissociation and not a global failure of masculinization.</div>
 
@@ -5507,6 +5550,7 @@ This pathophysiological event involves androgen receptor signaling pathway (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-normal-wolffian-duct-development-and-male-external-virilization" data-dismech-node="Normal Wolffian Duct Development and Male External Virilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Normal Wolffian Duct Development and Male External Virilization</div>
 
+
                 <div class="item-desc">Epididymis, vas deferens, seminal vesicles and ejaculatory ducts form normally, the external genitalia are unambiguously male, and pubertal virilization proceeds. This is the feature that distinguishes PMDS from gonadal dysgenesis and from androgen-pathway disorders of sex development, in which external masculinization is incomplete.</div>
 
 
@@ -5671,6 +5715,7 @@ This pathophysiological event involves mesonephric duct development (GO:0072177)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-tethering-of-the-testis-by-retained-mullerian-structures" data-dismech-node="Mechanical Tethering of the Testis by Retained Mullerian Structures" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Tethering of the Testis by Retained Mullerian Structures</div>
+
 
                 <div class="item-desc">The retained uterus and Fallopian tubes are anatomically continuous with the testis and its cord, and the vasa deferentia run in the wall of the retained structures. This attachment physically restrains testicular descent, which is why cryptorchidism, hernia uteri inguinale and transverse testicular ectopia are the presenting findings rather than incidental co-occurrences.</div>
 
@@ -5846,6 +5891,7 @@ This pathophysiological event occurs in Mullerian duct (UBERON:0003890). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germ-cell-neoplasia-risk-in-the-malpositioned-testis" data-dismech-node="Germ Cell Neoplasia Risk in the Malpositioned Testis" data-dismech-type="pathophysiology">
                 <div class="item-name">Germ Cell Neoplasia Risk in the Malpositioned Testis</div>
 
+
                 <div class="item-desc">Undescended and ectopic testes in PMDS carry the elevated germ cell tumour risk of cryptorchid gonads generally. Reported rates vary widely with ascertainment, from roughly 5-18 percent in surgical series to 33 percent among adults in a large referral review; seminoma is the commonest histology. Early orchidopexy is the intervention that addresses it.</div>
 
 
@@ -5919,6 +5965,7 @@ This pathophysiological event occurs in Mullerian duct (UBERON:0003890). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoplastic-transformation-of-retained-mullerian-epithelium" data-dismech-node="Neoplastic Transformation of Retained Mullerian Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Neoplastic Transformation of Retained Mullerian Epithelium</div>
+
 
                 <div class="item-desc">The retained uterus and Fallopian tubes remain in situ for life if not excised, and their epithelium can undergo malignant transformation. Adenocarcinoma (including clear-cell and endocervical-type) and adenosarcoma have been reported. This is substantially rarer than testicular malignancy and is the argument for either excision or lifelong imaging surveillance of a preserved remnant.</div>
 
@@ -6018,6 +6065,7 @@ This pathophysiological event occurs in Mullerian duct (UBERON:0003890). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-spermatogenesis-and-excurrent-duct-compromise" data-dismech-node="Impaired Spermatogenesis and Excurrent Duct Compromise" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Spermatogenesis and Excurrent Duct Compromise</div>
+
 
                 <div class="item-desc">Fertility is impaired through several converging routes: prolonged cryptorchidism damages the germinal epithelium, the excurrent ducts are distorted or detached from the testis, and excision of Mullerian remnants can injure the vasa deferentia and their blood supply. Because the last of these is iatrogenic, the surgical strategy chosen has a direct bearing on reproductive outcome.</div>
 
@@ -6123,6 +6171,7 @@ This pathophysiological event occurs in Mullerian duct (UBERON:0003890). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-and-incidental-diagnosis" data-dismech-node="Delayed and Incidental Diagnosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed and Incidental Diagnosis</div>
+
 
                 <div class="item-desc">Because external anatomy is normal, PMDS is usually discovered when a surgeon opens the inguinal canal or abdomen for something else: hernia repair, orchidopexy, or laparoscopy for impalpable testes. The consequence is repeated operations before the condition is recognized, and adult presentations with infertility or a tumour.</div>
 
@@ -7331,6 +7380,9 @@ This disease-associated gene is AMH (hgnc:464). hgnc:464 is a gene from the HUGO
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7432,6 +7484,9 @@ This disease-associated gene is AMHR2 (hgnc:465). hgnc:465 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7548,6 +7603,9 @@ This disease-associated gene is AMHR2 (hgnc:465). hgnc:465 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7618,6 +7676,9 @@ This disease-associated gene is PPP1R12A (hgnc:7618). hgnc:7618 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

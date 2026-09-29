@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5079,6 +5118,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ccdc32-loss-of-function" data-dismech-node="Biallelic CCDC32 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CCDC32 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous or compound-heterozygous loss-of-function variants in CCDC32 (also known as C15orf57, at 15q15.1) remove or truncate a small 185-amino-acid coiled-coil protein. The alleles characterised to date are frameshift or nonsense variants that terminate translation after the first 9, 54 or 80 residues, and whole-gene or multi-exon deletions. All of the characterised truncations lie upstream of the alpha-helix formed by residues 78 to 98, which is the segment required for binding the AP-2 alpha subunit.</div>
 
 
@@ -5292,6 +5338,13 @@ This pathophysiological event involves absent AP-2 adaptor complex binding (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-ap-2-adaptor-complex-assembly" data-dismech-node="Failure of AP-2 Adaptor Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of AP-2 Adaptor Complex Assembly</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">AP-2 is a heterotetramer of alpha, beta2, mu2 and sigma2 subunits and is the principal cargo adaptor of clathrin-mediated endocytosis. Its assembly is a chaperoned, ordered process: AAGAB first stabilises the alpha and sigma2 subunits, CCDC32 then displaces AAGAB to form an alpha-sigma2-CCDC32 ternary template, and that template sequentially recruits mu2 and beta2 before CCDC32 is released. Without CCDC32 the handover cannot occur and cells lose AP-2 complexes.</div>
 
 
@@ -5460,6 +5513,13 @@ This pathophysiological event involves AP-2 adaptor complex (GO:0030122). GO:003
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clathrin-coated-pit-destabilization" data-dismech-node="Clathrin-Coated Pit Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Clathrin-Coated Pit Destabilization</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Loss of CCDC32 function leaves the plasma membrane populated by flat, short-lived clathrin assemblies that fail to curve and invaginate. Invagination of the nascent coated pit is the checkpoint that determines whether a pit matures productively or aborts, so this is the point at which the molecular defect becomes a cell-biological one.</div>
 
 
@@ -5556,6 +5616,13 @@ This pathophysiological event involves Clathrin-coated pit (GO:0005905). GO:0005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-clathrin-mediated-endocytosis" data-dismech-node="Deficient Clathrin-Mediated Endocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Clathrin-Mediated Endocytosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The functional read-out of the coated-pit defect is reduced receptor-mediated internalisation, measured in the primary literature as impaired transferrin receptor uptake. Clathrin-mediated endocytosis controls the surface residence and signalling output of most developmental receptors, and its failure is the proposed bridge between the molecular lesion and the malformation phenotype.</div>
 
@@ -5696,6 +5763,13 @@ This pathophysiological event involves decreased Clathrin-dependent endocytosis 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ciliogenesis" data-dismech-node="Defective Ciliogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Ciliogenesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">An alternative, and possibly parallel, arm of the pathomechanism. Depletion of ccdc32 in zebrafish embryos and in mammalian cell culture impairs cilium formation. Because primary and motile cilia govern Hedgehog signalling, left-right patterning and craniofacial neural-crest development, a ciliary defect would account for the laterality anomalies and for the overlap of the CFNDS phenotype with recognised ciliopathies.</div>
 
 
@@ -5834,6 +5908,13 @@ This pathophysiological event involves decreased Cilium assembly (GO:0060271). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-craniofacial-cardiac-and-neural-morphogenesis" data-dismech-node="Disrupted Craniofacial, Cardiac and Neural Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Craniofacial, Cardiac and Neural Morphogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergent developmental outcome. Failure of the endocytic and possibly ciliary machinery during embryogenesis produces the syndrome: failure of fusion of the facial prominences giving bilateral cleft lip and palate, congenital cardiac malformation, disturbed left-right patterning, and maldevelopment of midline and posterior-fossa brain structures giving corpus-callosum hypoplasia and cerebellar hypoplasia.</div>
 
@@ -5981,7 +6062,7 @@ This pathophysiological event involves abnormal Determination of left/right symm
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antimicrobial prophylaxis and immunisation for asplenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the subset of individuals with asplenia, lifelong antibiotic prophylaxis (conventionally penicillin), an asplenia immunisation schedule against encapsulated organisms, and a low threshold for empiric treatment of febrile illness are indicated. This is the only pharmacological intervention in the syndrome with a specific indication rather than a purely symptomatic one, and it is the reason abdominal imaging for spleen and situs belongs in the baseline evaluation. It follows generic asplenia protocols; no CFNDS-specific protocol exists.\"}, {\"id\": \"Asplenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the spleen was reported in one of the two index individuals. This is the single most clinically urgent finding in the syndrome, because functional asplenia confers lifelong susceptibility to invasive infection with encapsulated organisms and mandates antibiotic prophylaxis and an asplenia immunisation schedule. It also belongs to the laterality complex, since asplenia is a cardinal component of right isomerism.\", \"meta\": {\"term_id\": \"HP:0001746\"}}, {\"id\": \"Biallelic CCDC32 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound-heterozygous loss-of-function variants in CCDC32 (also known as C15orf57, at 15q15.1) remove or truncate a small 185-amino-acid coiled-coil protein. The alleles characterised to date are frameshift or nonsense variants that terminate translation after the first 9, 54 or 80 residues, and whole-gene or multi-exon deletions. All of the characterised truncations lie upstream of the alpha-helix formed by residues 78 to 98, which is the segment required for binding the AP-2 alpha subunit.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"AP-2 adaptor complex binding\"], \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"role\": \"root\"}}, {\"id\": \"CCDC32\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"presence\": \"Biallelic loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"CCDC32 c.162_163dup (p.Glu55fs), family B founding frameshift\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A two-base duplication, homozygous in the 3-year-old Iranian boy of consanguineous family B reported in PMID:32307552 and heterozygous in his unaffected parents. It is the second of the two alleles that established the gene-disease relationship, and the allele whose truncated product (CCDC32 residues 1 to 54 on the current numbering) was later used as the disease-mimic construct in the AP-2 binding experiments. It is PUBLISHED as NM_001080791.2:c.189_190dupGG p.(Glu64Glyfs*12) and CURATED IN CLINVAR as c.162_163dup p.Glu55fs; the 9-codon offset is the transcript-version artefact described in the gene-level `notes:` above. Genomic coordinates are GRCh38 chr15:40562852-40562853 (GRCh37 chr15:40855051-40855052), matching the g.40855052dupCC coordinate cited in the literature.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"frameshift duplication\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CCDC32 c.27dup (p.Thr10fs), family A founding frameshift\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A single-base duplication in the first coding exon of CCDC32, homozygous in the 6-year-old girl of the consanguineous Arab Muslim family A reported in PMID:32307552 and heterozygous in her unaffected parents and two unaffected sibs. It is one of the two alleles that established the gene-disease relationship. It is PUBLISHED as NM_001080791.2:c.54dupT p.(Thr19Tyrfs*12) and CURATED IN CLINVAR as c.27dup p.Thr10fs on every current transcript including the MANE Select NM_001080792.4; the 27-nucleotide (9-codon) offset between the two nomenclatures is a transcript-version artefact and is explained in the gene-level `notes:` above. Genomic coordinates are GRCh38 chr15:40562988-40562989 (GRCh37 chr15:40855187-40855188), matching the g.40855188dupA hg19 coordinate cited in the literature. NO ALLELE FREQUENCY IS ASSERTED. The ClinVar/OMIM record states the allele \\\"was not found in the Greater Middle East Variome, Geno2MP, TOPMed, or gnomAD databases\\\", which is an absence rather than a frequency, and the primary full text that reports the population screening is not in the reference cache (PMID:32307552 is indexed abstract-only; a re-fetch on 2026-08-01 returned \\\"Content type: abstract_only\\\").\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"frameshift duplication\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CCDC32 c.471T\u003eA (p.Tyr157Ter), nonsense variant of uncertain significance\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A nonsense substitution submitted to ClinVar against cardiofacioneurodevelopmental syndrome and classified as a variant of uncertain significance. It is recorded here because it is the only reported CFNDS-associated CCDC32 allele that is NOT pathogenic-classified, and because its position matters mechanistically: at codon 157 of a 185-residue protein it terminates AFTER the residue 78 to 98 alpha-helix that every pathogenic truncation removes, so it is not obviously loss of function by the mechanism established for the other alleles. It has no published phenotype and no functional characterisation. Do not treat it as a confirmed CFNDS allele. No evidence item is attached because there is no publication reporting this allele; the only source is the ClinVar submission recorded in `external_assertions:` below. This is the one variant block in this entry without literature support, and it is flagged as such deliberately rather than omitted, because a curator or diagnostic laboratory encountering it in ClinVar needs to know that its VUS status has not moved.\", \"meta\": {\"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Clathrin-Coated Pit Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CCDC32 function leaves the plasma membrane populated by flat, short-lived clathrin assemblies that fail to curve and invaginate. Invagination of the nascent coated pit is the checkpoint that determines whether a pit matures productively or aborts, so this is the point at which the molecular defect becomes a cell-biological one.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Cleft lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cleft lip, occurring together with cleft palate, is one of the two features that PMID:35451546 designated as the core phenotype of CFNDS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0410030\"}}, {\"id\": \"Cleft lip repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the cleft lip (cheiloplasty), conventionally in the first months of life, addressing lip competence, feeding and facial appearance. Split from palatal repair because the two procedures have different timing, different functional targets and different NCIT identities; NCIT has no cheiloplasty-specific clinical-action term reachable from NCIT:C25218 that `just validate-terms` accepts, so the generic surgical-procedure term is retained here while the palatal arm uses the specific term. Standard cleft care, not CFNDS-specific.\"}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate accompanies the cleft lip in the reported individuals and is the second half of the core craniofacial feature of CFNDS. It is also the craniofacial defect seen in mice deficient in AP2 subunits, which is the comparative argument linking the human clefting to the AP-2 mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cleft palate repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the palatal cleft (palatoplasty/palatorrhaphy), typically at around 9 to 18 months and timed to speech development, within a multidisciplinary cleft team that also manages feeding, hearing and dentition. This is standard cleft care and is not specific to CFNDS; no CFNDS-specific surgical outcome data exist. The timing relative to speech acquisition is why this treatment is coordinated with the speech and language therapy entry below.\"}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes were reported in the one male individual for whom the finding was recorded. It is included because it is surgically actionable.\", \"meta\": {\"term_id\": \"HP:0000028\"}}, {\"id\": \"Defective Ciliogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An alternative, and possibly parallel, arm of the pathomechanism. Depletion of ccdc32 in zebrafish embryos and in mammalian cell culture impairs cilium formation. Because primary and motile cilia govern Hedgehog signalling, left-right patterning and craniofacial neural-crest development, a ciliary defect would account for the laterality anomalies and for the overlap of the CFNDS phenotype with recognised ciliopathies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cilium assembly\"]}}, {\"id\": \"Deficient Clathrin-Mediated Endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional read-out of the coated-pit defect is reduced receptor-mediated internalisation, measured in the primary literature as impaired transferrin receptor uptake. Clathrin-mediated endocytosis controls the surface residence and signalling output of most developmental receptors, and its failure is the proposed bridge between the molecular lesion and the malformation phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Clathrin-dependent endocytosis\"]}}, {\"id\": \"Disrupted Craniofacial, Cardiac and Neural Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent developmental outcome. Failure of the endocytic and possibly ciliary machinery during embryogenesis produces the syndrome: failure of fusion of the facial prominences giving bilateral cleft lip and palate, congenital cardiac malformation, disturbed left-right patterning, and maldevelopment of midline and posterior-fossa brain structures giving corpus-callosum hypoplasia and cerebellar hypoplasia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Determination of left/right symmetry\"], \"role\": \"outcome\"}}, {\"id\": \"Failure of AP-2 Adaptor Complex Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AP-2 is a heterotetramer of alpha, beta2, mu2 and sigma2 subunits and is the principal cargo adaptor of clathrin-mediated endocytosis. Its assembly is a chaperoned, ordered process: AAGAB first stabilises the alpha and sigma2 subunits, CCDC32 then displaces AAGAB to form an alpha-sigma2-CCDC32 ternary template, and that template sequentially recruits mu2 and beta2 before CCDC32 is released. Without CCDC32 the handover cannot occur and cells lose AP-2 complexes.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty in infancy was present in both index individuals. It is the expected early consequence of bilateral cleft lip and palate and is the first practical management problem the syndrome presents.\", \"meta\": {\"term_id\": \"HP:0008872\"}}, {\"id\": \"Multi-exon and whole-gene CCDC32 deletions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Structural deletions are a recurrent class of CFNDS allele. Reported examples are a homozygous 32,583 bp deletion affecting CCDC32, a further novel homozygous deletion in an unrelated fourth patient, and a biallelic deletion of exons 3 and 4 detected only through RNA sequencing. These alleles are important diagnostically because they can be missed by SNP array and by exome sequencing. The two whole-gene deletions carry ClinVar coordinates NC_000015.10:g.40529942_40562524del (the Abdalla patient) and NC_000015.10:g.(40529939_40562522)del (the Fernandes da Rocha patient), which differ by only 2 to 3 base pairs at each breakpoint despite coming from unrelated patients ascertained at different centres; see the `ccdc32_recurrent_15q15_deletion` discussion for what that may and may not mean.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"deletion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Nutritional and feeding support in infancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding difficulties in infancy are reported in every fully described CFNDS infant and have two convergent causes here: the orofacial cleft itself, which prevents an effective seal, and the neurodevelopmental component. Management is cleft-specific feeding equipment and positioning, calorie supplementation and growth monitoring, escalating to gastrostomy if feeding failure is severe. This closes the loop on the promoted Feeding difficulties in infancy phenotype: it was promoted from the HPO annotation set under the \\\"changes management\\\" rule in entry note (10), and this is the management it changes. Generic supportive care, not CFNDS-specific.\"}, {\"id\": \"Orchidopexy for cryptorchidism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical orchidopexy for undescended testis, conventionally between 6 and 18 months of age, following general paediatric urology practice rather than any CFNDS-specific protocol. Included because cryptorchidism was promoted into the `phenotypes:` list under the \\\"changes management\\\" rule in entry note (10), and this is the management it changes: the phenotype is only worth recording if it triggers examination and referral within the window in which orchidopexy protects fertility and reduces malignancy risk. Reported in one of the two index individuals (HPO annotation 1/1); no CFNDS-specific urological outcome data exist.\"}, {\"id\": \"Truncating variants removing residues 78 to 98\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The three homozygous truncating alleles characterised in the earliest reported patients terminate translation such that only the first 9, 54 or 80 amino acids of the 185-residue protein are produced. All three therefore lack the alpha-helix formed by residues 78 to 98, which experimental deletion shows is required for binding the AP-2 alpha subunit. This is the structural basis of the loss of function. This block is the CLASS-level statement of that shared structural consequence. The individual alleles it covers are curated separately above (`CCDC32 c.27dup` and `CCDC32 c.162_163dup`) with their HGVS, ClinVar, OMIM, dbSNP and ClinGen identifiers; the third truncation, the one expressing the first 80 residues, is described only by its truncation position in PMID:41489497 and has no matching ClinVar record identifiable by a `CCDC32[gene]` ClinVar esearch on 2026-08-01, so it is not broken out as its own allele block.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"nonsense and frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic CCDC32 Loss of Function\", \"target\": \"Failure of AP-2 Adaptor Complex Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CCDC32 is the assembly chaperone that templates AP-2 tetramer formation, so its loss is directly a failure of that assembly step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic CCDC32 Loss of Function\", \"target\": \"Defective Ciliogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depletion of the zebrafish orthologue impairs cilium formation, but no molecular route from the CCDC32 defect to the ciliary phenotype has been identified, and it is not known whether the ciliary effect is downstream of the endocytic one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of AP-2 Adaptor Complex Assembly\", \"target\": \"Clathrin-Coated Pit Destabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AP-2 nucleates and stabilises nascent clathrin-coated pits, so depletion of assembled AP-2 is directly a coated-pit stability defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clathrin-Coated Pit Destabilization\", \"target\": \"Deficient Clathrin-Mediated Endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coated pits that cannot invaginate cannot become coated vesicles, so cargo internalisation falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Clathrin-Mediated Endocytosis\", \"target\": \"Disrupted Craniofacial, Cardiac and Neural Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No specific receptor, signalling pathway or cell population has been shown to link the endocytic deficit to the human malformations. The supporting argument is comparative: mice lacking individual AP2 subunits develop cleft palate and cardiac defects, and the clinical features of CCDC32 loss resemble those of AP2 loss-of-function mutations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Ciliogenesis\", \"target\": \"Disrupted Craniofacial, Cardiac and Neural Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary signalling defects are a recognised route to craniofacial, cardiac and laterality malformations, but this route has not been demonstrated for CCDC32 in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antimicrobial prophylaxis and immunisation for asplenia\", \"target\": \"Asplenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft palate repair\", \"target\": \"Cleft palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft lip repair\", \"target\": \"Cleft lip\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional and feeding support in infancy\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orchidopexy for cryptorchidism\", \"target\": \"Cryptorchidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CCDC32\", \"target\": \"Biallelic CCDC32 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC32 c.27dup (p.Thr10fs), family A founding frameshift\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCDC32 c.162_163dup (p.Glu55fs), family B founding frameshift\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCDC32 c.471T\u003eA (p.Tyr157Ter), nonsense variant of uncertain significance\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Truncating variants removing residues 78 to 98\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Multi-exon and whole-gene CCDC32 deletions\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antimicrobial prophylaxis and immunisation for asplenia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In the subset of individuals with asplenia, lifelong antibiotic prophylaxis (conventionally penicillin), an asplenia immunisation schedule against encapsulated organisms, and a low threshold for empiric treatment of febrile illness are indicated. This is the only pharmacological intervention in the syndrome with a specific indication rather than a purely symptomatic one, and it is the reason abdominal imaging for spleen and situs belongs in the baseline evaluation. It follows generic asplenia protocols; no CFNDS-specific protocol exists.\"}, {\"id\": \"Asplenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of the spleen was reported in one of the two index individuals. This is the single most clinically urgent finding in the syndrome, because functional asplenia confers lifelong susceptibility to invasive infection with encapsulated organisms and mandates antibiotic prophylaxis and an asplenia immunisation schedule. It also belongs to the laterality complex, since asplenia is a cardinal component of right isomerism.\", \"meta\": {\"term_id\": \"HP:0001746\"}}, {\"id\": \"Biallelic CCDC32 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous or compound-heterozygous loss-of-function variants in CCDC32 (also known as C15orf57, at 15q15.1) remove or truncate a small 185-amino-acid coiled-coil protein. The alleles characterised to date are frameshift or nonsense variants that terminate translation after the first 9, 54 or 80 residues, and whole-gene or multi-exon deletions. All of the characterised truncations lie upstream of the alpha-helix formed by residues 78 to 98, which is the segment required for binding the AP-2 alpha subunit.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"AP-2 adaptor complex binding\"], \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"role\": \"root\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"CCDC32\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"presence\": \"Biallelic loss-of-function variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"CCDC32 c.162_163dup (p.Glu55fs), family B founding frameshift\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A two-base duplication, homozygous in the 3-year-old Iranian boy of consanguineous family B reported in PMID:32307552 and heterozygous in his unaffected parents. It is the second of the two alleles that established the gene-disease relationship, and the allele whose truncated product (CCDC32 residues 1 to 54 on the current numbering) was later used as the disease-mimic construct in the AP-2 binding experiments. It is PUBLISHED as NM_001080791.2:c.189_190dupGG p.(Glu64Glyfs*12) and CURATED IN CLINVAR as c.162_163dup p.Glu55fs; the 9-codon offset is the transcript-version artefact described in the gene-level `notes:` above. Genomic coordinates are GRCh38 chr15:40562852-40562853 (GRCh37 chr15:40855051-40855052), matching the g.40855052dupCC coordinate cited in the literature.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"frameshift duplication\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CCDC32 c.27dup (p.Thr10fs), family A founding frameshift\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A single-base duplication in the first coding exon of CCDC32, homozygous in the 6-year-old girl of the consanguineous Arab Muslim family A reported in PMID:32307552 and heterozygous in her unaffected parents and two unaffected sibs. It is one of the two alleles that established the gene-disease relationship. It is PUBLISHED as NM_001080791.2:c.54dupT p.(Thr19Tyrfs*12) and CURATED IN CLINVAR as c.27dup p.Thr10fs on every current transcript including the MANE Select NM_001080792.4; the 27-nucleotide (9-codon) offset between the two nomenclatures is a transcript-version artefact and is explained in the gene-level `notes:` above. Genomic coordinates are GRCh38 chr15:40562988-40562989 (GRCh37 chr15:40855187-40855188), matching the g.40855188dupA hg19 coordinate cited in the literature. NO ALLELE FREQUENCY IS ASSERTED. The ClinVar/OMIM record states the allele \\\"was not found in the Greater Middle East Variome, Geno2MP, TOPMed, or gnomAD databases\\\", which is an absence rather than a frequency, and the primary full text that reports the population screening is not in the reference cache (PMID:32307552 is indexed abstract-only; a re-fetch on 2026-08-01 returned \\\"Content type: abstract_only\\\").\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"frameshift duplication\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"CCDC32 c.471T\u003eA (p.Tyr157Ter), nonsense variant of uncertain significance\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A nonsense substitution submitted to ClinVar against cardiofacioneurodevelopmental syndrome and classified as a variant of uncertain significance. It is recorded here because it is the only reported CFNDS-associated CCDC32 allele that is NOT pathogenic-classified, and because its position matters mechanistically: at codon 157 of a 185-residue protein it terminates AFTER the residue 78 to 98 alpha-helix that every pathogenic truncation removes, so it is not obviously loss of function by the mechanism established for the other alleles. It has no published phenotype and no functional characterisation. Do not treat it as a confirmed CFNDS allele. No evidence item is attached because there is no publication reporting this allele; the only source is the ClinVar submission recorded in `external_assertions:` below. This is the one variant block in this entry without literature support, and it is flagged as such deliberately rather than omitted, because a curator or diagnostic laboratory encountering it in ClinVar needs to know that its VUS status has not moved.\", \"meta\": {\"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"nonsense\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Clathrin-Coated Pit Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of CCDC32 function leaves the plasma membrane populated by flat, short-lived clathrin assemblies that fail to curve and invaginate. Invagination of the nascent coated pit is the checkpoint that determines whether a pit matures productively or aborts, so this is the point at which the molecular defect becomes a cell-biological one.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Cleft lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral cleft lip, occurring together with cleft palate, is one of the two features that PMID:35451546 designated as the core phenotype of CFNDS.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0410030\"}}, {\"id\": \"Cleft lip repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the cleft lip (cheiloplasty), conventionally in the first months of life, addressing lip competence, feeding and facial appearance. Split from palatal repair because the two procedures have different timing, different functional targets and different NCIT identities; NCIT has no cheiloplasty-specific clinical-action term reachable from NCIT:C25218 that `just validate-terms` accepts, so the generic surgical-procedure term is retained here while the palatal arm uses the specific term. Standard cleft care, not CFNDS-specific.\"}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate accompanies the cleft lip in the reported individuals and is the second half of the core craniofacial feature of CFNDS. It is also the craniofacial defect seen in mice deficient in AP2 subunits, which is the comparative argument linking the human clefting to the AP-2 mechanism.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Cleft palate repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical closure of the palatal cleft (palatoplasty/palatorrhaphy), typically at around 9 to 18 months and timed to speech development, within a multidisciplinary cleft team that also manages feeding, hearing and dentition. This is standard cleft care and is not specific to CFNDS; no CFNDS-specific surgical outcome data exist. The timing relative to speech acquisition is why this treatment is coordinated with the speech and language therapy entry below.\"}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended testes were reported in the one male individual for whom the finding was recorded. It is included because it is surgically actionable.\", \"meta\": {\"term_id\": \"HP:0000028\"}}, {\"id\": \"Defective Ciliogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"An alternative, and possibly parallel, arm of the pathomechanism. Depletion of ccdc32 in zebrafish embryos and in mammalian cell culture impairs cilium formation. Because primary and motile cilia govern Hedgehog signalling, left-right patterning and craniofacial neural-crest development, a ciliary defect would account for the laterality anomalies and for the overlap of the CFNDS phenotype with recognised ciliopathies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Cilium assembly\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Deficient Clathrin-Mediated Endocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The functional read-out of the coated-pit defect is reduced receptor-mediated internalisation, measured in the primary literature as impaired transferrin receptor uptake. Clathrin-mediated endocytosis controls the surface residence and signalling output of most developmental receptors, and its failure is the proposed bridge between the molecular lesion and the malformation phenotype.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Clathrin-dependent endocytosis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Disrupted Craniofacial, Cardiac and Neural Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent developmental outcome. Failure of the endocytic and possibly ciliary machinery during embryogenesis produces the syndrome: failure of fusion of the facial prominences giving bilateral cleft lip and palate, congenital cardiac malformation, disturbed left-right patterning, and maldevelopment of midline and posterior-fossa brain structures giving corpus-callosum hypoplasia and cerebellar hypoplasia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Determination of left/right symmetry\"], \"role\": \"outcome\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of AP-2 Adaptor Complex Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AP-2 is a heterotetramer of alpha, beta2, mu2 and sigma2 subunits and is the principal cargo adaptor of clathrin-mediated endocytosis. Its assembly is a chaperoned, ordered process: AAGAB first stabilises the alpha and sigma2 subunits, CCDC32 then displaces AAGAB to form an alpha-sigma2-CCDC32 ternary template, and that template sequentially recruits mu2 and beta2 before CCDC32 is released. Without CCDC32 the handover cannot occur and cells lose AP-2 complexes.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Feeding difficulties in infancy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulty in infancy was present in both index individuals. It is the expected early consequence of bilateral cleft lip and palate and is the first practical management problem the syndrome presents.\", \"meta\": {\"term_id\": \"HP:0008872\"}}, {\"id\": \"Multi-exon and whole-gene CCDC32 deletions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Structural deletions are a recurrent class of CFNDS allele. Reported examples are a homozygous 32,583 bp deletion affecting CCDC32, a further novel homozygous deletion in an unrelated fourth patient, and a biallelic deletion of exons 3 and 4 detected only through RNA sequencing. These alleles are important diagnostically because they can be missed by SNP array and by exome sequencing. The two whole-gene deletions carry ClinVar coordinates NC_000015.10:g.40529942_40562524del (the Abdalla patient) and NC_000015.10:g.(40529939_40562522)del (the Fernandes da Rocha patient), which differ by only 2 to 3 base pairs at each breakpoint despite coming from unrelated patients ascertained at different centres; see the `ccdc32_recurrent_15q15_deletion` discussion for what that may and may not mean.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"deletion\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Nutritional and feeding support in infancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Feeding difficulties in infancy are reported in every fully described CFNDS infant and have two convergent causes here: the orofacial cleft itself, which prevents an effective seal, and the neurodevelopmental component. Management is cleft-specific feeding equipment and positioning, calorie supplementation and growth monitoring, escalating to gastrostomy if feeding failure is severe. This closes the loop on the promoted Feeding difficulties in infancy phenotype: it was promoted from the HPO annotation set under the \\\"changes management\\\" rule in entry note (10), and this is the management it changes. Generic supportive care, not CFNDS-specific.\"}, {\"id\": \"Orchidopexy for cryptorchidism\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical orchidopexy for undescended testis, conventionally between 6 and 18 months of age, following general paediatric urology practice rather than any CFNDS-specific protocol. Included because cryptorchidism was promoted into the `phenotypes:` list under the \\\"changes management\\\" rule in entry note (10), and this is the management it changes: the phenotype is only worth recording if it triggers examination and referral within the window in which orchidopexy protects fertility and reduces malignancy risk. Reported in one of the two index individuals (HPO annotation 1/1); no CFNDS-specific urological outcome data exist.\"}, {\"id\": \"Truncating variants removing residues 78 to 98\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The three homozygous truncating alleles characterised in the earliest reported patients terminate translation such that only the first 9, 54 or 80 amino acids of the 185-residue protein are produced. All three therefore lack the alpha-helix formed by residues 78 to 98, which experimental deletion shows is required for binding the AP-2 alpha subunit. This is the structural basis of the loss of function. This block is the CLASS-level statement of that shared structural consequence. The individual alleles it covers are curated separately above (`CCDC32 c.27dup` and `CCDC32 c.162_163dup`) with their HGVS, ClinVar, OMIM, dbSNP and ClinGen identifiers; the third truncation, the one expressing the first 80 residues, is described only by its truncation position in PMID:41489497 and has no matching ClinVar record identifiable by a `CCDC32[gene]` ClinVar esearch on 2026-08-01, so it is not broken out as its own allele block.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CCDC32\"], \"gene_terms\": [{\"label\": \"CCDC32\", \"id\": \"hgnc:28295\"}], \"variant_type\": \"nonsense and frameshift\", \"clinical_significance\": \"PATHOGENIC\"}}], \"edges\": [{\"source\": \"Biallelic CCDC32 Loss of Function\", \"target\": \"Failure of AP-2 Adaptor Complex Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CCDC32 is the assembly chaperone that templates AP-2 tetramer formation, so its loss is directly a failure of that assembly step.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Biallelic CCDC32 Loss of Function\", \"target\": \"Defective Ciliogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depletion of the zebrafish orthologue impairs cilium formation, but no molecular route from the CCDC32 defect to the ciliary phenotype has been identified, and it is not known whether the ciliary effect is downstream of the endocytic one.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of AP-2 Adaptor Complex Assembly\", \"target\": \"Clathrin-Coated Pit Destabilization\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AP-2 nucleates and stabilises nascent clathrin-coated pits, so depletion of assembled AP-2 is directly a coated-pit stability defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clathrin-Coated Pit Destabilization\", \"target\": \"Deficient Clathrin-Mediated Endocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Coated pits that cannot invaginate cannot become coated vesicles, so cargo internalisation falls.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Clathrin-Mediated Endocytosis\", \"target\": \"Disrupted Craniofacial, Cardiac and Neural Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"No specific receptor, signalling pathway or cell population has been shown to link the endocytic deficit to the human malformations. The supporting argument is comparative: mice lacking individual AP2 subunits develop cleft palate and cardiac defects, and the clinical features of CCDC32 loss resemble those of AP2 loss-of-function mutations.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Defective Ciliogenesis\", \"target\": \"Disrupted Craniofacial, Cardiac and Neural Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ciliary signalling defects are a recognised route to craniofacial, cardiac and laterality malformations, but this route has not been demonstrated for CCDC32 in human tissue.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antimicrobial prophylaxis and immunisation for asplenia\", \"target\": \"Asplenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft palate repair\", \"target\": \"Cleft palate\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cleft lip repair\", \"target\": \"Cleft lip\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Nutritional and feeding support in infancy\", \"target\": \"Feeding difficulties in infancy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orchidopexy for cryptorchidism\", \"target\": \"Cryptorchidism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CCDC32\", \"target\": \"Biallelic CCDC32 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CCDC32 c.27dup (p.Thr10fs), family A founding frameshift\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCDC32 c.162_163dup (p.Glu55fs), family B founding frameshift\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"CCDC32 c.471T\u003eA (p.Tyr157Ter), nonsense variant of uncertain significance\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Truncating variants removing residues 78 to 98\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"Multi-exon and whole-gene CCDC32 deletions\", \"target\": \"CCDC32\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8195,6 +8276,9 @@ This disease-associated gene is CCDC32 (hgnc:28295). hgnc:28295 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8303,6 +8387,7 @@ This disease-associated gene is CCDC32 (hgnc:28295). hgnc:28295 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8322,6 +8407,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift duplication</span>
 
 
@@ -8329,6 +8415,11 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         <span class="tag" style="background: #f1f5f9; color: #475569;">1 bp</span>
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A single-base duplication in the first coding exon of CCDC32, homozygous in the 6-year-old girl of the consanguineous Arab Muslim family A reported in PMID:32307552 and heterozygous in her unaffected parents and two unaffected sibs. It is one of the two alleles that established the gene-disease relationship. It is PUBLISHED as NM_001080791.2:c.54dupT p.(Thr19Tyrfs*12) and CURATED IN CLINVAR as c.27dup p.Thr10fs on every current transcript including the MANE Select NM_001080792.4; the 27-nucleotide (9-codon) offset between the two nomenclatures is a transcript-version artefact and is explained in the gene-level `notes:` above. Genomic coordinates are GRCh38 chr15:40562988-40562989 (GRCh37 chr15:40855187-40855188), matching the g.40855188dupA hg19 coordinate cited in the literature. NO ALLELE FREQUENCY IS ASSERTED. The ClinVar/OMIM record states the allele &#34;was not found in the Greater Middle East Variome, Geno2MP, TOPMed, or gnomAD databases&#34;, which is an absence rather than a frequency, and the primary full text that reports the population screening is not in the reference cache (PMID:32307552 is indexed abstract-only; a re-fetch on 2026-08-01 returned &#34;Content type: abstract_only&#34;).</div>
@@ -8497,6 +8588,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8516,6 +8608,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">frameshift duplication</span>
 
 
@@ -8523,6 +8616,11 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         <span class="tag" style="background: #f1f5f9; color: #475569;">2 bp</span>
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A two-base duplication, homozygous in the 3-year-old Iranian boy of consanguineous family B reported in PMID:32307552 and heterozygous in his unaffected parents. It is the second of the two alleles that established the gene-disease relationship, and the allele whose truncated product (CCDC32 residues 1 to 54 on the current numbering) was later used as the disease-mimic construct in the AP-2 binding experiments. It is PUBLISHED as NM_001080791.2:c.189_190dupGG p.(Glu64Glyfs*12) and CURATED IN CLINVAR as c.162_163dup p.Glu55fs; the 9-codon offset is the transcript-version artefact described in the gene-level `notes:` above. Genomic coordinates are GRCh38 chr15:40562852-40562853 (GRCh37 chr15:40855051-40855052), matching the g.40855052dupCC coordinate cited in the literature.</div>
@@ -8716,6 +8814,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8735,6 +8834,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense</span>
 
 
@@ -8742,6 +8842,11 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         <span class="tag" style="background: #f1f5f9; color: #475569;">1 bp</span>
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A nonsense substitution submitted to ClinVar against cardiofacioneurodevelopmental syndrome and classified as a variant of uncertain significance. It is recorded here because it is the only reported CFNDS-associated CCDC32 allele that is NOT pathogenic-classified, and because its position matters mechanistically: at codon 157 of a 185-residue protein it terminates AFTER the residue 78 to 98 alpha-helix that every pathogenic truncation removes, so it is not obviously loss of function by the mechanism established for the other alleles. It has no published phenotype and no functional characterisation. Do not treat it as a confirmed CFNDS allele. No evidence item is attached because there is no publication reporting this allele; the only source is the ClinVar submission recorded in `external_assertions:` below. This is the one variant block in this entry without literature support, and it is flagged as such deliberately rather than omitted, because a curator or diagnostic laboratory encountering it in ClinVar needs to know that its VUS status has not moved.</div>
@@ -8840,6 +8945,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8859,11 +8965,17 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense and frameshift</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The three homozygous truncating alleles characterised in the earliest reported patients terminate translation such that only the first 9, 54 or 80 amino acids of the 185-residue protein are produced. All three therefore lack the alpha-helix formed by residues 78 to 98, which experimental deletion shows is required for binding the AP-2 alpha subunit. This is the structural basis of the loss of function. This block is the CLASS-level statement of that shared structural consequence. The individual alleles it covers are curated separately above (`CCDC32 c.27dup` and `CCDC32 c.162_163dup`) with their HGVS, ClinVar, OMIM, dbSNP and ClinGen identifiers; the third truncation, the one expressing the first 80 residues, is described only by its truncation position in PMID:41489497 and has no matching ClinVar record identifiable by a `CCDC32[gene]` ClinVar esearch on 2026-08-01, so it is not broken out as its own allele block.</div>
@@ -9000,6 +9112,7 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9019,11 +9132,17 @@ This variant is in CCDC32 (hgnc:28295). hgnc:28295 is a gene from the HUGO Gene 
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">deletion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Structural deletions are a recurrent class of CFNDS allele. Reported examples are a homozygous 32,583 bp deletion affecting CCDC32, a further novel homozygous deletion in an unrelated fourth patient, and a biallelic deletion of exons 3 and 4 detected only through RNA sequencing. These alleles are important diagnostically because they can be missed by SNP array and by exome sequencing. The two whole-gene deletions carry ClinVar coordinates NC_000015.10:g.40529942_40562524del (the Abdalla patient) and NC_000015.10:g.(40529939_40562522)del (the Fernandes da Rocha patient), which differ by only 2 to 3 base pairs at each breakpoint despite coming from unrelated patients ascertained at different centres; see the `ccdc32_recurrent_15q15_deletion` discussion for what that may and may not mean.</div>

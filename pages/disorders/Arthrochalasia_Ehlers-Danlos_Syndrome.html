@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5014,6 +5053,7 @@ This subtype is caused by variation in COL1A2 (hgnc:2198). hgnc:2198 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col1a1-exon-6-affecting-variants" data-dismech-node="COL1A1 Exon 6-Affecting Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">COL1A1 Exon 6-Affecting Variants</div>
 
+
                 <div class="item-desc">Heterozygous splice-region variants or genomic deletions affect exon 6 of COL1A1. This is a structural collagen-processing disorder, not a general loss of enzyme production.</div>
 
 
@@ -5133,6 +5173,7 @@ This pathophysiological event involves COL1A1 (hgnc:2197). hgnc:2197 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col1a2-exon-6-affecting-variants" data-dismech-node="COL1A2 Exon 6-Affecting Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">COL1A2 Exon 6-Affecting Variants</div>
 
+
                 <div class="item-desc">Heterozygous splice-region variants or genomic deletions affect exon 6 of COL1A2. This is a structural collagen-processing disorder, not a general loss of enzyme production.</div>
 
 
@@ -5251,6 +5292,7 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-exon-6-sequence-from-collagen-transcripts" data-dismech-node="Loss of Exon 6 Sequence from Collagen Transcripts" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Exon 6 Sequence from Collagen Transcripts</div>
+
 
                 <div class="item-desc">Complete exon skipping or cryptic splice-site use removes different lengths of coding sequence. Whole-exon losses affect 24 residues in proalpha1(I) or 18 in proalpha2(I); a COL1A2 partial deletion can remove only five residues.</div>
 
@@ -5531,6 +5573,7 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-procollagen-n-proteinase-cleavage-site" data-dismech-node="Loss of Procollagen N-Proteinase Cleavage Site" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Procollagen N-Proteinase Cleavage Site</div>
 
+
                 <div class="item-desc">The shortened collagen substrate lacks its normal N-proteinase cleavage site. Some complete deletions also remove a crosslinking lysine, but the five-residue COL1A2 deletion preserves that lysine; lysine loss is not required in every case.</div>
 
 
@@ -5635,6 +5678,7 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retained-procollagen-n-propeptide" data-dismech-node="Retained Procollagen N-Propeptide" data-dismech-type="pathophysiology">
                 <div class="item-name">Retained Procollagen N-Propeptide</div>
+
 
                 <div class="item-desc">Impaired cleavage leaves pN collagen chains with the amino-terminal propeptide attached. Patient fibroblast assays demonstrate delayed processing; they do not establish a systemic deficiency of procollagen N-proteinase.</div>
 
@@ -5778,6 +5822,7 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disordered-collagen-fibril-architecture" data-dismech-node="Disordered Collagen Fibril Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Disordered Collagen Fibril Architecture</div>
 
+
                 <div class="item-desc">Patient skin shows altered collagen fibril size, packing and contour. The abnormal collagen-processing state is linked to disturbed fibrillogenesis, but a skin biopsy is not a direct tensile-strength measurement of every affected tissue.</div>
 
 
@@ -5919,6 +5964,13 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-periarticular-tissue-stability" data-dismech-node="Reduced Periarticular Tissue Stability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Periarticular Tissue Stability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Abnormal collagen-containing joint-support tissues are inferred to underlie marked instability and dislocations. The clinical and collagen findings support this bridge, while the cited studies do not directly measure fetal capsule or ligament tensile strength.</div>
 
@@ -6072,6 +6124,13 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dermal-mechanical-integrity" data-dismech-node="Reduced Dermal Mechanical Integrity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Dermal Mechanical Integrity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Disordered collagen matrix contributes to skin fragility and altered mechanical behavior. Relative contributions of fibril packing and crosslinking vary by allele; the human clinical findings do not isolate a single mechanical mediator.</div>
 
 
@@ -6222,7 +6281,7 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One child developed mild aortic regurgitation by age seven during serial echocardiographic follow-up. Left ventricular ejection fraction and aortic-root dimensions remained normal. This single observation does not establish a uniform progressive valvulopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001659\"}}, {\"id\": \"Atrophic Scars\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophic or cigarette-paper scars occur, without uniform severity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001075\"}}, {\"id\": \"Blue Sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000592\"}}, {\"id\": \"Bone Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fractures occurred in 9/12 selected participants in the 2020 series; that count does not establish recurrence in all nine or a population rate. One probable, molecularly unconfirmed aEDS participant in a mixed-EDS study had no childhood fracture; this does not refute disease-level skeletal fragility. A separate molecularly diagnosed girl born at 35 weeks had a pathologic skull fracture after vaginal delivery; the abstract does not establish a spontaneous mechanism or neonatal death.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0020110\"}}, {\"id\": \"Bruising Susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"COL1A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A1\"], \"gene_terms\": [{\"label\": \"COL1A1\", \"id\": \"hgnc:2197\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL1A1 Exon 6-Affecting Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous splice-region variants or genomic deletions affect exon 6 of COL1A1. This is a structural collagen-processing disorder, not a general loss of enzyme production.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A1\"], \"gene_terms\": [{\"label\": \"COL1A1\", \"id\": \"hgnc:2197\"}], \"role\": \"trigger\"}}, {\"id\": \"COL1A1 patient collagen-processing studies\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Independent patient-derived studies characterize N-propeptide retention: the 1986 report identified a 24-residue alpha1 deletion despite normal N-proteinase production, while the 2012 family showed retained pNalpha1 by electrophoresis. The family biochemical observation does not supply a newly sequenced variant or a controlled clinical rescue.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"COL1A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A2\"], \"gene_terms\": [{\"label\": \"COL1A2\", \"id\": \"hgnc:2198\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL1A2 Exon 6-Affecting Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous splice-region variants or genomic deletions affect exon 6 of COL1A2. This is a structural collagen-processing disorder, not a general loss of enzyme production.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A2\"], \"gene_terms\": [{\"label\": \"COL1A2\", \"id\": \"hgnc:2198\"}], \"role\": \"trigger\"}}, {\"id\": \"COL1A2 partial-exon deletion biochemical studies\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured fibroblasts and collagen peptide/cDNA analysis from a heterozygous family showed loss of fifteen nucleotides and five residues, with persistent pNalpha2 chains. The crosslink lysine remained; dermal solubility/extraction suggested altered crosslinking but did not map every crosslink. The available cache is abstract-only.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient 4 fibroblasts showed heterozygous exon 6 skipping from an intron 6 donor variant and delayed amino-propeptide processing. Dermal electron microscopy was a separate patient-tissue investigation, not an outcome of a fibroblast rescue.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Clubfoot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001762\"}}, {\"id\": \"Congenital Hip Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital dislocation is usually bilateral and is a major diagnostic clue. The classification notes an exceptional molecularly confirmed unilateral case; this is not an obligatory bilateral finding in every individual.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001374\"}}, {\"id\": \"Congenital or Early-Onset Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia can be severe neonatally and diminish with age. Its cause is not resolved as purely connective-tissue laxity or primary muscle dysfunction; improvement does not prove complete resolution.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Dentinogenesis Imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dentinogenesis-imperfecta-like dental changes were described in a few reported patients, including related individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000703\"}}, {\"id\": \"Depressed Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the reported variable craniofacial spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Disordered Collagen Fibril Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient skin shows altered collagen fibril size, packing and contour. The abnormal collagen-processing state is linked to disturbed fibrillogenesis, but a skin biopsy is not a direct tensile-strength measurement of every affected tissue.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lens dislocation was reported in one individual in the reviewed clinical literature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001083\"}}, {\"id\": \"Epicanthal Folds\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000286\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early feeding difficulty occurred in one reported infant; no gastrointestinal mechanism was demonstrated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Fragile Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor trauma and orthoses can damage the skin; severity is variable.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001030\"}}, {\"id\": \"Frontal Bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the reported variable craniofacial spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002007\"}}, {\"id\": \"Generalized Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked instability affects large and small joints. Recurrent dislocation severity varies; one four-year-old could walk and run without luxations despite striking hypermobility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002761\"}}, {\"id\": \"Genu Valgum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported musculoskeletal finding with variable functional consequences.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002857\"}}, {\"id\": \"Hip surgical management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Closed reduction often fails in published selected cases. A specialist team weighs mobility goals, recurrence and wound risk when considering open reduction with pelvic or femoral osteotomy. Case-series experience does not establish a universal operation or inevitable failure of every conservative attempt.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Hyperextensible Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000974\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Individualized scoliosis bracing\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A genetically diagnosed COL1A2 case improved from a 43.6-degree lumbar curve to 8 degrees after 3.5 years of a Wood-Rigo-Cheneau brace plus weekly physical therapy; at age 6 the curve measured 14 degrees after six months out of brace. Ongoing growth surveillance was required. This uncontrolled combination cannot prove brace superiority or permanent avoidance of surgery.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent instability can coexist with chronic joint pain; this is not inevitable in all patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Joint orthoses and activity adaptation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Select orthoses and footwear for joint stability and tolerance. Skin abrasions or hematomas may require modification or discontinuation. Avoid activities with high dislocation risk; prescribed rehabilitation should remain individualized.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal deformity can arise early and progress, with variable severity and treatment response.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002751\"}}, {\"id\": \"Large Fontanelles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large fontanelles are reported; inconsistent table denominators prevent reliable frequency estimation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000239\"}}, {\"id\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complete exon skipping or cryptic splice-site use removes different lengths of coding sequence. Whole-exon losses affect 24 residues in proalpha1(I) or 18 in proalpha2(I); a COL1A2 partial deletion can remove only five residues.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient transcript sequencing identified the skipped exon.\"}, {\"name\": \"COL1A2 partial-exon deletion biochemical studies\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cryptic splicing removes fifteen coding nucleotides from the collagen transcript.\"}]}}, {\"id\": \"Loss of Procollagen N-Proteinase Cleavage Site\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shortened collagen substrate lacks its normal N-proteinase cleavage site. Some complete deletions also remove a crosslinking lysine, but the five-residue COL1A2 deletion preserves that lysine; lysine loss is not required in every case.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lumbar Hyperlordosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported musculoskeletal finding with variable functional consequences.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002938\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Documented in an affected infant; presence in this selected case does not establish a universal finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Midfacial Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the reported variable craniofacial spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One child developed moderate mitral regurgitation by age seven during serial echocardiographic follow-up. Left ventricular ejection fraction and aortic-root dimensions remained normal. This single observation does not establish a uniform progressive valvulopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001653\"}}, {\"id\": \"Motor Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones may be limited by hypotonia and recurrent dislocations; this should not be relabeled global cognitive delay.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radiographic osteopenia and measured low mineral density are not interchangeable. One adult had generalized radiographic osteopenia but normal femoral and lumbar DXA Z scores.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Pain and psychological support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualize pain management and support coping with chronic instability and disability. The literature recommends anti-inflammatory medication and psychological or behavioral support, but does not establish a preferred regimen or aEDS-specific trial benefit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported musculoskeletal finding with variable functional consequences.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001763\"}}, {\"id\": \"Physical and occupational therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early individualized rehabilitation supports motor development, safe mobility and daily activities. Recommendations come mainly from expert review and case experience, not controlled aEDS trials.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Piezogenic Pedal Papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fat herniation through dermis was observed around the heels of one child.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025509\"}}, {\"id\": \"Poor Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slow wound healing is reported in individual patients and informs procedural planning.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Premature Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoarthritic changes were documented in a severely affected child, rather than inferred from pain alone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003088\"}}, {\"id\": \"Recurrent Joint Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked instability affects large and small joints. Recurrent dislocation severity varies; one four-year-old could walk and run without luxations despite striking hypermobility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001373\"}}, {\"id\": \"Reduced Dermal Mechanical Integrity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disordered collagen matrix contributes to skin fragility and altered mechanical behavior. Relative contributions of fibril packing and crosslinking vary by allele; the human clinical findings do not isolate a single mechanical mediator.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Reduced Periarticular Tissue Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal collagen-containing joint-support tissues are inferred to underlie marked instability and dislocations. The clinical and collagen findings support this bridge, while the cited studies do not directly measure fetal capsule or ligament tensile strength.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retained Procollagen N-Propeptide\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired cleavage leaves pN collagen chains with the amino-terminal propeptide attached. Patient fibroblast assays demonstrate delayed processing; they do not establish a systemic deficiency of procollagen N-proteinase.\", \"meta\": {\"evidence_count\": 2, \"experimental_models\": [{\"name\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Amino-propeptide processing was substantially delayed relative to controls.\"}, {\"name\": \"COL1A2 partial-exon deletion biochemical studies\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Mutant pN chains persisted in patient collagen preparations.\"}, {\"name\": \"COL1A1 patient collagen-processing studies\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient-cell collagen retained amino-terminal propeptide.\"}]}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature was recorded in some participants in the seven-person series, including related family members; no population frequency is estimated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skin protection and wound planning\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Minimize skin trauma from devices and procedures. Plan tension-free closure and follow-up with awareness of delayed healing; the review recommends longer suture retention, but timing should reflect the wound and specialist assessment. This guidance does not imply that every patient has extreme skin fragility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Soft Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Soft or velvety skin is part of the phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000977\"}}, {\"id\": \"Sparse Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Documented in an affected infant; presence in this selected case does not establish a universal finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}, {\"id\": \"Specialist surgery for severe spinal deformity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A 2025 report followed one clinically diagnosed patient for 17 years: traditional rods at age 5 were later replaced by magnetically lengthened rods at age 10. Kyphosis improved and sitting balance was good, but the scoliosis Cobb angle remained 100 degrees and wheelchair use persisted because of hip dislocation. The exchange procedure involved 1000 cc blood loss. No genotype, control group or general efficacy advantage was established.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tricuspid Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One child developed mild tricuspid regurgitation by age seven during serial echocardiographic follow-up. Left ventricular ejection fraction and aortic-root dimensions remained normal. This single observation does not establish a uniform progressive valvulopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005180\"}}, {\"id\": \"Umbilical Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001537\"}}, {\"id\": \"Wormian Bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accessory skull bones overlap with other type I collagen disorders.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002645\"}}], \"edges\": [{\"source\": \"COL1A1 Exon 6-Affecting Variants\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splice-region or genomic changes remove the corresponding coding sequence from the transcript.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL1A2 Exon 6-Affecting Variants\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splice-region or genomic changes remove the corresponding coding sequence from the transcript.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Loss of Procollagen N-Proteinase Cleavage Site\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of exon-encoded residues removes the substrate cleavage site.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This molecularly confirmed child had valve regurgitation; the proposed collagen-mediated valve-tissue mechanism was not directly tested and the intervening pathway remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Aortic Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This molecularly confirmed child had valve regurgitation; the proposed collagen-mediated valve-tissue mechanism was not directly tested and the intervening pathway remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Tricuspid Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This molecularly confirmed child had valve regurgitation; the proposed collagen-mediated valve-tissue mechanism was not directly tested and the intervening pathway remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Motor Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Congenital or Early-Onset Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Epicanthal Folds\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Sparse Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Frontal Bossing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Depressed Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Midfacial Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Large Fontanelles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Procollagen N-Proteinase Cleavage Site\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structurally altered substrate is poorly cleaved despite normal protease production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retained Procollagen N-Propeptide\", \"target\": \"Disordered Collagen Fibril Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persisting propeptides alter collagen assembly and packing; patient ultrastructure supports the downstream matrix abnormality without isolating every assembly step.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Reduced Periarticular Tissue Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered matrix is inferred to reduce tissue mechanical integrity; direct tissue-specific biomechanical measurements are lacking.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Reduced Dermal Mechanical Integrity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered matrix is inferred to reduce tissue mechanical integrity; direct tissue-specific biomechanical measurements are lacking.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Bone Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Blue Sclerae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Wormian Bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Dentinogenesis Imperfecta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Umbilical Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal collagen-containing abdominal support tissues are inferred to contribute to herniation; no direct fascial biomechanical measurement was reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Congenital Hip Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Generalized Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Recurrent Joint Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Clubfoot\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Genu Valgum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Lumbar Hyperlordosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Premature Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Hyperextensible Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Bruising Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Fragile Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Atrophic Scars\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Soft Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Piezogenic Pedal Papules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Physical and occupational therapy\", \"target\": \"Motor Developmental Delay\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Joint orthoses and activity adaptation\", \"target\": \"Reduced Periarticular Tissue Stability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hip surgical management\", \"target\": \"Congenital Hip Dislocation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Individualized scoliosis bracing\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Specialist surgery for severe spinal deformity\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Skin protection and wound planning\", \"target\": \"Poor Wound Healing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pain and psychological support\", \"target\": \"Joint Pain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Patient transcript sequencing identified the skipped exon.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested.\"}, {\"source\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Amino-propeptide processing was substantially delayed relative to controls.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested.\"}, {\"source\": \"COL1A2 partial-exon deletion biochemical studies\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cryptic splicing removes fifteen coding nucleotides from the collagen transcript.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested. Methods beyond the available abstract were inaccessible.\"}, {\"source\": \"COL1A2 partial-exon deletion biochemical studies\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Mutant pN chains persisted in patient collagen preparations.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested.\"}, {\"source\": \"COL1A1 patient collagen-processing studies\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Patient-cell collagen retained amino-terminal propeptide.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested. The 1986 source is available only as an abstract; the 2012 full study and family relationship were inspected.\"}, {\"source\": \"COL1A1\", \"target\": \"COL1A1 Exon 6-Affecting Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL1A2\", \"target\": \"COL1A2 Exon 6-Affecting Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aortic Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One child developed mild aortic regurgitation by age seven during serial echocardiographic follow-up. Left ventricular ejection fraction and aortic-root dimensions remained normal. This single observation does not establish a uniform progressive valvulopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001659\"}}, {\"id\": \"Atrophic Scars\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrophic or cigarette-paper scars occur, without uniform severity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001075\"}}, {\"id\": \"Blue Sclerae\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000592\"}}, {\"id\": \"Bone Fractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fractures occurred in 9/12 selected participants in the 2020 series; that count does not establish recurrence in all nine or a population rate. One probable, molecularly unconfirmed aEDS participant in a mixed-EDS study had no childhood fracture; this does not refute disease-level skeletal fragility. A separate molecularly diagnosed girl born at 35 weeks had a pathologic skull fracture after vaginal delivery; the abstract does not establish a spontaneous mechanism or neonatal death.\", \"meta\": {\"evidence_count\": 4, \"term_id\": \"HP:0020110\"}}, {\"id\": \"Bruising Susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"COL1A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A1\"], \"gene_terms\": [{\"label\": \"COL1A1\", \"id\": \"hgnc:2197\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL1A1 Exon 6-Affecting Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous splice-region variants or genomic deletions affect exon 6 of COL1A1. This is a structural collagen-processing disorder, not a general loss of enzyme production.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A1\"], \"gene_terms\": [{\"label\": \"COL1A1\", \"id\": \"hgnc:2197\"}], \"role\": \"trigger\"}}, {\"id\": \"COL1A1 patient collagen-processing studies\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Independent patient-derived studies characterize N-propeptide retention: the 1986 report identified a 24-residue alpha1 deletion despite normal N-proteinase production, while the 2012 family showed retained pNalpha1 by electrophoresis. The family biochemical observation does not supply a newly sequenced variant or a controlled clinical rescue.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"COL1A2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A2\"], \"gene_terms\": [{\"label\": \"COL1A2\", \"id\": \"hgnc:2198\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"COL1A2 Exon 6-Affecting Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous splice-region variants or genomic deletions affect exon 6 of COL1A2. This is a structural collagen-processing disorder, not a general loss of enzyme production.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"COL1A2\"], \"gene_terms\": [{\"label\": \"COL1A2\", \"id\": \"hgnc:2198\"}], \"role\": \"trigger\"}}, {\"id\": \"COL1A2 partial-exon deletion biochemical studies\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cultured fibroblasts and collagen peptide/cDNA analysis from a heterozygous family showed loss of fifteen nucleotides and five residues, with persistent pNalpha2 chains. The crosslink lysine remained; dermal solubility/extraction suggested altered crosslinking but did not map every crosslink. The available cache is abstract-only.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Patient 4 fibroblasts showed heterozygous exon 6 skipping from an intron 6 donor variant and delayed amino-propeptide processing. Dermal electron microscopy was a separate patient-tissue investigation, not an outcome of a fibroblast rescue.\", \"meta\": {\"evidence_count\": 2, \"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Clubfoot\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001762\"}}, {\"id\": \"Congenital Hip Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital dislocation is usually bilateral and is a major diagnostic clue. The classification notes an exceptional molecularly confirmed unilateral case; this is not an obligatory bilateral finding in every individual.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001374\"}}, {\"id\": \"Congenital or Early-Onset Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia can be severe neonatally and diminish with age. Its cause is not resolved as purely connective-tissue laxity or primary muscle dysfunction; improvement does not prove complete resolution.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Dentinogenesis Imperfecta\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dentinogenesis-imperfecta-like dental changes were described in a few reported patients, including related individuals.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000703\"}}, {\"id\": \"Depressed Nasal Bridge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the reported variable craniofacial spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005280\"}}, {\"id\": \"Disordered Collagen Fibril Architecture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient skin shows altered collagen fibril size, packing and contour. The abnormal collagen-processing state is linked to disturbed fibrillogenesis, but a skin biopsy is not a direct tensile-strength measurement of every affected tissue.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ectopia Lentis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lens dislocation was reported in one individual in the reviewed clinical literature.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001083\"}}, {\"id\": \"Epicanthal Folds\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000286\"}}, {\"id\": \"Feeding Difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early feeding difficulty occurred in one reported infant; no gastrointestinal mechanism was demonstrated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Fragile Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Minor trauma and orthoses can damage the skin; severity is variable.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001030\"}}, {\"id\": \"Frontal Bossing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the reported variable craniofacial spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002007\"}}, {\"id\": \"Generalized Joint Hypermobility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked instability affects large and small joints. Recurrent dislocation severity varies; one four-year-old could walk and run without luxations despite striking hypermobility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002761\"}}, {\"id\": \"Genu Valgum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported musculoskeletal finding with variable functional consequences.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002857\"}}, {\"id\": \"Hip surgical management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Closed reduction often fails in published selected cases. A specialist team weighs mobility goals, recurrence and wound risk when considering open reduction with pelvic or femoral osteotomy. Case-series experience does not establish a universal operation or inevitable failure of every conservative attempt.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Hyperextensible Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000974\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Individualized scoliosis bracing\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A genetically diagnosed COL1A2 case improved from a 43.6-degree lumbar curve to 8 degrees after 3.5 years of a Wood-Rigo-Cheneau brace plus weekly physical therapy; at age 6 the curve measured 14 degrees after six months out of brace. Ongoing growth surveillance was required. This uncontrolled combination cannot prove brace superiority or permanent avoidance of surgery.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Joint Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent instability can coexist with chronic joint pain; this is not inevitable in all patients.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Joint orthoses and activity adaptation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Select orthoses and footwear for joint stability and tolerance. Skin abrasions or hematomas may require modification or discontinuation. Avoid activities with high dislocation risk; prescribed rehabilitation should remain individualized.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Kyphoscoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Spinal deformity can arise early and progress, with variable severity and treatment response.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002751\"}}, {\"id\": \"Large Fontanelles\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Large fontanelles are reported; inconsistent table denominators prevent reliable frequency estimation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000239\"}}, {\"id\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Complete exon skipping or cryptic splice-site use removes different lengths of coding sequence. Whole-exon losses affect 24 residues in proalpha1(I) or 18 in proalpha2(I); a COL1A2 partial deletion can remove only five residues.\", \"meta\": {\"evidence_count\": 3, \"experimental_models\": [{\"name\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient transcript sequencing identified the skipped exon.\"}, {\"name\": \"COL1A2 partial-exon deletion biochemical studies\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cryptic splicing removes fifteen coding nucleotides from the collagen transcript.\"}]}}, {\"id\": \"Loss of Procollagen N-Proteinase Cleavage Site\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shortened collagen substrate lacks its normal N-proteinase cleavage site. Some complete deletions also remove a crosslinking lysine, but the five-residue COL1A2 deletion preserves that lysine; lysine loss is not required in every case.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Lumbar Hyperlordosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported musculoskeletal finding with variable functional consequences.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002938\"}}, {\"id\": \"Micrognathia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Documented in an affected infant; presence in this selected case does not establish a universal finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000347\"}}, {\"id\": \"Midfacial Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Part of the reported variable craniofacial spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011800\"}}, {\"id\": \"Mitral Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One child developed moderate mitral regurgitation by age seven during serial echocardiographic follow-up. Left ventricular ejection fraction and aortic-root dimensions remained normal. This single observation does not establish a uniform progressive valvulopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001653\"}}, {\"id\": \"Motor Developmental Delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor milestones may be limited by hypotonia and recurrent dislocations; this should not be relabeled global cognitive delay.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001270\"}}, {\"id\": \"Osteopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Radiographic osteopenia and measured low mineral density are not interchangeable. One adult had generalized radiographic osteopenia but normal femoral and lumbar DXA Z scores.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000938\"}}, {\"id\": \"Pain and psychological support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualize pain management and support coping with chronic instability and disability. The literature recommends anti-inflammatory medication and psychological or behavioral support, but does not establish a preferred regimen or aEDS-specific trial benefit.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Pes Planus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reported musculoskeletal finding with variable functional consequences.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001763\"}}, {\"id\": \"Physical and occupational therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early individualized rehabilitation supports motor development, safe mobility and daily activities. Recommendations come mainly from expert review and case experience, not controlled aEDS trials.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Piezogenic Pedal Papules\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fat herniation through dermis was observed around the heels of one child.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025509\"}}, {\"id\": \"Poor Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Slow wound healing is reported in individual patients and informs procedural planning.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Premature Osteoarthritis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Osteoarthritic changes were documented in a severely affected child, rather than inferred from pain alone.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003088\"}}, {\"id\": \"Recurrent Joint Dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Marked instability affects large and small joints. Recurrent dislocation severity varies; one four-year-old could walk and run without luxations despite striking hypermobility.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001373\"}}, {\"id\": \"Reduced Dermal Mechanical Integrity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disordered collagen matrix contributes to skin fragility and altered mechanical behavior. Relative contributions of fibril packing and crosslinking vary by allele; the human clinical findings do not isolate a single mechanical mediator.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Reduced Periarticular Tissue Stability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Abnormal collagen-containing joint-support tissues are inferred to underlie marked instability and dislocations. The clinical and collagen findings support this bridge, while the cited studies do not directly measure fetal capsule or ligament tensile strength.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Retained Procollagen N-Propeptide\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired cleavage leaves pN collagen chains with the amino-terminal propeptide attached. Patient fibroblast assays demonstrate delayed processing; they do not establish a systemic deficiency of procollagen N-proteinase.\", \"meta\": {\"evidence_count\": 2, \"experimental_models\": [{\"name\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Amino-propeptide processing was substantially delayed relative to controls.\"}, {\"name\": \"COL1A2 partial-exon deletion biochemical studies\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Mutant pN chains persisted in patient collagen preparations.\"}, {\"name\": \"COL1A1 patient collagen-processing studies\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Patient-cell collagen retained amino-terminal propeptide.\"}]}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Short stature was recorded in some participants in the seven-person series, including related family members; no population frequency is estimated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Skin protection and wound planning\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Minimize skin trauma from devices and procedures. Plan tension-free closure and follow-up with awareness of delayed healing; the review recommends longer suture retention, but timing should reflect the wound and specialist assessment. This guidance does not imply that every patient has extreme skin fragility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Soft Skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Soft or velvety skin is part of the phenotype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000977\"}}, {\"id\": \"Sparse Hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Documented in an affected infant; presence in this selected case does not establish a universal finding.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0008070\"}}, {\"id\": \"Specialist surgery for severe spinal deformity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A 2025 report followed one clinically diagnosed patient for 17 years: traditional rods at age 5 were later replaced by magnetically lengthened rods at age 10. Kyphosis improved and sitting balance was good, but the scoliosis Cobb angle remained 100 degrees and wheelchair use persisted because of hip dislocation. The exchange procedure involved 1000 cc blood loss. No genotype, control group or general efficacy advantage was established.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Tricuspid Regurgitation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"One child developed mild tricuspid regurgitation by age seven during serial echocardiographic follow-up. Left ventricular ejection fraction and aortic-root dimensions remained normal. This single observation does not establish a uniform progressive valvulopathy.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005180\"}}, {\"id\": \"Umbilical Hernia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001537\"}}, {\"id\": \"Wormian Bones\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Accessory skull bones overlap with other type I collagen disorders.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002645\"}}], \"edges\": [{\"source\": \"COL1A1 Exon 6-Affecting Variants\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splice-region or genomic changes remove the corresponding coding sequence from the transcript.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"COL1A2 Exon 6-Affecting Variants\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Splice-region or genomic changes remove the corresponding coding sequence from the transcript.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Loss of Procollagen N-Proteinase Cleavage Site\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of exon-encoded residues removes the substrate cleavage site.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Mitral Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This molecularly confirmed child had valve regurgitation; the proposed collagen-mediated valve-tissue mechanism was not directly tested and the intervening pathway remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Aortic Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This molecularly confirmed child had valve regurgitation; the proposed collagen-mediated valve-tissue mechanism was not directly tested and the intervening pathway remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Tricuspid Regurgitation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This molecularly confirmed child had valve regurgitation; the proposed collagen-mediated valve-tissue mechanism was not directly tested and the intervening pathway remains uncertain.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Motor Developmental Delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Congenital or Early-Onset Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Epicanthal Folds\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Micrognathia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Sparse Hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Frontal Bossing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Depressed Nasal Bridge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Midfacial Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Large Fontanelles\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"target\": \"Feeding Difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The clinical finding is associated with the collagen-related phenotype; a specific causal developmental pathway has not been established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Procollagen N-Proteinase Cleavage Site\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The structurally altered substrate is poorly cleaved despite normal protease production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retained Procollagen N-Propeptide\", \"target\": \"Disordered Collagen Fibril Architecture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persisting propeptides alter collagen assembly and packing; patient ultrastructure supports the downstream matrix abnormality without isolating every assembly step.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Reduced Periarticular Tissue Stability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered matrix is inferred to reduce tissue mechanical integrity; direct tissue-specific biomechanical measurements are lacking.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Reduced Dermal Mechanical Integrity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disordered matrix is inferred to reduce tissue mechanical integrity; direct tissue-specific biomechanical measurements are lacking.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Bone Fractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Blue Sclerae\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Osteopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Wormian Bones\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Ectopia Lentis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Dentinogenesis Imperfecta\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This clinical feature accompanies the collagen disorder; its specific developmental or tissue-level mediator remains unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disordered Collagen Fibril Architecture\", \"target\": \"Umbilical Hernia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal collagen-containing abdominal support tissues are inferred to contribute to herniation; no direct fascial biomechanical measurement was reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Congenital Hip Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Generalized Joint Hypermobility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Recurrent Joint Dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Clubfoot\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Pes Planus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Genu Valgum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Lumbar Hyperlordosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Joint Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Periarticular Tissue Stability\", \"target\": \"Premature Osteoarthritis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired joint support contributes to this musculoskeletal finding; exact tissue and developmental intermediates are unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Hyperextensible Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Bruising Susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Fragile Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Atrophic Scars\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Soft Skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Dermal Mechanical Integrity\", \"target\": \"Piezogenic Pedal Papules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal connective-tissue mechanics contribute to this clinical finding without isolating its specific matrix mediator.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Physical and occupational therapy\", \"target\": \"Motor Developmental Delay\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Joint orthoses and activity adaptation\", \"target\": \"Reduced Periarticular Tissue Stability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hip surgical management\", \"target\": \"Congenital Hip Dislocation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Individualized scoliosis bracing\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Specialist surgery for severe spinal deformity\", \"target\": \"Kyphoscoliosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Skin protection and wound planning\", \"target\": \"Poor Wound Healing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pain and psychological support\", \"target\": \"Joint Pain\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Patient transcript sequencing identified the skipped exon.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested.\"}, {\"source\": \"COL1A2 whole-exon-skipping patient fibroblasts\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Amino-propeptide processing was substantially delayed relative to controls.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested.\"}, {\"source\": \"COL1A2 partial-exon deletion biochemical studies\", \"target\": \"Loss of Exon 6 Sequence from Collagen Transcripts\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cryptic splicing removes fifteen coding nucleotides from the collagen transcript.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested. Methods beyond the available abstract were inaccessible.\"}, {\"source\": \"COL1A2 partial-exon deletion biochemical studies\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Mutant pN chains persisted in patient collagen preparations.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested.\"}, {\"source\": \"COL1A1 patient collagen-processing studies\", \"target\": \"Retained Procollagen N-Propeptide\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Patient-cell collagen retained amino-terminal propeptide.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Patient-cell observations with limited sampling; no gene correction, tissue-mechanical rescue, orthopedic outcome or treatment efficacy was tested. The 1986 source is available only as an abstract; the 2012 full study and family relationship were inspected.\"}, {\"source\": \"COL1A1\", \"target\": \"COL1A1 Exon 6-Affecting Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL1A2\", \"target\": \"COL1A2 Exon 6-Affecting Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6255,15 +6314,13 @@ This pathophysiological event involves COL1A2 (hgnc:2198). hgnc:2198 is a gene f
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(8)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -8441,7 +8498,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-joint-hypermobility" data-dismech-node="Generalized Joint Hypermobility" data-dismech-type="phenotype">
@@ -8666,564 +8723,6 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Kyphoscoliosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002751</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35162892" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35162892" target="_blank">PMID:35162892</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"such as muscular hypotonia, kyphoscoliosis, radiologically mild osteopenia, tissue fragility, including atrophic scarring, and hematomas."</div>
-
-
-                <div class="evidence-explanation">Diagnostic clinical spectrum synthesized by the review.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-osteopenia" data-dismech-node="Osteopenia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Osteopenia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000938</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Radiographic evaluation of the skeleton revealed presence of Wormian bones, thoracic scoliosis and generalized osteopenia. Bone densitometry however yielded normal values for DEXA Z-scores at the level of the femur and the lumbar spine."</div>
-
-
-                <div class="evidence-explanation">Paired radiograph and densitometry findings in patient 4.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lumbar-hyperlordosis" data-dismech-node="Lumbar Hyperlordosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lumbar Hyperlordosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002938</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Upon physical examination at age 28, she manifested joint hypermobility (Beighton score of 8/9), genua valga, flexible pes planus and hyperlordosis of the lower spine"</div>
-
-
-                <div class="evidence-explanation">Direct adult examination.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-osteoarthritis" data-dismech-node="Premature Osteoarthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature Osteoarthritis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003088</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Premature osteoarthritis (HP:0003088). HP:0003088 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The right knee demonstrated moderate tricompartmental osteoarthritic changes. The left knee was normal."</div>
-
-
-                <div class="evidence-explanation">Imaging at age 8 in patient 6.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-developmental-delay" data-dismech-node="Motor Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Motor Developmental Delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Motor delay</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001270</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Motor development is significantly delayed in the neonatal and postnatal period due to muscular hypotonia and recurrent joint luxations, but cognitive development is usually normal."</div>
-
-
-                <div class="evidence-explanation">Seven-person series; normal cognition does not imply intact mobility.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-pain" data-dismech-node="Joint Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint Pain
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Arthralgia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002829</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She tends to walk with an antalgic gait and complains of subluxations of her right knee and chronic knee and hip pain."</div>
-
-
-                <div class="evidence-explanation">Patient7 follow-up.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Short stature | - | - | - | + | + | + | + | 4 / 7 | 2 / 6 | 21"</div>
-
-
-                <div class="evidence-explanation">Table row supports presence in named participants; selected related cases do not provide a population frequency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-12">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bone-fractures" data-dismech-node="Bone Fractures" data-dismech-type="phenotype">
                     <div class="item-name">
                         Bone Fractures
@@ -9238,10 +8737,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0020110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0020110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bone fracture (HP:0020110). HP:0020110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9354,6 +8853,555 @@ This clinical feature is Bone fracture (HP:0020110). HP:0020110 is a phenotype f
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-kyphoscoliosis" data-dismech-node="Kyphoscoliosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Kyphoscoliosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002751</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Kyphoscoliosis (HP:0002751). HP:0002751 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35162892" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35162892" target="_blank">PMID:35162892</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"such as muscular hypotonia, kyphoscoliosis, radiologically mild osteopenia, tissue fragility, including atrophic scarring, and hematomas."</div>
+
+
+                <div class="evidence-explanation">Diagnostic clinical spectrum synthesized by the review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-osteopenia" data-dismech-node="Osteopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Osteopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000938</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Radiographic evaluation of the skeleton revealed presence of Wormian bones, thoracic scoliosis and generalized osteopenia. Bone densitometry however yielded normal values for DEXA Z-scores at the level of the femur and the lumbar spine."</div>
+
+
+                <div class="evidence-explanation">Paired radiograph and densitometry findings in patient 4.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lumbar-hyperlordosis" data-dismech-node="Lumbar Hyperlordosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lumbar Hyperlordosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002938</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lumbar hyperlordosis (HP:0002938). HP:0002938 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Upon physical examination at age 28, she manifested joint hypermobility (Beighton score of 8/9), genua valga, flexible pes planus and hyperlordosis of the lower spine"</div>
+
+
+                <div class="evidence-explanation">Direct adult examination.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-osteoarthritis" data-dismech-node="Premature Osteoarthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Premature Osteoarthritis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003088" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0003088</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature osteoarthritis (HP:0003088). HP:0003088 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The right knee demonstrated moderate tricompartmental osteoarthritic changes. The left knee was normal."</div>
+
+
+                <div class="evidence-explanation">Imaging at age 8 in patient 6.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-motor-developmental-delay" data-dismech-node="Motor Developmental Delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Motor Developmental Delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Motor delay</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Motor development is significantly delayed in the neonatal and postnatal period due to muscular hypotonia and recurrent joint luxations, but cognitive development is usually normal."</div>
+
+
+                <div class="evidence-explanation">Seven-person series; normal cognition does not imply intact mobility.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-pain" data-dismech-node="Joint Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint Pain
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Arthralgia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She tends to walk with an antalgic gait and complains of subluxations of her right knee and chronic knee and hip pain."</div>
+
+
+                <div class="evidence-explanation">Patient7 follow-up.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short Stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21801164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21801164" target="_blank">PMID:21801164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Short stature | - | - | - | + | + | + | + | 4 / 7 | 2 / 6 | 21"</div>
+
+
+                <div class="evidence-explanation">Table row supports presence in named participants; selected related cases do not provide a population frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <script>
@@ -9426,6 +9474,9 @@ This disease-associated gene is COL1A1 (hgnc:2197). hgnc:2197 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9504,6 +9555,9 @@ This disease-associated gene is COL1A2 (hgnc:2198). hgnc:2198 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

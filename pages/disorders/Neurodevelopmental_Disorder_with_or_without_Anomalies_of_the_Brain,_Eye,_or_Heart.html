@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4997,6 +5036,7 @@ A paralog precedent is worth weighing. RERE&#39;s atrophin-family paralog ATN1 c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rere-nuclear-receptor-co-regulator-dysfunction" data-dismech-node="RERE Nuclear Receptor Co-regulator Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">RERE Nuclear Receptor Co-regulator Dysfunction</div>
 
+
                 <div class="item-desc">The initiating lesion is a heterozygous pathogenic variant in RERE at 1p36.23. RERE encodes a large, widely expressed atrophin-family nuclear receptor co-regulator (atrophin-2) that scaffolds transcriptional complexes through its ELM2, SANT, and Atrophin-1 domains. Two mechanistically distinct allelic classes converge on this node. Nonsense, frameshift, canonical splice-site, and whole- or partial-gene deletion alleles reduce RERE dosage by haploinsufficiency, with nonsense-mediated decay demonstrated for at least one frameshift allele. Missense and in-frame variants clustering in a histidine-rich region (HRR) of the Atrophin-1 domain are instead structurally stabilizing, which is why they are proposed to act by a gain-of-function or dominant-negative mechanism rather than by simple loss of dosage — and why they carry a heavier multisystem burden.
 </div>
 
@@ -5197,6 +5237,7 @@ This pathophysiological event involves decreased transcription corepressor activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rere-dependent-retinoic-acid-signaling" data-dismech-node="Impaired RERE-Dependent Retinoic Acid Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired RERE-Dependent Retinoic Acid Signaling</div>
+
 
                 <div class="item-desc">RERE is a positive regulator of retinoic acid (RA) signaling. It forms a complex with NR2F2, p300, and a retinoic acid receptor that is recruited to the retinoic acid response elements of RA target genes such as the Rarb promoter, and knockdown of NR2F2 and/or RERE decreases RA signaling. RERE is also the co-repressor-recruiting subunit of the WHHERE complex (Wdr5, Hdac1, Hdac2, Rere), which together with the RERE-binding histone methyltransferase Ehmt2/G9a becomes enriched at RA target genes upon RA treatment to promote RNA polymerase II recruitment. Loss of this activity blunts the RA-dependent transcriptional programs that pattern the embryo. Because RA acts as a morphogen across hindbrain, eye, heart, otic, and renal development, a single lesion here propagates into anomalies of several organs at once.
 </div>
@@ -5457,6 +5498,7 @@ This pathophysiological event involves histone deacetylase binding (GO:0042826).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deregulated-developmental-morphogen-signaling" data-dismech-node="Deregulated Developmental Morphogen Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Deregulated Developmental Morphogen Signaling</div>
 
+
                 <div class="item-desc">RERE normally restrains sonic hedgehog (shh) and fgf8 signaling during patterning. NEDBEH-associated human RERE variants behave as hypomorphs in their ability to repress shh signaling, and some show abnormal nuclear localization. In the zebrafish rerea mutant this manifests as expanded fgf8 and pax2a expression domains in the optic stalk with reduced vax1, and in a patient-derived CRISPR knock-in cell line as downregulated SHH signaling with reciprocal upregulation of the Hippo pathway. The direction of the shh change differs between these systems, which is recorded as an open question rather than resolved here.
 </div>
 
@@ -5613,6 +5655,7 @@ This pathophysiological event involves dysregulated smoothened signaling pathway
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-ocular-morphogenesis-and-retinal-cell-loss" data-dismech-node="Disrupted Ocular Morphogenesis and Retinal Cell Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Ocular Morphogenesis and Retinal Cell Loss</div>
+
 
                 <div class="item-desc">Two separable ocular mechanisms operate. First, a patterning defect: the zebrafish rerea (babyface) mutant recapitulates the optic fissure closure defect seen in humans, arising from expansion of the proximal retinal optic stalk and reduced expression of ventral retinal fate genes; inhibiting shh signaling with HPI-1 rescues the coloboma, establishing deregulated shh as causal in that model. Second, a cell-survival defect: RERE is expressed in a subset of retinal ganglion cells, the lens epithelium, and the ciliary body, and RERE-deficient mice show apoptosis of retinal cells in the ganglion cell layer from E17.5, reduced retinal ganglion cell numbers, and consequent retinal and optic nerve atrophy. Together these account for the coloboma, microphthalmia, and optic nerve findings of NEDBEH.
 </div>
@@ -5845,6 +5888,7 @@ This pathophysiological event involves decreased closure of optic fissure (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endocardial-emt-in-the-atrioventricular-cushions" data-dismech-node="Impaired Endocardial EMT in the Atrioventricular Cushions" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endocardial EMT in the Atrioventricular Cushions</div>
+
 
                 <div class="item-desc">Atrioventricular septation depends on endocardial cells in the AV canal undergoing epithelial-to-mesenchymal transition and migrating into the cardiac jelly to populate the endocardial cushions. RERE-deficient mouse embryos have fewer mesenchymal cells in their AV endocardial cushions because both EMT and mesenchymal proliferation are reduced. In the endocardium RERE colocalizes with GATA4, positively regulates transcription from the Gata4 promoter, and Gata4 levels fall in the AV canal of RERE-deficient embryos; Rere and Gata4 interact genetically in the development of congenital heart defects. Notably, endocardium-specific Rere ablation produces hypocellular cushions, defective EMT, and ventricular septal defects WITHOUT reducing GATA4, so the cell-autonomous endocardial role of RERE must be mediated by targets other than GATA4 — the entry keeps both arms rather than collapsing them.
 </div>
@@ -6097,6 +6141,7 @@ This pathophysiological event involves decreased endocardial cushion development
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-hindbrain-patterning" data-dismech-node="Impaired Brain Growth and Hindbrain Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Growth and Hindbrain Patterning</div>
 
+
                 <div class="item-desc">Structural CNS anomalies are recurrent in NEDBEH and include hypoplasia or thinning of the corpus callosum, reduced white matter volume, ventriculomegaly, and a small or abnormal cerebellar vermis. RERE-deficient mice show brain hypoplasia with decreased numbers of NeuN-positive hippocampal neurons, giving a cellular correlate for reduced brain growth. Retinoic acid signaling is required for hindbrain segmentation and morphogenesis, which is the proposed route to the posterior fossa findings, including the Chiari type I malformation reported in one adult. The mechanistic account of the posterior-fossa phenotypes is inferential rather than directly demonstrated.
 </div>
 
@@ -6259,6 +6304,7 @@ This pathophysiological event involves dysregulated central nervous system devel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-palatal-shelf-mesenchymal-proliferation" data-dismech-node="Reduced Palatal Shelf Mesenchymal Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Palatal Shelf Mesenchymal Proliferation</div>
+
 
                 <div class="item-desc">RERE is broadly expressed in the palate during mouse embryonic development, and most RERE-deficient mouse embryos on a C57BL/6 background have cleft palate. Ablating Rere specifically in cranial neural crest cells with a Wnt1-Cre driver delays elevation of the palatal shelves and produces cleft palate, with significantly reduced proliferation of palatal shelf mesenchymal cells. This is the orofacial clefting arm of the disorder; cleft palate and cleft lip are each documented in single individuals with NEDBEH, so this node explains a rare rather than a core feature.
 </div>
@@ -6451,6 +6497,7 @@ This pathophysiological event involves decreased palate development, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-field-defect" data-dismech-node="Multisystem Developmental Field Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Developmental Field Defect</div>
+
 
                 <div class="item-desc">The convergent consequence: a single lesion in a retinoic-acid co-regulator expressed across the developing embryo produces coordinated anomalies of brain, eye, heart, inner ear, kidney and genitourinary tract rather than an isolated organ defect. The mouse allelic series makes this concrete — one graded reduction in Rere dosage yields microphthalmia, growth deficiency, brain hypoplasia, hearing loss, cardiovascular malformations, and renal agenesis together. The allelic class determines how much of this field is affected in a given individual: loss-of-function alleles produce fewer multisystem anomalies, whereas HRR missense variants and in-frame HRR duplications produce more.
 </div>
@@ -9044,7 +9091,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
                 <div class="evidence-snippet">"Associated features that were recurrently seen in these individuals included hypotonia, seizures, behavioral problems, structural CNS anomalies, ophthalmologic anomalies, congenital heart defects, and genitourinary abnormalities."</div>
 
 
-                <div class="evidence-explanation">Establishes structural CNS anomalies as a recurrent feature. Marked PARTIAL because the abstract does not itemise which anomalies, so the specific corpus callosum binding is the entry&#39;s summary of the wider literature rather than a quote from this source.</div>
+                <div class="evidence-explanation">The abstract reports recurrent structural CNS anomalies without identifying individual anomalies. It supports general CNS involvement but does not independently establish the specific corpus callosum finding.</div>
 
 
 
@@ -9276,6 +9323,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9378,7 +9428,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense and in-frame indel</span>
@@ -9386,6 +9438,11 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense variants and in-frame deletions/duplications clustering in the histidine-rich region (HRR) of the Atrophin-1 domain. Protein modeling in the 2026 cohort found these to be structurally stabilizing, which is why a gain-of-function or dominant-negative mechanism is proposed rather than loss of dosage. This class is associated with more multisystem phenotypes and usually arises de novo. Which of gain-of-function or dominant-negative applies is not resolved; that either/or is kept open in the discussions block rather than being decided here.
@@ -9499,7 +9556,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">nonsense, frameshift, splice-site, and gene deletion</span>
@@ -9507,6 +9566,11 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense, frameshift, canonical splice-site, and whole- or partial-gene deletion alleles. These reduce RERE dosage — nonsense-mediated decay has been demonstrated for at least one frameshift allele — and produce a milder phenotype with fewer multisystem anomalies. This is the class in which transmission from a mildly symptomatic or asymptomatic parent occurs, so unlike the HRR class it is not exclusively de novo.
@@ -9595,7 +9659,9 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame duplication</span>
@@ -9603,6 +9669,11 @@ This disease-associated gene is RERE (hgnc:9965). hgnc:9965 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent in-frame six-base-pair (two-amino-acid) duplication within the histidine-rich region. This specific allele is associated with a CHARGE-syndrome-like presentation including choanal atresia and coloboma, and is the basis for the recommendation to test RERE in CHD7-negative individuals meeting CHARGE criteria.
@@ -12388,14 +12459,9 @@ phenotypes:
 - category: Neurologic
   name: Hypoplasia of the Corpus Callosum
   description: &gt;
-    Hypoplasia or thinning of the corpus callosum, the most frequently cited of
-    the structural CNS anomalies seen on neuroimaging in this disorder. Reduced
-    white matter volume and cerebellar vermis hypoplasia are reported in the same
-    context; ventriculomegaly is curated separately below. The founding cohort
-    reports &#34;structural CNS anomalies&#34; as a recurrent finding without itemising
-    them in its abstract, so the corpus callosum binding here reflects the wider
-    literature rather than a quote, and the evidence item is marked PARTIAL to say
-    so.
+    Hypoplasia or thinning of the corpus callosum, the most frequently cited of the structural CNS
+    anomalies seen on neuroimaging in this disorder. Reduced white matter volume and cerebellar
+    vermis hypoplasia are reported in the same context.
   phenotype_term:
     preferred_term: Hypoplasia of the corpus callosum
     term:
@@ -12408,10 +12474,9 @@ phenotypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Associated features that were recurrently seen in these individuals included hypotonia, seizures, behavioral problems, structural CNS anomalies, ophthalmologic anomalies, congenital heart defects, and genitourinary abnormalities.&#34;
     explanation: &gt;-
-      Establishes structural CNS anomalies as a recurrent feature. Marked
-      PARTIAL because the abstract does not itemise which anomalies, so the
-      specific corpus callosum binding is the entry&#39;s summary of the wider
-      literature rather than a quote from this source.
+      The abstract reports recurrent structural CNS anomalies without identifying individual
+      anomalies. It supports general CNS involvement but does not independently establish the
+      specific corpus callosum finding.
 - category: Neurologic
   name: Ventriculomegaly
   description: &gt;
@@ -14810,7 +14875,7 @@ Abnormal chromatin coregulation (WHHERE: WDR5/HDAC1/HDAC2 + EHMT2/G9a)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with or without Anomalies of the Brain, Eye, or Heart", "mondoId": "MONDO:0014857", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_or_without_Anomalies_of_the_Brain,_Eye,_or_Heart", "yamlRevision": "8a8c86e8c775"};
+        const OS_CONFIG = {"diseaseName": "Neurodevelopmental Disorder with or without Anomalies of the Brain, Eye, or Heart", "mondoId": "MONDO:0014857", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neurodevelopmental_Disorder_with_or_without_Anomalies_of_the_Brain,_Eye,_or_Heart", "yamlRevision": "57cf655dca4f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

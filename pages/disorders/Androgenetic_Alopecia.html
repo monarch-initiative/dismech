@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5500,6 +5539,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-susceptibility" data-dismech-node="Polygenic Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Susceptibility</div>
 
+
                 <div class="item-desc">Common variants at the AR/EDA2R region and many autosomal loci are associated with male-pattern hair loss. The largest cited study analyzes self-reported severity in European men, and its conditional analysis ultimately retains 622 association signals. Candidate-gene mapping and pathway enrichment do not establish the molecular action of each allele, and male cohorts do not establish an identical architecture for female-pattern hair loss. The AR locus motivates an androgen-response hypothesis; other susceptibility routes remain unresolved.</div>
 
 
@@ -5812,6 +5852,7 @@ This pathophysiological event involves TWIST1 (hgnc:12428). hgnc:12428 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-androgen-receptor-abundance" data-dismech-node="Regional Androgen Receptor Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Androgen Receptor Abundance</div>
 
+
                 <div class="item-desc">Frontal follicles contained more androgen receptor than occipital follicles in a small paired study, with lower frontal abundance in women than men. Cultured dermal papilla cells from balding scalp also had higher receptor binding capacity than non-balding cells. These observations support regional sensitivity but do not prove a universal explanation of sex-specific patterns. Receptor localization is preparation-dependent; the evidence does not justify excluding androgen receptors from all follicular epithelium.</div>
 
 
@@ -5998,6 +6039,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-5-alpha-reductase-abundance" data-dismech-node="Regional 5-Alpha-Reductase Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional 5-Alpha-Reductase Abundance</div>
 
+
                 <div class="item-desc">The paired follicle study found higher type 1 and type 2 5-alpha-reductase levels in frontal than occipital samples from women and men. Higher occipital aromatase and sex-related differences were also reported. These are regional measurements in selected participants, not evidence that all unaffected follicles lack androgen metabolism.</div>
 
 
@@ -6178,6 +6220,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-dihydrotestosterone-production" data-dismech-node="Local Dihydrotestosterone Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Dihydrotestosterone Production</div>
+
 
                 <div class="item-desc">5-alpha-reductases convert testosterone to the more potent androgen dihydrotestosterone within the follicular environment. Dermal papilla metabolism is implicated, while type 2 enzyme is also described in outer root sheath tissue. Human endocrine observations and DHT-lowering treatment support an important role in male-pattern disease. Normal circulating androgen concentrations can coexist with local susceptibility; this does not imply every patient has the same steroid profile.</div>
 
@@ -6480,6 +6523,7 @@ This pathophysiological event occurs in dermal papilla (UBERON:0000412). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dihydrotestosterone-androgen-receptor-signaling" data-dismech-node="Dihydrotestosterone-Androgen Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dihydrotestosterone-Androgen Receptor Signaling</div>
 
+
                 <div class="item-desc">Androgen-responsive dermal papilla cells can relay growth-inhibitory signals to follicular keratinocytes. Human coculture evidence includes an AR-transfected preparation that restored responsiveness lost during culture; macaque coculture shows antagonist-sensitive inhibition. These experiments support a paracrine route while leaving its quantitative contribution in patients unresolved. Androgens stimulate growth at other body sites, so signaling consequences depend on follicular context.</div>
 
 
@@ -6762,6 +6806,7 @@ This pathophysiological event occurs in dermal papilla (UBERON:0000412). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-tgf-beta1-secretion" data-dismech-node="Increased TGF-Beta1 Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased TGF-Beta1 Secretion</div>
 
+
                 <div class="item-desc">Androgen exposure increased TGF-beta1 secretion in AR-transfected human dermal papilla cells. Neutralizing TGF-beta1 reversed growth inhibition of cocultured keratinocytes, supporting mediation within this preparation. The experiment does not establish that every untreated patient follicle uses this route to the same extent.</div>
 
 
@@ -6972,6 +7017,7 @@ This pathophysiological event involves increased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-dkk1-secretion" data-dismech-node="Increased DKK1 Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased DKK1 Secretion</div>
 
+
                 <div class="item-desc">DHT increased DKK1 expression and secretion in human dermal papilla cultures. DKK1 protein was also higher in bald than haired patient scalp. Neutralization and recombinant-protein experiments support keratinocyte growth inhibition and apoptosis in vitro; the paired scalp observation alone does not establish causality.</div>
 
 
@@ -7161,6 +7207,7 @@ This pathophysiological event involves DKK1 (hgnc:2891). hgnc:2891 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-il6-secretion" data-dismech-node="Increased IL6 Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased IL6 Secretion</div>
+
 
                 <div class="item-desc">DHT increased IL6 secretion in balding-derived dermal papilla cultures. Recombinant IL6 suppressed matrix-cell proliferation and shaft elongation in human follicle organ culture; injection during mouse anagen induced early catagen. Human organ culture and mouse cycle effects are distinct findings, not a demonstrated universal patient sequence.</div>
 
@@ -7363,6 +7410,7 @@ This pathophysiological event involves increased interleukin-6 production (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-canonical-wnt-signaling-in-dermal-papilla-cells" data-dismech-node="Reduced Canonical Wnt Signaling in Dermal Papilla Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Canonical Wnt Signaling in Dermal Papilla Cells</div>
 
+
                 <div class="item-desc">Androgen-treated dermal papilla cells showed a lower cytoplasmic-to-total beta-catenin ratio and increased GSK3beta activity, interpreted as canonical Wnt inhibition. Wnt activation restored their ability to induce keratin expression in cocultured follicular cells. The measured signaling compartment is dermal papilla; this is separate from the reduced marker-defined progenitor populations observed in patient scalp.</div>
 
 
@@ -7530,6 +7578,7 @@ This pathophysiological event involves decreased canonical Wnt signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-follicular-epithelial-differentiation" data-dismech-node="Impaired Follicular Epithelial Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Follicular Epithelial Differentiation</div>
 
+
                 <div class="item-desc">Androgen-treated dermal papilla cells had reduced ability to induce hair keratin expression in cocultured follicular stem-cell preparations, restored by Wnt activation. This differentiation readout does not demonstrate a lineage-conversion block in living patient follicles.</div>
 
 
@@ -7679,6 +7728,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-follicular-keratinocyte-proliferation" data-dismech-node="Reduced Follicular Keratinocyte Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Follicular Keratinocyte Proliferation</div>
+
 
                 <div class="item-desc">TGF-beta1-dependent coculture inhibition and recombinant IL6 effects support reduced epithelial growth in experimental follicular systems. These assays use different cell preparations and do not establish a single obligatory inhibitory cocktail in patients.</div>
 
@@ -7874,6 +7924,7 @@ This pathophysiological event involves decreased hair follicle cell proliferatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-follicular-keratinocyte-apoptosis" data-dismech-node="Increased Follicular Keratinocyte Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Follicular Keratinocyte Apoptosis</div>
 
+
                 <div class="item-desc">Recombinant DKK1 induced outer-root-sheath keratinocyte apoptosis, and DKK1 neutralization countered DHT-associated cell death in cultured follicles. This provides an experimental epithelial-injury route; it does not demonstrate loss of the KRT15-defined human bulge compartment.</div>
 
 
@@ -8023,6 +8074,7 @@ This pathophysiological event involves increased keratinocyte apoptotic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prostaglandin-d2-elevation-in-bald-scalp" data-dismech-node="Prostaglandin D2 Elevation in Bald Scalp" data-dismech-type="pathophysiology">
                 <div class="item-name">Prostaglandin D2 Elevation in Bald Scalp</div>
+
 
                 <div class="item-desc">PTGDS expression and PGD2 were elevated in bald compared with haired scalp from selected male hair-transplant donors. The patient observations are cross-sectional. An androgen-to-PTGDS bridge in human scalp was not directly tested, and the multiple-prostanoid K14-Ptgs2 mouse does not establish selective PGD2 sufficiency.</div>
 
@@ -8186,6 +8238,7 @@ This pathophysiological event occurs in scalp (UBERON:0000403). UBERON:0000403 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pgd2-associated-hair-growth-inhibition" data-dismech-node="PGD2-Associated Hair Growth Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">PGD2-Associated Hair Growth Inhibition</div>
 
+
                 <div class="item-desc">PGD2 inhibited elongation of terminal human face/brow follicles in organ culture and hair lengthening after topical mouse exposure. Gpr44-null mice resisted the topical effect, whereas Ptgdr-null mice remained sensitive. Human receptor involvement was inferred from agonist correlations. Topical PGD2 did not elicit premature mouse catagen, so growth inhibition is not equated with an established regression or miniaturization sequence.</div>
 
 
@@ -8348,6 +8401,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-marker-defined-follicular-progenitor-compartments" data-dismech-node="Reduced Marker-Defined Follicular Progenitor Compartments" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Marker-Defined Follicular Progenitor Compartments</div>
+
 
                 <div class="item-desc">Paired bald frontal and haired occipital scalp showed lower CD200-high/ITGA6-high and CD34-high cell proportions, while KRT15-high proportions were similar. Assay subsets were small: eight paired KRT15 comparisons, nine CD200/ITGA6 comparisons and three CD34 comparisons. Preserved marker fractions do not establish normal absolute stem-cell numbers or regenerative function. A stem-to-progenitor conversion defect is inferred, and the source explicitly leaves primary versus secondary causation unresolved.</div>
 
@@ -8536,6 +8590,7 @@ This pathophysiological event occurs in hair follicle bulge (UBERON:0005975). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-senescence-of-cultured-dermal-papilla-cells" data-dismech-node="Premature Senescence of Cultured Dermal Papilla Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Senescence of Cultured Dermal Papilla Cells</div>
 
+
                 <div class="item-desc">Balding-derived dermal papilla cultures displayed slower growth and senescence-associated morphology, beta-galactosidase and p16/pRB changes. This is a culture phenotype and a proposed contributor to reduced regenerative capacity; the study does not establish androgen-triggered senescence or dermal-papilla depletion in living patients.</div>
 
 
@@ -8686,6 +8741,7 @@ This pathophysiological event involves increased cellular senescence (GO:0090398
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shortened-anagen" data-dismech-node="Shortened Anagen" data-dismech-type="pathophysiology">
                 <div class="item-name">Shortened Anagen</div>
 
+
                 <div class="item-desc">AGA is associated with a shorter active hair-growth phase and an altered anagen-to-telogen balance. Less time in anagen can limit shaft length and the number of actively growing hairs. Shortened cycling alone is not sufficient to explain all observed miniaturization, and no obligatory anagen-to-miniaturization edge is asserted.</div>
 
 
@@ -8813,6 +8869,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-kenogen" data-dismech-node="Prolonged Kenogen" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Kenogen</div>
 
+
                 <div class="item-desc">A longer interval between shedding and renewed anagen growth may leave more follicles temporarily empty. This hair-cycle contribution to reduced density is distinct from a reduction in follicle size and is not quantified for all patients.</div>
 
 
@@ -8911,6 +8968,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-follicular-miniaturization" data-dismech-node="Follicular Miniaturization" data-dismech-type="pathophysiology">
                 <div class="item-name">Follicular Miniaturization</div>
+
 
                 <div class="item-desc">Affected scalp contains smaller follicles producing finer, shorter shafts, with fewer terminal hairs and increased vellus-like hairs and fibrous streamers. Miniaturization is a tissue hallmark of nonscarring AGA. A reduction in dermal-papilla cell number has been proposed as a mediator, but is not established by the cited conceptual paper. Perifollicular fibrosis and distinct scarring alopecias must not be treated as inevitable progression of this process.</div>
 
@@ -9136,6 +9194,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perifollicular-inflammation" data-dismech-node="Perifollicular Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Perifollicular Inflammation</div>
+
 
                 <div class="item-desc">Activated T cells, mast-cell degranulation and fibroblast activation were described around follicles in a small progressive-pattern biopsy series. Larger biopsy data associate inflammation with a lower observed minoxidil response. These cross-sectional findings do not determine whether inflammation precedes, follows or independently modifies miniaturization.</div>
 
@@ -9372,6 +9431,7 @@ This pathophysiological event occurs in hair follicle (UBERON:0002073). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perifollicular-fibrosis" data-dismech-node="Perifollicular Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Perifollicular Fibrosis</div>
+
 
                 <div class="item-desc">Perifollicular sheath thickening and fibrosis can accompany AGA. Connective-tissue remodeling is a proposed modifier of follicular function, with unresolved causal direction. Follicular dropout in fibrosing alopecia in a pattern distribution represents a scarring differential diagnosis and is not established as the inevitable endpoint of nonscarring AGA.</div>
 
@@ -10732,6 +10792,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -10860,6 +10923,9 @@ This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10994,6 +11060,9 @@ This disease-associated gene is EDA2R (hgnc:17756). hgnc:17756 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11077,6 +11146,9 @@ This disease-associated gene is EDA2R (hgnc:17756). hgnc:17756 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11180,6 +11252,9 @@ This disease-associated gene is WNT10A (hgnc:13829). hgnc:13829 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4323,6 +4362,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat6-gain-of-function-variant" data-dismech-node="STAT6 gain-of-function variant" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT6 gain-of-function variant</div>
 
+
                 <div class="item-desc">Germline heterozygous rare variants in STAT6 (most in the DNA-binding domain, e.g. p.E372K, p.E377K) confer a gain of function: the mutant transcription factor shows increased DNA-binding affinity, a strong preference for nuclear localization, and spontaneous transcriptional activity.</div>
 
 
@@ -4377,6 +4417,44 @@ This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene 
 
 
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        DNA-binding transcription factor activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0003700" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0003700</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased DNA-binding transcription factor activity (GO:0003700). GO:0003700 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4467,6 +4545,7 @@ This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-stat6-signaling" data-dismech-node="Constitutive STAT6 signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive STAT6 signaling</div>
 
+
                 <div class="item-desc">STAT6 is the central transcription factor of the type 2 cytokine (IL-4/IL-13) response. GOF variants produce sustained basal and cytokine-induced STAT6 phosphorylation and increased target-gene transcription, amplifying the allergic-inflammation program.</div>
 
 
@@ -4488,11 +4567,11 @@ This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0035771</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035771" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0035771</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased interleukin-4-mediated signaling pathway (GO:0035771). GO:0035771 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4522,11 +4601,11 @@ This pathophysiological event involves increased interleukin-4-mediated signalin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0007259</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased JAK-STAT signaling, annotated with cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4675,6 +4754,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th2-immune-skewing" data-dismech-node="TH2 immune skewing" data-dismech-type="pathophysiology">
                 <div class="item-name">TH2 immune skewing</div>
 
+
                 <div class="item-desc">Constitutive STAT6 activity biases naive CD4+ T cells toward TH2 differentiation with elevated peripheral TH2 lymphocytes, producing the IL-4/ IL-5/IL-13-dominated milieu that underlies allergic effector disease.</div>
 
 
@@ -4689,11 +4769,11 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000546</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000546" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000546</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4730,11 +4810,11 @@ This pathophysiological event involves T-helper 2 cell (CL:0000546). CL:0000546 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0045064</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045064" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045064</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased T-helper 2 cell differentiation (GO:0045064). GO:0045064 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4839,6 +4919,7 @@ This pathophysiological event involves increased T-helper 2 cell differentiation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ige-class-switching" data-dismech-node="IgE class switching" data-dismech-type="pathophysiology">
                 <div class="item-name">IgE class switching</div>
 
+
                 <div class="item-desc">The type 2 milieu drives B-cell immunoglobulin class switching to IgE, producing very high serum IgE — the humoral effector arm.</div>
 
 
@@ -4853,11 +4934,11 @@ This pathophysiological event involves increased T-helper 2 cell differentiation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000236</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4894,11 +4975,11 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0035708</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035708" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0035708</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased isotype switching to IgE isotypes, annotated with interleukin-4-dependent isotype switching to IgE isotypes (GO:0035708). GO:0035708 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4987,6 +5068,7 @@ This pathophysiological event involves increased isotype switching to IgE isotyp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophil-expansion" data-dismech-node="Eosinophil expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophil expansion</div>
 
+
                 <div class="item-desc">The type 2 milieu (IL-5) drives marked eosinophil expansion and tissue recruitment, producing blood hypereosinophilia and eosinophilic tissue infiltration — the cellular effector arm.</div>
 
 
@@ -5001,11 +5083,11 @@ This pathophysiological event involves increased isotype switching to IgE isotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000771</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5097,6 +5179,7 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-allergic-disease" data-dismech-node="Multisystem allergic disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem allergic disease</div>
 
+
                 <div class="item-desc">The convergent clinical endpoint: early-onset, treatment-resistant atopic dermatitis, asthma, eosinophilic gastrointestinal disease, IgE-mediated food allergy, and anaphylaxis.</div>
 
 
@@ -5158,6 +5241,7 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-antimicrobial-immunity" data-dismech-node="Impaired antimicrobial immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired antimicrobial immunity</div>
 
+
                 <div class="item-desc">Reciprocal suppression of TH1 and TH17 responses (the mirror image of TH2 skewing) impairs antimicrobial defense, underlying the recurrent skin, respiratory, and viral infections seen in a subset of patients and the OMIM designation of HIES6 as &#34;with recurrent infections.&#34;</div>
 
 
@@ -5172,11 +5256,11 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000545</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T-helper 1 cell (CL:0000545). CL:0000545 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5202,11 +5286,11 @@ This pathophysiological event involves T-helper 1 cell (CL:0000545). CL:0000545 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000899</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000899" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000899</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5243,11 +5327,11 @@ This pathophysiological event involves T-helper 17 cell (CL:0000899). CL:0000899
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045063" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0045063</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045063" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0045063</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased T-helper 1 cell differentiation (GO:0045063). GO:0045063 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5277,11 +5361,11 @@ This pathophysiological event involves decreased T-helper 1 cell differentiation
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072539" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0072539</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072539" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0072539</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased T-helper 17 cell differentiation (GO:0072539). GO:0072539 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5370,6 +5454,7 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b-cell-lymphoma-predisposition" data-dismech-node="B-cell lymphoma predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">B-cell lymphoma predisposition</div>
 
+
                 <div class="item-desc">STAT6 is a recurrently mutated oncogenic driver in follicular lymphoma and other B-cell lymphomas, and germline STAT6 GOF is associated with an emerging lymphoma risk: one reported patient developed follicular lymphoma that later relapsed as diffuse large B-cell lymphoma. The true magnitude of risk is not yet established.</div>
 
 
@@ -5384,11 +5469,11 @@ This pathophysiological event involves decreased T-helper 17 cell differentiatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000236</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000236" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000236</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5552,7 +5637,7 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"IgE-mediated anaphylaxis, frequently food-induced, occurs in STAT6 GOF disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500095\"}}, {\"id\": \"B-cell lymphoma predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT6 is a recurrently mutated oncogenic driver in follicular lymphoma and other B-cell lymphomas, and germline STAT6 GOF is associated with an emerging lymphoma risk: one reported patient developed follicular lymphoma that later relapsed as diffuse large B-cell lymphoma. The true magnitude of risk is not yet established.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Blood eosinophil count\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"HP:0001880\", \"term_label\": \"Increased total eosinophil count\", \"readouts\": [{\"target\": \"Eosinophil expansion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Blood eosinophilia reports the eosinophil effector arm of the type 2 response.\"}, {\"target\": \"Eosinophil expansion\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Eosinophil count is a pharmacodynamic marker of the eosinophil effector arm: it falls with dupilumab or JAK-inhibitor therapy and may track treatment efficacy.\"}]}}, {\"id\": \"Constitutive STAT6 signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT6 is the central transcription factor of the type 2 cytokine (IL-4/IL-13) response. GOF variants produce sustained basal and cytokine-induced STAT6 phosphorylation and increased target-gene transcription, amplifying the allergic-inflammation program.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"interleukin-4-mediated signaling pathway\", \"JAK-STAT signaling\"]}}, {\"id\": \"Dupilumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The anti-IL-4Ra monoclonal antibody dupilumab blocks IL-4/IL-13 signaling upstream of STAT6 and was highly effective in STAT6 GOF disease, improving both clinical manifestations and immunological biomarkers.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dupilumab\"]}}, {\"id\": \"Eosinophil expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The type 2 milieu (IL-5) drives marked eosinophil expansion and tissue recruitment, producing blood hypereosinophilia and eosinophilic tissue infiltration \\u2014 the cellular effector arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"]}}, {\"id\": \"IgE class switching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The type 2 milieu drives B-cell immunoglobulin class switching to IgE, producing very high serum IgE \\u2014 the humoral effector arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"isotype switching to IgE isotypes\"]}}, {\"id\": \"Impaired antimicrobial immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reciprocal suppression of TH1 and TH17 responses (the mirror image of TH2 skewing) impairs antimicrobial defense, underlying the recurrent skin, respiratory, and viral infections seen in a subset of patients and the OMIM designation of HIES6 as \\\"with recurrent infections.\\\"\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 1 cell\", \"T-helper 17 cell\"], \"biological_processes\": [\"T-helper 1 cell differentiation\", \"T-helper 17 cell differentiation\"]}}, {\"id\": \"JAK inhibitor (ruxolitinib or tofacitinib)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"JAK inhibition targets the kinases upstream of STAT6. Ruxolitinib reversed STAT6 hyperresponsiveness to IL-4, normalized TH1/TH17 cells, suppressed eosinophilia, and improved atopic dermatitis; the consortium review names both ruxolitinib and tofacitinib as JAK inhibitors used in patients.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ruxolitinib\", \"tofacitinib\"]}}, {\"id\": \"Lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Germline STAT6 GOF carries an emerging predisposition to B-cell lymphoma; the first reported case developed follicular lymphoma that later relapsed as diffuse large B-cell lymphoma. True lifetime risk is not yet established.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002665\"}}, {\"id\": \"Multisystem allergic disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical endpoint: early-onset, treatment-resistant atopic dermatitis, asthma, eosinophilic gastrointestinal disease, IgE-mediated food allergy, and anaphylaxis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients has increased susceptibility to recurrent infection, consistent with the OMIM designation as a hyper-IgE syndrome with recurrent infections and with reciprocal TH1/TH17 suppression.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002719\"}}, {\"id\": \"STAT6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STAT6\"], \"gene_terms\": [{\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}], \"association\": \"autosomal dominant causal gain-of-function variant\"}}, {\"id\": \"STAT6 gain-of-function variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous rare variants in STAT6 (most in the DNA-binding domain, e.g. p.E372K, p.E377K) confer a gain of function: the mutant transcription factor shows increased DNA-binding affinity, a strong preference for nuclear localization, and spontaneous transcriptional activity.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"STAT6\"], \"gene_terms\": [{\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}]}}, {\"id\": \"Serum CCL24 (eotaxin-2)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C28736\", \"term_label\": \"C-C Motif Chemokine 24\", \"readouts\": [{\"target\": \"Eosinophil expansion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum CCL24/eotaxin-2 reports STAT6-driven eosinophil chemotaxis.\"}]}}, {\"id\": \"Serum IgE\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"HP:0003212\", \"term_label\": \"Increased circulating IgE concentration\", \"readouts\": [{\"target\": \"IgE class switching\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated IgE reports the type 2 / IgE class-switching effector arm.\"}]}}, {\"id\": \"Supportive and anaphylaxis-preparedness care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive management including allergen avoidance in sensitized patients, epinephrine autoinjectors and medical-alert measures for anaphylaxis, and bone-loss prophylaxis in patients on chronic corticosteroids. Anaphylaxis was fatal in one of the two reported deaths, underscoring the need for anaphylaxis preparedness.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TH2 immune skewing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive STAT6 activity biases naive CD4+ T cells toward TH2 differentiation with elevated peripheral TH2 lymphocytes, producing the IL-4/ IL-5/IL-13-dominated milieu that underlies allergic effector disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 2 cell\"], \"biological_processes\": [\"T-helper 2 cell differentiation\"]}}], \"edges\": [{\"source\": \"STAT6 gain-of-function variant\", \"target\": \"Constitutive STAT6 signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GOF variants drive sustained/spontaneous STAT6 pathway activation independent of, and hyperresponsive to, upstream IL-4/IL-13 cytokine input.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive STAT6 signaling\", \"target\": \"TH2 immune skewing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactive STAT6 signaling skews CD4+ T-cell differentiation toward the TH2 program while suppressing TH1 and TH17 responses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive STAT6 signaling\", \"target\": \"B-cell lymphoma predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive STAT6 activity is oncogenic in the B-cell lineage: the same DNA-binding-domain residues mutated in the germline (notably D419) are recurrently mutated somatically in follicular lymphoma, predisposing to B-cell lymphomagenesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TH2 immune skewing\", \"target\": \"IgE class switching\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TH2 cytokines (IL-4/IL-13) drive B-cell immunoglobulin class switching to IgE, the humoral effector arm of the allergic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TH2 immune skewing\", \"target\": \"Eosinophil expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TH2 cytokines (IL-5) drive eosinophil expansion and tissue recruitment, the cellular effector arm of the allergic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TH2 immune skewing\", \"target\": \"Impaired antimicrobial immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reciprocal suppression of TH1/TH17 responses contributes to recurrent and severe infection susceptibility in some patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"TH1 response suppression\", \"TH17 response suppression\"]}, {\"source\": \"IgE class switching\", \"target\": \"Multisystem allergic disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IgE-mediated hypersensitivity drives food allergy, anaphylaxis, and atopic end-organ manifestations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Multisystem allergic disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic tissue infiltration drives eosinophilic gastrointestinal disease and other atopic end-organ manifestations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired antimicrobial immunity\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TH1/TH17 suppression manifests clinically as recurrent skin, respiratory, and viral infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"B-cell lymphoma predisposition\", \"target\": \"Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lymphomagenic predisposition manifests clinically as B-cell lymphoma (follicular lymphoma, with reported transformation to diffuse large B-cell lymphoma).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dupilumab\", \"target\": \"Constitutive STAT6 signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK inhibitor (ruxolitinib or tofacitinib)\", \"target\": \"Constitutive STAT6 signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and anaphylaxis-preparedness care\", \"target\": \"Anaphylaxis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IgE class switching\", \"target\": \"Serum IgE\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated IgE reports the type 2 / IgE class-switching effector arm.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Blood eosinophil count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Blood eosinophilia reports the eosinophil effector arm of the type 2 response.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Blood eosinophil count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Eosinophil count is a pharmacodynamic marker of the eosinophil effector arm: it falls with dupilumab or JAK-inhibitor therapy and may track treatment efficacy.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Serum CCL24 (eotaxin-2)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum CCL24/eotaxin-2 reports STAT6-driven eosinophil chemotaxis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"STAT6\", \"target\": \"STAT6 gain-of-function variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anaphylaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"IgE-mediated anaphylaxis, frequently food-induced, occurs in STAT6 GOF disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0500095\"}}, {\"id\": \"B-cell lymphoma predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT6 is a recurrently mutated oncogenic driver in follicular lymphoma and other B-cell lymphomas, and germline STAT6 GOF is associated with an emerging lymphoma risk: one reported patient developed follicular lymphoma that later relapsed as diffuse large B-cell lymphoma. The true magnitude of risk is not yet established.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"B cell\"]}}, {\"id\": \"Blood eosinophil count\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"HP:0001880\", \"term_label\": \"Increased total eosinophil count\", \"readouts\": [{\"target\": \"Eosinophil expansion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Blood eosinophilia reports the eosinophil effector arm of the type 2 response.\"}, {\"target\": \"Eosinophil expansion\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\", \"interpretation\": \"Eosinophil count is a pharmacodynamic marker of the eosinophil effector arm: it falls with dupilumab or JAK-inhibitor therapy and may track treatment efficacy.\"}]}}, {\"id\": \"Constitutive STAT6 signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"STAT6 is the central transcription factor of the type 2 cytokine (IL-4/IL-13) response. GOF variants produce sustained basal and cytokine-induced STAT6 phosphorylation and increased target-gene transcription, amplifying the allergic-inflammation program.\", \"meta\": {\"evidence_count\": 5, \"biological_processes\": [\"interleukin-4-mediated signaling pathway\", \"JAK-STAT signaling\"]}}, {\"id\": \"Dupilumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The anti-IL-4Ra monoclonal antibody dupilumab blocks IL-4/IL-13 signaling upstream of STAT6 and was highly effective in STAT6 GOF disease, improving both clinical manifestations and immunological biomarkers.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"dupilumab\"]}}, {\"id\": \"Eosinophil expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The type 2 milieu (IL-5) drives marked eosinophil expansion and tissue recruitment, producing blood hypereosinophilia and eosinophilic tissue infiltration \\u2014 the cellular effector arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"eosinophil\"]}}, {\"id\": \"IgE class switching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The type 2 milieu drives B-cell immunoglobulin class switching to IgE, producing very high serum IgE \\u2014 the humoral effector arm.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"isotype switching to IgE isotypes\"]}}, {\"id\": \"Impaired antimicrobial immunity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reciprocal suppression of TH1 and TH17 responses (the mirror image of TH2 skewing) impairs antimicrobial defense, underlying the recurrent skin, respiratory, and viral infections seen in a subset of patients and the OMIM designation of HIES6 as \\\"with recurrent infections.\\\"\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 1 cell\", \"T-helper 17 cell\"], \"biological_processes\": [\"T-helper 1 cell differentiation\", \"T-helper 17 cell differentiation\"]}}, {\"id\": \"JAK inhibitor (ruxolitinib or tofacitinib)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"JAK inhibition targets the kinases upstream of STAT6. Ruxolitinib reversed STAT6 hyperresponsiveness to IL-4, normalized TH1/TH17 cells, suppressed eosinophilia, and improved atopic dermatitis; the consortium review names both ruxolitinib and tofacitinib as JAK inhibitors used in patients.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"ruxolitinib\", \"tofacitinib\"]}}, {\"id\": \"Lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Germline STAT6 GOF carries an emerging predisposition to B-cell lymphoma; the first reported case developed follicular lymphoma that later relapsed as diffuse large B-cell lymphoma. True lifetime risk is not yet established.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002665\"}}, {\"id\": \"Multisystem allergic disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical endpoint: early-onset, treatment-resistant atopic dermatitis, asthma, eosinophilic gastrointestinal disease, IgE-mediated food allergy, and anaphylaxis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A subset of patients has increased susceptibility to recurrent infection, consistent with the OMIM designation as a hyper-IgE syndrome with recurrent infections and with reciprocal TH1/TH17 suppression.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002719\"}}, {\"id\": \"STAT6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"STAT6\"], \"gene_terms\": [{\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}], \"association\": \"autosomal dominant causal gain-of-function variant\"}}, {\"id\": \"STAT6 gain-of-function variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Germline heterozygous rare variants in STAT6 (most in the DNA-binding domain, e.g. p.E372K, p.E377K) confer a gain of function: the mutant transcription factor shows increased DNA-binding affinity, a strong preference for nuclear localization, and spontaneous transcriptional activity.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"genes\": [\"STAT6\"], \"gene_terms\": [{\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}]}}, {\"id\": \"Serum CCL24 (eotaxin-2)\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"NCIT:C28736\", \"term_label\": \"C-C Motif Chemokine 24\", \"readouts\": [{\"target\": \"Eosinophil expansion\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated serum CCL24/eotaxin-2 reports STAT6-driven eosinophil chemotaxis.\"}]}}, {\"id\": \"Serum IgE\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"HP:0003212\", \"term_label\": \"Increased circulating IgE concentration\", \"readouts\": [{\"target\": \"IgE class switching\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated IgE reports the type 2 / IgE class-switching effector arm.\"}]}}, {\"id\": \"Supportive and anaphylaxis-preparedness care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Supportive management including allergen avoidance in sensitized patients, epinephrine autoinjectors and medical-alert measures for anaphylaxis, and bone-loss prophylaxis in patients on chronic corticosteroids. Anaphylaxis was fatal in one of the two reported deaths, underscoring the need for anaphylaxis preparedness.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"TH2 immune skewing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Constitutive STAT6 activity biases naive CD4+ T cells toward TH2 differentiation with elevated peripheral TH2 lymphocytes, producing the IL-4/ IL-5/IL-13-dominated milieu that underlies allergic effector disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T-helper 2 cell\"], \"biological_processes\": [\"T-helper 2 cell differentiation\"]}}], \"edges\": [{\"source\": \"STAT6 gain-of-function variant\", \"target\": \"Constitutive STAT6 signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"GOF variants drive sustained/spontaneous STAT6 pathway activation independent of, and hyperresponsive to, upstream IL-4/IL-13 cytokine input.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive STAT6 signaling\", \"target\": \"TH2 immune skewing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hyperactive STAT6 signaling skews CD4+ T-cell differentiation toward the TH2 program while suppressing TH1 and TH17 responses.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Constitutive STAT6 signaling\", \"target\": \"B-cell lymphoma predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive STAT6 activity is oncogenic in the B-cell lineage: the same DNA-binding-domain residues mutated in the germline (notably D419) are recurrently mutated somatically in follicular lymphoma, predisposing to B-cell lymphomagenesis.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TH2 immune skewing\", \"target\": \"IgE class switching\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TH2 cytokines (IL-4/IL-13) drive B-cell immunoglobulin class switching to IgE, the humoral effector arm of the allergic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TH2 immune skewing\", \"target\": \"Eosinophil expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TH2 cytokines (IL-5) drive eosinophil expansion and tissue recruitment, the cellular effector arm of the allergic phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TH2 immune skewing\", \"target\": \"Impaired antimicrobial immunity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reciprocal suppression of TH1/TH17 responses contributes to recurrent and severe infection susceptibility in some patients.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"TH1 response suppression\", \"TH17 response suppression\"]}, {\"source\": \"IgE class switching\", \"target\": \"Multisystem allergic disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IgE-mediated hypersensitivity drives food allergy, anaphylaxis, and atopic end-organ manifestations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Multisystem allergic disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Eosinophilic tissue infiltration drives eosinophilic gastrointestinal disease and other atopic end-organ manifestations.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired antimicrobial immunity\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"TH1/TH17 suppression manifests clinically as recurrent skin, respiratory, and viral infections.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"B-cell lymphoma predisposition\", \"target\": \"Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The lymphomagenic predisposition manifests clinically as B-cell lymphoma (follicular lymphoma, with reported transformation to diffuse large B-cell lymphoma).\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Dupilumab\", \"target\": \"Constitutive STAT6 signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"JAK inhibitor (ruxolitinib or tofacitinib)\", \"target\": \"Constitutive STAT6 signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and anaphylaxis-preparedness care\", \"target\": \"Anaphylaxis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"IgE class switching\", \"target\": \"Serum IgE\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated IgE reports the type 2 / IgE class-switching effector arm.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Blood eosinophil count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Blood eosinophilia reports the eosinophil effector arm of the type 2 response.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Blood eosinophil count\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Eosinophil count is a pharmacodynamic marker of the eosinophil effector arm: it falls with dupilumab or JAK-inhibitor therapy and may track treatment efficacy.\", \"relationship\": \"PHARMACODYNAMIC_MARKER_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"PHARMACODYNAMIC\"}, {\"source\": \"Eosinophil expansion\", \"target\": \"Serum CCL24 (eotaxin-2)\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated serum CCL24/eotaxin-2 reports STAT6-driven eosinophil chemotaxis.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"STAT6\", \"target\": \"STAT6 gain-of-function variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5610,10 +5695,10 @@ This pathophysiological event involves B cell (CL:0000236). CL:0000236 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003212</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003212</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5684,10 +5769,10 @@ This clinical feature is Increased circulating IgE concentration (HP:0003212). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001880</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5756,10 +5841,10 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002665</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is B-cell lymphoma, annotated with Lymphoma (HP:0002665). HP:0002665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5839,10 +5924,10 @@ This clinical feature is B-cell lymphoma, annotated with Lymphoma (HP:0002665). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0004944</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004944" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004944</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral aneurysm, annotated with Dilatation of the cerebral artery (HP:0004944). HP:0004944 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5911,10 +5996,10 @@ This clinical feature is Cerebral aneurysm, annotated with Dilatation of the cer
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5994,10 +6079,10 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0410151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0410151</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0410151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0410151</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eosinophilic esophagitis, annotated with Eosinophilic infiltration of the esophagus (HP:0410151). HP:0410151 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6066,10 +6151,10 @@ This clinical feature is Eosinophilic esophagitis, annotated with Eosinophilic i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002020</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002020</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6147,10 +6232,10 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0003193</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003193" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003193</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6228,10 +6313,10 @@ This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atopic dermatitis (HP:0001047), qualified as infantile onset. HP:0001047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6329,10 +6414,10 @@ This clinical feature is Atopic dermatitis (HP:0001047), qualified as infantile 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0500093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0500093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6401,10 +6486,10 @@ This clinical feature is Food allergy (HP:0500093). HP:0500093 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6475,10 +6560,10 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0500095</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0500095</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6547,10 +6632,10 @@ This clinical feature is Food-induced anaphylaxis (HP:0500095). HP:0500095 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6653,10 +6738,10 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoporosis with pathological fractures, annotated with Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6734,10 +6819,10 @@ This clinical feature is Osteoporosis with pathological fractures, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6849,10 +6934,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                         Gene: STAT6
 
 
-    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:11368</a>
+    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:11368</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is STAT6 (hgnc:11368). hgnc:11368 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6860,6 +6945,9 @@ This disease-associated gene is STAT6 (hgnc:11368). hgnc:11368 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6979,7 +7067,7 @@ This disease-associated gene is STAT6 (hgnc:11368). hgnc:11368 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7020,11 +7108,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C162455</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C162455" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C162455</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -7154,7 +7242,7 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7195,11 +7283,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:66919</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_66919" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:66919</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7212,11 +7300,11 @@ This treatment uses ruxolitinib (CHEBI:66919). CHEBI:66919 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:71200</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_71200" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:71200</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7371,7 +7459,7 @@ This treatment uses tofacitinib (CHEBI:71200). CHEBI:71200 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7444,11 +7532,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0500095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0500095</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0500095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0500095</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Food-induced anaphylaxis (HP:0500095). HP:0500095 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7956,11 +8044,11 @@ This treatment targets Food-induced anaphylaxis (HP:0500095). HP:0500095 is a ph
         molecular genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C19770</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C19770</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8044,11 +8132,11 @@ This treatment targets Food-induced anaphylaxis (HP:0500095). HP:0500095 is a ph
         clinical assessment
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C124351</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C124351</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8182,11 +8270,11 @@ This treatment targets Food-induced anaphylaxis (HP:0500095). HP:0500095 is a ph
         esophagogastroduodenoscopy
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C78144" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C78144</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C78144" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C78144</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8270,11 +8358,11 @@ This treatment targets Food-induced anaphylaxis (HP:0500095). HP:0500095 is a ph
         colonoscopy
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16450" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C16450</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16450" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C16450</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8622,6 +8710,12 @@ pathophysiology:
     term:
       id: hgnc:11368
       label: STAT6
+  molecular_functions:
+  - preferred_term: DNA-binding transcription factor activity
+    term:
+      id: GO:0003700
+      label: DNA-binding transcription factor activity
+    modifier: INCREASED
   evidence:
   - reference: PMID:36884218
     reference_title: &#34;Human germline heterozygous gain-of-function STAT6 variants cause severe allergic disease.&#34;
@@ -10458,7 +10552,7 @@ Pathological TH2 skewing of CD4+ T cells (IL-4, IL-5, IL-13 ↑)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "STAT6 Gain-of-Function Disease", "mondoId": "MONDO:0957807", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "STAT6_Gain-of-Function_Disease", "yamlRevision": "2ef46ef9db92"};
+        const OS_CONFIG = {"diseaseName": "STAT6 Gain-of-Function Disease", "mondoId": "MONDO:0957807", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "STAT6_Gain-of-Function_Disease", "yamlRevision": "8c510a295a32"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

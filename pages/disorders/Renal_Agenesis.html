@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 4</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Renal%20Agenesis"
@@ -3867,7 +3906,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Renal agenesis is a congenital anomaly of the kidney and urinary tract (CAKUT) defined by complete failure of development of one (unilateral) or both (bilateral) kidneys, accompanied by absence of the corresponding ureter(s). It arises from failed reciprocal induction between the ureteric bud and the metanephric mesenchyme during the fifth week of human gestation, most often from defective RET-GDNF, PAX2, GREB1L, ITGA8, or FGF20 signaling. Unilateral renal agenesis is frequently asymptomatic with compensatory hypertrophy of the solitary kidney, whereas bilateral renal agenesis abolishes fetal urine output, producing severe oligohydramnios and the deformation cascade of Potter sequence (pulmonary hypoplasia, characteristic facies, and limb contractures) that is almost uniformly lethal at or shortly after birth.
+                Renal agenesis is a congenital anomaly of the kidney and urinary tract (CAKUT) defined by complete failure of development of one (unilateral) or both (bilateral) kidneys, accompanied by absence of the corresponding ureter(s). It arises from failed reciprocal induction between the ureteric bud and the metanephric mesenchyme during the fifth week of human gestation, most often from defective GDNF-GFRA1-RET, PAX2, GREB1L, ITGA8, or FGF20 signaling. Unilateral renal agenesis is frequently asymptomatic with compensatory hypertrophy of the solitary kidney, whereas bilateral renal agenesis abolishes fetal urine output, producing severe oligohydramnios and the deformation cascade of Potter sequence (pulmonary hypoplasia, characteristic facies, and limb contractures) that is almost uniformly lethal at or shortly after birth.
             </p>
 
         </header>
@@ -3983,7 +4022,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4004,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4013,7 +4052,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4032,7 +4071,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4156,7 +4195,7 @@
 
                 </div>
 
-                <div class="item-desc">Other forms of renal agenesis are autosomal recessive, requiring biallelic loss-of-function variants, as established for ITGA8- and FGF20-related bilateral renal agenesis.</div>
+                <div class="item-desc">Other forms of renal agenesis are autosomal recessive, requiring biallelic loss-of-function variants, as established for ITGA8-related and for GFRA1-related bilateral renal agenesis.</div>
 
 
 
@@ -4179,7 +4218,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4208,6 +4247,31 @@
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:33020172" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33020172" target="_blank">PMID:33020172</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"They had parental consanguinity and similarly affected, deceased siblings, suggesting autosomal recessive inheritance."</div>
+
+
+                <div class="evidence-explanation">Consanguinity with similarly affected siblings in the two GFRA1 index families establishes recessive transmission for that form.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4224,7 +4288,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">7</span>
             </div>
 
 
@@ -4244,6 +4308,26 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="classification-header">General</div>
 
 
 
@@ -4321,11 +4405,443 @@
 
                     </div>
 
-                    <div class="item-desc">Renal agenesis occurring as part of a monogenic syndrome or attributable to a defined developmental gene, including GREB1L-, RET-, PAX2-, ITGA8-, and FGF20-related CAKUT, as well as renal coloboma syndrome and branchio-oto-renal spectrum disorders.</div>
+                    <div class="item-desc">Renal agenesis attributable to a gene or a syndrome outside the MONDO renal hypodysplasia/aplasia series: RET-related CAKUT, PAX2-related renal coloboma syndrome, and the branchio-oto-renal spectrum. The forms MONDO numbers as renal hypodysplasia/aplasia 1 to 4 are carried by the RHDA1 to RHDA4 rows below instead. The row name is retained because other sections key on it; not every gene-linked form listed here is syndromic.</div>
 
 
 
 
+
+
+                </div>
+
+
+
+                <div class="classification-header">molecular</div>
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-rhda1">
+
+                    <div class="item-name">
+                        Renal Hypodysplasia/Aplasia 1 (ITGA8-Related)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024519" target="_blank">MONDO:0024519</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                ITGA8
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6144" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6144</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ITGA8 (hgnc:6144). hgnc:6144 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Nonsyndromic bilateral renal agenesis from biallelic ITGA8 variants. The MONDO class carries no definition text; its OWL axioms attribute it to ITGA8 and it cross-references OMIM:191830, the same MIM number as the OMIM phenotypic series OMIMPS:191830 that MONDO:0018470 is equivalent to. The class also carries the synonyms Selig Benacerraf Greene syndrome and renal dysplasia, megalocystis, and sirenomelia, so a reader arriving by synonym should check which concept is meant.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24439109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24439109" target="_blank">PMID:24439109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These results demonstrate that mutations of ITGA8 are a genetic cause of bilateral renal agenesis and that, at least in some cases, bilateral renal agenesis is an autosomal-recessive disease."</div>
+
+
+                <div class="evidence-explanation">The discovery report&#39;s conclusion is the gene-disease claim this subtype row makes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24439109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24439109" target="_blank">PMID:24439109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Renal hypodysplasia (RHD) is a heterogeneous condition encompassing a spectrum of kidney development defects including renal agenesis, hypoplasia, and (cystic) dysplasia."</div>
+
+
+                <div class="evidence-explanation">A classification statement rather than a result, and the reason the MONDO series is named renal hypodysplasia/aplasia rather than renal agenesis: the underlying clinical concept spans agenesis, hypoplasia and dysplasia.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33020172" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33020172" target="_blank">PMID:33020172</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Currently, only three genes are known to cause nonsyndromic BRA in humans."</div>
+
+
+                <div class="evidence-explanation">The three genes are ITGA8, GREB1L and FGF20, so this is the source for calling the ITGA8 form nonsyndromic and for moving the ITGA8, GREB1L and FGF20 subtype keys off the Syndromic row.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-rhda2">
+
+                    <div class="item-name">
+                        Renal Hypodysplasia/Aplasia 2 (FGF20-Related)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014319" target="_blank">MONDO:0014319</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                FGF20
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:3677" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:3677</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in FGF20 (hgnc:3677). hgnc:3677 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Renal agenesis from loss of FGF20, a niche ligand that maintains nephron progenitor stemness. MONDO defines this class as any renal agenesis whose cause is a mutation in the FGF20 gene and cross-references it to OMIM:615721. No inheritance block is recorded on this row: the discovery report&#39;s cached abstract states that loss of FGF20 in humans results in kidney agenesis without giving the transmission mode, and a Europe PMC search for FGF20 with renal agenesis, and the same search with recessive added, surfaced no other primary report of the human family.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22698282" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22698282" target="_blank">PMID:22698282</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of FGF20 in humans, or of both ligands in mice, resulted in kidney agenesis."</div>
+
+
+                <div class="evidence-explanation">Establishes FGF20 loss as a human cause of kidney agenesis, which is the gene-disease claim this subtype row makes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-rhda3">
+
+                    <div class="item-name">
+                        Renal Hypodysplasia/Aplasia 3 (GREB1L-Related)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0024520" target="_blank">MONDO:0024520</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GREB1L
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:31042" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:31042</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GREB1L (hgnc:31042). hgnc:31042 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal dominant inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Renal agenesis and severe CAKUT from heterozygous variants in GREB1L, a retinoic acid receptor coactivator required for early metanephros development. The MONDO class carries no definition text; its OWL axioms attribute it to GREB1L and it cross-references OMIM:617805.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28739660" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28739660" target="_blank">PMID:28739660</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This study is the first to associate a component of the RAR pathway with renal agenesis in humans."</div>
+
+
+                <div class="evidence-explanation">Identifies GREB1L, a retinoic acid receptor pathway component, as a human renal agenesis gene.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-rhda4">
+
+                    <div class="item-name">
+                        Renal Hypodysplasia/Aplasia 4 (GFRA1-Related)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030822" target="_blank">MONDO:0030822</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GFRA1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:4243</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GFRA1 (hgnc:4243). hgnc:4243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Nonsyndromic bilateral renal agenesis from biallelic loss of GFRA1, the GDNF co-receptor on the Wolffian duct. The MONDO class carries no definition text; its OWL axioms attribute it to GFRA1 and it cross-references OMIM:619887. Three consanguineous families have been reported: the two index families of the discovery report, a second confirmation family with a homozygous stop-gain variant, and a third with a homozygous missense variant.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33020172" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33020172" target="_blank">PMID:33020172</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These findings strongly support the causal role of GFRA1-inactivating variants for an autosomal recessive, nonsyndromic form of BRA."</div>
+
+
+                <div class="evidence-explanation">The discovery report&#39;s conclusion is the gene-disease claim this subtype row makes, and it specifies the nonsyndromic form.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34737117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737117" target="_blank">PMID:34737117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The current study represents a second confirmation report on the causal association of GFRA1 pathogenic variants with lethal nonsyndromic bilateral renal agenesis in humans."</div>
+
+
+                <div class="evidence-explanation">An independent consanguineous family confirms the gene-disease association, which is why this row is treated as established rather than provisional.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4349,11 +4865,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-ureteric-bud-outgrowth-and-metanephric-induction" data-dismech-node="Failed ureteric bud outgrowth and metanephric induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed ureteric bud outgrowth and metanephric induction</div>
+
 
                 <div class="item-desc">Renal agenesis originates from failure of the reciprocal inductive interaction between the ureteric bud and the metanephric mesenchyme. GDNF secreted by the metanephric mesenchyme signals through the RET receptor tyrosine kinase on the ureteric bud to drive bud outgrowth and branching; loss of GDNF-RET signaling, or of upstream regulators such as PAX2, GREB1L, ITGA8, and FGF20, prevents bud outgrowth or invasion of the mesenchyme, so the metanephros never forms.</div>
 
@@ -4369,11 +4886,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4030066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:4030066</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4030066" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:4030066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves ureteric bud cell (CL:4030066). CL:4030066 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4395,6 +4912,127 @@ This pathophysiological event involves ureteric bud cell (CL:4030066). CL:403006
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PAX2
+
+
+    <a href="https://bioregistry.io/hgnc:8616" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:8616</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX2 (hgnc:8616). hgnc:8616 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GREB1L
+
+
+    <a href="https://bioregistry.io/hgnc:31042" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:31042</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GREB1L (hgnc:31042). hgnc:31042 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ITGA8
+
+
+    <a href="https://bioregistry.io/hgnc:6144" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:6144</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ITGA8 (hgnc:6144). hgnc:6144 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4410,11 +5048,11 @@ This pathophysiological event involves ureteric bud cell (CL:4030066). CL:403006
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001657" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0001657</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001657" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001657</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves absent ureteric bud development (GO:0001657). GO:0001657 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4444,11 +5082,11 @@ This pathophysiological event involves absent ureteric bud development (GO:00016
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0072075</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072075" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0072075</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal metanephric mesenchyme development (GO:0072075). GO:0072075 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4478,11 +5116,11 @@ This pathophysiological event involves abnormal metanephric mesenchyme developme
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035860" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0035860</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035860" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0035860</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased GDNF receptor signaling, annotated with glial cell-derived neurotrophic factor receptor signaling pathway (GO:0035860). GO:0035860 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4532,7 +5170,7 @@ This pathophysiological event involves decreased GDNF receptor signaling, annota
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (5 references)
         </summary>
         <div class="evidence-list">
 
@@ -4572,8 +5210,10 @@ This pathophysiological event involves decreased GDNF receptor signaling, annota
 
 
 
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                    <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
@@ -4612,6 +5252,469 @@ This pathophysiological event involves decreased GDNF receptor signaling, annota
             </div>
 
 
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-gdnf-receptor-complex-failure-at-the-wolffian-duct" data-dismech-node="GDNF receptor complex failure at the Wolffian duct" data-dismech-type="pathophysiology">
+                <div class="item-name">GDNF receptor complex failure at the Wolffian duct</div>
+
+
+                <div class="item-desc">GDNF secreted by the metanephric mesenchyme acts on the Wolffian duct through GFRA1, a member of the GDNF receptor family, together with the RET receptor tyrosine kinase. Loss of GFRA1 removes that receptor, so the duct no longer receives the outgrowth signal and the ureteric bud is not induced.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GFRA1
+
+
+    <a href="https://bioregistry.io/hgnc:4243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:4243</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GFRA1 (hgnc:4243). hgnc:4243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        RET
+
+
+    <a href="https://bioregistry.io/hgnc:9967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:9967</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves RET (hgnc:9967). hgnc:9967 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        GDNF receptor signaling
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0035860" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0035860</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased GDNF receptor signaling, annotated with glial cell-derived neurotrophic factor receptor signaling pathway (GO:0035860). GO:0035860 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Failed ureteric bud outgrowth and metanephric induction</span>
+
+	                            <span class="crosslink-desc">Without a functioning GDNF receptor complex the Wolffian duct does not produce a ureteric bud, so reciprocal induction never begins.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33020172" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33020172" target="_blank">PMID:33020172</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The GFRA1 gene encodes a receptor on the Wolffian duct that regulates ureteric bud outgrowth in the development of a functional renal system, and has a putative role in the pathogenesis of Hirschsprung disease."</div>
+
+
+                <div class="evidence-explanation">States where the receptor sits and what it controls, which is what this node asserts. The sentence describes protein identity rather than an experiment, so it is graded as background.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16822174" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16822174" target="_blank">PMID:16822174</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ureteric bud outgrowth and branching morphogenesis are controlled by the Ret/Gdnf pathway, which is subject to positive and negative regulation by a variety of factors."</div>
+
+
+                <div class="evidence-explanation">Places RET in the same pathway as the GFRA1 receptor bound on this node, and names ureteric bud outgrowth as the step it controls.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11937757" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11937757" target="_blank">PMID:11937757</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Once it has formed, the mesenchyme secretes GDNF; this induces the nearby wolffian duct to produce a ureteric bud which invades the metanephrogenic mesenchyme and begins to arborize."</div>
+
+
+                <div class="evidence-explanation">Names the metanephric mesenchyme as the source of GDNF and the Wolffian duct as its target, which is the geometry this node describes.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephron-progenitor-stemness-failure" data-dismech-node="Nephron progenitor stemness failure" data-dismech-type="pathophysiology">
+                <div class="item-name">Nephron progenitor stemness failure</div>
+
+
+                <div class="item-desc">FGF20 is a niche ligand that, redundantly with FGF9, keeps nephron progenitors in the metanephric mesenchyme undifferentiated. When FGF20 is lost the progenitor pool differentiates prematurely, so the pool is not maintained and kidney development fails. This node is kept separate from ureteric bud outgrowth failure because FGF20 does not act at that step.</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        FGF20
+
+
+    <a href="https://bioregistry.io/hgnc:3677" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:3677</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves FGF20 (hgnc:3677). hgnc:3677 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        nephron progenitor maintenance
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0072309" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0072309</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased nephron progenitor maintenance, annotated with mesenchymal stem cell maintenance involved in metanephric nephron morphogenesis (GO:0072309). GO:0072309 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Absent kidney and ureter</span>
+
+	                            <span class="crosslink-desc">An exhausted nephron progenitor pool leaves no nephrons to form, so the affected side has no functioning renal tissue.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22698282" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22698282" target="_blank">PMID:22698282</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Reduction in the level of these redundant ligands in the mouse led to premature progenitor differentiation within the niche."</div>
+
+
+                <div class="evidence-explanation">The mouse experiment shows that reducing FGF20 and FGF9 exhausts the progenitor pool by premature differentiation, which is the state this node describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22698282" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22698282" target="_blank">PMID:22698282</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sufficiency was shown in vitro where Fgf20 or Fgf9 (alone or together with Bmp7) maintained isolated metanephric mesenchyme or sorted nephron progenitors that remained competent to differentiate in response to Wnt signals after 5 or 2 days in culture, respectively."</div>
+
+
+                <div class="evidence-explanation">Culture of isolated metanephric mesenchyme and sorted nephron progenitors is the direct support for the bound process, progenitor maintenance in metanephric nephron morphogenesis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22698282" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22698282" target="_blank">PMID:22698282</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Loss of FGF20 in humans, or of both ligands in mice, resulted in kidney agenesis."</div>
+
+
+                <div class="evidence-explanation">Connects the progenitor defect to the human outcome this node feeds into.</div>
+
+
+
+            </div>
+
+
         </div>
     </details>
 
@@ -4620,6 +5723,7 @@ This pathophysiological event involves decreased GDNF receptor signaling, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-kidney-and-ureter" data-dismech-node="Absent kidney and ureter" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent kidney and ureter</div>
+
 
                 <div class="item-desc">Because the ureteric bud and metanephric mesenchyme fail to form a kidney, the affected side has no functioning renal tissue and no ureter. In unilateral disease the contralateral kidney undergoes compensatory hypertrophy and hyperfiltration; in bilateral disease there is no functional renal mass.</div>
 
@@ -4642,11 +5746,11 @@ This pathophysiological event involves decreased GDNF receptor signaling, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001822" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001822</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001822" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0001822</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves absent kidney development (GO:0001822). GO:0001822 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4676,11 +5780,11 @@ This pathophysiological event involves absent kidney development (GO:0001822). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001656" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001656</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001656" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0001656</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves absent metanephros development (GO:0001656). GO:0001656 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4769,6 +5873,7 @@ This pathophysiological event involves absent metanephros development (GO:000165
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligohydramnios-and-potter-sequence" data-dismech-node="Oligohydramnios and Potter sequence" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligohydramnios and Potter sequence</div>
 
+
                 <div class="item-desc">Fetal urine is the major source of amniotic fluid in the second half of gestation. In bilateral renal agenesis the absence of urine output produces severe oligohydramnios, which mechanically compresses the fetus. The resulting deformation cascade is the Potter sequence: pulmonary hypoplasia (the usual cause of neonatal death), Potter facies, and limb contractures.</div>
 
 
@@ -4790,11 +5895,11 @@ This pathophysiological event involves absent metanephros development (GO:000165
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030324" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0030324</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030324" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030324</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal lung development (GO:0030324). GO:0030324 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4883,6 +5988,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perinatal-respiratory-failure" data-dismech-node="Perinatal respiratory failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Perinatal respiratory failure</div>
 
+
                 <div class="item-desc">Pulmonary hypoplasia from oligohydramnios in bilateral renal agenesis leaves insufficient functional lung tissue for gas exchange, causing respiratory failure that is the proximate cause of death in most affected neonates.</div>
 
 
@@ -4904,11 +6010,11 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007585" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007585</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007585" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0007585</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal respiratory gaseous exchange, annotated with respiratory gaseous exchange by respiratory system (GO:0007585). GO:0007585 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5004,7 +6110,7 @@ This pathophysiological event involves abnormal respiratory gaseous exchange, an
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent kidney and ureter\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the ureteric bud and metanephric mesenchyme fail to form a kidney, the affected side has no functioning renal tissue and no ureter. In unilateral disease the contralateral kidney undergoes compensatory hypertrophy and hyperfiltration; in bilateral disease there is no functional renal mass.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"kidney development\", \"metanephros development\"]}}, {\"id\": \"Failed ureteric bud outgrowth and metanephric induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal agenesis originates from failure of the reciprocal inductive interaction between the ureteric bud and the metanephric mesenchyme. GDNF secreted by the metanephric mesenchyme signals through the RET receptor tyrosine kinase on the ureteric bud to drive bud outgrowth and branching; loss of GDNF-RET signaling, or of upstream regulators such as PAX2, GREB1L, ITGA8, and FGF20, prevents bud outgrowth or invasion of the mesenchyme, so the metanephros never forms.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"ureteric bud cell\"], \"biological_processes\": [\"ureteric bud development\", \"metanephric mesenchyme development\", \"GDNF receptor signaling\"]}}, {\"id\": \"Oligohydramnios and Potter sequence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal urine is the major source of amniotic fluid in the second half of gestation. In bilateral renal agenesis the absence of urine output produces severe oligohydramnios, which mechanically compresses the fetus. The resulting deformation cascade is the Potter sequence: pulmonary hypoplasia (the usual cause of neonatal death), Potter facies, and limb contractures.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lung development\"]}}, {\"id\": \"Perinatal respiratory failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia from oligohydramnios in bilateral renal agenesis leaves insufficient functional lung tissue for gas exchange, causing respiratory failure that is the proximate cause of death in most affected neonates.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"respiratory gaseous exchange\"]}}], \"edges\": [{\"source\": \"Failed ureteric bud outgrowth and metanephric induction\", \"target\": \"Absent kidney and ureter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed induction means the metanephros and its collecting system never develop.\"}, {\"source\": \"Absent kidney and ureter\", \"target\": \"Oligohydramnios and Potter sequence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In bilateral agenesis, absent fetal urine output leads to oligohydramnios.\"}, {\"source\": \"Oligohydramnios and Potter sequence\", \"target\": \"Perinatal respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia leads to fatal respiratory insufficiency at birth.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent kidney and ureter\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the ureteric bud and metanephric mesenchyme fail to form a kidney, the affected side has no functioning renal tissue and no ureter. In unilateral disease the contralateral kidney undergoes compensatory hypertrophy and hyperfiltration; in bilateral disease there is no functional renal mass.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"kidney development\", \"metanephros development\"]}}, {\"id\": \"FGF20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGF20\"], \"gene_terms\": [{\"label\": \"FGF20\", \"id\": \"hgnc:3677\"}], \"subtypes\": [\"RHDA2\"], \"presence\": \"Positive\", \"association\": \"Bilateral renal agenesis\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Failed ureteric bud outgrowth and metanephric induction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Renal agenesis originates from failure of the reciprocal inductive interaction between the ureteric bud and the metanephric mesenchyme. GDNF secreted by the metanephric mesenchyme signals through the RET receptor tyrosine kinase on the ureteric bud to drive bud outgrowth and branching; loss of GDNF-RET signaling, or of upstream regulators such as PAX2, GREB1L, ITGA8, and FGF20, prevents bud outgrowth or invasion of the mesenchyme, so the metanephros never forms.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"ureteric bud cell\"], \"biological_processes\": [\"ureteric bud development\", \"metanephric mesenchyme development\", \"GDNF receptor signaling\"], \"genes\": [\"PAX2\", \"GREB1L\", \"ITGA8\"], \"gene_terms\": [{\"label\": \"PAX2\", \"id\": \"hgnc:8616\"}, {\"label\": \"GREB1L\", \"id\": \"hgnc:31042\"}, {\"label\": \"ITGA8\", \"id\": \"hgnc:6144\"}]}}, {\"id\": \"GDNF receptor complex failure at the Wolffian duct\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDNF secreted by the metanephric mesenchyme acts on the Wolffian duct through GFRA1, a member of the GDNF receptor family, together with the RET receptor tyrosine kinase. Loss of GFRA1 removes that receptor, so the duct no longer receives the outgrowth signal and the ureteric bud is not induced.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"GDNF receptor signaling\"], \"genes\": [\"GFRA1\", \"RET\"], \"gene_terms\": [{\"label\": \"GFRA1\", \"id\": \"hgnc:4243\"}, {\"label\": \"RET\", \"id\": \"hgnc:9967\"}]}}, {\"id\": \"GFRA1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"GFRA1\"], \"gene_terms\": [{\"label\": \"GFRA1\", \"id\": \"hgnc:4243\"}], \"subtypes\": [\"RHDA4\"], \"presence\": \"Positive\", \"association\": \"Autosomal recessive nonsyndromic bilateral renal agenesis\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"GREB1L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"GREB1L\"], \"gene_terms\": [{\"label\": \"GREB1L\", \"id\": \"hgnc:31042\"}], \"subtypes\": [\"RHDA3\"], \"presence\": \"Positive\", \"association\": \"Autosomal dominant renal agenesis / severe CAKUT\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"ITGA8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ITGA8\"], \"gene_terms\": [{\"label\": \"ITGA8\", \"id\": \"hgnc:6144\"}], \"subtypes\": [\"RHDA1\"], \"presence\": \"Positive\", \"association\": \"Bilateral renal agenesis / renal hypodysplasia\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Nephron progenitor stemness failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"FGF20 is a niche ligand that, redundantly with FGF9, keeps nephron progenitors in the metanephric mesenchyme undifferentiated. When FGF20 is lost the progenitor pool differentiates prematurely, so the pool is not maintained and kidney development fails. This node is kept separate from ureteric bud outgrowth failure because FGF20 does not act at that step.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"nephron progenitor maintenance\"], \"genes\": [\"FGF20\"], \"gene_terms\": [{\"label\": \"FGF20\", \"id\": \"hgnc:3677\"}]}}, {\"id\": \"Oligohydramnios and Potter sequence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal urine is the major source of amniotic fluid in the second half of gestation. In bilateral renal agenesis the absence of urine output produces severe oligohydramnios, which mechanically compresses the fetus. The resulting deformation cascade is the Potter sequence: pulmonary hypoplasia (the usual cause of neonatal death), Potter facies, and limb contractures.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"lung development\"]}}, {\"id\": \"PAX2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PAX2\"], \"gene_terms\": [{\"label\": \"PAX2\", \"id\": \"hgnc:8616\"}], \"subtypes\": [\"Syndromic\"], \"presence\": \"Positive\", \"association\": \"Renal coloboma syndrome / renal hypoplasia-agenesis\"}}, {\"id\": \"Perinatal respiratory failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia from oligohydramnios in bilateral renal agenesis leaves insufficient functional lung tissue for gas exchange, causing respiratory failure that is the proximate cause of death in most affected neonates.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"respiratory gaseous exchange\"]}}, {\"id\": \"RET\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"genes\": [\"RET\"], \"gene_terms\": [{\"label\": \"RET\", \"id\": \"hgnc:9967\"}], \"subtypes\": [\"Syndromic\"], \"presence\": \"Positive\", \"association\": \"Ureteric bud outgrowth signaling / CAKUT\"}}], \"edges\": [{\"source\": \"Failed ureteric bud outgrowth and metanephric induction\", \"target\": \"Absent kidney and ureter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed induction means the metanephros and its collecting system never develop.\"}, {\"source\": \"GDNF receptor complex failure at the Wolffian duct\", \"target\": \"Failed ureteric bud outgrowth and metanephric induction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without a functioning GDNF receptor complex the Wolffian duct does not produce a ureteric bud, so reciprocal induction never begins.\"}, {\"source\": \"Nephron progenitor stemness failure\", \"target\": \"Absent kidney and ureter\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An exhausted nephron progenitor pool leaves no nephrons to form, so the affected side has no functioning renal tissue.\"}, {\"source\": \"Absent kidney and ureter\", \"target\": \"Oligohydramnios and Potter sequence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In bilateral agenesis, absent fetal urine output leads to oligohydramnios.\"}, {\"source\": \"Oligohydramnios and Potter sequence\", \"target\": \"Perinatal respiratory failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pulmonary hypoplasia leads to fatal respiratory insufficiency at birth.\"}, {\"source\": \"GREB1L\", \"target\": \"Failed ureteric bud outgrowth and metanephric induction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RET\", \"target\": \"GDNF receptor complex failure at the Wolffian duct\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX2\", \"target\": \"Failed ureteric bud outgrowth and metanephric induction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA8\", \"target\": \"Failed ureteric bud outgrowth and metanephric induction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGF20\", \"target\": \"Nephron progenitor stemness failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GFRA1\", \"target\": \"GDNF receptor complex failure at the Wolffian duct\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5056,10 +6162,10 @@ This pathophysiological event involves abnormal respiratory gaseous exchange, an
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5093,10 +6199,10 @@ This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000122</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000122</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5165,10 +6271,10 @@ This clinical feature is Unilateral renal agenesis (HP:0000122). HP:0000122 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0010958</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010958" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0010958</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral renal agenesis (HP:0010958). HP:0010958 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5246,10 +6352,10 @@ This clinical feature is Bilateral renal agenesis (HP:0010958). HP:0010958 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002009</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002009" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002009</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Potter facies (HP:0002009). HP:0002009 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5292,10 +6398,10 @@ This clinical feature is Potter facies (HP:0002009). HP:0002009 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001562</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001562</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5373,10 +6479,10 @@ This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002089</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002089</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5467,7 +6573,7 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">5</span>
+                <span class="card-count">6</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-greb1l" data-dismech-node="GREB1L" data-dismech-type="genetic">
@@ -5488,17 +6594,22 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
                         Gene: GREB1L
 
 
-    <a href="https://bioregistry.io/hgnc:31042" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:31042</a>
+    <a href="https://bioregistry.io/hgnc:31042" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:31042</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GREB1L (hgnc:31042). hgnc:31042 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -5585,10 +6696,10 @@ This disease-associated gene is GREB1L (hgnc:31042). hgnc:31042 is a gene from t
                         Gene: RET
 
 
-    <a href="https://bioregistry.io/hgnc:9967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9967</a>
+    <a href="https://bioregistry.io/hgnc:9967" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:9967</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5596,6 +6707,9 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -5622,10 +6736,10 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
                         Gene: PAX2
 
 
-    <a href="https://bioregistry.io/hgnc:8616" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:8616</a>
+    <a href="https://bioregistry.io/hgnc:8616" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:8616</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PAX2 (hgnc:8616). hgnc:8616 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5633,6 +6747,9 @@ This disease-associated gene is PAX2 (hgnc:8616). hgnc:8616 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5694,17 +6811,22 @@ This disease-associated gene is PAX2 (hgnc:8616). hgnc:8616 is a gene from the H
                         Gene: ITGA8
 
 
-    <a href="https://bioregistry.io/hgnc:6144" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-18">hgnc:6144</a>
+    <a href="https://bioregistry.io/hgnc:6144" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:6144</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ITGA8 (hgnc:6144). hgnc:6144 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -5791,17 +6913,22 @@ This disease-associated gene is ITGA8 (hgnc:6144). hgnc:6144 is a gene from the 
                         Gene: FGF20
 
 
-    <a href="https://bioregistry.io/hgnc:3677" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-19">hgnc:3677</a>
+    <a href="https://bioregistry.io/hgnc:3677" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:3677</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FGF20 (hgnc:3677). hgnc:3677 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -5845,6 +6972,135 @@ This disease-associated gene is FGF20 (hgnc:3677). hgnc:3677 is a gene from the 
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-gfra1" data-dismech-node="GFRA1" data-dismech-type="genetic">
+                <div class="item-name">
+                    GFRA1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Autosomal recessive nonsyndromic bilateral renal agenesis)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GFRA1
+
+
+    <a href="https://bioregistry.io/hgnc:4243" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:4243</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GFRA1 (hgnc:4243). hgnc:4243 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33020172" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33020172" target="_blank">PMID:33020172</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Two homozygous, putative, loss-of-function variants (p.Arg226* and p.Thr432Profs*) were found in index cases with BRA from two unrelated consanguineous families"</div>
+
+
+                <div class="evidence-explanation">The discovery report identifies two unrelated consanguineous families with homozygous loss-of-function variants and bilateral renal agenesis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34737117" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34737117" target="_blank">PMID:34737117</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The current study represents a second confirmation report on the causal association of GFRA1 pathogenic variants with lethal nonsyndromic bilateral renal agenesis in humans."</div>
+
+
+                <div class="evidence-explanation">An independent consanguineous family replicates the gene-disease association.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36292572" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36292572" target="_blank">PMID:36292572</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the first family with BRA, we identified a homozygous missense variant in GFRA1: c.362A&gt;G; p.(Tyr121Cys), which is predicted to damage the protein structure."</div>
+
+
+                <div class="evidence-explanation">A third family extends the allelic spectrum from truncating variants to a damaging homozygous missense variant.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -5871,7 +7127,7 @@ This disease-associated gene is FGF20 (hgnc:3677). hgnc:3677 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">renal dialysis<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">renal dialysis<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is renal dialysis, annotated with Dialysis (NCIT:C15221). NCIT:C15221 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5936,7 +7192,7 @@ This treatment is renal dialysis, annotated with Dialysis (NCIT:C15221). NCIT:C1
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">kidney transplantation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is kidney transplantation (NCIT:C15265). NCIT:C15265 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6001,7 +7257,7 @@ This treatment is kidney transplantation (NCIT:C15265). NCIT:C15265 is a clinica
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6066,7 +7322,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6130,7 +7386,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">therapeutic procedure of amniotic fluid<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">therapeutic procedure of amniotic fluid<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is therapeutic procedure of amniotic fluid, annotated with Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6262,11 +7518,11 @@ This treatment is therapeutic procedure of amniotic fluid, annotated with Therap
         prenatal renal ultrasonography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C222238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C222238</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C222238" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C222238</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -6550,7 +7806,8 @@ description: &gt;-
   (bilateral) kidneys, accompanied by absence of the corresponding ureter(s). It
   arises from failed reciprocal induction between the ureteric bud and the
   metanephric mesenchyme during the fifth week of human gestation, most often
-  from defective RET-GDNF, PAX2, GREB1L, ITGA8, or FGF20 signaling. Unilateral
+  from defective GDNF-GFRA1-RET, PAX2, GREB1L, ITGA8, or FGF20 signaling.
+  Unilateral
   renal agenesis is frequently asymptomatic with compensatory hypertrophy of the
   solitary kidney, whereas bilateral renal agenesis abolishes fetal urine output,
   producing severe oligohydramnios and the deformation cascade of Potter sequence
@@ -6587,10 +7844,227 @@ has_subtypes:
 - name: Syndromic
   display_name: Syndromic / Gene-linked Renal Agenesis
   description: &gt;-
-    Renal agenesis occurring as part of a monogenic syndrome or attributable to
-    a defined developmental gene, including GREB1L-, RET-, PAX2-, ITGA8-, and
-    FGF20-related CAKUT, as well as renal coloboma syndrome and branchio-oto-renal
-    spectrum disorders.
+    Renal agenesis attributable to a gene or a syndrome outside the MONDO renal
+    hypodysplasia/aplasia series: RET-related CAKUT, PAX2-related renal coloboma
+    syndrome, and the branchio-oto-renal spectrum. The forms MONDO numbers as
+    renal hypodysplasia/aplasia 1 to 4 are carried by the RHDA1 to RHDA4 rows
+    below instead. The row name is retained because other sections key on it;
+    not every gene-linked form listed here is syndromic.
+- name: RHDA1
+  display_name: Renal Hypodysplasia/Aplasia 1 (ITGA8-Related)
+  classification: molecular
+  subtype_term:
+    preferred_term: renal hypodysplasia/aplasia 1
+    term:
+      id: MONDO:0024519
+      label: renal hypodysplasia/aplasia 1
+  description: &gt;-
+    Nonsyndromic bilateral renal agenesis from biallelic ITGA8 variants. The
+    MONDO class carries no definition text; its OWL axioms attribute it to
+    ITGA8 and it cross-references OMIM:191830, the same MIM number as the OMIM
+    phenotypic series OMIMPS:191830 that MONDO:0018470 is equivalent to. The
+    class also carries the synonyms Selig Benacerraf Greene syndrome and renal
+    dysplasia, megalocystis, and sirenomelia, so a reader arriving by synonym
+    should check which concept is meant.
+  genes:
+  - preferred_term: ITGA8
+    term:
+      id: hgnc:6144
+      label: ITGA8
+  inheritance:
+  - name: Autosomal recessive inheritance
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+    description: &gt;-
+      Both ITGA8 alleles must be affected; the discovery families were
+      consanguineous with recessive segregation.
+    evidence:
+    - reference: PMID:24439109
+      reference_title: Integrin alpha 8 recessive mutations are responsible for bilateral renal agenesis in humans.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        These results demonstrate that mutations of ITGA8 are a genetic cause of bilateral renal agenesis and that, at least in some cases, bilateral renal agenesis is an autosomal-recessive disease.
+      explanation: &gt;-
+        The discovery report states the recessive mode for ITGA8-related
+        bilateral renal agenesis.
+  evidence:
+  - reference: PMID:24439109
+    reference_title: Integrin alpha 8 recessive mutations are responsible for bilateral renal agenesis in humans.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      These results demonstrate that mutations of ITGA8 are a genetic cause of bilateral renal agenesis and that, at least in some cases, bilateral renal agenesis is an autosomal-recessive disease.
+    explanation: &gt;-
+      The discovery report&#39;s conclusion is the gene-disease claim this subtype
+      row makes.
+  - reference: PMID:24439109
+    reference_title: Integrin alpha 8 recessive mutations are responsible for bilateral renal agenesis in humans.
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Renal hypodysplasia (RHD) is a heterogeneous condition encompassing a spectrum of kidney development defects including renal agenesis, hypoplasia, and (cystic) dysplasia.
+    explanation: &gt;-
+      A classification statement rather than a result, and the reason the MONDO
+      series is named renal hypodysplasia/aplasia rather than renal agenesis:
+      the underlying clinical concept spans agenesis, hypoplasia and dysplasia.
+  - reference: PMID:33020172
+    reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Currently, only three genes are known to cause nonsyndromic BRA in humans.
+    explanation: &gt;-
+      The three genes are ITGA8, GREB1L and FGF20, so this is the source for
+      calling the ITGA8 form nonsyndromic and for moving the ITGA8, GREB1L and
+      FGF20 subtype keys off the Syndromic row.
+- name: RHDA2
+  display_name: Renal Hypodysplasia/Aplasia 2 (FGF20-Related)
+  classification: molecular
+  subtype_term:
+    preferred_term: renal hypodysplasia/aplasia 2
+    term:
+      id: MONDO:0014319
+      label: renal hypodysplasia/aplasia 2
+  description: &gt;-
+    Renal agenesis from loss of FGF20, a niche ligand that maintains nephron
+    progenitor stemness. MONDO defines this class as any renal agenesis whose
+    cause is a mutation in the FGF20 gene and cross-references it to
+    OMIM:615721. No inheritance block is recorded on this row: the discovery
+    report&#39;s cached abstract states that loss of FGF20 in humans results in
+    kidney agenesis without giving the transmission mode, and a Europe PMC
+    search for FGF20 with renal agenesis, and the same search with recessive
+    added, surfaced no other primary report of the human family.
+  genes:
+  - preferred_term: FGF20
+    term:
+      id: hgnc:3677
+      label: FGF20
+  evidence:
+  - reference: PMID:22698282
+    reference_title: FGF9 and FGF20 maintain the stemness of nephron progenitors in mice and man.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Loss of FGF20 in humans, or of both ligands in mice, resulted in kidney agenesis.
+    explanation: &gt;-
+      Establishes FGF20 loss as a human cause of kidney agenesis, which is the
+      gene-disease claim this subtype row makes.
+- name: RHDA3
+  display_name: Renal Hypodysplasia/Aplasia 3 (GREB1L-Related)
+  classification: molecular
+  subtype_term:
+    preferred_term: renal hypodysplasia/aplasia 3
+    term:
+      id: MONDO:0024520
+      label: renal hypodysplasia/aplasia 3
+  description: &gt;-
+    Renal agenesis and severe CAKUT from heterozygous variants in GREB1L, a
+    retinoic acid receptor coactivator required for early metanephros
+    development. The
+    MONDO class carries no definition text; its OWL axioms attribute it to
+    GREB1L and it cross-references OMIM:617805.
+  genes:
+  - preferred_term: GREB1L
+    term:
+      id: hgnc:31042
+      label: GREB1L
+  inheritance:
+  - name: Autosomal dominant inheritance
+    inheritance_term:
+      preferred_term: Autosomal dominant inheritance
+      term:
+        id: HP:0000006
+        label: Autosomal dominant inheritance
+    description: &gt;-
+      A single GREB1L allele is sufficient; the reported fetuses carried
+      heterozygous variants.
+    evidence:
+    - reference: PMID:29100091
+      reference_title: Mutations in GREB1L Cause Bilateral Kidney Agenesis in Humans and Mice.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        fetuses with BKA, led to the identification of 16 heterozygous variants in GREB1L
+      explanation: &gt;-
+        Sixteen heterozygous variants in fetuses with bilateral kidney agenesis
+        establish monoallelic transmission for this subtype.
+  evidence:
+  - reference: PMID:28739660
+    reference_title: A Gene Implicated in Activation of Retinoic Acid Receptor Targets Is a Novel Renal Agenesis Gene in Humans.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This study is the first to associate a component of the RAR pathway with renal agenesis in humans.
+    explanation: &gt;-
+      Identifies GREB1L, a retinoic acid receptor pathway component, as a human
+      renal agenesis gene.
+- name: RHDA4
+  display_name: Renal Hypodysplasia/Aplasia 4 (GFRA1-Related)
+  classification: molecular
+  subtype_term:
+    preferred_term: renal hypodysplasia/aplasia 4
+    term:
+      id: MONDO:0030822
+      label: renal hypodysplasia/aplasia 4
+  description: &gt;-
+    Nonsyndromic bilateral renal agenesis from biallelic loss of GFRA1, the
+    GDNF co-receptor on the Wolffian duct. The MONDO class carries no
+    definition text; its OWL axioms attribute it to GFRA1 and it
+    cross-references OMIM:619887. Three consanguineous families have been
+    reported: the two index families of the discovery report, a second
+    confirmation family with a homozygous stop-gain variant, and a third with a
+    homozygous missense variant.
+  genes:
+  - preferred_term: GFRA1
+    term:
+      id: hgnc:4243
+      label: GFRA1
+  inheritance:
+  - name: Autosomal recessive inheritance
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+    description: &gt;-
+      Affected fetuses are homozygous for GFRA1 loss-of-function or damaging
+      missense variants in consanguineous families.
+    evidence:
+    - reference: PMID:33020172
+      reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        They had parental consanguinity and similarly affected, deceased siblings, suggesting autosomal recessive inheritance.
+      explanation: &gt;-
+        Consanguinity with affected siblings in the discovery families is the
+        basis for the recessive mode this row records.
+  evidence:
+  - reference: PMID:33020172
+    reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      These findings strongly support the causal role of GFRA1-inactivating variants for an autosomal recessive, nonsyndromic form of BRA.
+    explanation: &gt;-
+      The discovery report&#39;s conclusion is the gene-disease claim this subtype
+      row makes, and it specifies the nonsyndromic form.
+  - reference: PMID:34737117
+    reference_title: Biallelic loss-of-function variants of GFRA1 cause lethal bilateral renal agenesis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The current study represents a second confirmation report on the causal association of GFRA1 pathogenic variants with lethal nonsyndromic bilateral renal agenesis in humans.
+    explanation: &gt;-
+      An independent consanguineous family confirms the gene-disease
+      association, which is why this row is treated as established rather than
+      provisional.
 pathophysiology:
 - name: Failed ureteric bud outgrowth and metanephric induction
   description: &gt;-
@@ -6600,6 +8074,19 @@ pathophysiology:
     ureteric bud to drive bud outgrowth and branching; loss of GDNF-RET signaling,
     or of upstream regulators such as PAX2, GREB1L, ITGA8, and FGF20, prevents bud
     outgrowth or invasion of the mesenchyme, so the metanephros never forms.
+  genes:
+  - preferred_term: PAX2
+    term:
+      id: hgnc:8616
+      label: PAX2
+  - preferred_term: GREB1L
+    term:
+      id: hgnc:31042
+      label: GREB1L
+  - preferred_term: ITGA8
+    term:
+      id: hgnc:6144
+      label: ITGA8
   cell_types:
   - preferred_term: ureteric bud cell
     term:
@@ -6635,7 +8122,8 @@ pathophysiology:
   - reference: PMID:16822174
     reference_title: The cellular basis of kidney development.
     supports: SUPPORT
-    evidence_source: HUMAN_CLINICAL
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
     snippet: &gt;-
       Ureteric bud outgrowth and branching morphogenesis are controlled by the Ret/Gdnf pathway, which is subject to positive and negative regulation by a variety of factors.
     explanation: &gt;-
@@ -6651,9 +8139,147 @@ pathophysiology:
       Identifies the upstream transcription factors (including Pax-2) required
       for metanephric mesenchyme formation, mutations of which cause renal
       agenesis/hypodysplasia.
+  - reference: PMID:29100091
+    reference_title: Mutations in GREB1L Cause Bilateral Kidney Agenesis in Humans and Mice.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This demonstrates that GREB1L plays a major role in early metanephros and genital development in mice and humans.
+    explanation: &gt;-
+      Places GREB1L at the early metanephros step this node describes, which
+      is why it is bound as one of the node genes.
+  - reference: PMID:24439109
+    reference_title: Integrin alpha 8 recessive mutations are responsible for bilateral renal agenesis in humans.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Itga8 homozygous knockout in mice is known to result in absence of kidney development.
+    explanation: &gt;-
+      The mouse knockout shows ITGA8 is required for the kidney to develop at
+      all, which is the step this node describes.
   downstream:
   - target: Absent kidney and ureter
     description: Failed induction means the metanephros and its collecting system never develop.
+- name: GDNF receptor complex failure at the Wolffian duct
+  description: &gt;-
+    GDNF secreted by the metanephric mesenchyme acts on the Wolffian duct
+    through GFRA1, a member of the GDNF receptor family, together with the RET
+    receptor tyrosine kinase. Loss of GFRA1 removes that receptor, so the duct no
+    longer receives the outgrowth signal and the ureteric bud is not induced.
+  biological_scale: MOLECULAR
+  genes:
+  - preferred_term: GFRA1
+    term:
+      id: hgnc:4243
+      label: GFRA1
+  - preferred_term: RET
+    term:
+      id: hgnc:9967
+      label: RET
+  biological_processes:
+  - preferred_term: GDNF receptor signaling
+    modifier: DECREASED
+    term:
+      id: GO:0035860
+      label: glial cell-derived neurotrophic factor receptor signaling pathway
+  evidence:
+  - reference: PMID:33020172
+    reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      The GFRA1 gene encodes a receptor on the Wolffian duct that regulates ureteric bud outgrowth in the development of a functional renal system, and has a putative role in the pathogenesis of Hirschsprung disease.
+    explanation: &gt;-
+      States where the receptor sits and what it controls, which is what this
+      node asserts. The sentence describes protein identity rather than an
+      experiment, so it is graded as background.
+  - reference: PMID:16822174
+    reference_title: The cellular basis of kidney development.
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      Ureteric bud outgrowth and branching morphogenesis are controlled by the Ret/Gdnf pathway, which is subject to positive and negative regulation by a variety of factors.
+    explanation: &gt;-
+      Places RET in the same pathway as the GFRA1 receptor bound on this node,
+      and names ureteric bud outgrowth as the step it controls.
+  - reference: PMID:11937757
+    reference_title: Genes and proteins in renal development.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Once it has formed, the mesenchyme secretes GDNF; this induces the nearby wolffian duct to produce a ureteric bud which invades the metanephrogenic mesenchyme and begins to arborize.
+    explanation: &gt;-
+      Names the metanephric mesenchyme as the source of GDNF and the Wolffian
+      duct as its target, which is the geometry this node describes.
+  - reference: PMID:33020172
+    reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      These findings strongly support the causal role of GFRA1-inactivating variants for an autosomal recessive, nonsyndromic form of BRA.
+    explanation: &gt;-
+      Human genetic evidence that inactivating this component of the complex
+      causes bilateral renal agenesis.
+  downstream:
+  - target: Failed ureteric bud outgrowth and metanephric induction
+    description: &gt;-
+      Without a functioning GDNF receptor complex the Wolffian duct does not
+      produce a ureteric bud, so reciprocal induction never begins.
+- name: Nephron progenitor stemness failure
+  description: &gt;-
+    FGF20 is a niche ligand that, redundantly with FGF9, keeps nephron
+    progenitors in the metanephric mesenchyme undifferentiated. When FGF20 is
+    lost the progenitor pool differentiates prematurely, so the pool is not
+    maintained and kidney development fails. This node is kept separate from
+    ureteric bud outgrowth failure because FGF20 does not act at that step.
+  biological_scale: CELLULAR
+  genes:
+  - preferred_term: FGF20
+    term:
+      id: hgnc:3677
+      label: FGF20
+  biological_processes:
+  - preferred_term: nephron progenitor maintenance
+    modifier: DECREASED
+    term:
+      id: GO:0072309
+      label: mesenchymal stem cell maintenance involved in metanephric nephron morphogenesis
+  evidence:
+  - reference: PMID:22698282
+    reference_title: FGF9 and FGF20 maintain the stemness of nephron progenitors in mice and man.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      Reduction in the level of these redundant ligands in the mouse led to premature progenitor differentiation within the niche.
+    explanation: &gt;-
+      The mouse experiment shows that reducing FGF20 and FGF9 exhausts the
+      progenitor pool by premature differentiation, which is the state this node
+      describes.
+  - reference: PMID:22698282
+    reference_title: FGF9 and FGF20 maintain the stemness of nephron progenitors in mice and man.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Sufficiency was shown in vitro where Fgf20 or Fgf9 (alone or together with Bmp7) maintained isolated metanephric mesenchyme or sorted nephron progenitors that remained competent to differentiate in response to Wnt signals after 5 or 2 days in culture, respectively.
+    explanation: &gt;-
+      Culture of isolated metanephric mesenchyme and sorted nephron progenitors
+      is the direct support for the bound process, progenitor maintenance in
+      metanephric nephron morphogenesis.
+  - reference: PMID:22698282
+    reference_title: FGF9 and FGF20 maintain the stemness of nephron progenitors in mice and man.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Loss of FGF20 in humans, or of both ligands in mice, resulted in kidney agenesis.
+    explanation: &gt;-
+      Connects the progenitor defect to the human outcome this node feeds into.
+  downstream:
+  - target: Absent kidney and ureter
+    description: &gt;-
+      An exhausted nephron progenitor pool leaves no nephrons to form, so the
+      affected side has no functioning renal tissue.
 - name: Absent kidney and ureter
   description: &gt;-
     Because the ureteric bud and metanephric mesenchyme fail to form a kidney,
@@ -6868,8 +8494,9 @@ diagnosis:
       exclude bilateral renal agenesis prenatally.
 genetic:
 - name: GREB1L
-  subtype: Syndromic
+  subtype: RHDA3
   association: Autosomal dominant renal agenesis / severe CAKUT
+  relationship_type: CAUSATIVE
   presence: Positive
   gene_term:
     preferred_term: GREB1L
@@ -6935,8 +8562,9 @@ genetic:
       Confirms PAX2 as the transcription-factor gene mutated in renal coloboma
       syndrome, the spectrum that includes renal hypoplasia/agenesis.
 - name: ITGA8
-  subtype: Syndromic
+  subtype: RHDA1
   association: Bilateral renal agenesis / renal hypodysplasia
+  relationship_type: CAUSATIVE
   presence: Positive
   gene_term:
     preferred_term: ITGA8
@@ -6967,8 +8595,9 @@ genetic:
       The mouse Itga8 knockout recapitulates absent kidney development,
       supporting ITGA8&#39;s role in renal agenesis.
 - name: FGF20
-  subtype: Syndromic
+  subtype: RHDA2
   association: Bilateral renal agenesis
+  relationship_type: CAUSATIVE
   presence: Positive
   gene_term:
     preferred_term: FGF20
@@ -6988,6 +8617,62 @@ genetic:
     explanation: &gt;-
       Demonstrates that loss of FGF20, which maintains nephron progenitor
       stemness, causes kidney agenesis in humans.
+- name: GFRA1
+  subtype: RHDA4
+  association: Autosomal recessive nonsyndromic bilateral renal agenesis
+  relationship_type: CAUSATIVE
+  presence: Positive
+  gene_term:
+    preferred_term: GFRA1
+    term:
+      id: hgnc:4243
+      label: GFRA1
+  notes: &gt;-
+    GFRA1 encodes a member of the GDNF receptor family, on the Wolffian duct,
+    that regulates ureteric bud outgrowth. Biallelic loss-of-function or
+    damaging missense
+    variants cause nonsyndromic bilateral renal agenesis, reported in
+    consanguineous families by three independent studies. GDNFRA is a previous
+    HGNC symbol for this gene.
+  evidence:
+  - reference: PMID:33020172
+    reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Two homozygous, putative, loss-of-function variants (p.Arg226* and p.Thr432Profs*) were found in index cases with BRA from two unrelated consanguineous families
+    explanation: &gt;-
+      The discovery report identifies two unrelated consanguineous families with
+      homozygous loss-of-function variants and bilateral renal agenesis.
+  - reference: PMID:34737117
+    reference_title: Biallelic loss-of-function variants of GFRA1 cause lethal bilateral renal agenesis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      The current study represents a second confirmation report on the causal association of GFRA1 pathogenic variants with lethal nonsyndromic bilateral renal agenesis in humans.
+    explanation: &gt;-
+      An independent consanguineous family replicates the gene-disease
+      association.
+  - reference: PMID:36292572
+    reference_title: Missense Variants in GFRA1 and NPNT Are Associated with Congenital Anomalies of the Kidney and Urinary Tract.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In the first family with BRA, we identified a homozygous missense variant in GFRA1: c.362A&gt;G; p.(Tyr121Cys), which is predicted to damage the protein structure.
+    explanation: &gt;-
+      A third family extends the allelic spectrum from truncating variants to a
+      damaging homozygous missense variant.
+  - reference: PMID:34737117
+    reference_title: Biallelic loss-of-function variants of GFRA1 cause lethal bilateral renal agenesis.
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      To date, pathogenic variants in three genes (ITGA8, GREB1L, and FGF20) have been shown to cause renal agenesis in humans.
+    explanation: &gt;-
+      Records that GFRA1 was the fourth established nonsyndromic renal agenesis
+      gene, after the three this entry already carried. The sentence states the
+      state of the field rather than a result of the study.
 inheritance:
 - name: Autosomal dominant inheritance
   description: &gt;-
@@ -7014,8 +8699,8 @@ inheritance:
 - name: Autosomal recessive inheritance
   description: &gt;-
     Other forms of renal agenesis are autosomal recessive, requiring biallelic
-    loss-of-function variants, as established for ITGA8- and FGF20-related
-    bilateral renal agenesis.
+    loss-of-function variants, as established for ITGA8-related and for
+    GFRA1-related bilateral renal agenesis.
   inheritance_term:
     preferred_term: Autosomal recessive inheritance
     term:
@@ -7031,6 +8716,15 @@ inheritance:
     explanation: &gt;-
       Recessive ITGA8 mutations causing bilateral renal agenesis establish an
       autosomal recessive mode of inheritance for this form of CAKUT.
+  - reference: PMID:33020172
+    reference_title: Biallelic Pathogenic GFRA1 Variants Cause Autosomal Recessive Bilateral Renal Agenesis.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      They had parental consanguinity and similarly affected, deceased siblings, suggesting autosomal recessive inheritance.
+    explanation: &gt;-
+      Consanguinity with similarly affected siblings in the two GFRA1 index
+      families establishes recessive transmission for that form.
 prevalence:
 - subtype: Unilateral
   population: Live and still births (China Birth Defects Monitoring Network, 2007-2020)
@@ -7130,6 +8824,22 @@ treatments:
       The largest contemporary BRA series reports serial amnioinfusion as a
       fetal intervention that may promote pulmonary survivorship, though
       postnatal survival remains poor.
+notes: &gt;-
+  The has_subtypes list carries two independent axes. Unilateral, Bilateral and
+  Syndromic describe laterality and syndromic context; RHDA1 to RHDA4 are the
+  gene-defined nonsyndromic classes MONDO numbers as renal hypodysplasia/aplasia
+  1 to 4, each of them a direct child of MONDO:0018470. A case can therefore be
+  scoped by one row from each axis.
+
+
+  MONDO:0018470, bound as this entry&#39;s disease_term, is recorded as equivalent
+  to the OMIM phenotypic series OMIMPS:191830, which is why the four numbered
+  RHDA classes sit directly beneath it rather than under a separate umbrella.
+
+
+  No GeneReviews chapter, Orphanet record or ClinGen gene-disease validity
+  record is cited for this entry. What was searched for each is recorded in this
+  entry&#39;s history record.
 </pre>
             </div>
         </div>
@@ -7637,7 +9347,7 @@ with <strong>increasing trends</strong> over time. (gao2025asurveillancebasedepi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Renal Agenesis", "mondoId": "MONDO:0018470", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Renal_Agenesis", "yamlRevision": "49ecc6268e28"};
+        const OS_CONFIG = {"diseaseName": "Renal Agenesis", "mondoId": "MONDO:0018470", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Renal_Agenesis", "yamlRevision": "259da770e39e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

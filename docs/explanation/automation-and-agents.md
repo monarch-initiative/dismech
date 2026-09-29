@@ -18,6 +18,40 @@ skip to [Review states and merge state](#review-states-and-merge-state).
 
 ---
 
+## Agent traces in Langfuse
+
+All 14 Claude workflows send session traces to Langfuse using the
+[Claude Observability Plugin](https://github.com/langfuse/Claude-Observability-Plugin).
+This includes the scanners, PR review and shepherd, editorial review,
+compliance, mention responders, and issue triage, summarization, and deduplication.
+The plugin records prompts, model generations, token usage, and tool inputs and
+outputs from the Claude transcript. Captured text is subject to the plugin's
+size limits; a trace is not a guarantee of an unabridged tool result.
+
+The workflows use the same repository secrets as PR Shepherd:
+`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL`.
+These should point to the ai4curation **all-traces** project. The
+`ALLTRACES_LANGFUSE_*` prefix used in local environments is not the GitHub
+secret name. Keys are passed through the environment of the agent step;
+missing keys disable the hook's export. Each runner installs `uv` so the hook
+can load its Python dependencies.
+
+`CC_LANGFUSE_TRACE_TAGS` identifies the repository, workflow file stem, run ID,
+run attempt, and job. For example, filter on `workflow:curation-scanner` to
+inspect that scanner; the `run:<id>` tag maps to
+`https://github.com/monarch-initiative/dismech/actions/runs/<id>`.
+The curation scanner also adds `tier:<effort>` to distinguish its matrix jobs
+within the same run (for example, `tier:high_effort`).
+The upstream Claude action installs the plugin through its marketplace inputs.
+The CLI-based mention responder and local Claude action install it before
+starting the agent. These explicit installation steps are non-blocking: a
+marketplace or plugin-install failure leaves the agent running without tracing.
+
+PR Shepherd keeps `show_full_output: false`. Other workflows retain their
+existing GitHub log and artifact settings while Langfuse coverage is established.
+Retiring their direct collection in agent-watcher is a separate cutover after
+verifying traces from successful runs.
+
 ## The stance: agent-forward, with a human *window* rather than a sign-off
 
 [Design decision §7](design-decisions.md) states it: DisMech is **agent-forward**.
@@ -142,7 +176,11 @@ which meant a repo-wide change was an N-file edit that drifted:
   Named profiles (`slow`/`medium`/`fast`/`fast-weekend`) applied with
   `just cron-profile <name>`.
 - **Model** → [`.github/agent-config.yaml`](https://github.com/monarch-initiative/dismech/blob/main/.github/agent-config.yaml).
-  Each workflow resolves `AGENT_MODEL` at run time via a composite action.
+  Single-model workflows resolve `AGENT_MODEL` via a composite action; the
+  curation scanner resolves its matrix and passes each row's `matrix.model`.
+  Family aliases follow new releases, and every managed agent uses the shared
+  `setup-claude-code` action to install the latest CLI. See
+  [model and runtime maintenance](../agent-config.md#keeping-current-with-minimal-churn).
 
 **Do not hand-edit the `cron:` lines or add a `--model` flag to a workflow.** A
 test (`tests/test_agent_config.py`) enforces the model rule. Edit the config.
@@ -209,6 +247,13 @@ review retry. Assignment remains a hold on automatic merging, not reviewing.
 
 The controller discovers failed/timed-out `claude-code-review.yml` runs within
 GitHub's 30-day rerun window and invokes `gh run rerun RUN_ID --failed`.
+It also checks the review checks attached to open PRs' current head commits.
+If a failed run is absent from the Actions census, that second lookup recovers
+it after verifying the workflow, PR association, and head commit. Recovered
+runs pass the same retry guards and budget; the summary lists them separately
+and reports how many distinct runs the Actions census returned. Errors reading
+current checks are reported and make the job fail rather than silently claiming
+a complete sweep. A specific-PR request limits this cross-check to that PR.
 It never creates a replacement dispatch, changes a branch, or alters a review.
 Cancelled and intentionally skipped runs, missing reviews with no existing run,
 and successful workflows that forgot to post a verdict are separate recovery
@@ -351,6 +396,16 @@ stack can poison it, and a third-party outage can fail it. What triggers the hol
 is repetition against unchanged content. The count is keyed on the head commit's
 `committedDate`, so any push resets it to zero, and a lookup failure fails open.
 
+A second hold with no trace on the PR page is the **cache-row hold**. When a
+merge queue is active, a candidate that adds a row to a `cache/<prefix>/*.csv`
+term cache already added by a PR enqueued *earlier in the same sweep* is skipped
+for that sweep, because the two would conflict in the queue and the second
+would be ejected. Only multi-field rows (`curie,label,retrieved_at`) count; a
+bare-CURIE enum-cache row is identical in both PRs and merges cleanly. The hold
+is within-run and lasts exactly one sweep; it does not apply in direct-merge
+mode, and `--no-conflict-batching` disables it. Its only trace is a `SKIP` line
+naming the PR that holds the row. A failed changed-files lookup fails open.
+
 Draft state is metadata, not a hold. An otherwise eligible draft is marked
 ready immediately before a complete re-read of the merge guards. If the attempt
 does not merge, its original draft state is restored.
@@ -467,7 +522,10 @@ it back. Labels, timestamps and memberships are never invented. Reference
 markdown, hierarchy caches, other generated artifacts, competing values,
 deletions, mode changes, renames, and mixed source conflicts remain agent work.
 Root-level cache JSON changes are rejected using tree metadata before merge
-planning, so the frozen dataset cache is never opened or changed.
+planning, so the retired dataset cache is never opened or changed. A deletion
+already on trusted main is carried forward if the PR left the file unchanged
+or also deleted it. PRs that modified it still need their delete/edit conflict
+resolved by keeping the deletion.
 
 The controller does not check out PR files or run their code, generators,
 dependencies, or tests. Git computes the ordinary merge in its object database;
@@ -624,13 +682,15 @@ that opportunity rather than as an arbitrary cooling-off period.
 > **To stop a PR being auto-merged, assign it to a human or leave a
 > `CHANGES_REQUESTED` review.** Draft status does not block it.
 
-There is a third hold, which nobody chooses: a PR held back by the **ejection
-hold** above. Unlike assignment and `CHANGES_REQUESTED`, it leaves no label,
-review, or assignee — its only trace is a `SKIP` line naming the strike count,
-inside the run summary's collapsed `Skipped N near-miss PR(s)` block. So an
-approved, green, days-old PR that is not merging and has neither a human
-assignee nor a requested-changes review has one remaining explanation, and the
-run summary is where to look for it. A push clears it.
+There are two more holds, which nobody chooses: the **ejection hold** and the
+**cache-row hold** above. Unlike assignment and `CHANGES_REQUESTED`, they leave
+no label, review, or assignee. Their only trace is a `SKIP` line, inside the run
+summary's collapsed `Skipped N near-miss PR(s)` block, naming the strike count
+or the PR holding the contended cache row. So an approved, green, days-old PR
+that is not merging and has neither a human assignee nor a requested-changes
+review has one of these two explanations, and the run summary is where to look
+for it. A push clears the ejection hold; the cache-row hold clears itself on the
+next sweep.
 
 Preview what the next sweep would do, read-only: `just auto-merge-preview`.
 
