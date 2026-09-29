@@ -14,6 +14,7 @@ diseases:
 - ER_Positive_Breast_Cancer
 - Endometrial_Carcinoma
 - Endometrial_Endometrioid_Adenocarcinoma
+- Estrogen_Resistance_Syndrome
 - Heart_Failure
 - Lymphangioleiomyomatosis
 - Osteoporosis
@@ -65,8 +66,8 @@ In scope:
 - Wiring the receptor into the pathograph for entries that bind it in `genetic:`
   only.
 - Curating estrogen resistance syndrome (MONDO:0014148), the one disease where
-  the receptor sits on a mechanism node by definition, and which has no entry and
-  no stub.
+  the receptor sits on a mechanism node by definition. Curated as
+  Estrogen_Resistance_Syndrome; its stub was added and retired in the same PR.
 - Deciding whether estrogen receptor signalling needs its own mechanism module.
 
 Not in scope, and deliberately left to the issues that already own them: the
