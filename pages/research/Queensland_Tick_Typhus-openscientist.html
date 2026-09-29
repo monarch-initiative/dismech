@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Queensland Tick Typhus · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Queensland Tick Typhus</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Queensland Tick Typhus</h1>
+                
+                <p class="report-subtitle">Queensland Tick Typhus (MONDO:0001118): A Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0001118" target="_blank" rel="noopener noreferrer">MONDO:0001118</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">24 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Queensland Tick Typhus (<a href="http://purl.obolibrary.org/obo/MONDO_0001118" target="_blank" rel="noopener noreferrer">MONDO:0001118</a>): A Comprehensive Disease-Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Queensland Tick Typhus (QTT)</strong> is an acute, tick-borne <strong>spotted fever group (SFG) rickettsiosis</strong> caused by the obligate intracellular Gram-negative bacterium <strong><em>Rickettsia australis</em></strong>. It is transmitted to humans by the bite of hard (ixodid) ticks — principally <em>Ixodes holocyclus</em> (the eastern paralysis tick) and <em>Ixodes tasmani</em> — along a ~3,200-km strip of eastern coastal Australia, from tropical North Queensland to temperate Tasmania/Victoria. It is a <strong>non-genetic infectious disease</strong>: there are no causal human genes, no inherited susceptibility loci of established clinical importance, and the dominant risk factor is simply environmental/occupational/recreational exposure to tick habitat.</p>
+<p>Clinically, QTT is usually a <strong>mild, self-limited eschar-associated febrile illness</strong> characterized by fever, headache, a maculopapular or vesicular rash, an inoculation eschar at the tick-bite site, and regional (draining) lymphadenopathy. However, a clinically significant minority of patients develop <strong>severe disease</strong> requiring intensive-care admission, and death and permanent disability are documented. After tick inoculation the organism first replicates in <strong>dermal/tissue macrophages</strong>, then disseminates to and infects <strong>vascular endothelial cells</strong>, producing the hallmark <strong>"rickettsial vasculitis"</strong> that underlies the rash, eschar, and (in severe cases) increased vascular permeability and multi-organ dysfunction. Host control depends on <strong>innate signaling (TLR4 → MyD88 → ASC inflammasome, dendritic-cell instruction, Th1/IFN-γ)</strong> and, decisively, on <strong>perforin-dependent, MHC class I-restricted CD8⁺ cytotoxic T lymphocytes (CTLs)</strong>, which mouse-model gene-knockout studies show are even more critical to recovery than IFN-γ.</p>
+<p>Diagnosis rests on <strong>serology</strong> (indirect immunofluorescence assay [IFA]: a ≥4-fold rise in paired sera or a single IgG titre ≥1:64) combined with <strong>PCR</strong> (real-time qPCR of whole blood, eschar swab, or skin biopsy). First-line treatment is <strong>doxycycline</strong>, which is highly effective and protective against progression to severe disease; <strong>fluoroquinolones should be avoided</strong> because they are associated with worse outcomes in SFG rickettsioses. There is <strong>no licensed vaccine</strong>; prevention is entirely based on tick-bite avoidance, prompt tick removal, and environmental/personal protective measures. This report synthesizes 11 confirmed findings from 42 reviewed papers into the 15-section disease-characteristics template requested.</p>
+<hr />
+<h2>Section 1 — Disease Information</h2>
+<p><strong>Overview.</strong> Queensland Tick Typhus is a zoonotic, vector-borne SFG rickettsiosis. It was first recognized clinically in Queensland, and its causative agent, <em>Rickettsia australis</em>, was isolated in Queensland in 1950 (type strain "Phillips") — over four decades before comprehensive case reviews consolidated it as a distinct endemic Australian rickettsiosis (<a href="https://pubmed.ncbi.nlm.nih.gov/22933759/">PMID: 22933759</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0001118" target="_blank" rel="noopener noreferrer">MONDO:0001118</a> (Queensland tick typhus)</td>
+</tr>
+<tr>
+<td>Causative organism (NCBI Taxonomy)</td>
+<td><em>Rickettsia australis</em> (species)</td>
+</tr>
+<tr>
+<td>MeSH concept</td>
+<td>Spotted fever group rickettsiosis / <em>Rickettsia</em> infections (no unique QTT MeSH descriptor)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A77.3 (Spotted fever due to <em>Rickettsia australis</em>)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>1C30.2 / spotted fever group rickettsiosis category</td>
+</tr>
+<tr>
+<td>OMIM / Orphanet</td>
+<td>Not applicable (infectious, non-Mendelian; no OMIM entry)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Queensland tick typhus; Australian tick typhus; North Queensland tick typhus; <em>Rickettsia australis</em> infection; Australian spotted fever (in part — note that "Australian spotted fever" also encompasses Flinders Island spotted fever caused by <em>R. honei</em>, a distinct co-endemic agent).</p>
+<p><strong>Source of information.</strong> The knowledge base for QTT is derived from <strong>aggregated disease-level resources</strong> — published case series, hospital audits, serosurveys, microbiological/genomic characterizations, and animal-model immunology — rather than from individual-patient EHR data.</p>
+<hr />
+<h2>Section 2 — Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> QTT is caused by infection with <em>Rickettsia australis</em>, an obligately intracellular SFG rickettsia, delivered into the skin during the blood meal of an infected ixodid tick (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>). It is <strong>not</strong> a genetic, autoimmune, metabolic, or neoplastic disease.</p>
+<p><strong>Risk factors.</strong>
+- <strong>Genetic risk factors (human):</strong> None of established clinical relevance. No causal variants, susceptibility loci, or modifier genes have been identified for human QTT. Innate-immunity genes (<em>MYD88</em>, <em>TLR4</em>, inflammasome components, MHC-I, perforin/<em>PRF1</em>) are mechanistically important in <strong>animal models</strong> (see Sections 4 and 6) but are not validated human susceptibility markers.
+- <strong>Environmental / behavioral risk factors:</strong> Exposure to tick-infested vegetation in endemic eastern-coastal Australia is the principal risk factor — including bushwalking, gardening, camping, and outdoor occupations. Epidemiology shows a skew toward <strong>older males</strong> and a <strong>late spring/early summer (November–December)</strong> seasonal peak, reflecting exposure patterns and tick questing behavior (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>).</p>
+<p><strong>Protective factors.</strong> No genetic protective variants are described in humans. The single most effective environmental protective factor is <strong>tick-bite avoidance</strong> (protective clothing, repellents, tick checks, prompt removal). Prompt <strong>doxycycline</strong> after infection is protective against severe disease progression (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>).</p>
+<p><strong>Gene–environment interactions.</strong> Not characterized in humans. The relevant "gene–environment" axis is between the pathogen's virulence factors and the host's innate/adaptive immune genotype, demonstrated experimentally in mice (MyD88, TLR4/ASC, perforin, MHC-I).</p>
+<hr />
+<h2>Section 3 — Phenotypes</h2>
+<p>QTT produces a stereotyped SFG-rickettsiosis phenotype. Sexton et al. summarized the classic presentation: <em>"QTT is usually a mild disease. Patients often have regional lymphadenopathy and eschars. Some have vesicular rashes."</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>HPO suggestion</th>
+<th>Typical frequency / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom/sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+<td>Near-universal; commonly reported (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>)</td>
+</tr>
+<tr>
+<td>Inoculation eschar (tache noire)</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200041" target="_blank" rel="noopener noreferrer">HP:0200041</a> (Skin ulcer) / eschar</td>
+<td>Frequent; hallmark at tick-bite site (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>)</td>
+</tr>
+<tr>
+<td>Maculopapular / vesicular rash</td>
+<td>Physical manifestation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash); <a href="http://purl.obolibrary.org/obo/HP_0200037" target="_blank" rel="noopener noreferrer">HP:0200037</a> (Vesicle)</td>
+<td>Common; vesicular rash a distinctive QTT feature</td>
+</tr>
+<tr>
+<td>Regional lymphadenopathy</td>
+<td>Clinical sign</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (Lymphadenopathy)</td>
+<td>Common (draining nodes)</td>
+</tr>
+<tr>
+<td>Headache</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a> (Headache)</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Lethargy / malaise</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001254" target="_blank" rel="noopener noreferrer">HP:0001254</a> (Lethargy)</td>
+<td>Common (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>)</td>
+</tr>
+<tr>
+<td>Myalgia</td>
+<td>Symptom</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a> (Myalgia)</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Elevated transaminases</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a> (Elevated hepatic transaminase)</td>
+<td>Frequent in SFG rickettsioses</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>Lab abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> (Thrombocytopenia)</td>
+<td>Variable; marks more severe disease</td>
+</tr>
+<tr>
+<td>Severe disease (ICU / organ dysfunction)</td>
+<td>Clinical course</td>
+<td>critical illness</td>
+<td>~13–22% ICU in SFG hospital cohorts (<a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32959771/">PMID: 32959771</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset / severity / progression.</strong> Adult-onset predominant (any age exposed can be affected). Severity is <strong>variable</strong> — mild in most, but severe/fatal in a minority. Course is <strong>acute and self-limited</strong> with appropriate therapy. In a 20-year North Queensland audit of 135 cases (95 scrub typhus, 37 SFG/QTT), 18/135 (13%) required ICU; the SFG subgroup had a <strong>higher ICU rate (8/37, 22%)</strong> and 3/37 (8%) had severe disease — <em>"1 died, 2 developed permanent disability"</em> — versus 0/95 scrub typhus (p = 0.02) (<a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>). By contrast, paediatric rickettsial infection in tropical Australia has <em>"a relatively benign clinical course"</em> with no ICU admission or death among 15 children (<a href="https://pubmed.ncbi.nlm.nih.gov/32252063/">PMID: 32252063</a>).</p>
+<p><strong>Quality-of-life impact.</strong> Not formally measured with instruments (EQ-5D/SF-36) for QTT. For most patients the illness is acute and fully reversible; the QoL burden concentrates in the severe subset who suffer prolonged hospitalization, ICU stay, or (rarely) permanent disability.</p>
+<hr />
+<h2>Section 4 — Genetic/Molecular Information</h2>
+<p><strong>Human genetics.</strong> QTT is an infectious disease with <strong>no causal human genes, no pathogenic germline/somatic variants, no modifier genes, no epigenetic disease signatures, and no chromosomal abnormalities.</strong> Sections requesting ClinVar/gnomAD/COSMIC variant data are <strong>not applicable</strong>.</p>
+<p><strong>Pathogen genome (the relevant molecular biology).</strong> The <em>R. australis</em> strain Phillips genome is a compact <strong>1.29-Mb</strong> chromosome accompanied by <strong>two plasmids</strong>, and is <em>"highly similar to that of Rickettsia akari"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/22933759/">PMID: 22933759</a>). Phylogenetically, multiple independent gene analyses place <em>R. australis</em> firmly within the <strong>"Rickettsia akari group"</strong> of the SFG, alongside <em>R. akari</em> (rickettsialpox agent) and the ELB/<em>R. felis</em> agent (gene D: <a href="https://pubmed.ncbi.nlm.nih.gov/11491333/">PMID: 11491333</a>; citrate synthase <em>gltA</em>: <a href="https://pubmed.ncbi.nlm.nih.gov/9103608/">PMID: 9103608</a>). Notably, <em>R. australis</em> is described as <em>"the most divergent rickettsia of the spotted fever group"</em> on the basis of its outer-membrane protein A and B genes (<a href="https://pubmed.ncbi.nlm.nih.gov/11034486/">PMID: 11034486</a>). Key rickettsial virulence/antigen loci include <em>ompA</em>, <em>ompB</em> (surface cell antigens mediating adhesion/invasion), the 17-kDa antigen gene, and <em>gltA</em>.</p>
+<p><strong>Host immune-gene involvement (model organism).</strong> Genes shown experimentally to govern outcome are <em>Myd88</em>, <em>Tlr4</em>, inflammasome adaptor <em>Pycard</em>/ASC, MHC class I, and perforin (<em>Prf1</em>) — see Section 6.</p>
+<hr />
+<h2>Section 5 — Environmental Information</h2>
+<p><strong>Environmental factors.</strong> The disease is defined by an environmental exposure: contact with tick habitat in the humid sclerophyll forests, coastal scrub, and peri-urban bushland of eastern Australia. No chemical toxin, radiation, or pollutant is involved.</p>
+<p><strong>Lifestyle factors.</strong> Outdoor recreation and occupation (bushwalking, camping, gardening, forestry, field work) increase exposure. Seasonality (late spring–summer) reflects tick activity (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>).</p>
+<p><strong>Infectious agent.</strong> <em>Rickettsia australis</em> — an obligately intracellular, cytosolically replicating, Gram-negative alphaproteobacterium (order Rickettsiales, SFG, <em>R. akari</em> group). It is a pathogen, not a chemical entity. Vectors <em>Ixodes holocyclus</em> and <em>Ixodes tasmani</em> maintain the organism; small native mammals (rodents, bandicoots, marsupials) serve as reservoir/amplifying hosts, with humans as <strong>accidental dead-end hosts</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/25434042/">PMID: 25434042</a>).</p>
+<hr />
+<h2>Section 6 — Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>An <strong>infected ixodid tick</strong> (<em>I. holocyclus</em> / <em>I. tasmani</em>) attaches and takes a blood meal, <strong>inoculating</strong> <em>R. australis</em> into the dermis at the bite site. → <em>(demonstrated)</em></li>
+<li>Local infection and replication in <strong>dermal/tissue macrophages</strong> — <em>"Macrophages are one of the initial targets for rickettsiae after inoculation by ticks"</em> — <strong>leads to</strong> an early intracellular replication niche and a localized inflammatory/necrotic focus that becomes the <strong>eschar</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30297526/">PMID: 30297526</a>). → <em>(demonstrated in mouse model)</em></li>
+<li>Rickettsiae disseminate (lymphatics → draining nodes, producing <strong>regional lymphadenopathy</strong>; and haematogenously) and <strong>infect vascular endothelial cells</strong>, the pathogen's principal target — <em>"the pathogen's affinity for endothelium lining the blood vessels"</em> — <strong>resulting in</strong> endothelial infection throughout small vessels (<a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a>). → <em>(demonstrated)</em></li>
+<li>Endothelial infection <strong>causes</strong> <em>"vascular inflammation, insult to vascular integrity and compromised vascular permeability, collectively termed 'Rickettsial vasculitis'"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a>). → <em>(demonstrated)</em></li>
+<li>Rickettsial vasculitis <strong>produces</strong> the clinical phenotype: perivascular mononuclear infiltrate → <strong>maculopapular/vesicular rash</strong>; microvascular injury → increased permeability. → <em>(inferred from SFG pathology, consistent across the group)</em></li>
+<li><strong>Branch (host innate immunity):</strong> Pathogen-associated molecular patterns engage <strong>TLR4 → MyD88</strong> signaling and activate the <strong>ASC inflammasome</strong>, driving dendritic-cell instruction, macrophage/neutrophil recruitment, and a <strong>Th1 cytokine milieu (IFN-γ, IL-6, IL-1β, IL-12p40)</strong> that <strong>restrains</strong> bacterial burden (<a href="https://pubmed.ncbi.nlm.nih.gov/32014896/">PMID: 32014896</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26755162/">PMID: 26755162</a>). → <em>(demonstrated in mouse model)</em></li>
+<li><strong>Branch (host adaptive immunity, decisive):</strong> <strong>MHC class I-restricted, perforin-dependent CD8⁺ CTLs</strong> recognize and kill infected macrophages and endothelial cells, <strong>clearing</strong> the infection — this effector arm is <em>"more critical to recovery… than were the effects of IFN-gamma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11179362/">PMID: 11179362</a>). → <em>(demonstrated in mouse model)</em></li>
+<li><strong>Outcome branch:</strong> When innate + CD8 CTL immunity (aided by timely doxycycline) controls the organism → <strong>mild, self-limited illness</strong>. When bacterial dissemination outpaces immunity (older age, delayed treatment) → widespread endothelial injury, capillary leak, organ dysfunction → <strong>severe disease / death</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>). → <em>(inferred, supported by clinical severity data)</em></li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> TLR4→MyD88→NF-κB innate signaling; ASC/NLR inflammasome → caspase-1 → IL-1β maturation; Th1/IFN-γ–STAT1 axis; MHC-I antigen-presentation and perforin/granzyme cytotoxicity pathway.</li>
+<li><strong>Cellular processes:</strong> Intracellular bacterial invasion and cytosolic replication; inflammation; macrophage and endothelial infection; CTL-mediated cytotoxicity of infected cells; endothelial activation and increased permeability.</li>
+<li><strong>Protein dysfunction:</strong> Not a protein-misfolding disease; pathology is driven by pathogen invasins (OmpA/OmpB) and host endothelial-barrier dysfunction.</li>
+<li><strong>Immune involvement:</strong> Central and protective (innate TLR4/MyD88/ASC; adaptive CD8 CTL). Loss of MyD88 causes <em>"severely impaired bacterial clearance in vivo"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/26755162/">PMID: 26755162</a>).</li>
+<li><strong>Tissue-damage mechanism:</strong> Rickettsial vasculitis — immune-mediated and infection-mediated microvascular injury with increased permeability (<a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a>).</li>
+</ul>
+<p><strong>Suggested ontology terms.</strong> GO: <a href="http://purl.obolibrary.org/obo/GO_0002224" target="_blank" rel="noopener noreferrer">GO:0002224</a> (toll-like receptor signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> (innate immune response), <a href="http://purl.obolibrary.org/obo/GO_0001913" target="_blank" rel="noopener noreferrer">GO:0001913</a> (T cell-mediated cytotoxicity), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0050830" target="_blank" rel="noopener noreferrer">GO:0050830</a> (defense response to Gram-negative bacterium). CL: <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" rel="noopener noreferrer">CL:0000071</a> (blood vessel endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a> (CD8-positive, alpha-beta T cell), <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell).</p>
+<hr />
+<h2>Section 7 — Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary target:</strong> systemic <strong>small-vessel vascular endothelium</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a> endothelium; <a href="http://purl.obolibrary.org/obo/UBERON_0000115" target="_blank" rel="noopener noreferrer">UBERON:0000115</a> endothelial layer of blood vessel) — the unifying lesion of SFG rickettsiosis (<a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a>).</li>
+<li><strong>Skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>):</strong> eschar at inoculation site; maculopapular/vesicular rash.</li>
+<li><strong>Lymphatic system (<a href="http://purl.obolibrary.org/obo/UBERON_0000465" target="_blank" rel="noopener noreferrer">UBERON:0000465</a>):</strong> regional draining <strong>lymph nodes</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>) — lymphadenopathy.</li>
+<li><strong>Body systems involved:</strong> cardiovascular (microvasculature), integumentary, lymphoid/immune; in severe disease, potential secondary involvement of lung, liver, kidney, and CNS via generalized vasculitis/capillary leak.</li>
+<li><strong>Cell populations targeted:</strong> vascular endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000071" target="_blank" rel="noopener noreferrer">CL:0000071</a>) and macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>); CD8⁺ CTLs (<a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a>) are the key effector population.</li>
+<li><strong>Subcellular level:</strong> <em>R. australis</em> is a <strong>cytosolic</strong> pathogen — it replicates free in the host-cell cytoplasm (<a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a> cytosol), escaping the phagosome.</li>
+<li><strong>Lateralization:</strong> the eschar/lymphadenopathy are <strong>localized/unilateral</strong> to the bite site; the rash and vasculitis are <strong>generalized/bilateral</strong>.</li>
+</ul>
+<hr />
+<h2>Section 8 — Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> <strong>acute</strong>, following an incubation period of roughly 7–10 days after the tick bite; patients in the ICU series presented a median of 7 (IQR 5–10) days after symptom onset (<a href="https://pubmed.ncbi.nlm.nih.gov/32959771/">PMID: 32959771</a>).</li>
+<li><strong>Progression / course:</strong> <strong>self-limited</strong> in most, resolving over days to ~1–2 weeks with therapy; <strong>not</strong> chronic, relapsing, or lifelong. A minority progress to severe multi-organ disease.</li>
+<li><strong>Treatment-response kinetics:</strong> In hospitalized scrub typhus/QTT patients on anti-rickettsial therapy, <strong>32/58 (56%) had delayed defervescence (&gt;48 h)</strong>; delayed defervescence was associated with older age (median 52 vs 40 y, p = 0.05), higher ICU admission (38% vs 12%, p = 0.02), and longer stay — challenging the dogma that persistent fever &gt;48 h implies a wrong diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/33075531/">PMID: 33075531</a>).</li>
+<li><strong>Critical period for intervention:</strong> early — doxycycline given <em>"prior to deterioration of disease… protected patients from development of severe"</em> disease in the analogous Mediterranean spotted fever cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>).</li>
+<li><strong>Remission:</strong> treatment-induced (doxycycline) and, in mild cases, potentially spontaneous.</li>
+</ul>
+<hr />
+<h2>Section 9 — Inheritance and Population</h2>
+<p><strong>Inheritance.</strong> Not applicable — infectious, non-heritable. No inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, or carrier-frequency considerations.</p>
+<p><strong>Epidemiology.</strong>
+- QTT/Australian SFG rickettsiosis is a <strong>rare, notifiable, seasonally patterned</strong> infection. In Tasmania (2012–2017), <em>"The mean number of cases per year was 3.0 (population rate 0.6 per 100,000 population/year); 60% of cases occurred in November and December. Cases were more commonly older males"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>). (Note: Tasmanian SFG cases are predominantly Flinders Island spotted fever caused by <em>R. honei</em>, a co-endemic agent; true QTT/<em>R. australis</em> predominates on the mainland eastern seaboard.)
+- Ascertainment/incidence is <strong>rising</strong>: in a North Queensland tertiary hospital, <em>"There were nine hospitalizations during the first 5 years of the study period and 81 in the last 5 years (p for trend = 0.003)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>).</p>
+<p><strong>Population demographics.</strong>
+- <strong>Geographic distribution:</strong> eastern coastal Australia across a <strong>~3,200-km span</strong> <em>"from tropical to temperate climates"</em> — Queensland, New South Wales, Victoria, and Tasmania (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>).
+- <strong>Sex / age:</strong> skewed to <strong>older males</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>); paediatric cases occur but run a milder course (<a href="https://pubmed.ncbi.nlm.nih.gov/32252063/">PMID: 32252063</a>).</p>
+<hr />
+<h2>Section 10 — Diagnostics</h2>
+<p><strong>Clinical/laboratory tests.</strong>
+- <strong>Serology (mainstay):</strong> indirect immunofluorescence assay (IFA); diagnosis by a <strong>≥4-fold rise</strong> in IgG between acute and convalescent sera, or a single <strong>IgG titre ≥1:64</strong> with a compatible illness (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>; titre convention as applied in SFG serosurveys, <a href="https://pubmed.ncbi.nlm.nih.gov/31288833/">PMID: 31288833</a>). Limitation: antibodies are absent early in illness.
+- <strong>Molecular (PCR):</strong> real-time qPCR targeting SFG/<em>R. australis</em>-specific genes (e.g., <em>gltA</em>, <em>ompA</em>, <em>ompB</em>, 17-kDa) on <strong>whole blood, eschar swab, or skin biopsy</strong>; validated <em>R. australis</em> real-time PCR assays are in routine reference use (<a href="https://pubmed.ncbi.nlm.nih.gov/22092999/">PMID: 22092999</a>).
+- <strong>Recommended strategy:</strong> <em>"the best strategy is to use a real-time quantitative polymerase chain reaction (qPCR) and immunofluorescence assay in tandem"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31587667/">PMID: 31587667</a>).
+- <strong>Supportive labs:</strong> mild thrombocytopenia, leukopenia/leukocytosis, elevated transaminases, elevated CRP (non-specific).
+- <strong>Culture:</strong> possible but hazardous/slow; restricted to reference labs.</p>
+<p><strong>Genetic testing / omics diagnostics.</strong> Human genetic testing is <strong>not applicable</strong>. Pathogen genomics (WGS/PCR) is used for organism identification and epidemiology, not for host diagnosis.</p>
+<p><strong>Clinical criteria &amp; differential diagnosis.</strong> Because <em>"clinical features overlap, serologic tests are necessary to distinguish QTT from other endemic Australian rickettsial diseases (scrub and murine typhus)"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>). Key differentials: <strong>scrub typhus</strong> (<em>Orientia tsutsugamushi</em>), <strong>murine typhus</strong> (<em>R. typhi</em>), and <strong>Flinders Island spotted fever</strong> (<em>R. honei</em>), which <em>"extends beyond Flinders Island"</em> across south-east Australia (<a href="https://pubmed.ncbi.nlm.nih.gov/16175900/">PMID: 16175900</a>); also dengue, leptospirosis, and Q fever in the same region.</p>
+<p><strong>Screening.</strong> No population screening (acute, sporadic, environmentally acquired infection).</p>
+<hr />
+<h2>Section 11 — Outcome / Prognosis</h2>
+<ul>
+<li><strong>Overall prognosis:</strong> Good with prompt doxycycline; usually mild and self-limited (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>).</li>
+<li><strong>Severe disease / mortality:</strong> A real minority. In the North Queensland audit, <strong>3/37 (8%)</strong> SFG patients had severe disease (1 death, 2 permanent disability) versus 0/95 scrub typhus (p = 0.02) (<a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>); a 23-year ICU series included <strong>9 QTT patients (median APACHE II 13)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32959771/">PMID: 32959771</a>).</li>
+<li><strong>Recovery:</strong> Complete recovery is the norm with treatment; residual disability is rare.</li>
+<li><strong>Prognostic factors:</strong> older age, ICU-level illness, and <strong>delayed defervescence (&gt;48 h)</strong>, which is <em>"more common in patients with severe disease"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/33075531/">PMID: 33075531</a>); paediatric age predicts a benign course (<a href="https://pubmed.ncbi.nlm.nih.gov/32252063/">PMID: 32252063</a>).</li>
+</ul>
+<hr />
+<h2>Section 12 — Treatment</h2>
+<p><strong>First-line pharmacotherapy — doxycycline (NCIT: C312; tetracycline-class antibiotic).</strong> Doxycycline is the standard of care. In the analogous Mediterranean spotted fever cohort, <em>"Doxycycline administration prior to deterioration of disease (in 31 patients) protected patients from development of severe MSF"</em> (RR 0.248, 95% CI 0.08–0.76) with earlier defervescence (3.0 vs 7.1 days) (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>).</p>
+<p><strong>Avoid fluoroquinolones.</strong> In the same analysis, <em>"fluoroquinolone treatment was associated with increased MSF disease severity"</em> (RR 2.53, 95% CI 1.40–4.55) — so fluoroquinolones should be avoided in SFG rickettsioses (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>).</p>
+<p><strong>Alternatives.</strong> Macrolides (e.g., azithromycin) are considered for children/pregnancy in SFG rickettsioses, though experimental data (canine RMSF) suggest azithromycin is <em>less</em> efficacious than doxycycline (<a href="https://pubmed.ncbi.nlm.nih.gov/10103185/">PMID: 10103185</a>); chloramphenicol is a historical alternative.</p>
+<p><strong>Supportive care.</strong> Antipyretics, fluids, and — for the severe/ICU subset — organ support (vasopressors, ventilation) as needed (<a href="https://pubmed.ncbi.nlm.nih.gov/32959771/">PMID: 32959771</a>).</p>
+<p><strong>Advanced/experimental therapeutics, pharmacogenomics, surgery, targeted/immuno/cell/gene therapy:</strong> Not applicable — QTT is cured by a short antibiotic course.</p>
+<p><strong>Treatment-response caveat.</strong> Persistent fever &gt;48 h after starting doxycycline does <strong>not</strong> necessarily indicate misdiagnosis; delayed defervescence occurs in ~56% and correlates with severity (<a href="https://pubmed.ncbi.nlm.nih.gov/33075531/">PMID: 33075531</a>).</p>
+<p><strong>Suggested NCIT term:</strong> Doxycycline (NCIT:C312); Tetracycline antibiotic therapy.</p>
+<hr />
+<h2>Section 13 — Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> No vaccine exists. Prevention relies on <strong>tick-bite avoidance</strong> — protective clothing, DEET/permethrin repellents, avoiding tick habitat during peak season, systematic tick checks, and <strong>prompt, correct tick removal</strong> after exposure in endemic eastern Australia.</li>
+<li><strong>Chemoprophylaxis:</strong> Routine post-tick-bite antibiotic prophylaxis is <strong>not</strong> recommended; management is watchful waiting with early empiric doxycycline if symptoms develop.</li>
+<li><strong>Secondary prevention:</strong> Early recognition and prompt doxycycline to prevent progression to severe disease (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>).</li>
+<li><strong>Tertiary prevention:</strong> Supportive/ICU care to prevent complications in severe cases.</li>
+<li><strong>Public health:</strong> Clinician and public education (given rising ascertainment, <a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>), notifiable-disease surveillance, and environmental/personal tick-control measures. Genetic counseling is not applicable.</li>
+</ul>
+<hr />
+<h2>Section 14 — Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Vectors (NCBI Taxonomy):</strong> <em>Ixodes holocyclus</em> (paralysis tick) and <em>Ixodes tasmani</em> are the only two confirmed vectors of <em>R. australis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">PMID: 1962102</a>). <em>I. holocyclus</em> is <em>"the cause of the neurotoxic disease tick paralysis in humans and mammals"</em> in densely populated eastern Australia (<a href="https://pubmed.ncbi.nlm.nih.gov/25434042/">PMID: 25434042</a>).</li>
+<li><strong>Reservoir hosts:</strong> native small mammals — rodents, bandicoots, and marsupials — maintain <em>R. australis</em> in nature; humans are accidental dead-end hosts.</li>
+<li><strong>Zoonotic transmission:</strong> QTT is a <strong>zoonosis</strong> transmitted only via tick bite; there is no human-to-human transmission.</li>
+<li><strong>Comparative biology / cross-species susceptibility:</strong> <em>R. australis</em> has been detected molecularly in <em>Ixodes ricinus</em> ticks in Europe, indicating a broader potential vector/host range than the Australian endemic cycle (<a href="https://pubmed.ncbi.nlm.nih.gov/18355299/">PMID: 18355299</a>); DNA identical/very close to <em>R. australis</em> has been found in mite endosymbiont surveys (<a href="https://pubmed.ncbi.nlm.nih.gov/31549736/">PMID: 31549736</a>). No significant naturally occurring clinical disease from <em>R. australis</em> is documented in companion animals (contrast <em>R. rickettsii</em>, which causes canine Rocky Mountain spotted fever, <a href="https://pubmed.ncbi.nlm.nih.gov/10103185/">PMID: 10103185</a>).</li>
+</ul>
+<hr />
+<h2>Section 15 — Model Organisms</h2>
+<ul>
+<li><strong>Principal model — mouse (<em>Mus musculus</em>, NCBI Taxon 10090):</strong> The C57BL/6 mouse is the workhorse for <em>R. australis</em> immunopathogenesis. Gene-knockout and adoptive-transfer studies established the protective hierarchy of host immunity:</li>
+<li><strong>Perforin⁻/⁻</strong> and <strong>IFN-γ⁻/⁻</strong> mice are <em>"more than 100-fold more susceptible"</em> and <strong>MHC class I⁻/⁻</strong> mice <em>"&gt;50,000-fold"</em> more susceptible to lethal <em>R. australis</em>; <em>"CTL activity was more critical to recovery from rickettsial infection than were the effects of IFN-gamma"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/11179362/">PMID: 11179362</a>).</li>
+<li><strong>MyD88⁻/⁻</strong> mice show <em>"severely impaired bacterial clearance in vivo"</em> with blunted IFN-γ/IL-6/IL-1β and defective dendritic-cell maturation (<a href="https://pubmed.ncbi.nlm.nih.gov/26755162/">PMID: 26755162</a>).</li>
+<li><strong>TLR4/ASC-inflammasome</strong> contributes to host immunity against <em>R. australis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/32014896/">PMID: 32014896</a>).</li>
+<li>Macrophage-tropism studies use <em>R. australis</em> in mice to show macrophages as an early target (<a href="https://pubmed.ncbi.nlm.nih.gov/30297526/">PMID: 30297526</a>).</li>
+<li><strong>Model type:</strong> mammalian <em>in vivo</em> (genetic knockouts: <em>Prf1</em>, <em>Ifng</em>, <em>B2m</em>/MHC-I, <em>Myd88</em>, <em>Pycard</em>/ASC); plus <em>in vitro</em> infection of macrophage-like and microvascular endothelial cells.</li>
+<li><strong>Phenotype recapitulation:</strong> The mouse model faithfully reproduces disseminated rickettsial infection, endothelial/macrophage targeting, and lethal severe disease, making it well suited to dissect protective immunity.</li>
+<li><strong>Limitations:</strong> Mouse studies emphasize immunology and lethality; they do not reproduce the human eschar/rash phenotype in detail, and inbred knockouts do not capture human genetic diversity.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model (synthesis)</h2>
+<pre><code> Infected Ixodes tick bite
+  │  inoculation of R. australis into dermis
+  ▼
+ [1] DERMAL MACROPHAGES  ── early replication niche ──►  ESCHAR (inoculation site)
+  │  lymphatic + haematogenous spread
+  ├────────────────────────────►  DRAINING LYMPH NODES ─► regional lymphadenopathy
+  ▼
+ [2] VASCULAR ENDOTHELIAL CELLS (systemic small vessels)
+  │  cytosolic replication, endothelial injury
+  ▼
+ [3] RICKETTSIAL VASCULITIS
+├─ perivascular infiltrate ─► maculopapular / vesicular RASH
+└─ ↑ vascular permeability ─► (severe) capillary leak, organ dysfunction
+
+   HOST DEFENSE (determines outcome)
+     TLR4 → MyD88 → NF-κB / ASC inflammasome → IFN-γ, IL-6, IL-1β, IL-12  (innate restraint)
+                   │
+                   ▼
+     MHC-I-restricted, PERFORIN-dependent CD8+ CTL  ──►  kill infected macrophages/endothelium
+                   │                       (decisive clearance &gt; IFN-γ)
+┌──────────────────────────┴───────────────────────────┐
+   controlled (mild, self-limited)                    outpaced (severe / fatal:
+   + timely DOXYCYCLINE                                older age, delayed Rx)
+</code></pre>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1962102/">1962102</a></td>
+<td><em>Spotted fever group rickettsial infections in Australia</em></td>
+<td>Etiology, vectors, geography, mild phenotype, serologic diagnosis, differentials</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22933759/">22933759</a></td>
+<td><em>Genome sequence of R. australis</em></td>
+<td>1.29-Mb genome, 2 plasmids, <em>R. akari</em> similarity, 1950 isolation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11034486/">11034486</a></td>
+<td><em>ompA/ompB of R. australis</em></td>
+<td>"Most divergent" SFG rickettsia; SFG classification</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11491333/">11491333</a></td>
+<td><em>Phylogeny via gene D</em></td>
+<td>Places R. australis in the <em>R. akari</em> group</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9103608/">9103608</a></td>
+<td><em>gltA citrate synthase phylogeny</em></td>
+<td>Confirms SFG/<em>R. akari</em>-group placement</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">19327117</a></td>
+<td><em>Host-cell interactions with pathogenic Rickettsia</em></td>
+<td>Endothelial tropism → "rickettsial vasculitis" core mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30297526/">30297526</a></td>
+<td><em>Rickettsial macrophage tropism</em></td>
+<td>Macrophages as early target preceding endothelium</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32014896/">32014896</a></td>
+<td><em>ASC inflammasome / TLR4 vs R. australis</em></td>
+<td>Innate immune control of R. australis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26755162/">26755162</a></td>
+<td><em>MyD88 in dendritic cells</em></td>
+<td>MyD88-dependent protective Th1 immunity; impaired clearance in KO</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11179362/">11179362</a></td>
+<td><em>Cytotoxic T lymphocytes in rickettsial clearance</em></td>
+<td>CD8/perforin/MHC-I decisive, &gt; IFN-γ</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">31318873</a></td>
+<td><em>Rickettsial diseases in North Queensland</em></td>
+<td>Severity (8% severe SFG; 1 death), rising incidence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32959771/">32959771</a></td>
+<td><em>ICU case series (QTT + scrub typhus)</em></td>
+<td>9 ICU QTT cases; APACHE II 13; presentation timing</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32252063/">32252063</a></td>
+<td><em>Rickettsial infection in children</em></td>
+<td>Benign paediatric course</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33075531/">33075531</a></td>
+<td><em>Prompt defervescence dogma</em></td>
+<td>56% delayed defervescence; links to severity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">21642652</a></td>
+<td><em>Risk factors for malignant MSF</em></td>
+<td>Doxycycline protective; fluoroquinolones deleterious</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31587667/">31587667</a></td>
+<td><em>Diagnosis of SFG rickettsioses</em></td>
+<td>qPCR + IFA in tandem</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22092999/">22092999</a></td>
+<td><em>Real-time PCR for rickettsial diagnosis</em></td>
+<td>Validated R. australis qPCR; eschar/blood samples</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">31268225</a></td>
+<td><em>Tasmanian rickettsial hotspots</em></td>
+<td>Incidence 0.6/100,000/yr, seasonality, older males</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25434042/">25434042</a></td>
+<td><em>Ixodes holocyclus as vector</em></td>
+<td>I. holocyclus human-biting tick / paralysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16175900/">16175900</a></td>
+<td><em>Not only 'Flinders Island' spotted fever</em></td>
+<td>R. honei differential across SE Australia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10103185/">10103185</a></td>
+<td><em>Doxycycline vs azithromycin vs trovafloxacin (canine RMSF)</em></td>
+<td>Comparative antibiotic efficacy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18355299/">18355299</a></td>
+<td><em>Ixodes ricinus bacterial communities</em></td>
+<td>R. australis DNA detected in European ticks</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Mechanistic data are largely from mouse models.</strong> The pivotal immunology (perforin/CD8 CTL dominance, MyD88, TLR4/ASC) derives from <em>R. australis</em> mouse experiments (<a href="https://pubmed.ncbi.nlm.nih.gov/11179362/">PMID: 11179362</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26755162/">PMID: 26755162</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32014896/">PMID: 32014896</a>); human immunopathology is inferred, not directly measured.</li>
+<li><strong>Endothelial-injury step is cross-group inference.</strong> The "rickettsial vasculitis" mechanism is established for SFG rickettsiae broadly (<a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a>) and applied to <em>R. australis</em>; species-specific human histopathology of QTT is sparsely quantified.</li>
+<li><strong>Epidemiology conflates agents.</strong> The best incidence figure (0.6/100,000/yr, Tasmania) largely reflects <em>R. honei</em> (Flinders Island spotted fever), not pure <em>R. australis</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/31268225/">PMID: 31268225</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16175900/">PMID: 16175900</a>). Mainland <em>R. australis</em> incidence is not precisely quantified.</li>
+<li><strong>Treatment evidence borrows from MSF.</strong> The strongest doxycycline-benefit / fluoroquinolone-harm data come from <em>R. conorii</em> MSF (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>); no QTT-specific randomized trial exists.</li>
+<li><strong>No human host-genetics data.</strong> Whether human innate-immunity polymorphisms modulate QTT severity is unknown.</li>
+<li><strong>No quality-of-life or long-term-outcome studies</strong> specific to QTT.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Species-resolved surveillance:</strong> Report <em>R. australis</em> versus <em>R. honei</em> separately in Australian notifiable-disease data to obtain a true QTT incidence and geographic map.</li>
+<li><strong>Prospective QTT cohort</strong> capturing eschar/blood qPCR positivity, IFA kinetics, defervescence time, severity predictors, and QoL (EQ-5D/SF-36) at 30/90 days.</li>
+<li><strong>Human immunogenetics/immunophenotyping:</strong> Test whether <em>TLR4</em>/<em>MYD88</em>/inflammasome/<em>PRF1</em> variants or peripheral CD8 CTL responses correlate with QTT severity, to validate the mouse-derived model in humans.</li>
+<li><strong>Diagnostic optimization:</strong> Define the sensitivity/timing window of eschar-swab qPCR versus blood qPCR versus paired IFA in prospectively enrolled QTT patients (<a href="https://pubmed.ncbi.nlm.nih.gov/31587667/">PMID: 31587667</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22092999/">PMID: 22092999</a>).</li>
+<li><strong>Treatment-timing study:</strong> Quantify the effect of early empiric doxycycline on progression to severe QTT specifically (mirroring the MSF analysis), and formally test avoidance of fluoroquinolones.</li>
+<li><strong>Vector/reservoir ecology &amp; One Health mapping</strong> of <em>I. holocyclus</em>/<em>I. tasmani</em> infection prevalence and reservoir hosts to guide targeted public-health messaging in expanding peri-urban endemic zones (<a href="https://pubmed.ncbi.nlm.nih.gov/31318873/">PMID: 31318873</a>).</li>
+</ol>
+<hr />
+<p><em>Evidence-source key: Human clinical (case series/audits/serosurveys — PMIDs 1962102, 31318873, 32959771, 32252063, 33075531, 21642652, 31587667, 22092999, 16175900); Model organism (mouse — PMIDs 11179362, 26755162, 32014896, 30297526); Microbiology/genomics (PMIDs 22933759, 11034486, 11491333, 9103608); In vitro/vector (PMIDs 25434042, 18355299, 10103185).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Queensland_Tick_Typhus-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Queensland_Tick_Typhus-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>24</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>5</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>UBERON:0000465</code> (1 mention) - the report calls it "Lymphatic system"; UBERON calls it <strong>material anatomical entity</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0200041</code> (1 mention) - the report calls it "Skin ulcer"; HP calls it <strong>Skin erosion</strong></li>
+<li><code>HP:0002910</code> (1 mention) - the report calls it "Elevated hepatic transaminase"; HP calls it <strong>Elevated circulating hepatic transaminase concentration</strong>, and lists "Elevated transaminases" among its other names</li>
+<li><code>GO:0050830</code> (1 mention) - the report calls it "defense response to Gram-negative bacterium"; GO calls it <strong>defense response to Gram-positive bacterium</strong></li>
+<li><code>CL:0000071</code> (2 mentions) - the report calls it "blood vessel endothelial cell", "Cell populations targeted:<strong> vascular endothelial cells"; CL calls it </strong>blood vessel endothelial cell**</li>
+<li><code>UBERON:0002097</code> (1 mention) - the report calls it "Skin"; UBERON calls it <strong>skin of body</strong>, and lists "skin" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CL:0000071</code> - called "blood vessel endothelial cell", "Cell populations targeted:** vascular endothelial cells"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Quebec_Platelet_Disorder-falcon.html">← Quebec Platelet Disorder (Falcon)</a>
+                
+                
+                <a href="RAB23-Related_Carpenter_Syndrome-openscientist.html">RAB23-related Carpenter Syndrome (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Queensland_Tick_Typhus.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Queensland_Tick_Typhus-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

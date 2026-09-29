@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gas Gangrene · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Gas Gangrene</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Gas Gangrene</h1>
+                
+                <p class="report-subtitle">Key Findings</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005767" target="_blank" rel="noopener noreferrer">MONDO:0005767</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">37 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Key Findings</h2>
+<h3>F1 — Alpha-toxin (phospholipase C) is the principal virulence factor</h3>
+<p>The single most important molecular determinant of <em>C. perfringens</em> gas gangrene is <strong>alpha-toxin (CPA/PLC)</strong>, a phospholipase C / sphingomyelinase. Its N-terminal domain (residues 1–250) is catalytic and its C-terminal domain (251–370) is the membrane-binding site; immunization with the C-domain prevents gas gangrene in mice while N-domain immunization does not. Mechanistically, the toxin binds lipid rafts via a GM1a/TrkA complex, generates diacylglycerol, and activates endogenous PLCγ-1 through TrkA, triggering endocytosis and cell death. <em>Clostridium perfringens</em> alpha-toxin "is a key mediator of gas gangrene… manifest[ing] as fever, pain, edema, myonecrosis, and gas production. Alpha-toxin possesses phospholipase C and sphingomyelinase activities" (<a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">PMID: 26633512</a>). Downstream, the toxin "specifically induces endothelial cell death by promoting ceramide-mediated apoptosis" (<a href="https://pubmed.ncbi.nlm.nih.gov/32828915/">PMID: 32828915</a>) and impairs muscle regeneration by dose-dependently decreasing MyoD and myogenin in C2C12 myoblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/32860931/">PMID: 32860931</a>). <em>(in vitro / model organism)</em></p>
+<h3>F2 — Vascular/endothelial injury and leukostasis drive the causal chain</h3>
+<p>Both PLC (alpha-toxin) and perfringolysin O (theta-toxin) act on venous capillary endothelium: PLC strongly induces ELAM-1 (E-selectin), ICAM-1, and IL-8 and converts endothelial cells to a fibroblastoid morphology; PFO induces early ICAM-1 and causes direct endothelial death. "The toxin-induced expression of proadhesive and activational proteins and direct cytopathic effects may contribute to the leukostasis, vascular compromise, and capillary leak characteristic of C. perfringens gas gangrene" (<a href="https://pubmed.ncbi.nlm.nih.gov/8557365/">PMID: 8557365</a>). The disease is "initiated by direct toxin effects upon venous capillary endothelial cell function, leading to expression of pro-inflammatory mediators and adhesion molecules, and initiation of platelet aggregation" (<a href="https://pubmed.ncbi.nlm.nih.gov/11111933/">PMID: 11111933</a>). This produces leukocyte hyperadhesion with impaired chemotaxis, leukostasis, capillary leak, regional ischemia, and progressive edema. <em>(in vitro / review)</em></p>
+<h3>F3 — Spontaneous (atraumatic) gas gangrene is caused by <em>C. septicum</em> and signals occult malignancy</h3>
+<p>"Spontaneous Clostridium septicum myonecrosis, or gas gangrene, is an extremely rare soft tissue infection associated with malignancy and immunosuppression. Even with appropriate treatment the mortality rate approaches 100%" (<a href="https://pubmed.ncbi.nlm.nih.gov/18555761/">PMID: 18555761</a>). "Atraumatic infections due to Clostridium septicum are known to be associated with immunosuppression or even malignancy" (<a href="https://pubmed.ncbi.nlm.nih.gov/16021394/">PMID: 16021394</a>). Multiple case reports document <em>C. septicum</em> bacteremia/myonecrosis revealing occult colon or rectal cancer (<a href="https://pubmed.ncbi.nlm.nih.gov/10901913/">PMID: 10901913</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18019648/">PMID: 18019648</a>), mandating GI malignancy workup. By contrast, traumatic/post-surgical disease is predominantly <em>C. perfringens</em> type A (<a href="https://pubmed.ncbi.nlm.nih.gov/18034207/">PMID: 18034207</a>). <em>(human clinical)</em></p>
+<h3>F4 — Treatment requires urgent surgical debridement plus antibiotics; HBO is adjunctive</h3>
+<p>"Treatment of choice is surgical debridement of the infectious focus with radical removal of all necrotic tissue, resection of the corresponding lymphatics in addition to antibiotic therapy with penicillin G, aminoglycosides, or clindamycin or hyperbaric oxygenation" (<a href="https://pubmed.ncbi.nlm.nih.gov/18034207/">PMID: 18034207</a>). In a Duke HBO series of 49 patients: "Survival in patients with involvement confined to the extremities was 92.3 percent… combined involvement of extremity and trunk was 53.3 percent, and with primary trunk involvement half… survived. Survival for the entire series was 73.5 percent" (<a href="https://pubmed.ncbi.nlm.nih.gov/162815/">PMID: 162815</a>). Nonclostridial gas gangrene carries ~43% mortality, worsened by delay (<a href="https://pubmed.ncbi.nlm.nih.gov/11782626/">PMID: 11782626</a>). <em>(human clinical)</em></p>
+<h3>F5 — Alpha-toxin is a 370-residue two-domain zinc metalloenzyme with a novel prokaryotic C2 domain</h3>
+<p>"The toxin is a 370-residue, zinc metalloenzyme that has phospholipase C activity, and can bind to membranes in the presence of calcium. The crystal structure of the enzyme reveals a two-domain protein" (<a href="https://pubmed.ncbi.nlm.nih.gov/9699639/">PMID: 9699639</a>). The N-terminal catalytic domain resembles <em>Bacillus cereus</em> PC-PLC; "The C-terminal domain shows a strong structural analogy to eukaryotic calcium-binding C2 domains. We believe this is the first example of such a domain in prokaryotes" (<a href="https://pubmed.ncbi.nlm.nih.gov/9699639/">PMID: 9699639</a>). C2 domains bind phospholipid/calcium in intracellular second-messenger proteins — pathways the toxin perturbs. <em>(structural)</em></p>
+<h3>F6 — Gas gangrene sits within NSTIs with age- and comorbidity-dependent mortality</h3>
+<p>In a Medicare NSTI cohort of adults ≥65 (n=1427), 97% required emergency surgery and "The overall mortality was 5.3%. Several underlying comorbidities were associated with higher rates of mortality including cancer (OR: 3.50, P = 0.0009), liver disease (OR: 2.97, P = 0.03), and kidney disease (OR: 2.15, P = 0.01)" (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>). A validated NSQIP calculator (n=1392) reported 13% 30-day mortality with independent predictors including "age older than 60 years (odds ratio [OR] = 2.5; 95% CI 1.7–3.6)" plus dialysis (1.9), ASA ≥4 (3.6), septic shock (2.4), and platelets &lt;50K (3.5) (<a href="https://pubmed.ncbi.nlm.nih.gov/23628224/">PMID: 23628224</a>). Pediatric NSTI is rare (355 US cases, 2016–2020) (<a href="https://pubmed.ncbi.nlm.nih.gov/38518580/">PMID: 38518580</a>). <em>(human clinical)</em></p>
+<h3>F7 — Naturally occurring clostridial myonecrosis in animals: blackleg (<em>C. chauvoei</em>)</h3>
+<p>"Blackleg is an infectious disease that mainly affects cattle and rarely affects other ruminants. It is characterized by hemorrhagic blackleg myositis" (<a href="https://pubmed.ncbi.nlm.nih.gov/40989646/">PMID: 40989646</a>) and "is a soil-borne disease primarily affecting cattle and is caused by Clostridium chauvoei" (<a href="https://pubmed.ncbi.nlm.nih.gov/42743700/">PMID: 42743700</a>). It is endemic in regions such as Ethiopia and Kazakhstan with strong seasonal (post-rainy/November) peaks (<a href="https://pubmed.ncbi.nlm.nih.gov/41133194/">PMID: 41133194</a>), with novel presentations including intestinal necrosis in calves (<a href="https://pubmed.ncbi.nlm.nih.gov/42545146/">PMID: 42545146</a>). Unlike traumatic human disease, blackleg is typically <strong>endogenous</strong> — latent muscle spores activated by hypoxia. Controlled by multivalent clostridial vaccines. <em>(veterinary)</em></p>
+<h3>F8 — Alpha-toxin-mediated massive intravascular hemolysis is a rare, rapidly fatal complication</h3>
+<p>"C. perfringens sepsis is uncommon, [but] it is often rapidly fatal because the alpha toxin of this bacterium induces massive intravascular hemolysis by disrupting red blood cell membranes" (<a href="https://pubmed.ncbi.nlm.nih.gov/27049736/">PMID: 27049736</a>); characteristic labs are severe hemolytic anemia with very low MCV, spherocytes, hemolyzed sample, and negative Coombs. Fulminant <em>C. perfringens</em> bacteremia is "severe and fatal in fifty per cent of cases" (<a href="https://pubmed.ncbi.nlm.nih.gov/37110247/">PMID: 37110247</a>). In a 13-year series, fatal intravascular hemolysis occurred in ~3.0% (1/33) of <em>C. perfringens</em> infections (<a href="https://pubmed.ncbi.nlm.nih.gov/25755747/">PMID: 25755747</a>). "Serum PLC activity… showed a nearly fivefold increase (6.0 to 27.3 U/l), which is consistent with the hypothesized dominant role of this enzyme" (<a href="https://pubmed.ncbi.nlm.nih.gov/8373904/">PMID: 8373904</a>); death can occur within 4–8 hours of admission (<a href="https://pubmed.ncbi.nlm.nih.gov/1776111/">PMID: 1776111</a>). <em>(human clinical)</em></p>
+<h3>F9 — Clindamycin outperforms penicillin by suppressing toxin synthesis</h3>
+<p>"Clindamycin is more efficacious than penicillin in experimental gas gangrene caused by Clostridium perfringens in animals" (<a href="https://pubmed.ncbi.nlm.nih.gov/7548539/">PMID: 7548539</a>). Efficacy tracks toxin suppression, not bactericidal activity: "complete suppression of alpha-toxin activity by tetracycline, metronidazole, rifampin, clindamycin, and chloramphenicol at concentrations equal to the MIC. In contrast, alpha-toxin activity persisted at concentrations of penicillin equal to and above the MIC" (<a href="https://pubmed.ncbi.nlm.nih.gov/2882731/">PMID: 2882731</a>). This underpins the guideline-recommended <strong>penicillin + clindamycin</strong> combination. <em>(model organism)</em></p>
+<h3>F10 — Genetic proof: alpha-toxin (<em>plc</em>) is essential and synergizes with theta-toxin (<em>pfoA</em>)</h3>
+<p>Allelic-exchange inactivation of the chromosomal <em>plc</em> gene showed "the plc mutants had demonstrably reduced virulence and therefore provided definitive genetic evidence for the essential role of alpha-toxin in gas gangrene" (<a href="https://pubmed.ncbi.nlm.nih.gov/7746141/">PMID: 7746141</a>). Alpha-toxin and PFO act synergistically: "the isogenic strain that was reconstituted for both toxins produced a pathology that was clearly more severe than when alpha-toxin alone was reconstituted" (<a href="https://pubmed.ncbi.nlm.nih.gov/11705975/">PMID: 11705975</a>). Both are required for leukostasis: "significantly reduced leukocyte aggregation when alpha-toxin was absent and complete abrogation… when theta-toxin was absent. Thus, both alpha-toxin and theta-toxin are necessary for the characteristic vascular leukostasis" (<a href="https://pubmed.ncbi.nlm.nih.gov/10456947/">PMID: 10456947</a>). By contrast, alpha-clostripain (<em>ccp</em>) is dispensable (<a href="https://pubmed.ncbi.nlm.nih.gov/21829506/">PMID: 21829506</a>). <em>(model organism)</em></p>
+<h3>F11 — Diagnosis is clinical/surgical; tissue gas is not universal and delay is the chief pitfall</h3>
+<p>"Tissue gas is not a universal finding in necrotizing soft tissue infections. This misconception… contributes to diagnostic errors. Incision and drainage is an inappropriate surgical strategy… excisional debridement is needed" (<a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>). "The two commonest pitfalls in management are failure of early diagnosis and inadequate surgical debridement" (same source). For severe SSTIs, "intensive care, source control, and broad-spectrum antimicrobials are required for the initial phase of illness," with growing use of rapid diagnostics and ongoing IVIG debate (<a href="https://pubmed.ncbi.nlm.nih.gov/29278528/">PMID: 29278528</a>). <em>(review)</em></p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Spore inoculation</strong> into devitalized/hypoxic tissue (trauma, surgery) <strong>or</strong> hematogenous seeding from a GI lesion (spontaneous <em>C. septicum</em>) → germination of vegetative clostridia in an anaerobic niche. <em>(demonstrated)</em></li>
+<li>Local hypoxia/low redox potential → <strong>permits anaerobic proliferation</strong> and toxin-gene expression. <em>(inferred/demonstrated)</em></li>
+<li>Vegetative growth → secretion of <strong>alpha-toxin (PLC)</strong> and <strong>perfringolysin O (theta-toxin)</strong>. <em>(demonstrated genetically; <a href="https://pubmed.ncbi.nlm.nih.gov/7746141/" target="_blank" rel="noopener noreferrer">PMID: 7746141</a>, 11705975)</em></li>
+<li>Alpha-toxin's PLC/sphingomyelinase activity hydrolyzes membrane phospholipids → <strong>DAG + ceramide</strong>; via GM1a/TrkA raft binding, activates PLCγ-1 → <strong>endothelial and myocyte apoptosis/death</strong> and <strong>blocked myogenesis</strong> (↓MyoD/myogenin). <em>(in vitro; <a href="https://pubmed.ncbi.nlm.nih.gov/26633512/" target="_blank" rel="noopener noreferrer">PMID: 26633512</a>, 32828915, 32860931)</em></li>
+<li>Toxins on venous capillary endothelium → <strong>↑E-selectin/ICAM-1/IL-8</strong> and platelet aggregation. <em>(in vitro; <a href="https://pubmed.ncbi.nlm.nih.gov/8557365/" target="_blank" rel="noopener noreferrer">PMID: 8557365</a>, 11111933)</em></li>
+<li><strong>Branch — both toxins required:</strong> leukocyte hyperadhesion + impaired chemotaxis → <strong>vascular leukostasis</strong> (neutrophils plug capillaries instead of clearing bacteria). <em>(mouse; <a href="https://pubmed.ncbi.nlm.nih.gov/10456947/" target="_blank" rel="noopener noreferrer">PMID: 10456947</a>)</em></li>
+<li>Leukostasis + endothelial injury → <strong>capillary leak, ischemia, progressive edema</strong> → feed-forward extension of the anaerobic zone. <em>(inferred/demonstrated)</em></li>
+<li>Anaerobic fermentation of muscle → <strong>tissue gas</strong> (variable) + spreading <strong>coagulative myonecrosis</strong> → clinical gas gangrene. <em>(demonstrated; gas not universal, <a href="https://pubmed.ncbi.nlm.nih.gov/10621873/" target="_blank" rel="noopener noreferrer">PMID: 10621873</a>)</em></li>
+<li><strong>Systemic branch:</strong> toxin in bloodstream → alpha-toxin lyses RBC membranes → <strong>massive intravascular hemolysis</strong> → hemolytic anemia, DIC, multi-organ failure, death within hours. <em>(human; <a href="https://pubmed.ncbi.nlm.nih.gov/27049736/" target="_blank" rel="noopener noreferrer">PMID: 27049736</a>, 8373904)</em></li>
+</ol>
+<pre><code>  TRAUMA/SURGERY (C. perfringens)          GI LESION/MALIGNANCY (C. septicum)
+│                                            │
+└───────────────┬────────────────────────────┘
+        ▼
+  Anaerobic niche → clostridial growth
+        ▼
+     ALPHA-TOXIN (plc, PLC)  +  THETA-TOXIN (pfoA, PFO)
+│                 │                    │
+▼                 ▼                    ▼
+  membrane hydrolysis   endothelial injury   RBC lysis (systemic)
+  → DAG/ceramide        + E-sel/ICAM-1/IL-8         │
+  → endothelial +             │                     ▼
+  myocyte apoptosis;          ▼            MASSIVE INTRAVASCULAR
+  ↓MyoD/myogenin       leukocyte hyperadhesion  HEMOLYSIS → DIC,
+│              (BOTH toxins required)   MOF, death (hrs)
+│                     ▼
+│            VASCULAR LEUKOSTASIS → capillary leak,
+│            ischemia, spreading EDEMA
+└──────────────┬───────────────┘
+       ▼
+      SPREADING MYONECROSIS + TISSUE GAS → SEPTIC SHOCK
+       ▼
+   ── Interrupted only by: EMERGENCY EXCISIONAL DEBRIDEMENT
+      + PENICILLIN/CLINDAMYCIN (toxin suppression) + HBO ──
+</code></pre>
+<p>The unifying theme is <strong>exotoxin-driven vascular and myofiber destruction with a self-amplifying ischemic loop</strong>: toxins kill endothelium and jam neutrophils in capillaries, which starves tissue of oxygen and immune defense, which further favors clostridial growth. Because the damage is enzymatic and toxin-mediated rather than dependent on bacterial burden alone, therapy must both <strong>remove the substrate (surgery)</strong> and <strong>silence the toxin (protein-synthesis-inhibiting antibiotics)</strong> — the direct rationale for the penicillin + clindamycin combination.</p>
+<hr />
+<h2>Detailed Section-by-Section Report</h2>
+<h3>1. Disease Information</h3>
+<p><strong>Overview.</strong> A rapidly progressive, life-threatening necrotizing infection of skeletal muscle caused by toxin-producing <em>Clostridium</em> species, most often <em>C. perfringens</em> type A, characterized by "fever, pain, edema, myonecrosis, and gas production" (<a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">PMID: 26633512</a>). It is one member of the broader <strong>necrotizing soft tissue infections (NSTIs)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>).</p>
+<p><strong>Key identifiers.</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005767" target="_blank" rel="noopener noreferrer">MONDO:0005767</a> · ICD-10 A48.0 · ICD-11 (gas gangrene) · MeSH D005738 · SNOMED CT 372070002. <strong>OMIM/Orphanet: not applicable</strong> — acquired infection, not a Mendelian disorder.</p>
+<p><strong>Synonyms.</strong> Clostridial myonecrosis; clostridial gas gangrene; myonecrosis; emphysematous gangrene. In animals: blackleg (<em>C. chauvoei</em>), malignant edema (<em>C. septicum/C. perfringens</em>).</p>
+<p><strong>Information source.</strong> Disease-level aggregated resources (reviews, case series, mouse pathogenesis studies); population burden from administrative/registry datasets coded at the NSTI level (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23628224/">PMID: 23628224</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38518580/">PMID: 38518580</a>).</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — infectious.</strong> Anaerobic, spore-forming <em>Clostridium</em> bacilli via two routes: (1) <strong>traumatic/post-surgical</strong> — predominantly <em>C. perfringens</em> type A (NCBITaxon:1502) in devitalized muscle (<a href="https://pubmed.ncbi.nlm.nih.gov/18034207/">PMID: 18034207</a>); (2) <strong>spontaneous/hematogenous</strong> — predominantly <em>C. septicum</em> (NCBITaxon:1504), associated with occult GI malignancy, neutropenia, immunosuppression (<a href="https://pubmed.ncbi.nlm.nih.gov/18555761/">PMID: 18555761</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16021394/">PMID: 16021394</a>). Other agents: <em>C. novyi</em>, <em>C. histolyticum</em>, <em>C. sordellii</em>.</p>
+<p><strong>Risk factors (host/environmental).</strong> Penetrating/crush trauma, open fractures, contaminated wounds, GI/biliary surgery, septic abortion; <strong>diabetes mellitus</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/11782626/">PMID: 11782626</a>); <strong>malignancy (OR 3.50), liver disease (OR 2.97), renal disease (OR 2.15)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>); chemotherapy/neutropenia/cirrhosis (<a href="https://pubmed.ncbi.nlm.nih.gov/25755747/">PMID: 25755747</a>); age &gt;60, male sex (~59%) (<a href="https://pubmed.ncbi.nlm.nih.gov/23628224/">PMID: 23628224</a>).</p>
+<p><strong>Genetic risk factors (human host): none established — not applicable.</strong> <strong>Protective factors:</strong> prompt wound debridement, tissue oxygenation, veterinary toxoid vaccination; no human genetic protective variants. <strong>Gene–environment interaction:</strong> operates as <strong>pathogen-genotype × host-microenvironment</strong> (toxin genes expressed under anaerobic necrotic conditions).</p>
+<h3>3. Phenotypes</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Characteristics</th>
+<th>HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe pain out of proportion</td>
+<td>Symptom</td>
+<td>Early, near-universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" rel="noopener noreferrer">HP:0012531</a></td>
+</tr>
+<tr>
+<td>Myonecrosis</td>
+<td>Pathological sign</td>
+<td>Severe, progressive; defining</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" rel="noopener noreferrer">HP:0003202</a> (proxy)</td>
+</tr>
+<tr>
+<td>Soft-tissue gas/crepitus</td>
+<td>Sign</td>
+<td>Variable — <strong>not universal</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" rel="noopener noreferrer">HP:0025439</a></td>
+</tr>
+<tr>
+<td>Tense edema</td>
+<td>Sign</td>
+<td>Severe, progressive (<a href="https://pubmed.ncbi.nlm.nih.gov/11111933/">PMID: 11111933</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000969" target="_blank" rel="noopener noreferrer">HP:0000969</a></td>
+</tr>
+<tr>
+<td>Skin discoloration/hemorrhagic bullae</td>
+<td>Physical</td>
+<td>Progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011121" target="_blank" rel="noopener noreferrer">HP:0011121</a></td>
+</tr>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+</tr>
+<tr>
+<td>Septic shock/hypotension</td>
+<td>Sign</td>
+<td>Late/systemic</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" rel="noopener noreferrer">HP:0031273</a></td>
+</tr>
+<tr>
+<td>Hemolytic anemia</td>
+<td>Lab</td>
+<td>Rare (~3%), often fatal (<a href="https://pubmed.ncbi.nlm.nih.gov/27049736/">PMID: 27049736</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" rel="noopener noreferrer">HP:0001878</a></td>
+</tr>
+<tr>
+<td>DIC</td>
+<td>Lab/clinical</td>
+<td>Severe complication (<a href="https://pubmed.ncbi.nlm.nih.gov/9163265/">PMID: 9163265</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" rel="noopener noreferrer">HP:0005521</a></td>
+</tr>
+<tr>
+<td>Rhabdomyolysis/↑CK/acute renal failure</td>
+<td>Lab</td>
+<td>Severe (<a href="https://pubmed.ncbi.nlm.nih.gov/9163265/">PMID: 9163265</a>)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" rel="noopener noreferrer">HP:0003236</a>; <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" rel="noopener noreferrer">HP:0000083</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Onset:</strong> acute (hours–days); adult predominance. <strong>Progression:</strong> fulminant. <strong>Quality of life:</strong> survivors often undergo amputation/extensive debridement with lasting disability; disease-specific EQ-5D/SF-36 data not available.</p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Human causal genes: none — not applicable.</strong> No human causal genes, pathogenic variants, modifier genes, epigenetic marks, or chromosomal abnormalities.</p>
+<p><strong>Pathogen virulence genes (operative molecular determinants):</strong>
+- <strong><em>plc</em></strong> → alpha-toxin (CPA), 370-aa zinc-metalloenzyme PLC/sphingomyelinase, UniProt <strong>P0C216</strong>; <strong>essential</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/7746141/">PMID: 7746141</a>).
+- <strong><em>pfoA</em></strong> → perfringolysin O (theta-toxin), cholesterol-dependent cytolysin, UniProt <strong>P0C2E9</strong>; synergistic, required for leukostasis (<a href="https://pubmed.ncbi.nlm.nih.gov/11705975/">PMID: 11705975</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10456947/">PMID: 10456947</a>).
+- <strong><em>ccp</em></strong> → alpha-clostripain; <strong>dispensable</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/21829506/">PMID: 21829506</a>).
+- <strong><em>cpe</em>/*ccpA</strong><em> → enterotoxin/regulator; CcpA does </em><em>not</em>* regulate PLC (<a href="https://pubmed.ncbi.nlm.nih.gov/15292123/">PMID: 15292123</a>).</p>
+<p><strong>Toxinotyping:</strong> <em>C. perfringens</em> <strong>type A</strong> (cpa/plc+) is the principal agent; cpa/type A confirmed in fatal hemolysis (<a href="https://pubmed.ncbi.nlm.nih.gov/25755747/">PMID: 25755747</a>).</p>
+<h3>5. Environmental Information</h3>
+<p>Clostridial spores reside in <strong>soil, dust, and mammalian GI tracts</strong>; wound contamination with soil/foreign bodies is the classic exposure. Blackleg is explicitly soil-borne with seasonal peaks (<a href="https://pubmed.ncbi.nlm.nih.gov/42743700/">PMID: 42743700</a>). Lifestyle: injection drug use, smoking/diabetes (impaired perfusion). Infectious agents (NCBI Taxonomy): <em>C. perfringens</em> (1502), <em>C. septicum</em> (1504), <em>C. novyi</em> (1522), <em>C. histolyticum</em> (1498), <em>C. sordellii</em> (1505), <em>C. chauvoei</em> (1494). Nonclostridial gas gangrene (mixed aerobic/anaerobic) has ~43% mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/11782626/">PMID: 11782626</a>).</p>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p>See the <strong>Mechanistic Model</strong> section above for the full ordered causal chain and diagram. Key category detail:
+- <strong>Molecular pathways:</strong> phospholipid/sphingolipid hydrolysis → DAG/ceramide; TrkA/PLCγ-1 activation; ceramide→apoptosis (<a href="http://purl.obolibrary.org/obo/GO_0004629" target="_blank" rel="noopener noreferrer">GO:0004629</a> phospholipase C activity; <a href="http://purl.obolibrary.org/obo/GO_0006672" target="_blank" rel="noopener noreferrer">GO:0006672</a> ceramide metabolic process) (<a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">PMID: 26633512</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32828915/">PMID: 32828915</a>).
+- <strong>Cellular processes:</strong> apoptosis (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>), inflammation, blocked myogenesis (<a href="http://purl.obolibrary.org/obo/GO_0042692" target="_blank" rel="noopener noreferrer">GO:0042692</a>), platelet aggregation (<a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" rel="noopener noreferrer">GO:0070527</a>) (<a href="https://pubmed.ncbi.nlm.nih.gov/32860931/">PMID: 32860931</a>).
+- <strong>Protein dysfunction:</strong> bacterial gain-of-toxic-function; two-domain zinc metalloenzyme (<a href="https://pubmed.ncbi.nlm.nih.gov/9699639/">PMID: 9699639</a>).
+- <strong>Immune involvement:</strong> paradoxical leukostasis with failure of neutrophil tissue entry; IL-8 induction (<a href="https://pubmed.ncbi.nlm.nih.gov/8557365/">PMID: 8557365</a>).
+- <strong>Tissue damage:</strong> ischemia, direct cytolysis, coagulative necrosis, hemolysis.
+- <strong>Omics:</strong> no large-scale human transcriptomic/proteomic/metabolomic disease atlases identified — data are targeted in vitro/mouse. <em>Omics largely not available.</em>
+- <strong>Cell types (CL):</strong> endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), skeletal muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a>), myoblast (<a href="http://purl.obolibrary.org/obo/CL_0000056" target="_blank" rel="noopener noreferrer">CL:0000056</a>), erythrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a>), neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), platelet (<a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a>).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p>Primary: <strong>skeletal muscle</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a>) and its microvasculature; secondarily subcutaneous tissue/fascia (<a href="http://purl.obolibrary.org/obo/UBERON_0007844" target="_blank" rel="noopener noreferrer">UBERON:0007844</a>). Body systems: musculoskeletal (primary), cardiovascular/microvascular (<a href="http://purl.obolibrary.org/obo/UBERON_0001982" target="_blank" rel="noopener noreferrer">UBERON:0001982</a> capillary; <a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a> endothelium), hematologic (RBC hemolysis), with systemic sepsis affecting kidneys, lungs, coagulation (<a href="https://pubmed.ncbi.nlm.nih.gov/9163265/">PMID: 9163265</a>). Subcellular (GO CC): plasma membrane (<a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a>), membrane raft (<a href="http://purl.obolibrary.org/obo/GO_0045121" target="_blank" rel="noopener noreferrer">GO:0045121</a>), extracellular region (<a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>). Localization: typically <strong>unilateral/focal</strong> at the wound, spreading proximally; spontaneous <em>C. septicum</em> can be multifocal/distant.</p>
+<h3>8. Temporal Development</h3>
+<p>Onset: <strong>acute</strong>, incubation &lt;24 h to a few days (traumatic); adult/geriatric. Progression: <strong>fulminant, monophasic</strong> (early local pain/edema → intermediate discoloration/bullae/crepitus/toxicity → advanced myonecrosis/shock/hemolysis). Not relapsing/chronic. Remission is treatment-induced via surgical source control (<a href="https://pubmed.ncbi.nlm.nih.gov/18555761/">PMID: 18555761</a>). <strong>Critical period: the first hours</strong> — time-to-debridement is the dominant modifiable survival determinant (<a href="https://pubmed.ncbi.nlm.nih.gov/11782626/">PMID: 11782626</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>).</p>
+<h3>9. Inheritance and Population</h3>
+<p>Epidemiology: <strong>rare</strong>; invasive <em>C. perfringens</em> ~0.017% of samples in one series (<a href="https://pubmed.ncbi.nlm.nih.gov/25755747/">PMID: 25755747</a>); pediatric NSTI very rare (355 US cases 2016–2020) (<a href="https://pubmed.ncbi.nlm.nih.gov/38518580/">PMID: 38518580</a>). Inheritance: <strong>not applicable</strong> (all genetic-etiology sub-items — penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, carrier frequency — N/A). Demographics: male predominance (~59%) (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>); older/comorbid populations over-represented. Geographic: worldwide, historically battlefield-associated; veterinary blackleg endemic to specific soils (<a href="https://pubmed.ncbi.nlm.nih.gov/42743700/">PMID: 42743700</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/41133194/">PMID: 41133194</a>).</p>
+<h3>10. Diagnostics</h3>
+<p>Clinical diagnosis paramount (<a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>). Labs: leukocytosis, markedly elevated CK, lactic acidosis; in hemolysis — severe anemia, low MCV, spherocytes, negative Coombs (<a href="https://pubmed.ncbi.nlm.nih.gov/27049736/">PMID: 27049736</a>); DIC panel. Microbiology: Gram stain (large Gram-positive bacilli, few leukocytes), anaerobic culture, PCR toxin-gene typing on tissue (<a href="https://pubmed.ncbi.nlm.nih.gov/25755747/">PMID: 25755747</a>); intragranulocytic bacilli on blood smear in sepsis (<a href="https://pubmed.ncbi.nlm.nih.gov/1776111/">PMID: 1776111</a>). Imaging: CT/MRI show soft-tissue gas dissecting fascial planes — but <strong>gas not universal</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42348105/">PMID: 42348105</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>). Definitive: surgical exploration (necrotic, non-contractile muscle). Differential: necrotizing fasciitis, crepitant cellulitis, pyomyositis. Spontaneous <em>C. septicum</em> → <strong>occult GI malignancy workup</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/16021394/">PMID: 16021394</a>). Genetic/omics/screening: <strong>not applicable</strong>.</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Mortality high and extent-dependent: 73.5% overall survival, 92.3% extremity-only, ~53% extremity+trunk, 50% trunk (HBO series) (<a href="https://pubmed.ncbi.nlm.nih.gov/162815/">PMID: 162815</a>); 5.3% in-hospital (older adults) to 13% 30-day (NSQIP) (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/23628224/">PMID: 23628224</a>); nonclostridial ~43% (<a href="https://pubmed.ncbi.nlm.nih.gov/11782626/">PMID: 11782626</a>); spontaneous <em>C. septicum</em> ~100% (<a href="https://pubmed.ncbi.nlm.nih.gov/18555761/">PMID: 18555761</a>); bacteremia with hemolysis ~50% (<a href="https://pubmed.ncbi.nlm.nih.gov/37110247/">PMID: 37110247</a>). Prognostic factors: anatomic extent, time-to-debridement, age &gt;60, septic shock, ASA ≥4, dialysis, thrombocytopenia (<a href="https://pubmed.ncbi.nlm.nih.gov/23628224/">PMID: 23628224</a>), comorbidity (<a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">PMID: 32818779</a>). Morbidity: amputation, tissue loss, long-term disability. Recovery possible with early radical surgery.</p>
+<h3>12. Treatment</h3>
+<p><strong>Triad (urgent, simultaneous):</strong> (1) <strong>Surgical</strong> — radical excisional debridement, fasciotomy, amputation as needed, repeat debridement (<a href="https://pubmed.ncbi.nlm.nih.gov/18034207/">PMID: 18034207</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>); NCIT: Surgical Debridement (C15329), Amputation (C15275). (2) <strong>Antibiotics</strong> — <strong>penicillin G + clindamycin</strong> (clindamycin suppresses toxin synthesis) (<a href="https://pubmed.ncbi.nlm.nih.gov/2882731/">PMID: 2882731</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/7548539/">PMID: 7548539</a>); alternatives metronidazole/tetracycline/aminoglycosides; NCIT: Penicillin G (C716), Clindamycin (C376), Metronidazole (C639). (3) <strong>HBO, adjunctive</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/162815/">PMID: 162815</a>); NCIT: Hyperbaric Oxygen Therapy (C15683) — secondary to surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>). Supportive ICU care, resuscitation, shock/DIC/renal management (<a href="https://pubmed.ncbi.nlm.nih.gov/29278528/">PMID: 29278528</a>). Experimental: IVIG (debated); anti-alpha-toxin C-domain immunotherapy protective in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">PMID: 26633512</a>). Pharmacogenomics: not applicable.</p>
+<h3>13. Prevention</h3>
+<p>Primary: meticulous wound care, early debridement, avoiding tight closure of contaminated wounds (<a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">PMID: 10621873</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/162815/">PMID: 162815</a>). Secondary: early recognition + rapid surgery; occult GI malignancy workup in <em>C. septicum</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/16021394/">PMID: 16021394</a>). Tertiary: aggressive source control + ICU support. <strong>Immunization (humans): no licensed vaccine</strong> (C-domain alpha-toxoid protective experimentally only, <a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">PMID: 26633512</a>). <strong>Veterinary: multivalent clostridial toxoids</strong> prevent blackleg/malignant edema (<a href="https://pubmed.ncbi.nlm.nih.gov/40989646/">PMID: 40989646</a>). Genetic counseling/carrier screening: not applicable.</p>
+<h3>14. Other Species / Natural Disease</h3>
+<p>Hosts: cattle <em>Bos taurus</em> (NCBITaxon:9913), sheep <em>Ovis aries</em> (9940), other ruminants. <strong>Blackleg</strong> (<em>C. chauvoei</em>, NCBITaxon:1494) — soil-borne, highly lethal hemorrhagic emphysematous myositis, typically <strong>endogenous</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40989646/">PMID: 40989646</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42743700/">PMID: 42743700</a>); novel intestinal-necrosis presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/42545146/">PMID: 42545146</a>); atypical prolonged courses (<a href="https://pubmed.ncbi.nlm.nih.gov/42651908/">PMID: 42651908</a>). <strong>Malignant edema</strong> (<em>C. septicum/C. perfringens/C. novyi</em>) from wound contamination. Veterinary importance: major cause of sudden death/economic loss, managed by vaccination (<a href="https://pubmed.ncbi.nlm.nih.gov/41133194/">PMID: 41133194</a>). Comparative pathology: shared core mechanism, differing route (endogenous latency vs traumatic contamination). Alpha-toxin also implicated in animal sudden-death syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/9699639/">PMID: 9699639</a>). Zoonotic potential: minimal — environmental/endogenous acquisition, not animal-to-human transmission.</p>
+<h3>15. Model Organisms</h3>
+<p><strong>Primary — mouse myonecrosis model</strong> (i.m./footpad <em>C. perfringens</em> inoculation): workhorse for pathogenesis, high fidelity to human histopathology (<a href="https://pubmed.ncbi.nlm.nih.gov/7746141/">PMID: 7746141</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/11705975/">PMID: 11705975</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10456947/">PMID: 10456947</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/2882731/">PMID: 2882731</a>). <strong>Genetic models (bacterial):</strong> isogenic allelic-exchange/TargeTron knockouts of <em>plc</em>, <em>pfoA</em>, <em>ccp</em> with complementation (<a href="https://pubmed.ncbi.nlm.nih.gov/7746141/">PMID: 7746141</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21829506/">PMID: 21829506</a>). <strong>In vitro:</strong> C2C12 myoblasts (<a href="https://pubmed.ncbi.nlm.nih.gov/32860931/">PMID: 32860931</a>), HUVEC (<a href="https://pubmed.ncbi.nlm.nih.gov/8557365/">PMID: 8557365</a>), CD31+ endothelial cells (<a href="https://pubmed.ncbi.nlm.nih.gov/32828915/">PMID: 32828915</a>), erythrocyte hemolysis (<a href="https://pubmed.ncbi.nlm.nih.gov/24349173/">PMID: 24349173</a>). <strong>Structural/computational:</strong> alpha-toxin crystal structure (<a href="https://pubmed.ncbi.nlm.nih.gov/9699639/">PMID: 9699639</a>); in silico N–C domain docking (<a href="https://pubmed.ncbi.nlm.nih.gov/24349173/">PMID: 24349173</a>). <strong>Limitations:</strong> mouse models emphasize local toxin-driven process; less capture of human comorbidity context and the spontaneous <em>C. septicum</em>/malignancy axis. No host-genetic disease lines (host is not predisposed). <strong>Resources:</strong> <em>C. perfringens</em> strain 13; ATCC 13124.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7746141/">7746141</a></td>
+<td>Genetic proof alpha-toxin (<em>plc</em>) essential</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11705975/">11705975</a></td>
+<td>Alpha-toxin × PFO synergy</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10456947/">10456947</a></td>
+<td>Both toxins required for leukostasis</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">26633512</a></td>
+<td>Alpha-toxin mechanism; clinical features; C-domain vaccine</td>
+<td>In vitro/review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9699639/">9699639</a></td>
+<td>Crystal structure; novel prokaryotic C2 domain</td>
+<td>Structural</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32828915/">32828915</a></td>
+<td>Ceramide-mediated endothelial apoptosis</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32860931/">32860931</a></td>
+<td>Impaired myogenesis (↓MyoD/myogenin)</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8557365/">8557365</a></td>
+<td>Adhesion molecule/IL-8 upregulation</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11111933/">11111933</a></td>
+<td>Pathogenesis causal chain</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18555761/">18555761</a></td>
+<td>Spontaneous <em>C. septicum</em>, ~100% mortality</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16021394/">16021394</a></td>
+<td>Atraumatic <em>C. septicum</em> ↔ malignancy</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27049736/">27049736</a></td>
+<td>Alpha-toxin → massive hemolysis</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8373904/">8373904</a></td>
+<td>Rising PLC drives hemolysis</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/162815/">162815</a></td>
+<td>HBO survival by anatomic extent</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18034207/">18034207</a></td>
+<td>Standard treatment triad</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2882731/">2882731</a></td>
+<td>Clindamycin &gt; penicillin (toxin suppression)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10621873/">10621873</a></td>
+<td>Gas not universal; excisional debridement</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32818779/">32818779</a></td>
+<td>NSTI comorbidity mortality ORs</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23628224/">23628224</a></td>
+<td>Validated NSTI mortality predictors</td>
+<td>Human</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40989646/">40989646</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/42743700/">42743700</a></td>
+<td>Blackleg (<em>C. chauvoei</em>)</td>
+<td>Veterinary</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Ontology Term Appendix (for KB population)</h2>
+<ul>
+<li><strong>Disease:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005767" target="_blank" rel="noopener noreferrer">MONDO:0005767</a>; MeSH D005738; ICD-10 A48.0; SNOMED 372070002.</li>
+<li><strong>Pathogen genes/proteins:</strong> <em>plc</em>/alpha-toxin (UniProt P0C216); <em>pfoA</em>/perfringolysin O (UniProt P0C2E9).</li>
+<li><strong>GO (process):</strong> <a href="http://purl.obolibrary.org/obo/GO_0004629" target="_blank" rel="noopener noreferrer">GO:0004629</a> (phospholipase C activity), <a href="http://purl.obolibrary.org/obo/GO_0006672" target="_blank" rel="noopener noreferrer">GO:0006672</a> (ceramide metabolic process), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptosis), <a href="http://purl.obolibrary.org/obo/GO_0070527" target="_blank" rel="noopener noreferrer">GO:0070527</a> (platelet aggregation), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0042692" target="_blank" rel="noopener noreferrer">GO:0042692</a> (muscle cell differentiation).</li>
+<li><strong>GO (component):</strong> <a href="http://purl.obolibrary.org/obo/GO_0005886" target="_blank" rel="noopener noreferrer">GO:0005886</a> (plasma membrane), <a href="http://purl.obolibrary.org/obo/GO_0045121" target="_blank" rel="noopener noreferrer">GO:0045121</a> (membrane raft), <a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a> (extracellular region).</li>
+<li><strong>CL:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000188" target="_blank" rel="noopener noreferrer">CL:0000188</a> (skeletal muscle cell), <a href="http://purl.obolibrary.org/obo/CL_0000056" target="_blank" rel="noopener noreferrer">CL:0000056</a> (myoblast), <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (erythrocyte), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000233" target="_blank" rel="noopener noreferrer">CL:0000233</a> (platelet).</li>
+<li><strong>UBERON:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> (skeletal muscle), <a href="http://purl.obolibrary.org/obo/UBERON_0007844" target="_blank" rel="noopener noreferrer">UBERON:0007844</a> (fascia), <a href="http://purl.obolibrary.org/obo/UBERON_0001982" target="_blank" rel="noopener noreferrer">UBERON:0001982</a> (capillary), <a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a> (endothelium).</li>
+<li><strong>CHEBI:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_29105" target="_blank" rel="noopener noreferrer">CHEBI:29105</a> (zinc 2+), <a href="http://purl.obolibrary.org/obo/CHEBI_29108" target="_blank" rel="noopener noreferrer">CHEBI:29108</a> (calcium 2+), <a href="http://purl.obolibrary.org/obo/CHEBI_17636" target="_blank" rel="noopener noreferrer">CHEBI:17636</a> (sphingomyelin), <a href="http://purl.obolibrary.org/obo/CHEBI_16040" target="_blank" rel="noopener noreferrer">CHEBI:16040</a> (ceramide).</li>
+<li><strong>NCIT (treatment):</strong> C15329 (Surgical Debridement), C15275 (Amputation), C15683 (Hyperbaric Oxygen Therapy), C716 (Penicillin G), C376 (Clindamycin), C639 (Metronidazole).</li>
+</ul>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No human genetic architecture</strong> — as an acquired infection, many template sections (causal genes, variants, inheritance, omics diagnostics, genetic screening) are intrinsically not applicable.</li>
+<li><strong>Rarity limits epidemiology</strong> — precise incidence/prevalence for gas gangrene specifically is ill-defined; cohort data pool it within NSTIs.</li>
+<li><strong>Human host-susceptibility mechanisms underexplored</strong> — why some patients develop fulminant hemolysis vs localized disease is unresolved; the malignancy–<em>C. septicum</em> link is epidemiologic, not mechanistically dissected.</li>
+<li><strong>Adjunctive therapy uncertainty</strong> — HBO and IVIG benefit rests on observational/experimental (non-randomized) evidence.</li>
+<li><strong>Model gaps</strong> — mouse models do not recapitulate the comorbid spontaneous <em>C. septicum</em> setting or the full systemic hemolysis/DIC syndrome.</li>
+<li><strong>Citation currency</strong> — several foundational mechanistic papers are decades old; contemporary human molecular-profiling datasets of gas-gangrene tissue are essentially absent.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Time-to-debridement quantification</strong> — model mortality as a continuous function of hours-to-first-debridement, controlling for anatomic extent and comorbidity, to formalize the "surgical clock."</li>
+<li><strong>Anti-toxin adjunct trials</strong> — evaluate C-domain-directed antibodies or small-molecule PLC inhibitors as surgical adjuncts, building on protective C-domain immunization data (<a href="https://pubmed.ncbi.nlm.nih.gov/26633512/">PMID: 26633512</a>).</li>
+<li><strong>Host-susceptibility profiling</strong> — transcriptomic/single-cell analysis of human gas-gangrene surgical specimens to map endothelial and neutrophil states in situ and validate the leukostasis model in humans.</li>
+<li><strong>Systematic <em>C. septicum</em>–malignancy pathway</strong> — prospectively characterize the GI mucosal breach permitting hematogenous seeding, to define a screening/prevention protocol.</li>
+<li><strong>HBO and IVIG RCTs</strong> — adequately powered randomized or emulated-trial analyses to resolve adjunct benefit.</li>
+<li><strong>Improved rapid diagnostics</strong> — validate point-of-care PCR toxinotyping (<a href="https://pubmed.ncbi.nlm.nih.gov/25755747/">PMID: 25755747</a>) and bedside biomarkers (serum PLC activity) to shorten time-to-diagnosis.</li>
+</ol>
+<hr />
+<h3>Evidence source key</h3>
+<p><strong>Human clinical:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/18034207/" target="_blank" rel="noopener noreferrer">PMID 18034207</a>, 18555761, 16021394, 10901913, 18019648, 11782626, 9163265, 162815, 27049736, 25755747, 8373904, 1776111, 37110247, 32818779, 23628224, 38518580, 10621873, 29278528, 42348105.
+<strong>Model organism (mouse):</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/7746141/" target="_blank" rel="noopener noreferrer">PMID 7746141</a>, 11705975, 10456947, 2882731, 7548539, 21829506.
+<strong>In vitro:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/26633512/" target="_blank" rel="noopener noreferrer">PMID 26633512</a>, 32828915, 32860931, 8557365, 24349173.
+<strong>Structural/computational:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/9699639/" target="_blank" rel="noopener noreferrer">PMID 9699639</a>, 24349173.
+<strong>Veterinary:</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/40989646/" target="_blank" rel="noopener noreferrer">PMID 40989646</a>, 42743700, 41133194, 42545146, 42651908.</p>
+<p><em>Report compiled from 11 confirmed findings and 46 reviewed papers over 5 investigation iterations.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Gas_Gangrene-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Gas_Gangrene-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>7</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>38</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:26633512</code> <em>(abstract only)</em>: "is a key mediator of gas gangrene… manifest[ing] as fever, pain, edema, myonecrosis, and gas production. Alpha-toxin possesses phospholipase C and sphingomyelinase activities"</li>
+<li>closest text in source: "Alpha-toxin possesses phospholipase C and sphingomyelinase activities"</li>
+<li><code>PMID:32828915</code> <em>(abstract only)</em>: "specifically induces endothelial cell death by promoting ceramide-mediated apoptosis"</li>
+<li>closest text in source: "Together, our results suggest that α-toxin-induced endothelial cell death promotes severe myonecrosis and is involved in the pathogenesis of C"</li>
+<li><code>PMID:8557365</code> <em>(abstract only)</em>: "The toxin-induced expression of proadhesive and activational proteins and direct cytopathic effects may contribute to the leukostasis, vascular compromise, and capillary leak characteristic of C. perfringens gas gangrene"</li>
+<li>closest text in source: "The toxin-induced expression of proadhesive and activational proteins and direct cytopathic effects may contribute to the leukostasis, vascular compromise, and capillary leak characteristics of C"</li>
+<li><code>PMID:162815</code> <em>(abstract only)</em>: "Survival in patients with involvement confined to the extremities was 92.3 percent… combined involvement of extremity and trunk was 53.3 percent, and with primary trunk involvement half… survived. Survival for the entire series was 73.5 percent"</li>
+<li>closest text in source: "Survival in patients with involvement confined to the extremities was 92.3 percent"</li>
+<li><code>PMID:8373904</code> <em>(abstract only)</em>: "Serum PLC activity… showed a nearly fivefold increase (6.0 to 27.3 U/l), which is consistent with the hypothesized dominant role of this enzyme"</li>
+<li>closest text in source: "Serum PLC activity, on the other hand, showed a nearly fivefold increase (6.0 to 27.3 U/l), which is consistent with the hypothesized dominant role of this enzyme."</li>
+<li><code>PMID:10456947</code> <em>(abstract only)</em>: "significantly reduced leukocyte aggregation when alpha-toxin was absent and complete abrogation… when theta-toxin was absent. Thus, both alpha-toxin and theta-toxin are necessary for the characteristic vascular leukostasis"</li>
+<li>closest text in source: "Thus, both alpha-toxin and theta-toxin are necessary for the characteristic vascular leukostasis observed in clostridial myonecrosis."</li>
+<li><code>PMID:10621873</code> <em>(abstract only)</em>: "Tissue gas is not a universal finding in necrotizing soft tissue infections. This misconception… contributes to diagnostic errors. Incision and drainage is an inappropriate surgical strategy… excisional debridement is needed"</li>
+<li>closest text in source: "Incision and drainage is an inappropriate surgical strategy for necrotizing soft tissue infections; excisional debridement is needed"</li>
+</ul>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:42743700</code> (10 mentions) - Spatiotemporal patterns and ecological niche modeling of Blackleg in cattle in the Western Amhara region, Ethiopia, 2018-2023.</li>
+<li>shared terms: disease</li>
+<li><code>PMID:41133194</code> (7 mentions) - Blackleg in cattle in Kazakhstan: regional epizootology, seasonal patterns, and molecular identification of the pathogen.</li>
+<li>shared terms: clinical, genetic</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>gas</code>, <code>human</code>, <code>septicum</code>, <code>disease</code>, <code>gangrene</code>, <code>perfringen</code>, <code>alpha-toxin</code>, <code>plc</code>, <code>tissue</code>, <code>hemolysis</code>, <code>toxin</code>, <code>model</code>, <code>clinical</code>, <code>myonecrosis</code>, <code>muscle</code>, <code>spontaneous</code>, <code>debridement</code>, <code>genetic</code>, <code>malignancy</code>, <code>edema</code>.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0012531</code> (1 mention) - the report calls it "Early, near-universal"; HP calls it <strong>Pain</strong></li>
+<li><code>HP:0003202</code> (1 mention) - the report calls it "proxy"; HP calls it <strong>Skeletal muscle atrophy</strong></li>
+<li><code>HP:0025439</code> (1 mention) - the report calls it "Variable — <strong>not universal</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/10621873/" target="_blank" rel="noopener noreferrer">PMID: 10621873</a>)"; HP calls it <strong>Pharyngitis</strong></li>
+<li><code>HP:0000969</code> (1 mention) - the report calls it "Severe, progressive (<a href="https://pubmed.ncbi.nlm.nih.gov/11111933/" target="_blank" rel="noopener noreferrer">PMID: 11111933</a>)"; HP calls it <strong>Edema</strong></li>
+<li><code>HP:0011121</code> (1 mention) - the report calls it "Progressive"; HP calls it <strong>Abnormal skin morphology</strong></li>
+<li><code>HP:0001945</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Fever</strong></li>
+<li><code>HP:0031273</code> (1 mention) - the report calls it "Late/systemic"; HP calls it <strong>Shock</strong></li>
+<li><code>HP:0001878</code> (1 mention) - the report calls it "Rare (~3%), often fatal (<a href="https://pubmed.ncbi.nlm.nih.gov/27049736/" target="_blank" rel="noopener noreferrer">PMID: 27049736</a>)"; HP calls it <strong>Hemolytic anemia</strong></li>
+<li><code>HP:0005521</code> (1 mention) - the report calls it "Severe complication (<a href="https://pubmed.ncbi.nlm.nih.gov/9163265/" target="_blank" rel="noopener noreferrer">PMID: 9163265</a>)"; HP calls it <strong>Disseminated intravascular coagulation</strong></li>
+<li><code>UBERON:0007844</code> (2 mentions) - the report calls it "fascia"; UBERON calls it <strong>cartilage element</strong></li>
+<li><code>CHEBI:16040</code> (1 mention) - the report calls it "ceramide"; CHEBI calls it <strong>cytosine</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCBITaxon:1504</code> (1 mention) - the report calls it "C. septicum"; NCBITaxon calls it <strong>Clostridium septicum</strong></li>
+<li><code>GO:0004629</code> (2 mentions) - the report calls it "phospholipase C activity"; GO calls it <strong>C-type glycerophospholipase activity</strong>, and lists "phospholipase C activity" among its other names</li>
+<li><code>GO:0006915</code> (2 mentions) - the report calls it "Cellular processes:<strong> apoptosis", "apoptosis"; GO calls it </strong>apoptotic process**, and lists "activation of apoptosis" among its other names</li>
+<li><code>CL:0000188</code> (2 mentions) - the report calls it "skeletal muscle cell"; CL calls it <strong>cell of skeletal muscle</strong>, and lists "skeletal muscle cell" among its other names</li>
+<li><code>UBERON:0001134</code> (2 mentions) - the report calls it "skeletal muscle"; UBERON calls it <strong>skeletal muscle tissue</strong>, and lists "skeletal muscle" among its other names</li>
+<li><code>CHEBI:17636</code> (1 mention) - the report calls it "sphingomyelin"; CHEBI calls it <strong>sphingomyelin d18:1</strong>, and lists "Sphingomyelin" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>GO:0006915</code> - called "Cellular processes:** apoptosis", "apoptosis"</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Garg-Mishra_Progeroid_Syndrome-claude_code.html">← Garg-Mishra Progeroid Syndrome (Claude Code)</a>
+                
+                
+                <a href="Gastric_Adenocarcinoma-falcon.html">Gastric Adenocarcinoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Gas_Gangrene.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Gas_Gangrene-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

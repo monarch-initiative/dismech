@@ -247,6 +247,13 @@ review retry. Assignment remains a hold on automatic merging, not reviewing.
 
 The controller discovers failed/timed-out `claude-code-review.yml` runs within
 GitHub's 30-day rerun window and invokes `gh run rerun RUN_ID --failed`.
+It also checks the review checks attached to open PRs' current head commits.
+If a failed run is absent from the Actions census, that second lookup recovers
+it after verifying the workflow, PR association, and head commit. Recovered
+runs pass the same retry guards and budget; the summary lists them separately
+and reports how many distinct runs the Actions census returned. Errors reading
+current checks are reported and make the job fail rather than silently claiming
+a complete sweep. A specific-PR request limits this cross-check to that PR.
 It never creates a replacement dispatch, changes a branch, or alters a review.
 Cancelled and intentionally skipped runs, missing reviews with no existing run,
 and successful workflows that forgot to post a verdict are separate recovery

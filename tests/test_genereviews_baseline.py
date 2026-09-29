@@ -75,6 +75,9 @@ def index() -> BookshelfIndex:
             "NBK11111",
             "ATN1-Related Neurodevelopmental Disorder.",
         ),
+        _chapter(
+            "genereviews", "26925472", "NBK344340", "17q12 Recurrent Duplication."
+        ),
         _chapter("statpearls", "30855785", "NBK538197", "Dandy-Walker Malformation."),
         _chapter("statpearls", "30726024", "NBK537339", "Marfan Syndrome."),
     ]:
@@ -89,7 +92,9 @@ def _entry(
     label: str | None = None,
     references: list[dict] = (),
 ) -> dict:
-    doc: dict = {"name": name, "synonyms": list(synonyms)}
+    doc: dict = {"name": name}
+    if synonyms:
+        doc["synonyms"] = list(synonyms)
     doc["disease_term"] = {
         "preferred_term": label or name,
         "term": {"id": "MONDO:0000001", "label": label or name},
@@ -405,6 +410,132 @@ def test_strict_exit_code_and_formats(tmp_path, index, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert out.splitlines()[0].startswith("path\tcollection\tverdict")
     assert cgb.main(args + ["--format", "json"]) == 0
+
+
+# -- entries with no synonyms (#12075) ----------------------------------------
+
+
+def test_synonymless_no_chapter_is_unproven_and_says_what_was_searched(tmp_path, index):
+    # The chapter is titled by a synonym the draft does not carry yet.
+    report = _assess(tmp_path, index, _entry("Chromosome 17q12 Duplication Syndrome"))
+    assert report.synonymless
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert report.unproven("genereviews")
+    assert report.gating and report.has_unproven and not report.noteworthy
+    text = "\n".join(cgb.format_text(report, show_all=False))
+    assert "note: entry has no synonyms" in text
+    assert "'Chromosome 17q12 Duplication Syndrome'" in text
+
+    # With the synonym the same chapter is an exact match.
+    report = _assess(
+        tmp_path,
+        index,
+        _entry(
+            "Chromosome 17q12 Duplication Syndrome", ["17q12 recurrent duplication"]
+        ),
+    )
+    assert not report.synonymless
+    gr = report.sources["genereviews"]
+    assert gr.verdict == "UNTAGGED_CHAPTER" and gr.chapters[0].pmid == "26925472"
+    assert not report.unproven("genereviews")
+
+
+def test_no_chapter_with_synonyms_stays_clean(tmp_path, index):
+    report = _assess(
+        tmp_path, index, _entry("Dandy-Walker Syndrome", ["Dandy-Walker malformation"])
+    )
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert not report.unproven("genereviews")
+    assert not report.gating
+    text = "\n".join(cgb.format_text(report, show_all=True))
+    assert "note:" not in text
+
+
+@pytest.mark.parametrize("synonyms", [None, [""], ["   "]])
+def test_absent_or_blank_synonyms_count_as_none(tmp_path, index, synonyms):
+    doc = _entry("Chromosome 17q12 Duplication Syndrome")
+    if synonyms is not None:
+        doc["synonyms"] = synonyms
+    report = _assess(tmp_path, index, doc)
+    assert report.synonymless and report.unproven("genereviews")
+    assert not report.no_synonyms_recorded
+
+
+def test_explicit_empty_synonyms_records_that_none_exist(tmp_path, index):
+    doc = _entry("Chromosome 17q12 Duplication Syndrome")
+    doc["synonyms"] = []
+    report = _assess(tmp_path, index, doc)
+    assert report.synonymless and report.no_synonyms_recorded
+    assert report.sources["genereviews"].verdict == "NO_CHAPTER"
+    assert not report.unproven("genereviews")
+    assert not report.gating
+
+
+def test_synonymless_candidate_is_noted_but_does_not_gate(tmp_path, index):
+    report = _assess(tmp_path, index, _entry("Alpha Thalassemia"))
+    assert report.sources["genereviews"].verdict == "CANDIDATE_CHAPTER"
+    assert report.unproven("genereviews")
+    assert not report.gating
+    assert "note: entry has no synonyms" in "\n".join(
+        cgb.format_text(report, show_all=False)
+    )
+
+
+def test_statpearls_unproven_never_gates(tmp_path, index):
+    # Nothing in either collection names this entry, and it has no synonyms.
+    report = _assess(tmp_path, index, _entry("Imaginary Syndrome"))
+    assert report.unproven("statpearls") and report.unproven("genereviews")
+    report.sources["genereviews"].verdict = "TAGGED"  # isolate the StatPearls side
+    assert not report.gating
+
+
+def test_strict_fails_on_synonymless_no_chapter(tmp_path, index, monkeypatch, capsys):
+    index_dir = tmp_path / "index"
+    index_dir.mkdir()
+    for source in SOURCE_TAGS:
+        rows = [r.chapter for r in index.rows if r.chapter.source == source]
+        with (index_dir / f"{source}.csv").open("w", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["pmid", "nbk", "retired", "pubdate", "title"])
+            for c in rows:
+                writer.writerow([c.pmid, c.nbk, "1" if c.retired else "0", "", c.title])
+    entry = tmp_path / "Draft.yaml"
+    entry.write_text("name: Chromosome 17q12 Duplication Syndrome\n")
+    monkeypatch.setenv("DISMECH_KB_CACHE", "1")  # see test_strict_exit_code_and_formats
+    args = [
+        str(entry),
+        "--index-dir",
+        str(index_dir),
+        "--cache-dir",
+        str(tmp_path / "cache"),
+    ]
+    assert cgb.main(args) == 0
+    out = capsys.readouterr().out
+    assert "note: entry has no synonyms" in out
+    assert "1 NO_CHAPTER/CANDIDATE_CHAPTER verdicts above are from" in out
+    assert "is not a\nverified negative" in out
+    assert cgb.main(args + ["--strict"]) == 1
+    capsys.readouterr()
+    assert cgb.main(args + ["--format", "json"]) == 0
+    assert '"synonymless": true' in capsys.readouterr().out
+
+    # A whole-KB --strict run names the entries it fails on.
+    monkeypatch.setattr(cgb, "iter_targets", lambda paths: [entry])
+    assert cgb.main(args[1:] + ["--strict"]) == 1
+    out = capsys.readouterr().out
+    assert "note: entry has no synonyms" in out and "`--all` lists" not in out
+    assert cgb.main(args[1:]) == 0
+    assert "`--all` lists those entries" in capsys.readouterr().out
+
+    entry.write_text("name: Chromosome 17q12 Duplication Syndrome\nsynonyms: []\n")
+    assert cgb.main(args + ["--strict", "--source", "genereviews"]) == 0
+    assert "no synonyms;" not in capsys.readouterr().out
+
+    entry.write_text(
+        "name: Dandy-Walker Syndrome\nsynonyms:\n- Dandy-Walker malformation\n"
+    )
+    assert cgb.main(args + ["--strict", "--source", "genereviews"]) == 0
+    assert "no synonyms" not in capsys.readouterr().out
 
 
 # -- the committed index ----------------------------------------------------
