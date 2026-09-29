@@ -744,6 +744,128 @@ enums:
         description: >-
           A cluster of regulatory elements that controls expression of a
           gene cluster (e.g., the beta-globin LCR).
+  GeneDiseaseValidityClassificationEnum:
+    description: >-
+      How well established a gene-disease relationship is, as classified by an
+      external curation body. The values are the GenCC harmonised
+      gene-disease validity classifications; ClinGen, Gene2Phenotype,
+      Orphanet and the PanelApp instances each map their own scale onto
+      them. Used only inside a GeneDiseaseValidityAssertion, which must say
+      who made the classification: dismech records these tiers, it does not
+      assign them (#10179).
+    comments:
+      - >-
+        Each value carries a `gencc_classification` annotation naming the
+        GenCC CURIE, read from the GenCC submissions export
+        (search.thegencc.org, 2026-09-23). GENCC:100007 is not used by any
+        current submission and has no value here; there is deliberately no
+        ANIMAL_MODEL_ONLY.
+      - >-
+        Orthogonal to GeneDiseaseRelationshipEnum, which records what kind
+        of relationship is claimed (causative, risk factor, modifier). A
+        causative claim can be DEFINITIVE or LIMITED.
+    permissible_values:
+      DEFINITIVE:
+        title: Definitive
+        description: >-
+          The role of the gene in the disease has been repeatedly demonstrated
+          and has not been contradicted.
+        annotations:
+          gencc_classification: GENCC:100001
+      STRONG:
+        title: Strong
+        description: >-
+          The role of the gene in the disease has been independently
+          demonstrated in at least two separate studies, with no convincing
+          contradictory evidence.
+        annotations:
+          gencc_classification: GENCC:100002
+      MODERATE:
+        title: Moderate
+        description: >-
+          There is moderate evidence supporting a causal role, typically
+          several probands with functional support but short of Strong.
+        annotations:
+          gencc_classification: GENCC:100003
+      SUPPORTIVE:
+        title: Supportive
+        description: >-
+          The submitter supports the relationship without grading it on a
+          validity scale. Orphanet submits every gene-disease link at this
+          tier.
+        annotations:
+          gencc_classification: GENCC:100009
+      LIMITED:
+        title: Limited
+        description: >-
+          There is limited evidence for a causal role, such as few probands
+          or segregation without functional support.
+        annotations:
+          gencc_classification: GENCC:100004
+      DISPUTED:
+        title: Disputed evidence
+        description: >-
+          Conflicting evidence disputes a role for the gene in the disease.
+        annotations:
+          gencc_classification: GENCC:100005
+      REFUTED:
+        title: Refuted evidence
+        description: >-
+          Evidence refuting the role of the gene in the disease significantly
+          outweighs any supporting evidence.
+        annotations:
+          gencc_classification: GENCC:100006
+      NO_KNOWN_DISEASE_RELATIONSHIP:
+        title: No known disease relationship
+        description: >-
+          The submitter has evaluated the gene and found no evidence that it
+          causes the disease.
+        annotations:
+          gencc_classification: GENCC:100008
+  GeneDiseaseValiditySourceEnum:
+    description: >-
+      The curation body that assigned a gene-disease validity classification.
+      Values are GenCC submitters; each carries a `gencc_submitter`
+      annotation with its GenCC submitter CURIE, read from the GenCC
+      submissions export. Only the submitters whose classifications dismech
+      entries cite are enumerated; any other GenCC submitter is
+      OTHER_GENCC_SUBMITTER with its name in `notes`.
+    comments:
+      - >-
+        There is deliberately no value for dismech or a curator. A validity
+        tier is a classification made under a published framework; when no
+        external body has made one, leave `gene_disease_validity` absent and
+        say so in `Genetic.notes` rather than minting a tier (#10179).
+    permissible_values:
+      CLINGEN:
+        title: ClinGen
+        description: >-
+          ClinGen Gene-Disease Validity, assigned by a Gene Curation Expert
+          Panel under the ClinGen SOP. Cite the assertion as a `CGGV:`
+          reference.
+        annotations:
+          gencc_submitter: GENCC:000102
+      G2P:
+        title: Gene2Phenotype
+        annotations:
+          gencc_submitter: GENCC:000112
+      ORPHANET:
+        title: Orphanet
+        annotations:
+          gencc_submitter: GENCC:000110
+      GENOMICS_ENGLAND_PANELAPP:
+        title: Genomics England PanelApp
+        annotations:
+          gencc_submitter: GENCC:000104
+      PANELAPP_AUSTRALIA:
+        title: PanelApp Australia
+        annotations:
+          gencc_submitter: GENCC:000111
+      OTHER_GENCC_SUBMITTER:
+        title: Other GenCC submitter
+        description: >-
+          Any other GenCC submitter (for example a diagnostic laboratory).
+          Name it in `notes`.
   GeneDiseaseRelationshipEnum:
     description: >-
       The qualitative relationship between a gene (or locus) and a disease.
@@ -4143,6 +4265,28 @@ slots:
     examples:
       - value: Susceptibility
     range: string
+  gene_disease_validity:
+    description: >-
+      Gene-disease validity classifications made by external curation bodies
+      for this gene and this entry's disease. Each records the tier, who
+      assigned it, and the identifier of the assertion. Multivalued because
+      one gene-disease pair can carry several: ClinGen classifies each mode of
+      inheritance separately, an entry's subtypes can be separate ClinGen
+      diseases, and GenCC submitters do not always agree. Leave absent when no
+      external body has classified the pair; that is not the same as
+      NO_KNOWN_DISEASE_RELATIONSHIP.
+    multivalued: true
+    inlined_as_list: true
+    range: GeneDiseaseValidityAssertion
+  validity_classification:
+    description: >-
+      The tier assigned, copied from the source named in `classified_by`.
+    range: GeneDiseaseValidityClassificationEnum
+  classified_by:
+    description: >-
+      The external curation body that assigned the classification. Required,
+      so a tier is never recorded without saying whose it is.
+    range: GeneDiseaseValiditySourceEnum
   relationship_type:
     description: >-
       Controlled-vocabulary classification of the gene-disease relationship
@@ -7497,6 +7641,38 @@ classes:
       - cohort_size
       - evidence
       - notes
+  GeneDiseaseValidityAssertion:
+    description: >-
+      One external classification of how well established a gene-disease
+      relationship is: the tier, who assigned it, and the assertion's
+      identifier. Attribution is required because a tier is only meaningful
+      under the framework that produced it; dismech records such tiers and
+      does not assign them (#10179). `just check-gene-validity` compares a
+      ClinGen assertion against its cached `CGGV:` record.
+    slots:
+      - validity_classification
+      - classified_by
+      - external_id
+      - subtype
+      - evidence
+      - notes
+    slot_usage:
+      validity_classification:
+        required: true
+      classified_by:
+        required: true
+      external_id:
+        description: >-
+          The source's identifier for this assertion. For ClinGen, the
+          `CGGV:assertion_...` CURIE, which is also what the evidence item
+          cites; `just check-gene-validity` reads the cached record and
+          fails if its classification differs.
+        recommended: true
+      subtype:
+        description: >-
+          The has_subtypes[].name this classification applies to, when the
+          entry's subtypes are classified separately (ATP7A: Menkes disease
+          and X-linked distal SMA).
   ProgressionInfo:
     slots:
       - phase
@@ -7718,6 +7894,7 @@ classes:
       - subtype
       - frequency
       - case_fractions
+      - gene_disease_validity
       - inheritance
       - variants
       - features
