@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4985,6 +5024,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-calcium-coordination-at-the-n-cadherin-ec4-ec5-interdomain-site" data-dismech-node="Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The N-cadherin ectodomain is a chain of five extracellular cadherin (EC) domains whose linkers each bind calcium ions. Calcium occupancy is not decorative: the crystallographic work on type I cadherin ectodomains attributes what stiffness the interdomain linkers have to bound calcium, while noting in the same sentence that the resulting curvature of the rod is still &#34;likely to be somewhat variable&#34; and citing unpublished data for the rigidification itself. The geometry that presents the distal EC1 tip to a partner molecule on the apposing membrane therefore depends on these calcium-loaded linkers. Four of the seven ACOGS missense substitutions replace conserved residues of the calcium-binding site at the EC4-EC5 interdomain, and six of the seven fall within EC4-EC5 overall. This node is the proximal molecular lesion for the missense class of ACOGS alleles: the substitutions are not predicted to abolish the protein, they are predicted to unhinge it.</div>
 
 
@@ -5148,6 +5194,13 @@ This pathophysiological event involves decreased interdomain calcium ion binding
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-trans-homophilic-adhesion-with-dominant-negative-interference" data-dismech-node="Failure of Trans Homophilic Adhesion with Dominant-Negative Interference" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Trans Homophilic Adhesion with Dominant-Negative Interference</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Adherens junctions are built from a trans strand-swap dimer formed between EC1 domains projecting from opposing cells, laterally clustered by a weaker cis interface. Cells expressing the ACOGS EC4-EC5 variants have a demonstrable cell-cell adhesion defect, and - critically - the defect includes impaired trans binding to wild-type N-cadherin displayed on the apposing cell. That last observation is what converts this from a quantitative dosage problem into an interference problem: in a heterozygote, a mutant molecule reaching the surface does not merely fail to contribute, it occupies a binding partner&#39;s trans interface unproductively, so the fraction of competent adhesive bonds falls further than the 50% expected from allele dosage alone. Structural work on type I cadherins independently shows that trans-interface mutations ablate adhesion outright while cis-interface mutations instead destabilise junction assembly, which is the framework in which the ACOGS alleles should be read.</div>
 
@@ -5424,6 +5477,13 @@ This pathophysiological event involves adherens junction (GO:0005912). GO:000591
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncation-of-the-n-cadherin-cytoplasmic-catenin-binding-tail" data-dismech-node="Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">A minority of ACOGS alleles are not ectodomain missense changes at all. Two frameshift variants in the founding cohort are predicted to produce a truncated cytoplasmic domain, and a later patient carried a de novo nonsense allele. The cytoplasmic tail of N-cadherin is the docking site for beta-catenin and p120-catenin and thus the entire link from the adhesion complex to the actin cytoskeleton; a molecule that keeps its ectodomain but loses its tail can still engage a partner in trans yet cannot transmit or resist force, and cannot be stabilised in a junction. Whether these alleles act that way or are instead degraded - producing true haploinsufficiency - is not resolved by any published experiment, which is why this node is PROVISIONAL and is kept separate from the ectodomain node rather than merged into it. The distinction matters because the two readings predict different things about modifier therapy and about the phenotype of whole-gene deletions.</div>
 
 
@@ -5587,6 +5647,13 @@ This pathophysiological event involves cadherin-catenin adhesion complex, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-midline-axon-pathfinding-and-callosal-tract-formation" data-dismech-node="Failure of Midline Axon Pathfinding and Callosal Tract Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Midline Axon Pathfinding and Callosal Tract Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Growth cones navigating to and across the telencephalic midline advance by making and breaking adhesive contacts with each other and with the glial substrate; N-cadherin is one of the adhesion systems those contacts run on, and axon pathfinding is named among its essential roles in neural development. When adhesive competence is degraded, callosal axons reach the midline but fail to fasciculate and cross, and the tract is not formed - hence agenesis rather than degeneration of the corpus callosum, and hence a developmental rather than progressive course. The same logic covers the other two axon-pathfinding features of the syndrome: failure of the corticospinal projection to remain fully crossed produces mirror movements, and maldevelopment of the abducens projection to lateral rectus produces the Duane anomaly. This node is PROVISIONAL: the causal chain is inferred from N-cadherin&#39;s established role plus the human imaging and examination phenotype, and no patient-derived neuron or CDH2-variant axon-guidance assay has been reported.</div>
 
@@ -5851,6 +5918,13 @@ This pathophysiological event involves decreased axon extension (GO:0048675). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-neuroepithelial-adherens-junction-integrity-and-neuronal-migration-failure" data-dismech-node="Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">N-cadherin is the principal adhesion molecule of the apical adherens junction belt that seals the ventricular-zone neuroepithelium and anchors radial glial endfeet at the ventricular surface. That belt is both the structural scaffold of the neuroepithelium and the launch pad for radially migrating neurons. Loss of adhesive competence therefore predicts two coupled failures: breaches in the ventricular lining, and neurons that never leave the periventricular region - the cell-biological signature of periventricular nodular heterotopia, which is present in a substantial minority of the ACOGS cohort. The experimental support cited here is the N-cadherin-null mouse, in which neurulation begins normally but the neural tube is malformed and undulating, showing that N-cadherin is required for neuroepithelial integrity rather than for the initiation of neurulation. This is model-organism evidence from a homozygous null, so it is directional support for the mechanism, not a model of the human heterozygous disease.</div>
 
@@ -6146,6 +6220,13 @@ This pathophysiological event involves abnormal neural tube closure (GO:0001843)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-myocardial-cell-cohesion-during-cardiac-morphogenesis" data-dismech-node="Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The looping heart tube and the septating chambers are built by sheets of cardiomyocytes that must stay mechanically coupled while they deform. In N-cadherin-null mouse embryos this is the single most dramatic defect: myocardial tissue forms, then the myocytes dissociate and the heart tube fails to develop. Notably, isolated null cardiomyocytes still beat synchronously, so the primary lesion is mechanical cohesion, not electrical coupling. In ACOGS the human phenotype is correspondingly structural - atrioventricular canal defect, coarctation, ventricular septal defect, hypoplastic left heart, dextrocardia - rather than a cardiomyopathy. This is the node that must not be conflated with N-cadherin&#39;s separate, postnatal role at the intercalated disc of the working myocardium, where induced deletion in the adult mouse causes intercalated-disc dissolution, dilated cardiomyopathy and fatal ventricular arrhythmia.</div>
 
 
@@ -6376,6 +6457,13 @@ This pathophysiological event involves abnormal cardiac septum development (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adhesion-failure-in-ocular-and-genital-primordia" data-dismech-node="Adhesion Failure in Ocular and Genital Primordia" data-dismech-type="pathophysiology">
                 <div class="item-name">Adhesion Failure in Ocular and Genital Primordia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Ocular and genital anomalies are two of the four organ systems in the disease name, and both involve epithelial and mesenchymal tissues in which N-cadherin is expressed - the optic cup and lens vesicle in the eye, the genital tubercle and gubernacular apparatus in genital and testicular descent. The reported ocular findings include Peters anomaly, an anterior-segment dysgenesis that arises from failed separation of the lens vesicle from surface ectoderm, which is at least mechanistically congenial to an adhesion defect. Expression evidence now places N-cadherin at exactly the tissue interface and developmental moment whose failure produces the lesion: immunostaining of mouse embryonic eyes localises it to the lens stalk at the time of separation from the future cornea, and to the developing lens and corneal endothelium afterwards (PMID:31650526). But this remains the weakest node in the entry, and the confidence is unchanged at HYPOTHETICAL, because every absence enumerated here survives that result: showing the protein is present where the lesion arises is not the same as showing its loss causes the lesion. No experiment has tested N-cadherin function in an ACOGS patient&#39;s ocular or genital tissue, no animal model of the human alleles exists, the mouse immunostaining is wild-type localisation rather than a disease model, and the male-limited genital findings (cryptorchidism, micropenis) could equally reflect an endocrine rather than an adhesive lesion. It is kept as a terminal branch so that nothing downstream depends on it.</div>
 
 
@@ -6513,6 +6601,13 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-midline-brain-malformation-and-neurodevelopmental-impairment" data-dismech-node="Structural Midline Brain Malformation and Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Midline Brain Malformation and Neurodevelopmental Impairment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The convergent output of the axon-pathfinding and neuroepithelial arms is a brain that is structurally miswired at the midline and at the ventricular zone: corpus callosum agenesis or hypoplasia, interhemispheric cysts, interhypothalamic adhesion, and periventricular heterotopia. Clinically this presents as global developmental delay in infancy evolving to intellectual disability, with mirror movements, seizures and behavioural phenotypes (autistic behaviour, attention deficit hyperactivity disorder) in a minority. Because the lesions are malformative rather than degenerative, the expected course is static impairment with developmental progress, not regression.</div>
 
 
@@ -6599,6 +6694,13 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-congenital-heart-disease" data-dismech-node="Structural Congenital Heart Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Congenital Heart Disease</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The cardiac output of the syndrome is structural malformation present at birth, spanning septation defects (atrioventricular canal defect, ventricular septal defect), left-sided obstructive lesions (coarctation of the aorta, hypoplastic left heart syndrome), valvar regurgitation and situs abnormality (dextrocardia). The severity is not predicted by genotype: a likely monozygotic twin pair sharing one pathogenic CDH2 variant had hypoplastic left heart syndrome in one twin and a ventricular septal defect with pulmonary hypertension in the other, which is the cleanest available demonstration that stochastic or non-genetic factors set the cardiac outcome.</div>
 
 
@@ -6684,6 +6786,13 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-and-genital-malformation" data-dismech-node="Ocular and Genital Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular and Genital Malformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The ocular phenotype spans anterior-segment dysgenesis (Peters anomaly), ocular motility disorders (strabismus, Duane anomaly) and periorbital dysmorphism. The genital phenotype has so far been reported only in males (cryptorchidism, micropenis); the single reported female with a genitourinary finding had a renal rather than genital anomaly, which is the one published hint that the urinary tract may also be involved.</div>
 
@@ -6793,7 +6902,7 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adhesion Failure in Ocular and Genital Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular and genital anomalies are two of the four organ systems in the disease name, and both involve epithelial and mesenchymal tissues in which N-cadherin is expressed - the optic cup and lens vesicle in the eye, the genital tubercle and gubernacular apparatus in genital and testicular descent. The reported ocular findings include Peters anomaly, an anterior-segment dysgenesis that arises from failed separation of the lens vesicle from surface ectoderm, which is at least mechanistically congenial to an adhesion defect. Expression evidence now places N-cadherin at exactly the tissue interface and developmental moment whose failure produces the lesion: immunostaining of mouse embryonic eyes localises it to the lens stalk at the time of separation from the future cornea, and to the developing lens and corneal endothelium afterwards (PMID:31650526). But this remains the weakest node in the entry, and the confidence is unchanged at HYPOTHETICAL, because every absence enumerated here survives that result: showing the protein is present where the lesion arises is not the same as showing its loss causes the lesion. No experiment has tested N-cadherin function in an ACOGS patient\u0027s ocular or genital tissue, no animal model of the human alleles exists, the mouse immunostaining is wild-type localisation rather than a disease model, and the male-limited genital findings (cryptorchidism, micropenis) could equally reflect an endocrine rather than an adhesive lesion. It is kept as a terminal branch so that nothing downstream depends on it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye development\"]}}, {\"id\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth cones navigating to and across the telencephalic midline advance by making and breaking adhesive contacts with each other and with the glial substrate; N-cadherin is one of the adhesion systems those contacts run on, and axon pathfinding is named among its essential roles in neural development. When adhesive competence is degraded, callosal axons reach the midline but fail to fasciculate and cross, and the tract is not formed - hence agenesis rather than degeneration of the corpus callosum, and hence a developmental rather than progressive course. The same logic covers the other two axon-pathfinding features of the syndrome: failure of the corticospinal projection to remain fully crossed produces mirror movements, and maldevelopment of the abducens projection to lateral rectus produces the Duane anomaly. This node is PROVISIONAL: the causal chain is inferred from N-cadherin\u0027s established role plus the human imaging and examination phenotype, and no patient-derived neuron or CDH2-variant axon-guidance assay has been reported.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"projection neuron with a midline-crossing axon\"], \"biological_processes\": [\"axon guidance\", \"corpus callosum development\", \"axon extension\"]}}, {\"id\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The looping heart tube and the septating chambers are built by sheets of cardiomyocytes that must stay mechanically coupled while they deform. In N-cadherin-null mouse embryos this is the single most dramatic defect: myocardial tissue forms, then the myocytes dissociate and the heart tube fails to develop. Notably, isolated null cardiomyocytes still beat synchronously, so the primary lesion is mechanical cohesion, not electrical coupling. In ACOGS the human phenotype is correspondingly structural - atrioventricular canal defect, coarctation, ventricular septal defect, hypoplastic left heart, dextrocardia - rather than a cardiomyopathy. This is the node that must not be conflated with N-cadherin\u0027s separate, postnatal role at the intercalated disc of the working myocardium, where induced deletion in the adult mouse causes intercalated-disc dissolution, dilated cardiomyopathy and fatal ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"embryonic cardiomyocyte\"], \"biological_processes\": [\"heart development\", \"cardiac septum development\"]}}, {\"id\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adherens junctions are built from a trans strand-swap dimer formed between EC1 domains projecting from opposing cells, laterally clustered by a weaker cis interface. Cells expressing the ACOGS EC4-EC5 variants have a demonstrable cell-cell adhesion defect, and - critically - the defect includes impaired trans binding to wild-type N-cadherin displayed on the apposing cell. That last observation is what converts this from a quantitative dosage problem into an interference problem: in a heterozygote, a mutant molecule reaching the surface does not merely fail to contribute, it occupies a binding partner\u0027s trans interface unproductively, so the fraction of competent adhesive bonds falls further than the 50% expected from allele dosage alone. Structural work on type I cadherins independently shows that trans-interface mutations ablate adhesion outright while cis-interface mutations instead destabilise junction assembly, which is the framework in which the ACOGS alleles should be read.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"homophilic cell-cell adhesion\", \"calcium-dependent cell-cell adhesion\"], \"molecular_functions\": [\"N-cadherin trans homophilic binding\"]}}, {\"id\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-cadherin ectodomain is a chain of five extracellular cadherin (EC) domains whose linkers each bind calcium ions. Calcium occupancy is not decorative: the crystallographic work on type I cadherin ectodomains attributes what stiffness the interdomain linkers have to bound calcium, while noting in the same sentence that the resulting curvature of the rod is still \\\"likely to be somewhat variable\\\" and citing unpublished data for the rigidification itself. The geometry that presents the distal EC1 tip to a partner molecule on the apposing membrane therefore depends on these calcium-loaded linkers. Four of the seven ACOGS missense substitutions replace conserved residues of the calcium-binding site at the EC4-EC5 interdomain, and six of the seven fall within EC4-EC5 overall. This node is the proximal molecular lesion for the missense class of ACOGS alleles: the substitutions are not predicted to abolish the protein, they are predicted to unhinge it.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"interdomain calcium ion binding by the N-cadherin ectodomain\"]}}, {\"id\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-cadherin is the principal adhesion molecule of the apical adherens junction belt that seals the ventricular-zone neuroepithelium and anchors radial glial endfeet at the ventricular surface. That belt is both the structural scaffold of the neuroepithelium and the launch pad for radially migrating neurons. Loss of adhesive competence therefore predicts two coupled failures: breaches in the ventricular lining, and neurons that never leave the periventricular region - the cell-biological signature of periventricular nodular heterotopia, which is present in a substantial minority of the ACOGS cohort. The experimental support cited here is the N-cadherin-null mouse, in which neurulation begins normally but the neural tube is malformed and undulating, showing that N-cadherin is required for neuroepithelial integrity rather than for the initiation of neurulation. This is model-organism evidence from a homozygous null, so it is directional support for the mechanism, not a model of the human heterozygous disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"radial glial cell of the ventricular zone\", \"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\", \"adherens junction organization\", \"neural tube closure\"]}}, {\"id\": \"Ocular and Genital Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype spans anterior-segment dysgenesis (Peters anomaly), ocular motility disorders (strabismus, Duane anomaly) and periorbital dysmorphism. The genital phenotype has so far been reported only in males (cryptorchidism, micropenis); the single reported female with a genitourinary finding had a renal rather than genital anomaly, which is the one published hint that the urinary tract may also be involved.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Structural Congenital Heart Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cardiac output of the syndrome is structural malformation present at birth, spanning septation defects (atrioventricular canal defect, ventricular septal defect), left-sided obstructive lesions (coarctation of the aorta, hypoplastic left heart syndrome), valvar regurgitation and situs abnormality (dextrocardia). The severity is not predicted by genotype: a likely monozygotic twin pair sharing one pathogenic CDH2 variant had hypoplastic left heart syndrome in one twin and a ventricular septal defect with pulmonary hypertension in the other, which is the cleanest available demonstration that stochastic or non-genetic factors set the cardiac outcome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent output of the axon-pathfinding and neuroepithelial arms is a brain that is structurally miswired at the midline and at the ventricular zone: corpus callosum agenesis or hypoplasia, interhemispheric cysts, interhypothalamic adhesion, and periventricular heterotopia. Clinically this presents as global developmental delay in infancy evolving to intellectual disability, with mirror movements, seizures and behavioural phenotypes (autistic behaviour, attention deficit hyperactivity disorder) in a minority. Because the lesions are malformative rather than degenerative, the expected course is static impairment with developmental progress, not regression.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of ACOGS alleles are not ectodomain missense changes at all. Two frameshift variants in the founding cohort are predicted to produce a truncated cytoplasmic domain, and a later patient carried a de novo nonsense allele. The cytoplasmic tail of N-cadherin is the docking site for beta-catenin and p120-catenin and thus the entire link from the adhesion complex to the actin cytoskeleton; a molecule that keeps its ectodomain but loses its tail can still engage a partner in trans yet cannot transmit or resist force, and cannot be stabilised in a junction. Whether these alleles act that way or are instead degraded - producing true haploinsufficiency - is not resolved by any published experiment, which is why this node is PROVISIONAL and is kept separate from the ectodomain node rather than merged into it. The distinction matters because the two readings predict different things about modifier therapy and about the phenotype of whole-gene deletions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"adherens junction organization\"]}}], \"edges\": [{\"source\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"target\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Adhesion Failure in Ocular and Genital Primordia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"target\": \"Structural Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adhesion Failure in Ocular and Genital Primordia\", \"target\": \"Ocular and Genital Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adhesion Failure in Ocular and Genital Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular and genital anomalies are two of the four organ systems in the disease name, and both involve epithelial and mesenchymal tissues in which N-cadherin is expressed - the optic cup and lens vesicle in the eye, the genital tubercle and gubernacular apparatus in genital and testicular descent. The reported ocular findings include Peters anomaly, an anterior-segment dysgenesis that arises from failed separation of the lens vesicle from surface ectoderm, which is at least mechanistically congenial to an adhesion defect. Expression evidence now places N-cadherin at exactly the tissue interface and developmental moment whose failure produces the lesion: immunostaining of mouse embryonic eyes localises it to the lens stalk at the time of separation from the future cornea, and to the developing lens and corneal endothelium afterwards (PMID:31650526). But this remains the weakest node in the entry, and the confidence is unchanged at HYPOTHETICAL, because every absence enumerated here survives that result: showing the protein is present where the lesion arises is not the same as showing its loss causes the lesion. No experiment has tested N-cadherin function in an ACOGS patient\u0027s ocular or genital tissue, no animal model of the human alleles exists, the mouse immunostaining is wild-type localisation rather than a disease model, and the male-limited genital findings (cryptorchidism, micropenis) could equally reflect an endocrine rather than an adhesive lesion. It is kept as a terminal branch so that nothing downstream depends on it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye development\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth cones navigating to and across the telencephalic midline advance by making and breaking adhesive contacts with each other and with the glial substrate; N-cadherin is one of the adhesion systems those contacts run on, and axon pathfinding is named among its essential roles in neural development. When adhesive competence is degraded, callosal axons reach the midline but fail to fasciculate and cross, and the tract is not formed - hence agenesis rather than degeneration of the corpus callosum, and hence a developmental rather than progressive course. The same logic covers the other two axon-pathfinding features of the syndrome: failure of the corticospinal projection to remain fully crossed produces mirror movements, and maldevelopment of the abducens projection to lateral rectus produces the Duane anomaly. This node is PROVISIONAL: the causal chain is inferred from N-cadherin\u0027s established role plus the human imaging and examination phenotype, and no patient-derived neuron or CDH2-variant axon-guidance assay has been reported.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"projection neuron with a midline-crossing axon\"], \"biological_processes\": [\"axon guidance\", \"corpus callosum development\", \"axon extension\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The looping heart tube and the septating chambers are built by sheets of cardiomyocytes that must stay mechanically coupled while they deform. In N-cadherin-null mouse embryos this is the single most dramatic defect: myocardial tissue forms, then the myocytes dissociate and the heart tube fails to develop. Notably, isolated null cardiomyocytes still beat synchronously, so the primary lesion is mechanical cohesion, not electrical coupling. In ACOGS the human phenotype is correspondingly structural - atrioventricular canal defect, coarctation, ventricular septal defect, hypoplastic left heart, dextrocardia - rather than a cardiomyopathy. This is the node that must not be conflated with N-cadherin\u0027s separate, postnatal role at the intercalated disc of the working myocardium, where induced deletion in the adult mouse causes intercalated-disc dissolution, dilated cardiomyopathy and fatal ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"embryonic cardiomyocyte\"], \"biological_processes\": [\"heart development\", \"cardiac septum development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adherens junctions are built from a trans strand-swap dimer formed between EC1 domains projecting from opposing cells, laterally clustered by a weaker cis interface. Cells expressing the ACOGS EC4-EC5 variants have a demonstrable cell-cell adhesion defect, and - critically - the defect includes impaired trans binding to wild-type N-cadherin displayed on the apposing cell. That last observation is what converts this from a quantitative dosage problem into an interference problem: in a heterozygote, a mutant molecule reaching the surface does not merely fail to contribute, it occupies a binding partner\u0027s trans interface unproductively, so the fraction of competent adhesive bonds falls further than the 50% expected from allele dosage alone. Structural work on type I cadherins independently shows that trans-interface mutations ablate adhesion outright while cis-interface mutations instead destabilise junction assembly, which is the framework in which the ACOGS alleles should be read.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"homophilic cell-cell adhesion\", \"calcium-dependent cell-cell adhesion\"], \"molecular_functions\": [\"N-cadherin trans homophilic binding\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-cadherin ectodomain is a chain of five extracellular cadherin (EC) domains whose linkers each bind calcium ions. Calcium occupancy is not decorative: the crystallographic work on type I cadherin ectodomains attributes what stiffness the interdomain linkers have to bound calcium, while noting in the same sentence that the resulting curvature of the rod is still \\\"likely to be somewhat variable\\\" and citing unpublished data for the rigidification itself. The geometry that presents the distal EC1 tip to a partner molecule on the apposing membrane therefore depends on these calcium-loaded linkers. Four of the seven ACOGS missense substitutions replace conserved residues of the calcium-binding site at the EC4-EC5 interdomain, and six of the seven fall within EC4-EC5 overall. This node is the proximal molecular lesion for the missense class of ACOGS alleles: the substitutions are not predicted to abolish the protein, they are predicted to unhinge it.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"interdomain calcium ion binding by the N-cadherin ectodomain\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-cadherin is the principal adhesion molecule of the apical adherens junction belt that seals the ventricular-zone neuroepithelium and anchors radial glial endfeet at the ventricular surface. That belt is both the structural scaffold of the neuroepithelium and the launch pad for radially migrating neurons. Loss of adhesive competence therefore predicts two coupled failures: breaches in the ventricular lining, and neurons that never leave the periventricular region - the cell-biological signature of periventricular nodular heterotopia, which is present in a substantial minority of the ACOGS cohort. The experimental support cited here is the N-cadherin-null mouse, in which neurulation begins normally but the neural tube is malformed and undulating, showing that N-cadherin is required for neuroepithelial integrity rather than for the initiation of neurulation. This is model-organism evidence from a homozygous null, so it is directional support for the mechanism, not a model of the human heterozygous disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"radial glial cell of the ventricular zone\", \"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\", \"adherens junction organization\", \"neural tube closure\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ocular and Genital Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype spans anterior-segment dysgenesis (Peters anomaly), ocular motility disorders (strabismus, Duane anomaly) and periorbital dysmorphism. The genital phenotype has so far been reported only in males (cryptorchidism, micropenis); the single reported female with a genitourinary finding had a renal rather than genital anomaly, which is the one published hint that the urinary tract may also be involved.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Structural Congenital Heart Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cardiac output of the syndrome is structural malformation present at birth, spanning septation defects (atrioventricular canal defect, ventricular septal defect), left-sided obstructive lesions (coarctation of the aorta, hypoplastic left heart syndrome), valvar regurgitation and situs abnormality (dextrocardia). The severity is not predicted by genotype: a likely monozygotic twin pair sharing one pathogenic CDH2 variant had hypoplastic left heart syndrome in one twin and a ventricular septal defect with pulmonary hypertension in the other, which is the cleanest available demonstration that stochastic or non-genetic factors set the cardiac outcome.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent output of the axon-pathfinding and neuroepithelial arms is a brain that is structurally miswired at the midline and at the ventricular zone: corpus callosum agenesis or hypoplasia, interhemispheric cysts, interhypothalamic adhesion, and periventricular heterotopia. Clinically this presents as global developmental delay in infancy evolving to intellectual disability, with mirror movements, seizures and behavioural phenotypes (autistic behaviour, attention deficit hyperactivity disorder) in a minority. Because the lesions are malformative rather than degenerative, the expected course is static impairment with developmental progress, not regression.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of ACOGS alleles are not ectodomain missense changes at all. Two frameshift variants in the founding cohort are predicted to produce a truncated cytoplasmic domain, and a later patient carried a de novo nonsense allele. The cytoplasmic tail of N-cadherin is the docking site for beta-catenin and p120-catenin and thus the entire link from the adhesion complex to the actin cytoskeleton; a molecule that keeps its ectodomain but loses its tail can still engage a partner in trans yet cannot transmit or resist force, and cannot be stabilised in a junction. Whether these alleles act that way or are instead degraded - producing true haploinsufficiency - is not resolved by any published experiment, which is why this node is PROVISIONAL and is kept separate from the ectodomain node rather than merged into it. The distinction matters because the two readings predict different things about modifier therapy and about the phenotype of whole-gene deletions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"adherens junction organization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"target\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Adhesion Failure in Ocular and Genital Primordia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"target\": \"Structural Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adhesion Failure in Ocular and Genital Primordia\", \"target\": \"Ocular and Genital Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9021,6 +9130,9 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

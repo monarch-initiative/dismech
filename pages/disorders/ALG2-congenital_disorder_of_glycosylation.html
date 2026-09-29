@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4727,6 +4766,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alg2-alpha-1-3-1-6-mannosyltransferase-deficiency" data-dismech-node="ALG2 Alpha-1,3/1,6-Mannosyltransferase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ALG2 Alpha-1,3/1,6-Mannosyltransferase Deficiency</div>
 
+
                 <div class="item-desc">Biallelic ALG2 variants reduce the abundance or catalytic activity of the ER membrane enzyme that adds both the alpha-1,3- and the alpha-1,6-mannose to Man1GlcNAc2-PP-dolichol. Reported alleles act by destabilising the protein rather than by abolishing catalysis on an otherwise normal enzyme: both the p.Gly80Asp missense and the p.Gly347Valfs*27 frameshift were shown to work through markedly reduced ALG2 expression, and the p.Arg251Leu homozygous allele likewise lowers protein level in a cell model.</div>
 
 
@@ -4737,6 +4777,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4756,6 +4798,9 @@
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4932,6 +4977,7 @@ This pathophysiological event involves decreased ALG2 alpha-1,3-mannosyltransfer
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stalled-dolichol-linked-oligosaccharide-assembly" data-dismech-node="Stalled Dolichol-Linked Oligosaccharide Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Stalled Dolichol-Linked Oligosaccharide Assembly</div>
 
+
                 <div class="item-desc">ALG2 makes the first branch of the lipid-linked oligosaccharide, adding both the alpha-1,3- and alpha-1,6-mannose to Man1GlcNAc2-PP-dolichol to give the branched Man3GlcNAc2-PP-dolichol. When it is deficient the pathway backs up at the immediately preceding species: patient fibroblasts accumulate Man1GlcNAc2-PP-dolichol and Man2GlcNAc2-PP-dolichol instead of proceeding to the mature Glc3Man9GlcNAc2 donor.</div>
 
 
@@ -5070,6 +5116,7 @@ This pathophysiological event involves decreased dolichol-linked oligosaccharide
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-hypoglycosylation" data-dismech-node="Protein Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Hypoglycosylation</div>
+
 
                 <div class="item-desc">Sequons on secreted and membrane glycoproteins go unoccupied and the glycans that are transferred are immature, giving a type I CDG serum transferrin pattern. ALG2-CDG additionally produces a specific abnormal transferrin glycoform — a linear heptasaccharide NeuAc-Gal-GlcNAc-Man2-GlcNAc2 — which directly reflects transfer of the stalled Man2 precursor and is used as a diagnostic biomarker. Reduced overall N-glycan levels are measurable in patient fibroblasts.</div>
 
@@ -5270,6 +5317,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuromuscular-junction-glycoprotein-dysfunction" data-dismech-node="Neuromuscular Junction Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuromuscular Junction Glycoprotein Dysfunction</div>
+
 
                 <div class="item-desc">Hypoglycosylation at the motor endplate produces a failure of neuromuscular signal transmission. This is the mechanism of the CMS14 presentation, in which single-fibre electromyography shows transmission failure and the weakness is fatigable and limb-girdle in distribution rather than the generalised encephalopathy of the classic form.</div>
 
@@ -5484,6 +5532,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-myelination-failure" data-dismech-node="Neurodevelopmental and Myelination Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and Myelination Failure</div>
 
+
                 <div class="item-desc">The classic multisystem form is dominated by central nervous system disease: global developmental delay with regression, intractable seizures including infantile spasms, and hypomyelination on imaging. The medaka model of the index patient&#39;s allele shows reduced white matter in mid- and hindbrain, matching the human imaging finding.</div>
 
 
@@ -5578,6 +5627,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-and-coagulation-glycoprotein-dysfunction" data-dismech-node="Hepatic and Coagulation Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic and Coagulation Glycoprotein Dysfunction</div>
 
+
                 <div class="item-desc">Hepatomegaly and abnormal coagulation are recurrent extraneurological features. Coagulation factors and their regulators are N-glycoproteins synthesised in the liver, so their hypoglycosylation is the proximate cause of the coagulopathy; the same argument is standard across the type I CDGs. The finding is not universal in individual patients — the 2024 Mexican case had normal coagulation tests.</div>
 
 
@@ -5657,6 +5707,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-maintenance-failure" data-dismech-node="Photoreceptor Maintenance Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor Maintenance Failure</div>
+
 
                 <div class="item-desc">An engineered model of the index patient&#39;s allele loses rod photoreceptors progressively, with the phototransduction machinery massively under-represented at the protein level, giving retinitis pigmentosa. No human ALG2-CDG patient has been reported with retinitis pigmentosa, so this node records a model finding whose translational status is open; it is flagged as a human/model mismatch rather than asserted as human disease biology. The eye features that are established in patients are developmental — iris coloboma and nystagmus — not degenerative.
 This node is deliberately model-only: it has no inbound pathophysiology edge and no outbound edge to a human phenotype. An earlier version pointed it at Iris coloboma, which was wrong in the way this description already says it would be — coloboma is a failure of optic fissure closure during development, not a consequence of progressive rod loss. Wiring the node into the human chain in either direction would assert the translational claim the HUMAN_MODEL_MISMATCH discussion exists to hold open.</div>
@@ -7081,6 +7132,9 @@ This disease-associated gene is ALG2 (hgnc:23159). hgnc:23159 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7155,6 +7209,12 @@ This disease-associated gene is ALG2 (hgnc:23159). hgnc:23159 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The maternal allele of the index patient. A frameshift truncating the glycosyltransferase domain; used as the template for the medaka model.</div>
 
 
@@ -7179,6 +7239,12 @@ This disease-associated gene is ALG2 (hgnc:23159). hgnc:23159 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Identified in one of the two congenital myasthenic syndrome kindreds and shown to severely reduce ALG2 expression in patient muscle and in culture.</div>
 
 
@@ -7201,6 +7267,12 @@ This disease-associated gene is ALG2 (hgnc:23159). hgnc:23159 is a gene from the
         c.752G&gt;T (p.Arg251Leu)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in three Argentinean patients; reduces ALG2 protein level and glycan content in a photoreceptor cell model.</div>

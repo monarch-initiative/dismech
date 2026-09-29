@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4799,6 +4838,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-slc10a7-loss-of-function" data-dismech-node="Biallelic SLC10A7 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SLC10A7 Loss of Function</div>
 
+
                 <div class="item-desc">SLC10A7 encodes a ten-transmembrane-domain protein of the SLC10 sodium/bile-acid cotransporter family which, unlike its relatives, transports none of the family&#39;s canonical substrates and remains an orphan carrier. It localizes to compartments of the secretory pathway, including the Golgi and the plasma membrane. Of the alleles actually assayed for protein level, a splice variant and the p.Leu74Pro missense reduce SLC10A7 protein expression; this is not a property of every missense allele, since p.Pro303Leu fibroblasts instead show SLC10A7 overexpression while the protein retains only partial calcium-regulatory activity. Hypomorphic rather than null function is the molecular basis of the milder end of the phenotypic spectrum. This is the disorder-specific lesion this entry substitutes for the generic Golgi trigger of the conserved CDG module.</div>
 
 
@@ -4988,6 +5028,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secretory-pathway-calcium-dyshomeostasis" data-dismech-node="Secretory Pathway Calcium Dyshomeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Secretory Pathway Calcium Dyshomeostasis</div>
+
 
                 <div class="item-desc">SLC10A7 is a negative regulator of intracellular calcium signalling, and has been proposed to be renamed RCAS on that basis. Its expression is inversely correlated with store-operated calcium entry, and it co-localizes with STIM1, Orai1 and SERCA2. Loss of function therefore raises calcium influx: SLC10A7 knockout cells show increased influx after thapsigargin, ionomycin and ATP/carbachol, and patient fibroblasts show increased Ca2+ influx after an extracellular calcium challenge. Within the secretory pathway itself the consequence is an increased ER and Golgi calcium content. Because Golgi glycosyltransferase activity and Golgi organization are calcium-dependent, this node is the rate-limiting step linking an orphan transporter to a glycosylation disease.</div>
 
@@ -5249,6 +5290,7 @@ This pathophysiological event involves abnormal Golgi calcium ion homeostasis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-golgi-glycosylation-and-glycosaminoglycan-biosynthesis-defect" data-dismech-node="Golgi Glycosylation and Glycosaminoglycan Biosynthesis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Golgi Glycosylation and Glycosaminoglycan Biosynthesis Defect</div>
+
 
                 <div class="item-desc">Three glycosylation outputs fail together, which is why SSASKS is classified as a congenital disorder of glycosylation affecting multiple pathways rather than a single-enzyme defect. Heparan sulfate on proteoglycans is reduced roughly two-fold in patient fibroblasts and about 2.5-fold in mutant mouse cartilage, while total glycosaminoglycan content is preserved; N-glycans on plasma glycoproteins are abnormal; and O-GalNAc glycosylation is disrupted, with altered abundance of the C1GALT1 chaperone COSMC and mislocalization of the calcium-binding Golgi cargo sorter Cab45. This is the organ-agnostic substitution this entry makes against the CDG module&#39;s Golgi trigger: the module&#39;s generic disruption of Golgi glycosylation machinery is here caused by a luminal ionic lesion rather than by loss of a glycosyltransferase or of a tethering complex.</div>
 
@@ -5657,6 +5699,7 @@ This pathophysiological event involves abnormal Golgi Vesicle Transport (GO:0048
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-glycoprotein-glycan-profile" data-dismech-node="Abnormal Glycoprotein Glycan Profile" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Glycoprotein Glycan Profile</div>
 
+
                 <div class="item-desc">The Golgi lesion is readable on circulating glycoproteins. Blood spots from affected individuals show an abnormal N-glycoprotein electrophoretic profile, and the glycomics study that independently identified SLC10A7 did so by clustering a shared hybrid-type N-glycan signature out of a cohort of individuals with abnormal Golgi glycosylation. This is the biochemical readout that places SSASKS in the CDG group and the substitution this entry makes against the module&#39;s hypoglycosylation node. The module&#39;s expected edge onward to multisystem glycoprotein dysfunction is carried below, but only at the level of the disease as a whole: no study has yet linked a specific hypoglycosylated client protein to a specific SSASKS phenotype, so that edge is graded PARTIAL rather than asserted.</div>
 
 
@@ -5795,6 +5838,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-post-golgi-glycoprotein-delivery-to-the-extracellular-matrix" data-dismech-node="Defective Post-Golgi Glycoprotein Delivery to the Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Post-Golgi Glycoprotein Delivery to the Extracellular Matrix</div>
+
 
                 <div class="item-desc">Beyond the composition of the glycans themselves, SLC10A7-deficient fibroblasts fail to move glycoproteins out of the secretory pathway: glycoproteins are mislocalized intracellularly and post-Golgi transport to the cell membrane is defective. Because the skeletal and dental matrices are built from secreted glycoproteins and proteoglycans, this delivery failure is the step that converts a biochemical glycosylation defect into a structural matrix defect.</div>
 
@@ -6027,6 +6071,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-disorganization-and-impaired-skeletal-mineralization" data-dismech-node="Growth Plate Disorganization and Impaired Skeletal Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Disorganization and Impaired Skeletal Mineralization</div>
+
 
                 <div class="item-desc">In the growth plate the consequence is architectural: mutant mice show shortened long bones with growth plate disorganization, and the human counterpart is disproportionate short stature with short long bones, small epiphyses and advanced carpal and tarsal ossification. Mineralization is reduced as well as growth: affected individuals have decreased bone mineral density compatible with osteoporosis, and knockdown zebrafish show a strong reduction in bone mineralization by alizarin red staining. This entry does not declare conformance to the defective_skeletal_mineralization module, because none of that module&#39;s three trigger arms (calciopenic, phosphopenic, mineralization-inhibitor excess) applies here — the lesion is failure to deliver the organic matrix, with normal calcium, phosphate and pyrophosphate handling as far as is reported.</div>
 
@@ -6323,6 +6368,7 @@ This pathophysiological event involves decreased bone mineralization (GO:0030282
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-and-ligament-proteoglycan-deficiency-with-joint-instability" data-dismech-node="Cartilage and Ligament Proteoglycan Deficiency with Joint Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage and Ligament Proteoglycan Deficiency with Joint Instability</div>
 
+
                 <div class="item-desc">SSASKS sits nosologically among the dysplasias with multiple joint dislocations, most of which are proteoglycan-biosynthesis disorders, and the reduced heparan sulfate content of cartilage supplies the shared mechanism: proteoglycan-dependent cartilage and periarticular structures are undersupplied, and large joints dislocate. The radiographic signature — advanced carpal ossification with a monkey wrench or Swedish key appearance of the proximal femora — is shared with Desbuquois dysplasia, whose genes CANT1 and XYLT1 also act on the proteoglycan pathway.</div>
 
 
@@ -6517,6 +6563,7 @@ This pathophysiological event involves decreased heparan sulfate proteoglycan bi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ameloblast-enamel-matrix-failure" data-dismech-node="Ameloblast Enamel Matrix Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Ameloblast Enamel Matrix Failure</div>
+
 
                 <div class="item-desc">Enamel is a secreted, protein-templated mineralized matrix, and it is the tissue in which SLC10A7 loss is most consistently expressed clinically. Slc10a7 is transcribed in the inner dental epithelium and in ameloblasts and odontoblasts during tooth development, mutant mice have tooth enamel anomalies, and every reported affected individual has amelogenesis imperfecta, typed as hypomineralized in the founding cohort and as hypoplastic/hypomineralized in the mildest case. Notably the founding study argued that the enamel phenotype is probably not explained by the proteoglycan defect alone, since amelogenesis imperfecta is what separates SSASKS from the other chondrodysplasias with multiple dislocations; the glycoprotein-trafficking arm is the more likely route.</div>
 
@@ -6720,6 +6767,7 @@ This pathophysiological event involves abnormal amelogenesis (GO:0097186). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-skeletal-dysplasia-with-spinal-deformity" data-dismech-node="Progressive Skeletal Dysplasia with Spinal Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Skeletal Dysplasia with Spinal Deformity</div>
+
 
                 <div class="item-desc">The clinical endpoint is a progressive, lifelong skeletal disorder. Growth restriction is present before birth and worsens; vertebral bodies are irregular, and progressive scoliosis, hyperlordosis and kyphosis develop through childhood and drive most of the morbidity, to the point of requiring staged growth-friendly spinal instrumentation before definitive fusion at skeletal maturity.</div>
 
@@ -9623,6 +9671,9 @@ This disease-associated gene is SLC10A7 (hgnc:23088). hgnc:23088 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -11000,10 +11051,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
                 </div>
 
-                <div class="evidence-snippet">"The last surgery of final definite in situ fusion was performed at the age of 14.2"</div>
+                <div class="evidence-snippet">"Short stature, amelogenesis imperfecta, and skeletal dysplasia with scoliosis is a rare, autosomal recessive, skeletal disorder first described in 2018. This syndrome starts with pre- and postnatal developmental delay, and gradually presents with variable facial dysmorphisms, a short stature,..."</div>
 
 
-                <div class="evidence-explanation">Anchors the end of the growth-friendly surgical phase at skeletal maturity.</div>
+                <div class="evidence-explanation">Connects the SLC10A7 skeletal dysplasia case to progressive scoliosis and staged operations from age 3.5 to final fusion at 14.2 years.</div>
 
 
 
@@ -14247,10 +14298,26 @@ progression:
     reference_title: &#34;Identification of novel homozygous nonsense SLC10A7 variant causing short stature, amelogenesis imperfecta, and skeletal dysplasia with scoliosis and surgical management of spine.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The last surgery of final definite in situ fusion was performed at the age of 14.2&#34;
+    snippet: &gt;-
+      Short stature, amelogenesis imperfecta, and skeletal dysplasia with scoliosis is a rare,
+      autosomal recessive, skeletal disorder first described in 2018. This syndrome starts with pre-
+      and postnatal developmental delay, and gradually presents with variable facial dysmorphisms, a
+      short stature, amelogenesis imperfecta, and progressive skeletal dysplasia affecting the
+      limbs, joints, hands, feet, and spine. CASE PRESENTATION: We identified a homozygous novel
+      nonsense mutation in exon 1 of SLC10A7 (NM_001300842.2: c.100G &gt; T / p.Gly34*) segregating
+      with the typical disease phenotype in a Han Chinese family. We reviewed the 12-year surgical
+      treatment history with seven interventions on spine. ... The patient had her first surgery at
+      3.5 years old. ... She underwent lengthening twice at 4.5 and 5.5 years old respectively, and
+      each time she was lengthened by 0.5 cm. From then, she had an X-ray every year to monitor the
+      growth of her spine and progression of her scoliosis. ... At the age of 10.2, scoliosis
+      progressed severely where the proximal end of single-side rods located. ... She received
+      lengthening surgeries twice again at the ages of 11.2 and 12.2, lengthened by 0.8 cm and 0.6
+      cm respectively. Notably, the surgeons had difficulty during every lengthening session and the
+      effect was limited. The last surgery of final definite in situ fusion was performed at the age
+      of 14.2 (Fig. 1N).
     explanation: &gt;-
-      Anchors the end of the growth-friendly surgical phase at skeletal
-      maturity.
+      Connects the SLC10A7 skeletal dysplasia case to progressive scoliosis and staged operations
+      from age 3.5 to final fusion at 14.2 years.
 - phase: Long-term outcome
   notes: &gt;-
     No deaths have been reported among affected individuals surviving the
@@ -15875,7 +15942,7 @@ inference.
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Short Stature, Amelogenesis Imperfecta, and Skeletal Dysplasia with Scoliosis", "mondoId": "MONDO:0032703", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Short_Stature,_Amelogenesis_Imperfecta,_and_Skeletal_Dysplasia_with_Scoliosis", "yamlRevision": "f0b53056d61b"};
+        const OS_CONFIG = {"diseaseName": "Short Stature, Amelogenesis Imperfecta, and Skeletal Dysplasia with Scoliosis", "mondoId": "MONDO:0032703", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Short_Stature,_Amelogenesis_Imperfecta,_and_Skeletal_Dysplasia_with_Scoliosis", "yamlRevision": "fd5952ec5d7d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

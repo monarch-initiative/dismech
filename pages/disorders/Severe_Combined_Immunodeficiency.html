@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5348,6 +5387,7 @@ This subtype is caused by variation in AK2 (hgnc:362). hgnc:362 is a gene from t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-receptor-signaling-defect" data-dismech-node="Cytokine receptor signaling defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine receptor signaling defect</div>
 
+
                 <div class="item-desc">In X-linked SCID, JAK3 deficiency, and IL7R deficiency, loss-of-function in the common gamma chain (IL2RG), its associated kinase JAK3, or the IL-7 receptor alpha chain abolishes IL-7-dependent JAK-STAT signaling that drives early thymocyte survival and proliferation, blocking T-cell development. IL2RG and JAK3 defects additionally abrogate NK-cell development (T-B+NK-), whereas IL7R defects spare B and NK cells (T-B+NK+).</div>
 
 
@@ -5674,6 +5714,7 @@ This pathophysiological event involves decreased JAK-STAT cytokine receptor sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-v-d-j-recombination-and-dna-repair" data-dismech-node="Defective V(D)J recombination and DNA repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective V(D)J recombination and DNA repair</div>
+
 
                 <div class="item-desc">In RAG1, RAG2, and DCLRE1C (Artemis) deficiency, the machinery that assembles antigen-receptor genes is impaired. RAG1/RAG2 initiate site-specific DNA cleavage during V(D)J recombination, and Artemis opens the resulting DNA hairpins as part of non-homologous end-joining. Failure to recombine T-cell (and B-cell) receptor genes arrests lymphocyte development (T-B-NK+); Artemis loss additionally confers cellular radiosensitivity.</div>
 
@@ -6036,6 +6077,7 @@ This pathophysiological event involves decreased DNA recombination (GO:0006310).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxic-purine-metabolite-accumulation" data-dismech-node="Toxic purine metabolite accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxic purine metabolite accumulation</div>
 
+
                 <div class="item-desc">In ADA deficiency, loss of adenosine deaminase activity causes accumulation of adenosine and especially deoxyadenosine (and intracellular dATP), which are lymphotoxic and impair lymphocyte development, viability, and function. The metabolic toxicity affects all lymphoid lineages, producing a T-B-NK- immunophenotype.</div>
 
 
@@ -6286,6 +6328,7 @@ This pathophysiological event involves decreased adenosine catabolic process (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-lymphoid-tissue-purine-metabolite-toxicity" data-dismech-node="Non-lymphoid tissue purine metabolite toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-lymphoid tissue purine metabolite toxicity</div>
+
 
                 <div class="item-desc">Because adenosine deaminase is ubiquitously expressed, the deoxyadenosine and dATP that accumulate in its absence are not confined to thymocytes. Two of the same molecular routes that damage developing lymphocytes operate in non-lymphoid cells: 2&#39;-deoxyadenosine irreversibly inactivates S-adenosylhomocysteine hydrolase, so S-adenosylhomocysteine accumulates and inhibits transmethylation; and dATP inhibits ribonucleotide reductase, depleting the deoxynucleotide pool and impairing DNA synthesis in any proliferating cell. This node is the entry point for the extra-immune features of ADA deficiency — neurocognitive, auditory, skeletal, pulmonary and hepatic — which none of the other five SCID subtypes in this entry share.</div>
 
@@ -6605,6 +6648,7 @@ This pathophysiological event involves decreased ribonucleotide reductase activi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-haematopoietic-precursor-survival" data-dismech-node="Defective haematopoietic precursor survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective haematopoietic precursor survival</div>
 
+
                 <div class="item-desc">In reticular dysgenesis, loss of adenylate kinase 2 disrupts cellular and mitochondrial energy homeostasis in haematopoietic precursors themselves. Because the lesion is bioenergetic rather than lymphoid-specific, both myeloid and lymphoid output fail: granulocytes are absent alongside lymphocytes, and innate as well as adaptive immunity is lost. This is the one SCID mechanism class in this entry whose consequences extend outside the lymphoid lineage.</div>
 
 
@@ -6902,6 +6946,7 @@ This pathophysiological event involves decreased adenylate kinase activity, anno
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-t-lymphocyte-development" data-dismech-node="Blocked T-lymphocyte development" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked T-lymphocyte development</div>
 
+
                 <div class="item-desc">The convergent consequence of all SCID subtypes is failure of hematopoietic stem cells to differentiate into mature, functional T lymphocytes in the thymus, yielding absent or severely reduced autologous T cells. Depending on the genetic lesion, B and/or NK lineages are also affected.</div>
 
 
@@ -7111,6 +7156,7 @@ This pathophysiological event involves decreased T cell differentiation in thymu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-adaptive-immunity" data-dismech-node="Absent adaptive immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent adaptive immunity</div>
+
 
                 <div class="item-desc">Without functional T cells (and often B cells), the patient cannot mount protective cellular or humoral adaptive immune responses, leaving the infant susceptible to overwhelming bacterial, viral, fungal, and protozoal infection.</div>
 
@@ -7395,7 +7441,7 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(3)</span></button>
 
@@ -7403,17 +7449,21 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Respiratory<span class="pill-count">(2)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Growth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7423,80 +7473,8 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">7</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-cellular-immunity" data-dismech-node="Absent cellular immunity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent cellular immunity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005354</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent cellular immunity (HP:0005354). HP:0005354 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301656" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301656" target="_blank">PMID:20301656</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Characteristic immune abnormalities are lymphocytopenia (low numbers of T, B, and NK cells) combined with the absence of both humoral and cellular immune function."</div>
-
-
-                <div class="evidence-explanation">SCID features absence of cellular immune function.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-total-t-cell-count" data-dismech-node="Decreased total T cell count" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7514,10 +7492,10 @@ This clinical feature is Absent cellular immunity (HP:0005354). HP:0005354 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0005403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005403</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7586,10 +7564,10 @@ This clinical feature is Decreased total T cell count (HP:0005403). HP:0005403 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0010976</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0010976</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7660,10 +7638,10 @@ This clinical feature is Decreased total B cell count (HP:0010976). HP:0010976 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0040218</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0040218</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Reduced total natural killer cell count (HP:0040218). HP:0040218 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7734,10 +7712,10 @@ This clinical feature is Reduced total natural killer cell count (HP:0040218). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001880</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eosinophilia, annotated with Increased total eosinophil count (HP:0001880). HP:0001880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7806,10 +7784,10 @@ This clinical feature is Eosinophilia, annotated with Increased total eosinophil
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003212</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003212" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003212</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated IgE, annotated with Increased circulating IgE concentration (HP:0003212). HP:0003212 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7878,10 +7856,10 @@ This clinical feature is Elevated IgE, annotated with Increased circulating IgE 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012234" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012234</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012234" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012234</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent granulocytes, annotated with Absence of circulating granulocytes (HP:0012234). HP:0012234 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7950,10 +7928,10 @@ This clinical feature is Absent granulocytes, annotated with Absence of circulat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8031,10 +8009,10 @@ This clinical feature is Hemolytic anemia (HP:0001878). HP:0001878 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000778" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000778</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000778" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000778</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thymic hypoplasia (absent thymic shadow), annotated with Hypoplasia of the thymus (HP:0000778). HP:0000778 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8130,10 +8108,10 @@ This clinical feature is Thymic hypoplasia (absent thymic shadow), annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8202,10 +8180,10 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized lymphadenopathy, annotated with Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8285,10 +8263,10 @@ This clinical feature is Generalized lymphadenopathy, annotated with Lymphadenop
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8368,10 +8346,10 @@ This clinical feature is Chronic diarrhea (HP:0002028). HP:0002028 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bilateral sensorineural deafness, annotated with Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8435,8 +8413,89 @@ This clinical feature is Bilateral sensorineural deafness, annotated with Sensor
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Head and Neck
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-oral-candidiasis" data-dismech-node="Chronic oral candidiasis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chronic oral candidiasis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0009098</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32181275" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32181275" target="_blank">PMID:32181275</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical manifestations are characterised by recurrent and severe bacterial, viral, and fungal opportunistic infections that start from early infancy period."</div>
+
+
+                <div class="evidence-explanation">Persistent fungal (candidal) infection including oral thrush reflects the T-cell immune defect in SCID.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-combined-immunodeficiency" data-dismech-node="Severe combined immunodeficiency" data-dismech-type="phenotype">
@@ -8729,78 +8788,6 @@ This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-oral-candidiasis" data-dismech-node="Chronic oral candidiasis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chronic oral candidiasis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0009098</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chronic oral candidiasis (HP:0009098). HP:0009098 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32181275" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32181275" target="_blank">PMID:32181275</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinical manifestations are characterised by recurrent and severe bacterial, viral, and fungal opportunistic infections that start from early infancy period."</div>
-
-
-                <div class="evidence-explanation">Persistent fungal (candidal) infection including oral thrush reflects the T-cell immune defect in SCID.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-erythroderma" data-dismech-node="Erythroderma" data-dismech-type="phenotype">
                     <div class="item-name">
                         Erythroderma
@@ -8815,10 +8802,10 @@ This clinical feature is Chronic oral candidiasis (HP:0009098). HP:0009098 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized erythematous rash (erythroderma), annotated with Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8914,10 +8901,10 @@ This clinical feature is Generalized erythematous rash (erythroderma), annotated
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0011123</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0011123</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Extensive dermatitis, annotated with Inflammatory abnormality of the skin (HP:0011123). HP:0011123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8988,10 +8975,10 @@ This clinical feature is Extensive dermatitis, annotated with Inflammatory abnor
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9048,7 +9035,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
@@ -9071,10 +9058,10 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated serum transaminases, annotated with Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9162,7 +9149,7 @@ This clinical feature is Elevated serum transaminases, annotated with Elevated c
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -9185,10 +9172,10 @@ This clinical feature is Elevated serum transaminases, annotated with Elevated c
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000919</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Costochondral abnormalities and skeletal dysplasia, annotated with Abnormality of the costochondral junction (HP:0000919). HP:0000919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9274,7 +9261,7 @@ This clinical feature is Costochondral abnormalities and skeletal dysplasia, ann
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -9295,10 +9282,10 @@ This clinical feature is Costochondral abnormalities and skeletal dysplasia, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0100543</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Below-average IQ, annotated with Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9371,10 +9358,10 @@ This clinical feature is Below-average IQ, annotated with Cognitive impairment (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0000752</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000752" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0000752</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperactivity with attention deficit and behavioural difficulty, annotated with Hyperactivity (HP:0000752). HP:0000752 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9435,7 +9422,7 @@ This clinical feature is Hyperactivity with attention deficit and behavioural di
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -9458,10 +9445,10 @@ This clinical feature is Hyperactivity with attention deficit and behavioural di
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0006517</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0006517</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalveolar phospholipid accumulation (HP:0006517). HP:0006517 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9530,10 +9517,10 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002110</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002110" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0002110</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9590,7 +9577,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -9613,10 +9600,10 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9656,6 +9643,87 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Poor linear growth and weight gain (failure to thrive) follow chronic infection and diarrhea in untreated SCID.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-12">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-cellular-immunity" data-dismech-node="Absent cellular immunity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absent cellular immunity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005354" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0005354</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent cellular immunity (HP:0005354). HP:0005354 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301656" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301656" target="_blank">PMID:20301656</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Characteristic immune abnormalities are lymphocytopenia (low numbers of T, B, and NK cells) combined with the absence of both humoral and cellular immune function."</div>
+
+
+                <div class="evidence-explanation">SCID features absence of cellular immune function.</div>
 
 
 
@@ -9739,6 +9807,9 @@ This disease-associated gene is IL2RG (hgnc:6010). hgnc:6010 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -9840,6 +9911,9 @@ This disease-associated gene is ADA (hgnc:186). hgnc:186 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9933,6 +10007,9 @@ This disease-associated gene is RAG1 (hgnc:9831). hgnc:9831 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10034,6 +10111,9 @@ This disease-associated gene is RAG2 (hgnc:9832). hgnc:9832 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10102,6 +10182,9 @@ This disease-associated gene is IL7R (hgnc:6024). hgnc:6024 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10203,6 +10286,9 @@ This disease-associated gene is JAK3 (hgnc:6193). hgnc:6193 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10271,6 +10357,9 @@ This disease-associated gene is DCLRE1C (hgnc:17642). hgnc:17642 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -10395,6 +10484,9 @@ This disease-associated gene is AK2 (hgnc:362). hgnc:362 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
 

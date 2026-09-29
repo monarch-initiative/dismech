@@ -19,6 +19,48 @@ def test_genetic_item_infers_mechanism_edges_respects_relationship_type() -> Non
     assert not _genetic_item_infers_mechanism_edges({"relationship_type": "PROTECTIVE"})
 
 
+def test_graph_variant_class_prefers_enum_and_preserves_legacy_detail() -> None:
+    disorder = {
+        "name": "Example Disease",
+        "genetic": [{"name": "SHH"}],
+        "variants": [
+            {
+                "name": "Structured allele",
+                "gene": {"preferred_term": "SHH"},
+                "variant_type": "duplication",
+                "type": "tandem enhancer duplication",
+                "genomic_contexts": ["intron", "intergenic region"],
+            },
+            {
+                "name": "Legacy allele",
+                "gene": {"preferred_term": "SHH"},
+                "type": "inframe_deletion",
+            },
+            {
+                "name": "Same classification",
+                "gene": {"preferred_term": "SHH"},
+                "variant_type": "single nucleotide variant",
+                "type": "SINGLE_NUCLEOTIDE_VARIANT",
+            },
+        ],
+    }
+    payload = json.loads(graph_to_json(build_causal_graph(disorder), disorder))
+    node_meta = {node["id"]: node.get("meta", {}) for node in payload["nodes"]}
+
+    assert node_meta["Structured allele"]["variant_type"] == "duplication"
+    assert (
+        node_meta["Structured allele"]["variant_type_detail"]
+        == "tandem enhancer duplication"
+    )
+    assert node_meta["Structured allele"]["genomic_contexts"] == [
+        "intron",
+        "intergenic region",
+    ]
+    assert node_meta["Legacy allele"]["variant_type"] == "inframe_deletion"
+    assert "genomic_contexts" not in node_meta["Legacy allele"]
+    assert "variant_type_detail" not in node_meta["Same classification"]
+
+
 def test_graph_to_json_includes_gene_ids_and_structured_genetic_metadata() -> None:
     disorder = {
         "name": "AIP example",

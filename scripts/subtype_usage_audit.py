@@ -221,7 +221,7 @@ def audit_entry(path: Path) -> tuple[EntryCensus | None, list[GeneRow]]:
     patho_gene_keys: set[str] = set()
     for item in disorder.get("pathophysiology") or []:
         if isinstance(item, dict):
-            patho_gene_keys |= _gene_lookup_keys(item)
+            patho_gene_keys |= _gene_lookup_keys(item, include_genetic_context=True)
     patho_name_words = {
         word
         for name in patho_names

@@ -1,5 +1,6 @@
 ---
 reference_id: DOI:10.1186/s13071-018-2634-x
+extractor_version: 1
 title: "A multicentre, randomised, non-inferiority clinical trial comparing a nifurtimox-eflornithine combination to standard eflornithine monotherapy for late stage Trypanosoma brucei gambiense human African trypanosomiasis in Uganda"
 authors:
 - Freddie Kansiime
@@ -23,6 +24,7 @@ full_text_url: "https://link.springer.com/content/pdf/10.1186/s13071-018-2634-x.
 oa_status: gold
 license: cc-by
 local_pdf_path: files/DOI_10.1186_s13071-018-2634-x.pdf
+full_text_access_type: open
 ---
 
 # A multicentre, randomised, non-inferiority clinical trial comparing a nifurtimox-eflornithine combination to standard eflornithine monotherapy for late stage Trypanosoma brucei gambiense human African trypanosomiasis in Uganda
@@ -70,7 +72,7 @@ International License (http://creativecommons.org/licenses/by/4.0/), which permi
 reproduction in any medium, provided you give appropriate credit to the original author(s) and the source, provide a link to
 the Creative Commons license, and indicate if changes were made. The Creative Commons Public Domain Dedication waiver
 (http://creativecommons.org/publicdomain/zero/1.0/) applies to the data made available in this article, unless otherwise stated.
-Kansiime et al. Parasites & Vectors  (2018) 11:105
+Kansiime et al. Parasites & Vectors  (2018) 11:105 
 DOI 10.1186/s13071-018-2634-x
 
 (Continued from previous page)

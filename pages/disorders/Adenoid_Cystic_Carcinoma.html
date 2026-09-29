@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4680,6 +4719,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myb-nfib-fusion-oncogene-formation" data-dismech-node="MYB-NFIB Fusion Oncogene Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">MYB-NFIB Fusion Oncogene Formation</div>
 
+
                 <div class="item-desc">A recurrent t(6;9)(q22-23;p23-24) translocation fuses the MYB proto-oncogene at 6q23 to the transcription factor gene NFIB at 9p23-24, producing chimeric transcripts in which MYB exon 14 is joined to the last coding exon(s) of NFIB. The rearrangement consistently deletes MYB exon 15 including the 3&#39; UTR, which carries conserved binding sites for the repressive miR-15a/16 and miR-150 microRNAs. Loss of this post-transcriptional brake is the proximate mechanism of MYB overexpression. Reported prevalence varies widely across cohorts, largely reflecting assay methodology rather than true biological heterogeneity.</div>
 
 
@@ -4813,6 +4853,8 @@ This pathophysiological event involves NFIB (hgnc:7785). hgnc:7785 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4821,6 +4863,9 @@ This pathophysiological event involves NFIB (hgnc:7785). hgnc:7785 is a gene fro
 
 
     </div>
+
+
+
 
 
 
@@ -4941,6 +4986,7 @@ This pathophysiological event involves NFIB (hgnc:7785). hgnc:7785 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mybl1-rearrangement-and-myb-amplification" data-dismech-node="MYBL1 Rearrangement and MYB Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">MYBL1 Rearrangement and MYB Amplification</div>
+
 
                 <div class="item-desc">In tumors lacking the MYB-NFIB fusion, the same MYB-family transcriptional output is reached by alternative genetic routes: rearrangements of the second MYB-family gene MYBL1 (MYBL1-NFIB, MYBL1-ACTN1) or high-level amplification of MYB itself, each producing MYBL1 or MYB overexpression. These lesions are mutually exclusive with the MYB-NFIB fusion, making ACC a convergent phenotype at the level of MYB-family activation rather than a single-lesion disease.</div>
 
@@ -5150,6 +5196,7 @@ This pathophysiological event involves MYB (hgnc:7545). hgnc:7545 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-super-enhancer-translocation-and-myb-positive-feedback-loop" data-dismech-node="Super-Enhancer Translocation and MYB Positive Feedback Loop" data-dismech-type="pathophysiology">
                 <div class="item-name">Super-Enhancer Translocation and MYB Positive Feedback Loop</div>
 
+
                 <div class="item-desc">Beyond creating a chimeric protein, the recurrent rearrangements act as regulatory translocations that juxtapose distal super-enhancers to the MYB locus. MYB protein then binds these translocated enhancers itself, establishing a self-sustaining positive feedback loop that locks in MYB overexpression. This enhancer dependency is the rationale for bromodomain (BET) inhibition in preclinical ACC models.</div>
 
 
@@ -5288,6 +5335,7 @@ This pathophysiological event involves increased enhancer-driven positive regula
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myb-driven-oncogenic-transcriptional-program" data-dismech-node="MYB-Driven Oncogenic Transcriptional Program" data-dismech-type="pathophysiology">
                 <div class="item-name">MYB-Driven Oncogenic Transcriptional Program</div>
+
 
                 <div class="item-desc">Overexpressed MYB (or MYBL1), acting as a sequence-specific DNA-binding transcription factor, drives a transcriptional program promoting cell-cycle progression, survival, angiogenesis and adhesion. Critically, MYB binds lineage-specific enhancers and therefore drives different regulatory programs in the two cell compartments of the tumor: it cooperates with TP63 in myoepithelial cells and with a Notch program in luminal epithelial cells. This single-driver, two-program behaviour is the molecular explanation for the defining biphasic architecture of ACC.</div>
 
@@ -5474,6 +5522,7 @@ This pathophysiological event involves increased MYB DNA-binding transcription f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intercalated-duct-cell-of-origin-and-premalignant-transition" data-dismech-node="Intercalated Duct Cell of Origin and Premalignant Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Intercalated Duct Cell of Origin and Premalignant Transition</div>
 
+
                 <div class="item-desc">Single-cell transcriptomic profiling of paracarcinoma and carcinoma tissue resolves the ACC epithelium into myoepithelial-like, intercalated duct-like, and duct-like cells. A subset of intercalated duct-like cells in paracarcinoma tissue carries copy-number alterations affecting MYB-family genes and EN1 and is identified as premalignant; pseudotime trajectory analysis shows these cells transitioning into frank malignant cells, implicating the intercalated duct cell as the cell of origin.</div>
 
 
@@ -5608,6 +5657,7 @@ This pathophysiological event involves intercalated duct cell of salivary gland,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biphasic-myoepithelial-luminal-tumor-architecture" data-dismech-node="Biphasic Myoepithelial-Luminal Tumor Architecture" data-dismech-type="pathophysiology">
                 <div class="item-name">Biphasic Myoepithelial-Luminal Tumor Architecture</div>
+
 
                 <div class="item-desc">The tumor is built from two interdependent epithelial compartments: abluminal myoepithelial-like cells and luminal ductal cells. These are arranged in cribriform, tubular, and solid patterns, with the cribriform &#34;Swiss cheese&#34; architecture produced by pseudocysts filled with basement-membrane-like material laid down by the myoepithelial compartment. The proportion of solid architecture is the basis of histological grading and tracks with aggressiveness.</div>
 
@@ -5816,6 +5866,7 @@ This pathophysiological event occurs in major salivary gland (UBERON:0001829). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-notch1-pathway-hyperactivation" data-dismech-node="NOTCH1 Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">NOTCH1 Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">A distinct subgroup of ACC carries activating NOTCH1 mutations clustered in the negative regulatory region and the PEST (Pro-Glu-Ser-Thr-rich) domain — the same two hotspots exploited in T-cell acute lymphoblastic leukemia — which stabilise the Notch1 intracellular domain and drive constitutive pathway output. These alterations are strongly enriched in recurrent/metastatic relative to primary disease, indicating that Notch activation is a progression event as well as an initiating one.</div>
 
 
@@ -5998,6 +6049,7 @@ This pathophysiological event involves increased Notch signaling pathway (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tert-promoter-mutation-as-an-alternative-oncogenic-route" data-dismech-node="TERT Promoter Mutation as an Alternative Oncogenic Route" data-dismech-type="pathophysiology">
                 <div class="item-name">TERT Promoter Mutation as an Alternative Oncogenic Route</div>
 
+
                 <div class="item-desc">A minority of recurrent/metastatic tumors carry TERT promoter hotspot mutations that are mutually exclusive with both NOTCH1 mutations and MYB/MYBL1 fusions. Together with the MYB and Notch lesions these define four discrete molecular subgroups, indicating that ACC is reached by more than one oncogenic route rather than by a single obligatory pathway. The cited ACC genomic series establishes the lesion and its mutual exclusivity but does not measure telomerase activity or telomere length, so a downstream mechanism of telomere maintenance is not asserted here.</div>
 
 
@@ -6126,6 +6178,7 @@ This pathophysiological event involves TERT (hgnc:11730). hgnc:11730 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurotropic-perineural-invasion" data-dismech-node="Neurotropic Perineural Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurotropic Perineural Invasion</div>
+
 
                 <div class="item-desc">Perineural invasion is the single most characteristic pathophysiological behaviour of ACC: tumor cells track along the perineural and endoneural spaces of named nerves, forming a target-like cuff around nerve fascicles and extending microscopically far beyond the grossly visible tumor margin, in many cases to the skull base. Brain-derived neurotrophic factor (BDNF), a neurotrophin involved in neurogenesis, is uniformly expressed by ACC and is the leading candidate mediator of this neurotropism. Perineural spread is the principal reason margin-negative resection is difficult and local recurrence is late and frequent.</div>
 
@@ -6274,6 +6327,7 @@ This pathophysiological event occurs in nerve (UBERON:0001021). UBERON:0001021 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-solid-pattern-aggressive-disease" data-dismech-node="Solid-Pattern Aggressive Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Solid-Pattern Aggressive Disease</div>
 
+
                 <div class="item-desc">NOTCH1-mutant tumors define a clinically distinct aggressive subgroup marked by solid histology, advanced stage at diagnosis, a higher rate of liver and bone metastasis, and substantially shorter relapse-free and overall survival than NOTCH1 wild-type disease. This subgroup is the target population for Notch-directed therapy.</div>
 
 
@@ -6349,6 +6403,7 @@ This pathophysiological event occurs in nerve (UBERON:0001021). UBERON:0001021 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-neuropathy-and-late-local-recurrence" data-dismech-node="Cranial Neuropathy and Late Local Recurrence" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Neuropathy and Late Local Recurrence</div>
+
 
                 <div class="item-desc">Perineural tumor extension along the facial and trigeminal nerves and their named branches produces progressive motor and sensory cranial neuropathy, and leaves microscopic disease beyond the surgical field. The result is a characteristically long tail of local recurrence, with events occurring many years after apparently complete treatment and motivating long-term follow-up.</div>
 
@@ -6466,6 +6521,7 @@ This pathophysiological event occurs in nerve (UBERON:0001021). UBERON:0001021 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-late-haematogenous-metastasis" data-dismech-node="Late Haematogenous Metastasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Late Haematogenous Metastasis</div>
+
 
                 <div class="item-desc">ACC disseminates preferentially by the haematogenous rather than the lymphatic route, so regional nodal involvement is comparatively uncommon while distant metastasis — most often pulmonary, then bone and liver — is the dominant mode of failure. The defining feature is its latency: distant relapse typically appears several years after primary treatment and can occur more than a decade later, and patients may survive for years with established metastatic disease, so metastasis in ACC marks a chronic phase rather than an immediately terminal one.</div>
 
@@ -7662,6 +7718,9 @@ This disease-associated gene is MYB (hgnc:7545). hgnc:7545 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7761,6 +7820,9 @@ This disease-associated gene is NFIB (hgnc:7785). hgnc:7785 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7831,6 +7893,9 @@ This disease-associated gene is MYBL1 (hgnc:7547). hgnc:7547 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -7909,6 +7974,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7979,6 +8047,9 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

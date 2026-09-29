@@ -9,6 +9,7 @@ own, which is how the synthetic negative tests exercise them.
 
 import glob
 import inspect
+import subprocess
 import sys
 import warnings
 from collections import Counter
@@ -859,10 +860,25 @@ def check_subtype_foreign_keys(filepath, data=None):
     data = _document(filepath, data)
 
     valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
+
+    # Genetic.gene_disease_validity[].subtype (#10179). Checked before the
+    # early return below: a validity assertion naming a subtype on an entry
+    # that declares none is a dangling reference, not a skip.
+    errors = []
+    for i, gene in enumerate(data.get("genetic", []) or []):
+        for j, assertion in enumerate(gene.get("gene_disease_validity", []) or []):
+            val = assertion.get("subtype")
+            if val and val not in valid_subtypes:
+                errors.append(
+                    f"genetic[{i}].gene_disease_validity[{j}].subtype={val!r}"
+                )
     if not valid_subtypes:
+        assert not errors, (
+            f"Subtype FK mismatches in {Path(filepath).name}: no has_subtypes "
+            f"declared. Bad refs: {errors}"
+        )
         return
 
-    errors = []
     # Sections with a top-level subtype field
     for section in (
         "phenotypes",
@@ -1085,6 +1101,75 @@ def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
 
     with pytest.raises(AssertionError, match="Type 99"):
         check_subtype_foreign_keys(str(fake_path))
+
+
+def test_gene_disease_validity_subtype_fk_catches_bad_refs(tmp_path):
+    """A validity assertion's subtype must name a declared subtype (#10179)."""
+    disease = {
+        "name": "Bad Validity Subtype",
+        "has_subtypes": [{"name": "Menkes"}],
+        "genetic": [
+            {
+                "name": "ATP7A",
+                "gene_disease_validity": [
+                    {
+                        "validity_classification": "MODERATE",
+                        "classified_by": "CLINGEN",
+                        "subtype": "Distal SMA (not declared)",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "BadValiditySubtype.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    with pytest.raises(AssertionError, match="Distal SMA"):
+        check_subtype_foreign_keys(str(fake_path))
+
+
+def test_gene_disease_validity_subtype_fk_without_declared_subtypes(tmp_path):
+    """No has_subtypes at all is not a reason to skip the check."""
+    disease = {
+        "name": "No Subtypes",
+        "genetic": [
+            {
+                "name": "ATP7A",
+                "gene_disease_validity": [
+                    {
+                        "validity_classification": "MODERATE",
+                        "classified_by": "CLINGEN",
+                        "subtype": "Menkes",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "NoSubtypes.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    with pytest.raises(AssertionError, match="Menkes"):
+        check_subtype_foreign_keys(str(fake_path))
+
+
+def test_gene_disease_validity_subtype_fk_accepts_declared_subtype(tmp_path):
+    disease = {
+        "name": "Good Validity Subtype",
+        "has_subtypes": [{"name": "Menkes"}],
+        "genetic": [
+            {
+                "name": "ATP7A",
+                "gene_disease_validity": [
+                    {
+                        "validity_classification": "DEFINITIVE",
+                        "classified_by": "CLINGEN",
+                        "subtype": "Menkes",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "GoodValiditySubtype.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    check_subtype_foreign_keys(str(fake_path))
 
 
 def check_experimental_model_mechanism_targets(filepath, data=None):
@@ -2524,8 +2609,8 @@ def test_entity_reference_file(filepath):
     _assert_all_passed(filepath, _failures(filepath, data, checks))
 
 
-# The frozen shared dataset-verification blob. Kept in git only because ~200 open
-# PRs still carry edits to it; deleting it now would conflict with all of them.
+# The retired shared dataset-verification blob, now deleted after a temporary
+# freeze to reduce conflicts with older PRs. Keep those PRs from restoring it.
 # Nothing may read or write it: dataset verification moved to per-record files
 # under references_cache/, which two PRs can add to without colliding.
 FROZEN_DATASET_CACHE = "cache/dataset_accessions.json"
@@ -2547,6 +2632,20 @@ def test_no_automation_touches_the_frozen_dataset_cache():
     Documentation may still name the file -- that is how curators learn not to
     touch it -- so only code and automation are scanned.
     """
+    # Inspect index metadata only, never the retired blob. Unlike a filesystem
+    # check, this also detects a tracked copy omitted by a sparse checkout.
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", FROZEN_DATASET_CACHE],
+        cwd=ROOT_DIR,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    assert not tracked, (
+        f"{FROZEN_DATASET_CACHE} is retired and must stay deleted. "
+        "Keep its deletion when resolving old PRs; do not restore or regenerate it."
+    )
+
     scanned = [
         *ROOT_DIR.glob("src/**/*.py"),
         *ROOT_DIR.glob("scripts/**/*.py"),
@@ -2573,7 +2672,7 @@ def test_no_automation_touches_the_frozen_dataset_cache():
             offenders.append(str(path.relative_to(ROOT_DIR)))
 
     assert not offenders, (
-        f"{FROZEN_DATASET_CACHE} is frozen and must not be read or written.\n"
+        f"{FROZEN_DATASET_CACHE} is retired and must not be read or written.\n"
         "Cache dataset records per-record under references_cache/ instead "
         "(see scripts/verify_dataset_accessions.py).\nFound in:\n"
         + "\n".join(f"  - {o}" for o in offenders)

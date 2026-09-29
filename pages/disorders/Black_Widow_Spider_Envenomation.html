@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4574,6 +4613,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-latrotoxin-binding-to-presynaptic-receptors" data-dismech-node="Alpha-Latrotoxin Binding to Presynaptic Receptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Latrotoxin Binding to Presynaptic Receptors</div>
 
+
                 <div class="item-desc">Alpha-latrotoxin binds two structurally unrelated families of presynaptic receptor - neurexin-1alpha, which binds calcium-dependently, and latrophilin/CIRL, a G-protein-coupled receptor that binds without calcium. Their shared and best-evidenced function is tethering: holding the toxin at the membrane so that it can insert. The evidence for that is unusually clean, because a chimera carrying only the extracellular domain of CIRL-1 on an unrelated viral transmembrane anchor produced the same channels as the wild-type receptor.</div>
 
 
@@ -4826,6 +4866,7 @@ This pathophysiological event involves autonomic and neurosecretory neuron, anno
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-latrotoxin-tetramer-insertion-and-pore-formation" data-dismech-node="Alpha-Latrotoxin Tetramer Insertion and Pore Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Latrotoxin Tetramer Insertion and Pore Formation</div>
 
+
                 <div class="item-desc">In the presence of calcium or magnesium the toxin assembles into a C4-symmetric tetramer, then undergoes a large conformational change: four N-terminal helical bundles refold into a rigid coiled-coil stalk that drives a pair of helices into the bilayer, opening a cation-permeable channel. The prepore and pore states have both been resolved by cryo-EM, so this is a structurally described event rather than an inferred one.</div>
 
 
@@ -5046,6 +5087,7 @@ This pathophysiological event involves toxin activity of alpha-latrotoxin, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-latrophilin-receptor-signalling-at-the-nerve-terminal" data-dismech-node="Latrophilin Receptor Signalling at the Nerve Terminal" data-dismech-type="pathophysiology">
                 <div class="item-name">Latrophilin Receptor Signalling at the Nerve Terminal</div>
 
+
                 <div class="item-desc">The alternative arm, and no longer a black box. Engagement of latrophilin-1 couples to Gaq and phospholipase C, generating IP3 that releases calcium from intracellular stores through IP3 receptors; the resulting store depletion opens store-operated calcium entry, which supplies the sustained calcium that exocytosis needs. The cascade was delineated at the mouse neuromuscular junction using a pore-deficient toxin mutant, so the pore is excluded by construction rather than by argument. What this does not establish is how much of a human envenomation runs through it.</div>
 
 
@@ -5183,6 +5225,7 @@ This pathophysiological event involves increased G protein-coupled receptor sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-presynaptic-calcium-influx" data-dismech-node="Presynaptic Calcium Influx" data-dismech-type="pathophysiology">
                 <div class="item-name">Presynaptic Calcium Influx</div>
+
 
                 <div class="item-desc">Calcium enters the terminal through the toxin&#39;s own channel, a high conductance pore measured at around 400 pS, bypassing the voltage-gated calcium channels that normally gate release.</div>
 
@@ -5349,6 +5392,7 @@ This pathophysiological event involves increased calcium ion transmembrane trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unregulated-neurotransmitter-exocytosis" data-dismech-node="Unregulated Neurotransmitter Exocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Unregulated Neurotransmitter Exocytosis</div>
 
+
                 <div class="item-desc">The convergence point of both hypothesis arms, and the event that produces the whole clinical syndrome. Vesicular acetylcholine and catecholamines are discharged continuously rather than in response to action potentials.</div>
 
 
@@ -5509,6 +5553,7 @@ This pathophysiological event involves increased neurotransmitter secretion (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-vesicle-pool-depletion" data-dismech-node="Synaptic Vesicle Pool Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic Vesicle Pool Depletion</div>
 
+
                 <div class="item-desc">Sustained exocytosis outrunning endocytic retrieval empties the terminal of both transmitter quanta and the vesicles themselves, with vesicle membrane left incorporated into the axolemma. Read the limitation, because it is load-bearing: the experiment showing this was run in the *absence* of extracellular calcium, and the same paper&#39;s calcium-present control found active recycling of both quanta and vesicles with no depletion at all. Calcium is present in an envenomated patient, so this node describes a demonstrated capability of the toxin rather than an established step of the human syndrome. No source cited here establishes that vesicle depletion is what makes latrodectism self-limited.</div>
 
 
@@ -5635,6 +5680,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-motor-end-plate-activation" data-dismech-node="Sustained Motor End-Plate Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Motor End-Plate Activation</div>
 
+
                 <div class="item-desc">Continuous acetylcholine release at the neuromuscular junction holds skeletal muscle in involuntary contraction. The cramping spreads contiguously from the bitten limb to the trunk, which is the feature that most often distinguishes latrodectism from an acute abdomen at the bedside.</div>
 
 
@@ -5736,6 +5782,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-neurotransmitter-excess" data-dismech-node="Autonomic Neurotransmitter Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic Neurotransmitter Excess</div>
+
 
                 <div class="item-desc">The same unregulated release at autonomic terminals - acetylcholine at ganglia and exocrine glands, catecholamines at postganglionic sympathetic terminals - produces a mixed autonomic picture rather than a purely sympathetic one. Hypertension, tachycardia and diaphoresis sit alongside nausea, vomiting and lacrimation.</div>
 
@@ -5885,6 +5932,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-envenomation-associated-myocardial-injury" data-dismech-node="Envenomation-Associated Myocardial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Envenomation-Associated Myocardial Injury</div>
+
 
                 <div class="item-desc">A rare complication: myocarditis with raised troponin and, in reported cases, echocardiographic abnormality. Deliberately named for the association rather than for a mechanism - a catecholamine-mediated route is the usual explanation and is plausible given the adrenergic excess upstream, but no source cited here demonstrates it, so the node does not assert it. Curated because it is the one route by which a self-limited envenomation becomes an intensive care problem.</div>
 

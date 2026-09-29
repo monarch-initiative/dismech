@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 22</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Atrial%20Septal%20Defect"
@@ -4004,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">22</div>
+                <div class="stat-value">26</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4013,7 +4052,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4032,7 +4071,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4105,8 +4144,40 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">12</span>
             </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4138,6 +4209,8 @@
 
                     <div class="item-name">
                         Ostium secundum ASD
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0020434" target="_blank">MONDO:0020434</a>
 
 
 
@@ -4202,6 +4275,8 @@
                     <div class="item-name">
                         Ostium primum interatrial communication
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0020437" target="_blank">MONDO:0020437</a>
+
 
 
                     </div>
@@ -4264,6 +4339,8 @@
 
                     <div class="item-name">
                         Sinus venosus interatrial communication
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0020436" target="_blank">MONDO:0020436</a>
 
 
 
@@ -4328,6 +4405,8 @@
                     <div class="item-name">
                         Coronary sinus interatrial communication
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0020435" target="_blank">MONDO:0020435</a>
+
 
 
                     </div>
@@ -4371,6 +4450,728 @@
 
 
                 <div class="evidence-explanation">The morphologic review explicitly lists coronary sinus defect as a less common interatrial communication in this spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd2">
+
+                    <div class="item-name">
+                        Atrial septal defect 2 (GATA4)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0011938" target="_blank">MONDO:0011938</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GATA4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:4173</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GATA4 (hgnc:4173). hgnc:4173 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The GATA4-defined member of the numbered ASD series. Rare familial ASD attributed to variants in this cardiac transcription factor.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20659440" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20659440" target="_blank">PMID:20659440</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"T280M mutation of GATA4 is suggested to be associated with ASD in this Chinese family."</div>
+
+
+                <div class="evidence-explanation">Family segregation evidence for the GATA4-defined form of ASD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd3">
+
+                    <div class="item-name">
+                        Atrial septal defect 3 (MYH6)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013567" target="_blank">MONDO:0013567</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                MYH6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7576</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The MYH6-defined member of the numbered ASD series, established by linkage in a large family with dominantly inherited ASD.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15735645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15735645" target="_blank">PMID:15735645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a new locus linked with atrial septal defect on chromosome 14q12 in a large family with dominantly inherited atrial septal defect."</div>
+
+
+                <div class="evidence-explanation">Linkage evidence for the MYH6-defined form of ASD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd4">
+
+                    <div class="item-name">
+                        Atrial septal defect 4 (TBX20)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012654" target="_blank">MONDO:0012654</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                TBX20
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:11598</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TBX20 (hgnc:11598). hgnc:11598 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The TBX20-defined member of the numbered ASD series. Reported variants include both loss-of-function and gain-of-function T-box-domain changes, and carriers within one kindred showed cribriform secundum ASD, large patent foramen ovale, or valve defects.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19762328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762328" target="_blank">PMID:19762328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found a novel mutation in a highly conserved residue in the T-box DNA binding domain (I121M) segregating with CHD in a three generation kindred."</div>
+
+
+                <div class="evidence-explanation">Segregation of a T-box-domain TBX20 variant in a three-generation kindred with septal disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19762328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762328" target="_blank">PMID:19762328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Four mutation carriers revealed cardiac phenotypes in terms of cribriform ASDII, large patent foramen ovale or cardiac valve defects."</div>
+
+
+                <div class="evidence-explanation">Sources the range of cardiac phenotypes recorded in this row&#39;s description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd5">
+
+                    <div class="item-name">
+                        Atrial septal defect 5 (ACTC1)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013011" target="_blank">MONDO:0013011</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                ACTC1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:143</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The ACTC1-defined member of the numbered ASD series. A founder M123V substitution segregated with isolated autosomal dominant secundum ASD in two pedigrees. Like MYH6 in ASD3, this is a sarcomeric rather than a transcription-factor route to the same malformation.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17947298" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17947298" target="_blank">PMID:17947298</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified two pedigrees comprising 20 members segregating isolated autosomal dominant secundum ASD."</div>
+
+
+                <div class="evidence-explanation">The pedigree series behind the ACTC1-defined form of ASD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd6">
+
+                    <div class="item-name">
+                        Atrial septal defect 6 (TLL1)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013123" target="_blank">MONDO:0013123</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                TLL1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:11843" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11843</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in TLL1 (hgnc:11843). hgnc:11843 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The TLL1-defined member of the numbered ASD series, and the weakest of them. The defining report screened 19 ASD patients and found missense changes in four unrelated cases without family segregation data, and ClinGen grades the TLL1 relationship to congenital heart disease as Limited. Recorded here for series completeness rather than as an established cause.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18830233" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830233" target="_blank">PMID:18830233</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In four nonrelated patients, three missense mutations in coding sequence, and one single base change in the 5&#39;UTR have been detected."</div>
+
+
+                <div class="evidence-explanation">The full extent of the human genetic evidence in the defining report, which is why this row is qualified.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd7">
+
+                    <div class="item-name">
+                        Atrial septal defect 7 (NKX2-5)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0007173" target="_blank">MONDO:0007173</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                NKX2-5
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:2488</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The NKX2-5-defined member of the numbered ASD series. Distinguished clinically by atrioventricular conduction disease accompanying the septal defect. ClinGen curates NKX2-5 not against an atrial-septal-defect term but against a combined concept, NKX2.5-related congenital, conduction and myopathic heart disease (MONDO:0800441, Definitive), which is why this row records only the atrial-septal component of that phenotype.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20932824" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20932824" target="_blank">PMID:20932824</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in transcription factor NKX2.5 cause congenital heart disease (CHD). We identified a CHD family with atrial septal defects (ASDs), atrioventricular block, ventricular noncompaction, syncope and sudden death."</div>
+
+
+                <div class="evidence-explanation">The family in which septal defect, conduction block and noncompaction co-occurred, which is the phenotype that defines this member.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd8">
+
+                    <div class="item-name">
+                        Atrial septal defect 8 (CITED2)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013750" target="_blank">MONDO:0013750</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                CITED2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:1987" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:1987</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CITED2 (hgnc:1987). hgnc:1987 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The CITED2-defined member of the numbered ASD series. CITED2 is a CREBBP/EP300-interacting transcriptional modulator, and the defining report screened 392 congenital heart defect patients against 192 controls.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16287139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16287139" target="_blank">PMID:16287139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In summary, the observation of these mutations in patients with septal defects indicates that CITED2 has a causative impact in the development of CHD in humans."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; own conclusion for the septal-defect phenotype this member names.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16287139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16287139" target="_blank">PMID:16287139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CITED2 encodes a CREBBP/EP300 interacting transcriptional modulator of HIF1A and TFAP2. To study the potential impact of sequence variations in CITED2 for CHDs in humans, we screened a cohort of 392 well-characterized patients and 192 control individuals using DHPLC, sequencing, and Amplifluor..."</div>
+
+
+                <div class="evidence-explanation">Sources both the gene-product description and the cohort sizes recorded in this row&#39;s description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-asd9">
+
+                    <div class="item-name">
+                        Atrial septal defect 9 (GATA6)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013770" target="_blank">MONDO:0013770</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                GATA6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:4174</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">The GATA6-defined member of the numbered ASD series. MONDO records no causal gene on this term, so the assignment comes from its OMIM 614475 / MedGen 482573 record, whose cytogenetic location 18q11.2 matches GATA6 in HGNC. GATA6&#39;s reported human phenotype begins with outflow-tract malformation, and the broader GATA6 claim including its pancreatic and endocrine features is curated in Congenital_Heart_Disease and Pancreatic_Agenesis; this row records only the atrial-septal presentation the series member names.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20631719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20631719" target="_blank">PMID:20631719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The same heterozygous missense mutation (Ser184Asn) was identified in three patients, including one with tetralogy of Fallot and two with atrial septal defects."</div>
+
+
+                <div class="evidence-explanation">The two atrial-septal-defect patients in this cohort are the human evidence for the GATA6-defined member.</div>
 
 
 
@@ -4859,6 +5660,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-atrial-septation" data-dismech-node="Abnormal Atrial Septation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Atrial Septation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">ASD originates from abnormal formation or deficiency of the interatrial septum or from anatomically related interatrial communications. True septal defects are confined to the oval fossa region, while primum, sinus venosus, and coronary sinus communications have distinct morphologic origins but share atrial-level mixing physiology.</div>
 
 
@@ -4873,11 +5681,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002350" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0002350</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002350" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002350</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves endocardial cell (CL:0002350). CL:0002350 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4915,11 +5723,11 @@ This pathophysiological event involves endocardial cell (CL:0002350). CL:0002350
         NKX2-5
 
 
-    <a href="https://bioregistry.io/hgnc:2488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:2488</a>
+    <a href="https://bioregistry.io/hgnc:2488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:2488</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4954,11 +5762,11 @@ This pathophysiological event involves NKX2-5 (hgnc:2488). hgnc:2488 is a gene f
         GATA4
 
 
-    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:4173</a>
+    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:4173</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves GATA4 (hgnc:4173). hgnc:4173 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4993,11 +5801,11 @@ This pathophysiological event involves GATA4 (hgnc:4173). hgnc:4173 is a gene fr
         TBX5
 
 
-    <a href="https://bioregistry.io/hgnc:11604" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11604</a>
+    <a href="https://bioregistry.io/hgnc:11604" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:11604</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves TBX5 (hgnc:11604). hgnc:11604 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5032,13 +5840,169 @@ This pathophysiological event involves TBX5 (hgnc:11604). hgnc:11604 is a gene f
         MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:7576</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TBX20
+
+
+    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11598</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TBX20 (hgnc:11598). hgnc:11598 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ACTC1
+
+
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:143</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CITED2
+
+
+    <a href="https://bioregistry.io/hgnc:1987" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:1987</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CITED2 (hgnc:1987). hgnc:1987 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        GATA6
+
+
+    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:4174</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -5074,11 +6038,11 @@ This pathophysiological event involves MYH6 (hgnc:7576). hgnc:7576 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060413" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0060413</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060413" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0060413</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal atrial septum morphogenesis (GO:0060413). GO:0060413 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5108,11 +6072,11 @@ This pathophysiological event involves abnormal atrial septum morphogenesis (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0007507</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007507" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0007507</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal heart development (GO:0007507). GO:0007507 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5149,11 +6113,11 @@ This pathophysiological event involves abnormal heart development (GO:0007507). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002085" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-8">UBERON:0002085</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002085" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-20">UBERON:0002085</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in interatrial septum (UBERON:0002085). UBERON:0002085 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5166,11 +6130,11 @@ This pathophysiological event occurs in interatrial septum (UBERON:0002085). UBE
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002081" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-9">UBERON:0002081</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002081" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-21">UBERON:0002081</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:0002081 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5216,7 +6180,7 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (3 references)
+            Show evidence (7 references)
         </summary>
         <div class="evidence-list">
 
@@ -5296,6 +6260,8 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
             </div>
 
 
+            <div class="evidence-more">+ 4 more references</div>
+
         </div>
     </details>
 
@@ -5304,6 +6270,13 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-to-right-shunting-and-right-heart-volume-overload" data-dismech-node="Left-to-Right Shunting and Right Heart Volume Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Left-to-Right Shunting and Right Heart Volume Overload</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In most unrepaired ASDs, greater left-sided filling pressure and right ventricular compliance drive left-to-right atrial shunting. The resulting pulmonary overcirculation enlarges right-sided chambers and can produce long-standing volume-overload complications.</div>
 
@@ -5329,11 +6302,11 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002081" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-10">UBERON:0002081</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002081" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-22">UBERON:0002081</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:0002081 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5467,6 +6440,13 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vascular-and-ventricular-complications" data-dismech-node="Pulmonary Vascular and Ventricular Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vascular and Ventricular Complications</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Long-standing unrepaired ASD can produce pulmonary artery hypertension and right or left ventricular dysfunction. These complications are more typical in adults diagnosed late and influence whether closure is safe.</div>
 
 
@@ -5481,11 +6461,11 @@ This pathophysiological event occurs in cardiac atrium (UBERON:0002081). UBERON:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5601,6 +6581,13 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-electrical-remodeling" data-dismech-node="Atrial Electrical Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial Electrical Remodeling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Right-sided volume overload and atrial chamber enlargement alter atrial electrophysiology, raising the risk of supraventricular tachyarrhythmias and some conduction disorders, particularly with large shunts or late repair.</div>
 
 
@@ -5615,11 +6602,11 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000746</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000746</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000746 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5656,11 +6643,11 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0061337</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0061337" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0061337</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cardiac conduction (GO:0061337). GO:0061337 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5796,7 +6783,7 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Atrial Septation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASD originates from abnormal formation or deficiency of the interatrial septum or from anatomically related interatrial communications. True septal defects are confined to the oval fossa region, while primum, sinus venosus, and coronary sinus communications have distinct morphologic origins but share atrial-level mixing physiology.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"endocardial cell\"], \"biological_processes\": [\"atrial septum morphogenesis\", \"heart development\"], \"genes\": [\"NKX2-5\", \"GATA4\", \"TBX5\", \"MYH6\"], \"gene_terms\": [{\"label\": \"NKX2-5\", \"id\": \"hgnc:2488\"}, {\"label\": \"GATA4\", \"id\": \"hgnc:4173\"}, {\"label\": \"TBX5\", \"id\": \"hgnc:11604\"}, {\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"locations\": [\"interatrial septum\", \"cardiac atrium\"]}}, {\"id\": \"Atrial Electrical Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Right-sided volume overload and atrial chamber enlargement alter atrial electrophysiology, raising the risk of supraventricular tachyarrhythmias and some conduction disorders, particularly with large shunts or late repair.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac conduction\"]}}, {\"id\": \"Atrial septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A deficiency or ASD-like interatrial communication permits mixing at the atrial level.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001631\"}}, {\"id\": \"Atrial tachyarrhythmia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Established atrial tachyarrhythmias require rhythm-specific medical or procedural management. In selected patients, ablation before or at closure can be considered because defect closure alone does not reliably eliminate an established arrhythmogenic substrate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance can emerge with age when a significant defect remains untreated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fixed splitting of the second heart sound\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide, fixed splitting of S2 is a characteristic examination sign of hemodynamically important right-ventricular volume overload, but it is not present in every ASD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031662\"}}, {\"id\": \"GATA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA4\"], \"gene_terms\": [{\"label\": \"GATA4\", \"id\": \"hgnc:4173\"}], \"presence\": \"Positive\", \"association\": \"Rare familial atrial septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In most unrepaired ASDs, greater left-sided filling pressure and right ventricular compliance drive left-to-right atrial shunting. The resulting pulmonary overcirculation enlarges right-sided chambers and can produce long-standing volume-overload complications.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cardiac atrium\"]}}, {\"id\": \"Left-to-right shunt\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flow across the atrial communication is usually from left to right in children and in adults without advanced pulmonary vascular disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012382\"}}, {\"id\": \"MYH6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH6\"], \"gene_terms\": [{\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"presence\": \"Positive\", \"association\": \"Rare autosomal-dominant familial atrial septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NKX2-5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NKX2-5\"], \"gene_terms\": [{\"label\": \"NKX2-5\", \"id\": \"hgnc:2488\"}], \"presence\": \"Positive\", \"association\": \"Rare familial atrial septal defect and conduction disease gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Paradoxical embolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A venous embolus may occasionally cross an interatrial communication during transient or sustained right-to-left shunting and enter the systemic circulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033520\"}}, {\"id\": \"Pulmonary Vascular and Ventricular Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-standing unrepaired ASD can produce pulmonary artery hypertension and right or left ventricular dysfunction. These complications are more typical in adults diagnosed late and influence whether closure is safe.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"]}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary arterial hypertension can develop after long-standing pulmonary overcirculation and is an important determinant of closure risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Right atrial enlargement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right atrial enlargement accompanies chronic right-sided volume overload from a hemodynamically significant left-to-right atrial shunt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030718\"}}, {\"id\": \"Right ventricular dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic left-to-right shunting produces right-sided volume overload with enlargement of right heart structures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005133\"}}, {\"id\": \"Right ventricular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-standing untreated ASD can impair right ventricular function in adulthood, distinct from right ventricular dilatation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033118\"}}, {\"id\": \"Right ventricular failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right ventricular failure is an advanced, non-obligate complication of longstanding hemodynamic load, often accompanied by elevated pulmonary arterial pressure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001708\"}}, {\"id\": \"Supraventricular arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial tachyarrhythmias and other supraventricular arrhythmias are associated with volume overload, pulmonary hypertension, shunt size, and later age at repair.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005115\"}}, {\"id\": \"Surgical ASD repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair remains a valid closure strategy, especially when anatomy is unsuitable for device closure or when the defect is primum, sinus venosus, or coronary sinus type.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TBX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TBX5\"], \"gene_terms\": [{\"label\": \"TBX5\", \"id\": \"hgnc:11604\"}], \"presence\": \"Positive\", \"association\": \"Rare syndromic atrial septal defect gene in Holt-Oram syndrome\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Transcatheter closure of secundum ASD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Device closure is generally preferred for hemodynamically significant secundum ASD when defect size, rims, and pulmonary vascular status are suitable. Severe irreversible pulmonary vascular disease or Eisenmenger physiology is a contraindication; uncertain pulmonary vascular or left ventricular physiology requires specialist invasive assessment before closure.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Abnormal Atrial Septation\", \"target\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The interatrial communication permits shunting between systemic and pulmonary venous circulations, usually from left to right when pulmonary vascular resistance is not elevated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Atrial Septation\", \"target\": \"Paradoxical embolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An interatrial communication can permit venous thrombus to enter the systemic circulation when the pressure gradient transiently or persistently reverses.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Transient or sustained right-to-left shunting\"]}, {\"source\": \"Abnormal Atrial Septation\", \"target\": \"Atrial septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal atrial septation produces the structural atrial septal defect phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Pulmonary Vascular and Ventricular Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent volume overload can progress to pulmonary arterial hypertension and ventricular dysfunction, especially when defects are diagnosed late.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic pulmonary overcirculation\", \"Long-standing right-sided volume overload\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic atrial and right-heart volume load promotes electrical remodeling that predisposes to atrial tachyarrhythmias.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Right atrial dilation\", \"Chronic chamber stretch\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Left-to-right shunt\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The atrial communication usually permits left-to-right shunting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Right ventricular dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left-to-right shunting produces right-sided volume overload and dilation of right heart structures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"right-sided volume overload\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Right atrial enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic atrial-level left-to-right shunting enlarges the right atrium as part of the right-heart volume-overload phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"right-sided volume overload\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Fixed splitting of the second heart sound\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hemodynamically significant shunt produces the characteristic wide, fixed split second heart sound on examination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased right ventricular stroke volume\", \"Delayed pulmonic valve closure\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Long-standing unrepaired ASD can reduce exercise tolerance as pulmonary and ventricular complications accumulate with age.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"long-standing volume overload\", \"pulmonary vascular disease\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Right ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic right-heart volume overload can progress from dilation to right ventricular dysfunction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"long-standing volume overload\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent pulmonary overcirculation and volume overload can progress to pulmonary arterial hypertension.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic pulmonary overcirculation\", \"long-standing volume overload\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Right ventricular failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced right-heart volume and pressure load can culminate in clinical right ventricular failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive right ventricular dysfunction\", \"Elevated pulmonary arterial pressure\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Supraventricular arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASD-related electrical remodeling predisposes to supraventricular tachyarrhythmias.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcatheter closure of secundum ASD\", \"target\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcatheter closure of secundum ASD\", \"target\": \"Atrial septal defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transcatheter closure of secundum ASD\", \"target\": \"Left-to-right shunt\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical ASD repair\", \"target\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical ASD repair\", \"target\": \"Atrial septal defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical ASD repair\", \"target\": \"Left-to-right shunt\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atrial tachyarrhythmia management\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atrial tachyarrhythmia management\", \"target\": \"Supraventricular arrhythmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NKX2-5\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA4\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBX5\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH6\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"presence\": \"Positive\", \"association\": \"Rare familial secundum atrial septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Abnormal Atrial Septation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ASD originates from abnormal formation or deficiency of the interatrial septum or from anatomically related interatrial communications. True septal defects are confined to the oval fossa region, while primum, sinus venosus, and coronary sinus communications have distinct morphologic origins but share atrial-level mixing physiology.\", \"meta\": {\"evidence_count\": 7, \"cell_types\": [\"endocardial cell\"], \"biological_processes\": [\"atrial septum morphogenesis\", \"heart development\"], \"genes\": [\"NKX2-5\", \"GATA4\", \"TBX5\", \"MYH6\", \"TBX20\", \"ACTC1\", \"CITED2\", \"GATA6\"], \"gene_terms\": [{\"label\": \"NKX2-5\", \"id\": \"hgnc:2488\"}, {\"label\": \"GATA4\", \"id\": \"hgnc:4173\"}, {\"label\": \"TBX5\", \"id\": \"hgnc:11604\"}, {\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}, {\"label\": \"TBX20\", \"id\": \"hgnc:11598\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"CITED2\", \"id\": \"hgnc:1987\"}, {\"label\": \"GATA6\", \"id\": \"hgnc:4174\"}], \"locations\": [\"interatrial septum\", \"cardiac atrium\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Atrial Electrical Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Right-sided volume overload and atrial chamber enlargement alter atrial electrophysiology, raising the risk of supraventricular tachyarrhythmias and some conduction disorders, particularly with large shunts or late repair.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cardiac muscle cell\"], \"biological_processes\": [\"cardiac conduction\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Atrial septal defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A deficiency or ASD-like interatrial communication permits mixing at the atrial level.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001631\"}}, {\"id\": \"Atrial tachyarrhythmia management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Established atrial tachyarrhythmias require rhythm-specific medical or procedural management. In selected patients, ablation before or at closure can be considered because defect closure alone does not reliably eliminate an established arrhythmogenic substrate.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"CITED2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CITED2\"], \"gene_terms\": [{\"label\": \"CITED2\", \"id\": \"hgnc:1987\"}], \"presence\": \"Positive\", \"association\": \"Rare septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Exercise intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Exercise intolerance can emerge with age when a significant defect remains untreated.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003546\"}}, {\"id\": \"Fixed splitting of the second heart sound\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wide, fixed splitting of S2 is a characteristic examination sign of hemodynamically important right-ventricular volume overload, but it is not present in every ASD.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0031662\"}}, {\"id\": \"GATA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GATA4\"], \"gene_terms\": [{\"label\": \"GATA4\", \"id\": \"hgnc:4173\"}], \"presence\": \"Positive\", \"association\": \"Rare familial atrial septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"GATA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"GATA6\"], \"gene_terms\": [{\"label\": \"GATA6\", \"id\": \"hgnc:4174\"}], \"presence\": \"Positive\", \"association\": \"Rare congenital heart defect gene reported in atrial septal defect\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In most unrepaired ASDs, greater left-sided filling pressure and right ventricular compliance drive left-to-right atrial shunting. The resulting pulmonary overcirculation enlarges right-sided chambers and can produce long-standing volume-overload complications.\", \"meta\": {\"evidence_count\": 2, \"locations\": [\"cardiac atrium\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Left-to-right shunt\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Flow across the atrial communication is usually from left to right in children and in adults without advanced pulmonary vascular disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012382\"}}, {\"id\": \"MYH6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH6\"], \"gene_terms\": [{\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"presence\": \"Positive\", \"association\": \"Rare autosomal-dominant familial atrial septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NKX2-5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NKX2-5\"], \"gene_terms\": [{\"label\": \"NKX2-5\", \"id\": \"hgnc:2488\"}], \"presence\": \"Positive\", \"association\": \"Rare familial atrial septal defect and conduction disease gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Paradoxical embolism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A venous embolus may occasionally cross an interatrial communication during transient or sustained right-to-left shunting and enter the systemic circulation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033520\"}}, {\"id\": \"Pulmonary Vascular and Ventricular Complications\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Long-standing unrepaired ASD can produce pulmonary artery hypertension and right or left ventricular dysfunction. These complications are more typical in adults diagnosed late and influence whether closure is safe.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac muscle cell\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Pulmonary arterial hypertension\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pulmonary arterial hypertension can develop after long-standing pulmonary overcirculation and is an important determinant of closure risk.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002092\"}}, {\"id\": \"Right atrial enlargement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right atrial enlargement accompanies chronic right-sided volume overload from a hemodynamically significant left-to-right atrial shunt.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030718\"}}, {\"id\": \"Right ventricular dilatation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic left-to-right shunting produces right-sided volume overload with enlargement of right heart structures.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005133\"}}, {\"id\": \"Right ventricular dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Long-standing untreated ASD can impair right ventricular function in adulthood, distinct from right ventricular dilatation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033118\"}}, {\"id\": \"Right ventricular failure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Right ventricular failure is an advanced, non-obligate complication of longstanding hemodynamic load, often accompanied by elevated pulmonary arterial pressure.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001708\"}}, {\"id\": \"Supraventricular arrhythmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atrial tachyarrhythmias and other supraventricular arrhythmias are associated with volume overload, pulmonary hypertension, shunt size, and later age at repair.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005115\"}}, {\"id\": \"Surgical ASD repair\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical repair remains a valid closure strategy, especially when anatomy is unsuitable for device closure or when the defect is primum, sinus venosus, or coronary sinus type.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TBX20\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TBX20\"], \"gene_terms\": [{\"label\": \"TBX20\", \"id\": \"hgnc:11598\"}], \"presence\": \"Positive\", \"association\": \"Rare familial atrial septal defect gene\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"TBX5\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TBX5\"], \"gene_terms\": [{\"label\": \"TBX5\", \"id\": \"hgnc:11604\"}], \"presence\": \"Positive\", \"association\": \"Rare syndromic atrial septal defect gene in Holt-Oram syndrome\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Transcatheter closure of secundum ASD\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Device closure is generally preferred for hemodynamically significant secundum ASD when defect size, rims, and pulmonary vascular status are suitable. Severe irreversible pulmonary vascular disease or Eisenmenger physiology is a contraindication; uncertain pulmonary vascular or left ventricular physiology requires specialist invasive assessment before closure.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Abnormal Atrial Septation\", \"target\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The interatrial communication permits shunting between systemic and pulmonary venous circulations, usually from left to right when pulmonary vascular resistance is not elevated.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal Atrial Septation\", \"target\": \"Paradoxical embolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"An interatrial communication can permit venous thrombus to enter the systemic circulation when the pressure gradient transiently or persistently reverses.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Transient or sustained right-to-left shunting\"]}, {\"source\": \"Abnormal Atrial Septation\", \"target\": \"Atrial septal defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal atrial septation produces the structural atrial septal defect phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Pulmonary Vascular and Ventricular Complications\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent volume overload can progress to pulmonary arterial hypertension and ventricular dysfunction, especially when defects are diagnosed late.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Chronic pulmonary overcirculation\", \"Long-standing right-sided volume overload\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic atrial and right-heart volume load promotes electrical remodeling that predisposes to atrial tachyarrhythmias.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Right atrial dilation\", \"Chronic chamber stretch\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Left-to-right shunt\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The atrial communication usually permits left-to-right shunting.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Right ventricular dilatation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Left-to-right shunting produces right-sided volume overload and dilation of right heart structures.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"right-sided volume overload\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Right atrial enlargement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic atrial-level left-to-right shunting enlarges the right atrium as part of the right-heart volume-overload phenotype.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"right-sided volume overload\"]}, {\"source\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"target\": \"Fixed splitting of the second heart sound\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hemodynamically significant shunt produces the characteristic wide, fixed split second heart sound on examination.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Increased right ventricular stroke volume\", \"Delayed pulmonic valve closure\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Exercise intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Long-standing unrepaired ASD can reduce exercise tolerance as pulmonary and ventricular complications accumulate with age.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"long-standing volume overload\", \"pulmonary vascular disease\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Right ventricular dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic right-heart volume overload can progress from dilation to right ventricular dysfunction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"long-standing volume overload\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Pulmonary arterial hypertension\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent pulmonary overcirculation and volume overload can progress to pulmonary arterial hypertension.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"chronic pulmonary overcirculation\", \"long-standing volume overload\"]}, {\"source\": \"Pulmonary Vascular and Ventricular Complications\", \"target\": \"Right ventricular failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced right-heart volume and pressure load can culminate in clinical right ventricular failure.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Progressive right ventricular dysfunction\", \"Elevated pulmonary arterial pressure\"]}, {\"source\": \"Atrial Electrical Remodeling\", \"target\": \"Supraventricular arrhythmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ASD-related electrical remodeling predisposes to supraventricular tachyarrhythmias.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transcatheter closure of secundum ASD\", \"target\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcatheter closure of secundum ASD\", \"target\": \"Atrial septal defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transcatheter closure of secundum ASD\", \"target\": \"Left-to-right shunt\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical ASD repair\", \"target\": \"Left-to-Right Shunting and Right Heart Volume Overload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical ASD repair\", \"target\": \"Atrial septal defect\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Surgical ASD repair\", \"target\": \"Left-to-right shunt\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atrial tachyarrhythmia management\", \"target\": \"Atrial Electrical Remodeling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atrial tachyarrhythmia management\", \"target\": \"Supraventricular arrhythmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"NKX2-5\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA4\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBX5\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH6\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TBX20\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CITED2\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GATA6\", \"target\": \"Abnormal Atrial Septation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5846,10 +6833,10 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0033520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0033520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Paradoxical embolism (HP:0033520). HP:0033520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5927,10 +6914,10 @@ This clinical feature is Paradoxical embolism (HP:0033520). HP:0033520 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001631</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5999,10 +6986,10 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6071,10 +7058,10 @@ This clinical feature is Left-to-right shunt (HP:0012382). HP:0012382 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005133</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005133" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005133</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Right ventricular dilatation (HP:0005133). HP:0005133 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6145,10 +7132,10 @@ This clinical feature is Right ventricular dilatation (HP:0005133). HP:0005133 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033118" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0033118</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033118" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0033118</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal right ventricular function (HP:0033118). HP:0033118 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6217,10 +7204,10 @@ This clinical feature is Abnormal right ventricular function (HP:0033118). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0005115</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0005115</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Supraventricular arrhythmia (HP:0005115). HP:0005115 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6314,10 +7301,10 @@ This clinical feature is Supraventricular arrhythmia (HP:0005115). HP:0005115 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002092</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6411,10 +7398,10 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Right atrial enlargement (HP:0030718). HP:0030718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6483,10 +7470,10 @@ This clinical feature is Right atrial enlargement (HP:0030718). HP:0030718 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031662</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031662" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0031662</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fixed splitting of the second heart sound (HP:0031662). HP:0031662 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6555,10 +7542,10 @@ This clinical feature is Fixed splitting of the second heart sound (HP:0031662).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6636,10 +7623,10 @@ This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6730,7 +7717,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-nkx2-5" data-dismech-node="NKX2-5" data-dismech-type="genetic">
@@ -6751,10 +7738,10 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
                         Gene: NKX2-5
 
 
-    <a href="https://bioregistry.io/hgnc:2488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:2488</a>
+    <a href="https://bioregistry.io/hgnc:2488" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:2488</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6766,6 +7753,9 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6852,10 +7842,10 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
                         Gene: GATA4
 
 
-    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:4173</a>
+    <a href="https://bioregistry.io/hgnc:4173" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:4173</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6867,6 +7857,9 @@ This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -6928,10 +7921,10 @@ This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the 
                         Gene: TBX5
 
 
-    <a href="https://bioregistry.io/hgnc:11604" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:11604</a>
+    <a href="https://bioregistry.io/hgnc:11604" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:11604</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TBX5 (hgnc:11604). hgnc:11604 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6943,6 +7936,9 @@ This disease-associated gene is TBX5 (hgnc:11604). hgnc:11604 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7004,10 +8000,10 @@ This disease-associated gene is TBX5 (hgnc:11604). hgnc:11604 is a gene from the
                         Gene: MYH6
 
 
-    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:7576</a>
+    <a href="https://bioregistry.io/hgnc:7576" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:7576</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7019,6 +8015,9 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7087,6 +8086,630 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-tbx20" data-dismech-node="TBX20" data-dismech-type="genetic">
+                <div class="item-name">
+                    TBX20
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Rare familial atrial septal defect gene)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TBX20
+
+
+    <a href="https://bioregistry.io/hgnc:11598" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:11598</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TBX20 (hgnc:11598). hgnc:11598 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19762328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762328" target="_blank">PMID:19762328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found a novel mutation in a highly conserved residue in the T-box DNA binding domain (I121M) segregating with CHD in a three generation kindred."</div>
+
+
+                <div class="evidence-explanation">Segregation of a T-box-domain TBX20 variant with congenital heart disease across three generations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19762328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762328" target="_blank">PMID:19762328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, Tbx20-I121M resulted in a significantly enhanced transcriptional activity, which was further increased in the presence of co-transcription factors GATA4/5 and NKX2-5."</div>
+
+
+                <div class="evidence-explanation">Sources the gain-of-function half of the mechanism recorded in these notes, and the interaction with the other septation transcription factors curated in this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19762328" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19762328" target="_blank">PMID:19762328</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data, combined with that of others, suggest that human ASDII may be related to loss-of-function as well as gain-of-function TBX20 mutations."</div>
+
+
+                <div class="evidence-explanation">Sources the claim in these notes that both directions of effect have been reported, which is why the mechanism is not simple haploinsufficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-actc1" data-dismech-node="ACTC1" data-dismech-type="genetic">
+                <div class="item-name">
+                    ACTC1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Rare familial secundum atrial septal defect gene)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ACTC1
+
+
+    <a href="https://bioregistry.io/hgnc:143" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:143</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17947298" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17947298" target="_blank">PMID:17947298</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A mutation screen of the coding regions of ACTC1 revealed a founder mutation predicting an M123V substitution in affected individuals of both pedigrees."</div>
+
+
+                <div class="evidence-explanation">The founder variant segregating with isolated dominant secundum ASD in two pedigrees.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17947298" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17947298" target="_blank">PMID:17947298</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Morpholino (MO) knockdown of ACTC1 in chick embryos produces delayed looping and reduced atrial septa, supporting a developmental role for this protein."</div>
+
+
+                <div class="evidence-explanation">Developmental perturbation evidence linking reduced ACTC1 to deficient atrial septum formation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17947298" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17947298" target="_blank">PMID:17947298</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Functional analysis of ACTC1 with an M123V substitution shows a reduced affinity for myosin, but with retained actomyosin motor properties."</div>
+
+
+                <div class="evidence-explanation">Sources the myosin-affinity claim recorded in these notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-tll1" data-dismech-node="TLL1" data-dismech-type="genetic">
+                <div class="item-name">
+                    TLL1
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Candidate atrial septal defect gene with insufficient evidence)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: TLL1
+
+
+    <a href="https://bioregistry.io/hgnc:11843" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:11843</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is TLL1 (hgnc:11843). hgnc:11843 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: UNKNOWN</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18830233" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830233" target="_blank">PMID:18830233</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In four nonrelated patients, three missense mutations in coding sequence, and one single base change in the 5&#39;UTR have been detected."</div>
+
+
+                <div class="evidence-explanation">The entirety of the human genetic evidence in the defining report, which is the basis for the UNKNOWN typing here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18830233" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18830233" target="_blank">PMID:18830233</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Incomplete heart septation similar to ASD was reported in transgenic mice with both inactive alleles of gene encoding mammalian zinc metalloprotease a mammalian tolloid-like 1 (tll1)."</div>
+
+
+                <div class="evidence-explanation">The mouse null phenotype that motivated the human screen, quoted from this report&#39;s own introduction rather than from its results.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-cited2" data-dismech-node="CITED2" data-dismech-type="genetic">
+                <div class="item-name">
+                    CITED2
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Rare septal defect gene)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: CITED2
+
+
+    <a href="https://bioregistry.io/hgnc:1987" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:1987</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is CITED2 (hgnc:1987). hgnc:1987 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16287139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16287139" target="_blank">PMID:16287139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In summary, the observation of these mutations in patients with septal defects indicates that CITED2 has a causative impact in the development of CHD in humans."</div>
+
+
+                <div class="evidence-explanation">The defining report&#39;s conclusion for the septal-defect phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16287139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16287139" target="_blank">PMID:16287139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here we show that these mutations significantly reduce the capacity of CITED2 to transrepress HIF1A, and that the p.Ser170_Gly178del mutation significantly diminishes TFAP2C coactivation."</div>
+
+
+                <div class="evidence-explanation">Functional consequence of the reported variants, and the source of the HIF1A and TFAP2 detail in these notes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16287139" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16287139" target="_blank">PMID:16287139</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three of these amino acid changing mutations cluster in the serine-glycine-rich junction of the protein, to which no functionality had heretofore been assigned."</div>
+
+
+                <div class="evidence-explanation">Sources the claim in these notes that the reported variants cluster in a previously unassigned region.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
+            <div class="item-box genetic-box anchor-target" id="genetic-gata6" data-dismech-node="GATA6" data-dismech-type="genetic">
+                <div class="item-name">
+                    GATA6
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Rare congenital heart defect gene reported in atrial septal defect)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: GATA6
+
+
+    <a href="https://bioregistry.io/hgnc:4174" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-45">hgnc:4174</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is GATA6 (hgnc:4174). hgnc:4174 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
+
+                </div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20631719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20631719" target="_blank">PMID:20631719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The same heterozygous missense mutation (Ser184Asn) was identified in three patients, including one with tetralogy of Fallot and two with atrial septal defects."</div>
+
+
+                <div class="evidence-explanation">Two of the three variant carriers in this sporadic congenital heart defect cohort had atrial septal defects.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20631719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20631719" target="_blank">PMID:20631719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biological analysis revealed clearly decreased transcriptional activity of GATA6 Ser184Asn in vitro."</div>
+
+
+                <div class="evidence-explanation">Functional support for reduced GATA6 transcriptional activity as the mechanism of the reported variant.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20631719" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20631719" target="_blank">PMID:20631719</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in GATA4 have been related to human congenital heart diseases (CHDs) in several studies, whereas mutations in GATA6 have only recently been reported in patients with persistent truncus arteriosus."</div>
+
+
+                <div class="evidence-explanation">Sources the outflow-tract origin of the human GATA6 phenotype recorded in these notes, quoted from this report&#39;s own background.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -7115,7 +8738,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7217,7 +8840,7 @@ This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">transcatheter atrial septal defect closure<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">transcatheter atrial septal defect closure<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is transcatheter atrial septal defect closure, annotated with Septal Defect Repair (NCIT:C148075). NCIT:C148075 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7332,11 +8955,11 @@ This treatment is transcatheter atrial septal defect closure, annotated with Sep
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001631</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7349,11 +8972,11 @@ This treatment targets Atrial septal defect (HP:0001631). HP:0001631 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0012382</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7436,7 +9059,7 @@ This treatment targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenoty
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">surgical atrial septal defect repair<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">surgical atrial septal defect repair<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical atrial septal defect repair, annotated with Septal Defect Repair (NCIT:C148075). NCIT:C148075 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7551,11 +9174,11 @@ This treatment is surgical atrial septal defect repair, annotated with Septal De
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001631</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7568,11 +9191,11 @@ This treatment targets Atrial septal defect (HP:0001631). HP:0001631 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0012382</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7655,7 +9278,7 @@ This treatment targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenoty
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-36">cardiac ablation<span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">cardiac ablation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7770,11 +9393,11 @@ This treatment is cardiac ablation (NCIT:C100068). NCIT:C100068 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005115</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005115" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0005115</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Supraventricular arrhythmia (HP:0005115). HP:0005115 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7862,11 +9485,11 @@ This treatment targets Supraventricular arrhythmia (HP:0005115). HP:0005115 is a
         echocardiography
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C16525</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-55">NCIT:C16525</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7977,11 +9600,11 @@ This treatment targets Supraventricular arrhythmia (HP:0005115). HP:0005115 is a
         cardiac MRI
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C137915" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C137915</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C137915" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-56">NCIT:C137915</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8117,11 +9740,11 @@ This treatment targets Supraventricular arrhythmia (HP:0005115). HP:0005115 is a
         cardiac catheterization
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C38044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C38044</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38044" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C38044</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -8232,11 +9855,11 @@ This treatment targets Supraventricular arrhythmia (HP:0005115). HP:0005115 is a
         genetic testing
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-41">NCIT:C15709</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C15709</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -9021,11 +10644,11 @@ This treatment targets Supraventricular arrhythmia (HP:0005115). HP:0005115 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001133" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-42">UBERON:0001133</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001133" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-59">UBERON:0001133</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Uberon multi-species anatomy ontology (UBERON)
 Relation: this dataset samples this sample type
 This dataset samples cardiac muscle tissue (UBERON:0001133). UBERON:0001133 is a sample type from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -9131,11 +10754,11 @@ This dataset samples cardiac muscle tissue (UBERON:0001133). UBERON:0001133 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001631</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9148,11 +10771,11 @@ This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0012382</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9224,11 +10847,11 @@ This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001631</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9241,11 +10864,11 @@ This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0012382</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9317,11 +10940,11 @@ This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0001631</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9334,11 +10957,11 @@ This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0012382</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9410,11 +11033,11 @@ This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0001631</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9427,11 +11050,11 @@ This clinical trial targets Atrial septal defect (HP:0001631). HP:0001631 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0012382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0012382</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Left-to-right shunt (HP:0012382). HP:0012382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9533,6 +11156,11 @@ synonyms:
 has_subtypes:
 - name: Ostium secundum
   display_name: Ostium secundum ASD
+  subtype_term:
+    preferred_term: atrial septal defect, ostium secundum type
+    term:
+      id: MONDO:0020434
+      label: atrial septal defect, ostium secundum type
   description: &gt;-
     Defect centered in the oval fossa region; this is the subtype most often
     considered for transcatheter device closure when rims and size are suitable.
@@ -9547,6 +11175,11 @@ has_subtypes:
       supports this subtype as a central ASD classification.
 - name: Ostium primum
   display_name: Ostium primum interatrial communication
+  subtype_term:
+    preferred_term: atrial septal defect, ostium primum type
+    term:
+      id: MONDO:0020437
+      label: atrial septal defect, ostium primum type
   description: &gt;-
     Inferior interatrial communication associated morphologically with the
     atrioventricular septal defect spectrum rather than an isolated oval-fossa
@@ -9562,6 +11195,11 @@ has_subtypes:
       interatrial communication included in the ASD clinical spectrum.
 - name: Sinus venosus
   display_name: Sinus venosus interatrial communication
+  subtype_term:
+    preferred_term: atrial septal defect, sinus venosus type
+    term:
+      id: MONDO:0020436
+      label: atrial septal defect, sinus venosus type
   description: &gt;-
     Superior or inferior caval-region interatrial communication, often discussed
     separately from true oval-fossa septal defects because the communication is
@@ -9577,6 +11215,11 @@ has_subtypes:
       venosus defects among less common interatrial communications.
 - name: Coronary sinus
   display_name: Coronary sinus interatrial communication
+  subtype_term:
+    preferred_term: atrial septal defect, coronary sinus type
+    term:
+      id: MONDO:0020435
+      label: atrial septal defect, coronary sinus type
   description: &gt;-
     Communication involving the coronary sinus region, clinically grouped with
     ASD-like interatrial communications but morphologically outside the true
@@ -9590,6 +11233,211 @@ has_subtypes:
     explanation: &gt;-
       The morphologic review explicitly lists coronary sinus defect as a less
       common interatrial communication in this spectrum.
+- name: ASD2
+  display_name: Atrial septal defect 2 (GATA4)
+  subtype_term:
+    preferred_term: atrial septal defect 2
+    term:
+      id: MONDO:0011938
+      label: atrial septal defect 2
+  genes:
+  - preferred_term: GATA4
+    term:
+      id: hgnc:4173
+      label: GATA4
+  description: &gt;-
+    The GATA4-defined member of the numbered ASD series. Rare familial ASD
+    attributed to variants in this cardiac transcription factor.
+  evidence:
+  - reference: PMID:20659440
+    reference_title: A novel mutation of GATA4 in a familial atrial septal defect.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: T280M mutation of GATA4 is suggested to be associated with ASD in this Chinese family.
+    explanation: Family segregation evidence for the GATA4-defined form of ASD.
+- name: ASD3
+  display_name: Atrial septal defect 3 (MYH6)
+  subtype_term:
+    preferred_term: atrial septal defect 3
+    term:
+      id: MONDO:0013567
+      label: atrial septal defect 3
+  genes:
+  - preferred_term: MYH6
+    term:
+      id: hgnc:7576
+      label: MYH6
+  description: &gt;-
+    The MYH6-defined member of the numbered ASD series, established by linkage
+    in a large family with dominantly inherited ASD.
+  evidence:
+  - reference: PMID:15735645
+    reference_title: Mutation in myosin heavy chain 6 causes atrial septal defect.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: We identified a new locus linked with atrial septal defect on chromosome 14q12 in a large family with dominantly inherited atrial septal defect.
+    explanation: Linkage evidence for the MYH6-defined form of ASD.
+- name: ASD4
+  display_name: Atrial septal defect 4 (TBX20)
+  subtype_term:
+    preferred_term: atrial septal defect 4
+    term:
+      id: MONDO:0012654
+      label: atrial septal defect 4
+  genes:
+  - preferred_term: TBX20
+    term:
+      id: hgnc:11598
+      label: TBX20
+  description: &gt;-
+    The TBX20-defined member of the numbered ASD series. Reported variants
+    include both loss-of-function and gain-of-function T-box-domain changes, and
+    carriers within one kindred showed cribriform secundum ASD, large patent
+    foramen ovale, or valve defects.
+  evidence:
+  - reference: PMID:19762328
+    reference_title: &#34;A gain-of-function TBX20 mutation causes congenital atrial septal defects, patent foramen ovale and cardiac valve defects.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We found a novel mutation in a highly conserved residue in the T-box DNA binding domain (I121M) segregating with CHD in a three generation kindred.&#34;
+    explanation: Segregation of a T-box-domain TBX20 variant in a three-generation kindred with septal disease.
+  - reference: PMID:19762328
+    reference_title: &#34;A gain-of-function TBX20 mutation causes congenital atrial septal defects, patent foramen ovale and cardiac valve defects.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Four mutation carriers revealed cardiac phenotypes in terms of cribriform ASDII, large patent foramen ovale or cardiac valve defects.&#34;
+    explanation: Sources the range of cardiac phenotypes recorded in this row&#39;s description.
+- name: ASD5
+  display_name: Atrial septal defect 5 (ACTC1)
+  subtype_term:
+    preferred_term: atrial septal defect 5
+    term:
+      id: MONDO:0013011
+      label: atrial septal defect 5
+  genes:
+  - preferred_term: ACTC1
+    term:
+      id: hgnc:143
+      label: ACTC1
+  description: &gt;-
+    The ACTC1-defined member of the numbered ASD series. A founder M123V
+    substitution segregated with isolated autosomal dominant secundum ASD in two
+    pedigrees. Like MYH6 in ASD3, this is a sarcomeric rather than a
+    transcription-factor route to the same malformation.
+  evidence:
+  - reference: PMID:17947298
+    reference_title: Alpha-cardiac actin mutations produce atrial septal defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: We identified two pedigrees comprising 20 members segregating isolated autosomal dominant secundum ASD.
+    explanation: The pedigree series behind the ACTC1-defined form of ASD.
+- name: ASD6
+  display_name: Atrial septal defect 6 (TLL1)
+  subtype_term:
+    preferred_term: atrial septal defect 6
+    term:
+      id: MONDO:0013123
+      label: atrial septal defect 6
+  genes:
+  - preferred_term: TLL1
+    term:
+      id: hgnc:11843
+      label: TLL1
+  description: &gt;-
+    The TLL1-defined member of the numbered ASD series, and the weakest of them.
+    The defining report screened 19 ASD patients and found missense changes in
+    four unrelated cases without family segregation data, and ClinGen grades the
+    TLL1 relationship to congenital heart disease as Limited. Recorded here for
+    series completeness rather than as an established cause.
+  evidence:
+  - reference: PMID:18830233
+    reference_title: Mutations in mammalian tolloid-like 1 gene detected in adult patients with ASD.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In four nonrelated patients, three missense mutations in coding sequence, and one single base change in the 5&#39;UTR have been detected.&#34;
+    explanation: The full extent of the human genetic evidence in the defining report, which is why this row is qualified.
+- name: ASD7
+  display_name: Atrial septal defect 7 (NKX2-5)
+  subtype_term:
+    preferred_term: atrial septal defect 7
+    term:
+      id: MONDO:0007173
+      label: atrial septal defect 7
+  genes:
+  - preferred_term: NKX2-5
+    term:
+      id: hgnc:2488
+      label: NKX2-5
+  description: &gt;-
+    The NKX2-5-defined member of the numbered ASD series. Distinguished
+    clinically by atrioventricular conduction disease accompanying the septal
+    defect. ClinGen curates NKX2-5 not against an atrial-septal-defect term but
+    against a combined concept, NKX2.5-related congenital, conduction and
+    myopathic heart disease (MONDO:0800441, Definitive), which is why this row
+    records only the atrial-septal component of that phenotype.
+  evidence:
+  - reference: PMID:20932824
+    reference_title: A de novo mutation in NKX2.5 associated with atrial septal defects, ventricular noncompaction, syncope and sudden death.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: Mutations in transcription factor NKX2.5 cause congenital heart disease (CHD). We identified a CHD family with atrial septal defects (ASDs), atrioventricular block, ventricular noncompaction, syncope and sudden death.
+    explanation: The family in which septal defect, conduction block and noncompaction co-occurred, which is the phenotype that defines this member.
+- name: ASD8
+  display_name: Atrial septal defect 8 (CITED2)
+  subtype_term:
+    preferred_term: atrial septal defect 8
+    term:
+      id: MONDO:0013750
+      label: atrial septal defect 8
+  genes:
+  - preferred_term: CITED2
+    term:
+      id: hgnc:1987
+      label: CITED2
+  description: &gt;-
+    The CITED2-defined member of the numbered ASD series. CITED2 is a
+    CREBBP/EP300-interacting transcriptional modulator, and the defining report
+    screened 392 congenital heart defect patients against 192 controls.
+  evidence:
+  - reference: PMID:16287139
+    reference_title: Identification and functional analysis of CITED2 mutations in patients with congenital heart defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: In summary, the observation of these mutations in patients with septal defects indicates that CITED2 has a causative impact in the development of CHD in humans.
+    explanation: The authors&#39; own conclusion for the septal-defect phenotype this member names.
+  - reference: PMID:16287139
+    reference_title: Identification and functional analysis of CITED2 mutations in patients with congenital heart defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;CITED2 encodes a CREBBP/EP300 interacting transcriptional modulator of HIF1A and TFAP2. To study the potential impact of sequence variations in CITED2 for CHDs in humans, we screened a cohort of 392 well-characterized patients and 192 control individuals using DHPLC, sequencing, and Amplifluor genotyping techniques.&#34;
+    explanation: Sources both the gene-product description and the cohort sizes recorded in this row&#39;s description.
+- name: ASD9
+  display_name: Atrial septal defect 9 (GATA6)
+  subtype_term:
+    preferred_term: atrial septal defect 9
+    term:
+      id: MONDO:0013770
+      label: atrial septal defect 9
+  genes:
+  - preferred_term: GATA6
+    term:
+      id: hgnc:4174
+      label: GATA6
+  description: &gt;-
+    The GATA6-defined member of the numbered ASD series. MONDO records no causal
+    gene on this term, so the assignment comes from its OMIM 614475 / MedGen
+    482573 record, whose cytogenetic location 18q11.2 matches GATA6 in HGNC.
+    GATA6&#39;s reported human phenotype begins with outflow-tract malformation, and
+    the broader GATA6 claim including its pancreatic and endocrine features is
+    curated in Congenital_Heart_Disease and Pancreatic_Agenesis; this row records
+    only the atrial-septal presentation the series member names.
+  evidence:
+  - reference: PMID:20631719
+    reference_title: A novel GATA6 mutation in patients with tetralogy of Fallot or atrial septal defect.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The same heterozygous missense mutation (Ser184Asn) was identified in three patients, including one with tetralogy of Fallot and two with atrial septal defects.&#34;
+    explanation: The two atrial-septal-defect patients in this cohort are the human evidence for the GATA6-defined member.
 prevalence:
 - population: Live births
   measure_type: BIRTH_PREVALENCE
@@ -9757,6 +11605,22 @@ pathophysiology:
     term:
       id: hgnc:7576
       label: MYH6
+  - preferred_term: TBX20
+    term:
+      id: hgnc:11598
+      label: TBX20
+  - preferred_term: ACTC1
+    term:
+      id: hgnc:143
+      label: ACTC1
+  - preferred_term: CITED2
+    term:
+      id: hgnc:1987
+      label: CITED2
+  - preferred_term: GATA6
+    term:
+      id: hgnc:4174
+      label: GATA6
   cell_types:
   - preferred_term: endocardial cell
     term:
@@ -9810,6 +11674,40 @@ pathophysiology:
     explanation: &gt;-
       This developmental perturbation links a validated familial ASD gene to
       atrial-septum formation rather than only to a statistical association.
+  - reference: PMID:17947298
+    reference_title: Alpha-cardiac actin mutations produce atrial septal defects.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: Morpholino (MO) knockdown of ACTC1 in chick embryos produces delayed looping and reduced atrial septa, supporting a developmental role for this protein.
+    explanation: &gt;-
+      Sources the ACTC1 binding on this node: reducing the gene product in a
+      developing heart leaves the atrial septum deficient.
+  - reference: PMID:19762328
+    reference_title: &#34;A gain-of-function TBX20 mutation causes congenital atrial septal defects, patent foramen ovale and cardiac valve defects.&#34;
+    supports: SUPPORT
+    quote_role: BACKGROUND
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Ostium secundum atrial septal defects (ASDII) account for approximately 10% of all congenital heart defects (CHD), and mutations in cardiac transcription factors, including TBX20, were identified as an underlying cause for ASDII.&#34;
+    explanation: &gt;-
+      Sources the TBX20 binding on this node and places it with the other
+      cardiac transcription factors bound here. The sentence is from this
+      report&#39;s own background rather than its results, hence the quote role.
+  - reference: PMID:16287139
+    reference_title: Identification and functional analysis of CITED2 mutations in patients with congenital heart defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: In summary, the observation of these mutations in patients with septal defects indicates that CITED2 has a causative impact in the development of CHD in humans.
+    explanation: &gt;-
+      Sources the CITED2 binding on this node against the septal-defect
+      phenotype specifically.
+  - reference: PMID:20631719
+    reference_title: A novel GATA6 mutation in patients with tetralogy of Fallot or atrial septal defect.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The same heterozygous missense mutation (Ser184Asn) was identified in three patients, including one with tetralogy of Fallot and two with atrial septal defects.&#34;
+    explanation: &gt;-
+      Sources the GATA6 binding on this node; two of the three carriers in this
+      cohort had atrial septal defects.
   downstream:
   - target: Left-to-Right Shunting and Right Heart Volume Overload
     causal_link_type: DIRECT
@@ -10481,6 +12379,208 @@ genetic:
     explanation: &gt;-
       The developmental perturbation provides functional support for abnormal
       atrial septation downstream of MYH6 loss.
+- name: TBX20
+  presence: Positive
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  association: Rare familial atrial septal defect gene
+  gene_term:
+    preferred_term: TBX20
+    term:
+      id: hgnc:11598
+      label: TBX20
+  notes: &gt;-
+    TBX20 is the gene of atrial septal defect 4 (MONDO:0012654, OMIM 611363).
+    Both loss-of-function and gain-of-function T-box-domain variants have been
+    reported, so the mechanism is not a simple haploinsufficiency. ClinGen&#39;s
+    Congenital Heart Disease Gene Curation Expert Panel grades TBX20 against the
+    broader concept congenital heart disease (MONDO:0005453, autosomal dominant,
+    SOP10) as Moderate, in assertion
+    CGGV:assertion_67706e90-ac03-4b96-94e2-4a561ced4a41-2024-05-07T050000.000Z
+    classified 2024-05-07; read from the ClinGen Gene-Disease Validity CSV
+    snapshot committed in this repository (file creation date 2026-01-24). No
+    ClinGen assertion exists against an atrial-septal-defect term.
+  evidence:
+  - reference: PMID:19762328
+    reference_title: &#34;A gain-of-function TBX20 mutation causes congenital atrial septal defects, patent foramen ovale and cardiac valve defects.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We found a novel mutation in a highly conserved residue in the T-box DNA binding domain (I121M) segregating with CHD in a three generation kindred.&#34;
+    explanation: Segregation of a T-box-domain TBX20 variant with congenital heart disease across three generations.
+  - reference: PMID:19762328
+    reference_title: &#34;A gain-of-function TBX20 mutation causes congenital atrial septal defects, patent foramen ovale and cardiac valve defects.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Moreover, Tbx20-I121M resulted in a significantly enhanced transcriptional activity, which was further increased in the presence of co-transcription factors GATA4/5 and NKX2-5.&#34;
+    explanation: Sources the gain-of-function half of the mechanism recorded in these notes, and the interaction with the other septation transcription factors curated in this entry.
+  - reference: PMID:19762328
+    reference_title: &#34;A gain-of-function TBX20 mutation causes congenital atrial septal defects, patent foramen ovale and cardiac valve defects.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Our data, combined with that of others, suggest that human ASDII may be related to loss-of-function as well as gain-of-function TBX20 mutations.&#34;
+    explanation: Sources the claim in these notes that both directions of effect have been reported, which is why the mechanism is not simple haploinsufficiency.
+- name: ACTC1
+  presence: Positive
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  association: Rare familial secundum atrial septal defect gene
+  gene_term:
+    preferred_term: ACTC1
+    term:
+      id: hgnc:143
+      label: ACTC1
+  notes: &gt;-
+    ACTC1 encodes alpha-cardiac actin and is the gene of atrial septal defect 5
+    (MONDO:0013011, OMIM 612794). It is one of the two sarcomeric members of the
+    numbered ASD series, alongside MYH6 in ASD3; the reported founder M123V
+    substitution reduces affinity for myosin while retaining actomyosin motor
+    function. ClinGen has curated ACTC1 three times, against hypertrophic
+    cardiomyopathy (Definitive), dilated cardiomyopathy (Moderate) and
+    arrhythmogenic right ventricular cardiomyopathy (No Known Disease
+    Relationship), but against no atrial-septal-defect or
+    congenital-heart-disease term, in the ClinGen Gene-Disease Validity CSV
+    snapshot committed in this repository (file creation date 2026-01-24).
+  evidence:
+  - reference: PMID:17947298
+    reference_title: Alpha-cardiac actin mutations produce atrial septal defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: A mutation screen of the coding regions of ACTC1 revealed a founder mutation predicting an M123V substitution in affected individuals of both pedigrees.
+    explanation: The founder variant segregating with isolated dominant secundum ASD in two pedigrees.
+  - reference: PMID:17947298
+    reference_title: Alpha-cardiac actin mutations produce atrial septal defects.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    snippet: Morpholino (MO) knockdown of ACTC1 in chick embryos produces delayed looping and reduced atrial septa, supporting a developmental role for this protein.
+    explanation: Developmental perturbation evidence linking reduced ACTC1 to deficient atrial septum formation.
+  - reference: PMID:17947298
+    reference_title: Alpha-cardiac actin mutations produce atrial septal defects.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Functional analysis of ACTC1 with an M123V substitution shows a reduced affinity for myosin, but with retained actomyosin motor properties.&#34;
+    explanation: Sources the myosin-affinity claim recorded in these notes.
+- name: TLL1
+  presence: Positive
+  relationship_type: UNKNOWN
+  variant_origin: GERMLINE
+  association: Candidate atrial septal defect gene with insufficient evidence
+  gene_term:
+    preferred_term: TLL1
+    term:
+      id: hgnc:11843
+      label: TLL1
+  notes: &gt;-
+    TLL1 encodes the zinc metalloprotease tolloid-like 1 and is the gene of
+    atrial septal defect 6 (MONDO:0013123, OMIM 613087). The human evidence is
+    three missense changes and one 5&#39;UTR change across four unrelated patients in
+    a 19-patient screen, with no segregation data; the mouse null shows
+    incomplete septation. ClinGen&#39;s Congenital Heart Disease Gene Curation Expert
+    Panel grades TLL1 against congenital heart disease (MONDO:0005453, autosomal
+    dominant, SOP10) as Limited, in assertion
+    CGGV:assertion_37ed8aea-d2e0-4bab-9e21-4f5ac823ce99-2024-05-13T160000.000Z
+    classified 2024-05-13; read from the ClinGen Gene-Disease Validity CSV
+    snapshot committed in this repository (file creation date 2026-01-24).
+    Limited means insufficient evidence rather than refutation, so this record is
+    typed UNKNOWN and is deliberately not bound to a pathophysiology node.
+  evidence:
+  - reference: PMID:18830233
+    reference_title: Mutations in mammalian tolloid-like 1 gene detected in adult patients with ASD.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In four nonrelated patients, three missense mutations in coding sequence, and one single base change in the 5&#39;UTR have been detected.&#34;
+    explanation: The entirety of the human genetic evidence in the defining report, which is the basis for the UNKNOWN typing here.
+  - reference: PMID:18830233
+    reference_title: Mutations in mammalian tolloid-like 1 gene detected in adult patients with ASD.
+    supports: SUPPORT
+    evidence_source: MODEL_ORGANISM
+    quote_role: BACKGROUND
+    snippet: Incomplete heart septation similar to ASD was reported in transgenic mice with both inactive alleles of gene encoding mammalian zinc metalloprotease a mammalian tolloid-like 1 (tll1).
+    explanation: The mouse null phenotype that motivated the human screen, quoted from this report&#39;s own introduction rather than from its results.
+- name: CITED2
+  presence: Positive
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  association: Rare septal defect gene
+  gene_term:
+    preferred_term: CITED2
+    term:
+      id: hgnc:1987
+      label: CITED2
+  notes: &gt;-
+    CITED2 is the gene of atrial septal defect 8 (MONDO:0013750, OMIM 614433).
+    It encodes a CREBBP/EP300-interacting transcriptional modulator of HIF1A and
+    TFAP2, and the reported variants cluster in a serine-glycine-rich junction
+    whose function was previously unassigned. ClinGen&#39;s Congenital Heart Disease
+    Gene Curation Expert Panel grades CITED2 against congenital heart disease
+    (MONDO:0005453, autosomal dominant, SOP9) as Moderate, in assertion
+    CGGV:assertion_007f4832-e639-4b27-9cc0-8b8cfaf45534-2023-09-05T160000.000Z
+    classified 2023-09-05; read from the ClinGen Gene-Disease Validity CSV
+    snapshot committed in this repository (file creation date 2026-01-24). No
+    ClinGen assertion exists against an atrial-septal-defect term.
+  evidence:
+  - reference: PMID:16287139
+    reference_title: Identification and functional analysis of CITED2 mutations in patients with congenital heart defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: In summary, the observation of these mutations in patients with septal defects indicates that CITED2 has a causative impact in the development of CHD in humans.
+    explanation: The defining report&#39;s conclusion for the septal-defect phenotype.
+  - reference: PMID:16287139
+    reference_title: Identification and functional analysis of CITED2 mutations in patients with congenital heart defects.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Here we show that these mutations significantly reduce the capacity of CITED2 to transrepress HIF1A, and that the p.Ser170_Gly178del mutation significantly diminishes TFAP2C coactivation.&#34;
+    explanation: Functional consequence of the reported variants, and the source of the HIF1A and TFAP2 detail in these notes.
+  - reference: PMID:16287139
+    reference_title: Identification and functional analysis of CITED2 mutations in patients with congenital heart defects.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;All three of these amino acid changing mutations cluster in the serine-glycine-rich junction of the protein, to which no functionality had heretofore been assigned.&#34;
+    explanation: Sources the claim in these notes that the reported variants cluster in a previously unassigned region.
+- name: GATA6
+  presence: Positive
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
+  association: Rare congenital heart defect gene reported in atrial septal defect
+  gene_term:
+    preferred_term: GATA6
+    term:
+      id: hgnc:4174
+      label: GATA6
+  notes: &gt;-
+    GATA6 is the gene of atrial septal defect 9 (MONDO:0013770, OMIM 614475).
+    MONDO carries no causal-gene edge on that term; the assignment comes from its
+    OMIM and MedGen 482573 record, whose cytogenetic location 18q11.2 matches
+    GATA6 in HGNC. The first reported human GATA6 variants were in persistent
+    truncus arteriosus, an outflow-tract malformation, and the broader GATA6
+    claim including pancreatic and endocrine disease is curated in
+    Congenital_Heart_Disease and Pancreatic_Agenesis; ClinGen grades
+    GATA6-related congenital heart disease
+    with or without pancreatic agenesis or neonatal diabetes (MONDO:0100540,
+    autosomal dominant) as Definitive, in assertion
+    CGGV:assertion_a7a0fdd7-f796-4921-95b6-709fd859b6d3-2023-11-21T170000.000Z
+    classified 2023-11-21; read from the ClinGen Gene-Disease Validity CSV
+    snapshot committed in this repository (file creation date 2026-01-24). This
+    record carries only the atrial-septal presentation.
+  evidence:
+  - reference: PMID:20631719
+    reference_title: A novel GATA6 mutation in patients with tetralogy of Fallot or atrial septal defect.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The same heterozygous missense mutation (Ser184Asn) was identified in three patients, including one with tetralogy of Fallot and two with atrial septal defects.&#34;
+    explanation: Two of the three variant carriers in this sporadic congenital heart defect cohort had atrial septal defects.
+  - reference: PMID:20631719
+    reference_title: A novel GATA6 mutation in patients with tetralogy of Fallot or atrial septal defect.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: Biological analysis revealed clearly decreased transcriptional activity of GATA6 Ser184Asn in vitro.
+    explanation: Functional support for reduced GATA6 transcriptional activity as the mechanism of the reported variant.
+  - reference: PMID:20631719
+    reference_title: A novel GATA6 mutation in patients with tetralogy of Fallot or atrial septal defect.
+    supports: SUPPORT
+    quote_role: BACKGROUND
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Mutations in GATA4 have been related to human congenital heart diseases (CHDs) in several studies, whereas mutations in GATA6 have only recently been reported in patients with persistent truncus arteriosus.&#34;
+    explanation: Sources the outflow-tract origin of the human GATA6 phenotype recorded in these notes, quoted from this report&#39;s own background.
 diagnosis:
 - name: Transthoracic echocardiography
   description: &gt;-
@@ -11185,6 +13285,29 @@ notes: &gt;-
   across these anatomies. Closure decisions require anatomy, right-heart size,
   shunt significance, pulmonary vascular resistance, and ventricular filling
   physiology; Eisenmenger physiology is a do-not-close state.
+
+  The numbered MONDO ASD series is curated here as has_subtypes rows rather than
+  as separate Disease entries, because they share this entry&#39;s
+  atrial-level-shunt physiology, pathograph and management and none of them has a
+  distinct first-line therapy or diagnostic pathway. Where a gene&#39;s phenotype is
+  wider than an atrial septal defect, as with NKX2-5 and TBX5, the row records
+  only its atrial-septal component.
+  Enumerating the hierarchical descendants of MONDO:0006664 in OLS4 on 2026-09-25
+  returned nine numbered members plus four anatomic types, Lutembacher syndrome
+  and patent foramen ovale. Eight of the nine numbered members are curated as
+  rows, ASD2 to ASD9. The ninth, atrial septal defect 1 (MONDO:0007172,
+  OMIM 108800), is not: it carries no causal gene in MONDO and its MedGen concept
+  349495 describes generic secundum atrial septal defect, so it duplicates the
+  Ostium secundum row rather than naming a distinct genetic form. Patent foramen
+  ovale (MONDO:0020439) is not a numbered member and is excluded from this entry
+  for the reason given above. Checked against the MONDO SQLite build on
+  2026-09-25, three of the nine numbered members carry no RO:0004003
+  has-material-basis-in-germline-mutation-in edge: ASD1, ASD2 and ASD9. The
+  GATA4 and GATA6 assignments on the ASD2 and ASD9 rows therefore come from
+  those terms&#39; OMIM and MedGen records and from the primary reports cited on the
+  rows, not from MONDO. TBX5-related Holt-Oram syndrome and the
+  NKX2-5 conduction phenotype are syndromic entities in their own right and are
+  represented here only by their atrial-septal component.
 </pre>
             </div>
         </div>
@@ -11644,7 +13767,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Atrial Septal Defect", "mondoId": "MONDO:0006664", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atrial_Septal_Defect", "yamlRevision": "541415a70dc9"};
+        const OS_CONFIG = {"diseaseName": "Atrial Septal Defect", "mondoId": "MONDO:0006664", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Atrial_Septal_Defect", "yamlRevision": "205bb120ee4d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

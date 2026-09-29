@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4452,6 +4491,7 @@ The asymmetry that made this worth recording is unchanged and is now better supp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-digenic-tyms-enosf1-genotype" data-dismech-node="Digenic TYMS-ENOSF1 Genotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Digenic TYMS-ENOSF1 Genotype</div>
 
+
                 <div class="item-desc">The initiating lesion is a genotype rather than a variant: a TYMS loss-of-function coding allele from one parent, and in trans a specific ENOSF1 haplotype with rare variants from the other.
 Neither allele alone causes disease - the parents carrying one each are unaffected - and one parent&#39;s TYMS coding sequence is entirely wild type. This is what distinguishes the disease from every single-gene recessive form of dyskeratosis congenita, and it is why the inheritance only appears recessive.</div>
 
@@ -4470,6 +4510,8 @@ Neither allele alone causes disease - the parents carrying one each are unaffect
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4480,6 +4522,9 @@ Neither allele alone causes disease - the parents carrying one each are unaffect
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4575,6 +4620,7 @@ Neither allele alone causes disease - the parents carrying one each are unaffect
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enosf1-mediated-silencing-of-the-wild-type-tyms-allele" data-dismech-node="ENOSF1-Mediated Silencing of the Wild-Type TYMS Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">ENOSF1-Mediated Silencing of the Wild-Type TYMS Allele</div>
+
 
                 <div class="item-desc">The epistatic step, and the part of this disease that is genuinely novel. ENOSF1 is transcribed antisense to TYMS at the same locus. When it is elevated, it silences TYMS post-transcriptionally - so the coding-intact allele is present, transcribed, and then prevented from producing enzyme.
 This was not inferred from the pedigree structure. It was demonstrated by gene rescue in cells from affected probands, which is what turns &#34;these two variants co-occur&#34; into a mechanism.</div>
@@ -4690,6 +4736,7 @@ This pathophysiological event involves dysregulated antisense silencing of TYMS 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-thymidylate-synthase-deficiency" data-dismech-node="Severe Thymidylate Synthase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Thymidylate Synthase Deficiency</div>
+
 
                 <div class="item-desc">The convergence point of the two alleles, and a severe deficiency rather than a partial one - which is the reason a disease results at all from a genotype in which one coding allele is intact.</div>
 
@@ -4813,6 +4860,7 @@ This pathophysiological event involves decreased thymidylate synthase activity (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deoxyribonucleotide-pool-imbalance" data-dismech-node="Deoxyribonucleotide Pool Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Deoxyribonucleotide Pool Imbalance</div>
 
+
                 <div class="item-desc">Altered dNTP pools, which is the classical route by which a nucleotide-metabolism defect becomes a DNA-integrity defect: a replication fork supplied with the wrong nucleotide ratios misincorporates, stalls and breaks.</div>
 
 
@@ -4926,6 +4974,7 @@ This pathophysiological event involves decreased de novo dTMP biosynthesis, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genotoxic-stress-and-defective-transcription" data-dismech-node="Genotoxic Stress and Defective Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Genotoxic Stress and Defective Transcription</div>
+
 
                 <div class="item-desc">The cellular injury the pool imbalance produces. Notably the source reports defective transcription alongside the DNA damage, which is a broader consequence than replication stress alone and is curated as the authors stated it rather than narrowed to the replication story that would be easier to tell.</div>
 
@@ -5065,6 +5114,7 @@ This pathophysiological event involves increased DNA damage response to nucleoti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-telomere-maintenance" data-dismech-node="Abnormal Telomere Maintenance" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Telomere Maintenance</div>
+
 
                 <div class="item-desc">What makes this a telomere biology disorder clinically, and the finding that places it alongside the telomerase and shelterin forms of dyskeratosis congenita in diagnosis and management.
 The mechanistic point is the direction of causation, and it has to be stated precisely. In DKC1, TERT, TERC or TINF2 disease the primary lesion is in the telomere machinery. Here the primary lesion is in nucleotide supply and the telomere defect follows from it. That is not the same as the machinery being untouched: in proband cells telomerase activity is reduced, immature oligoadenylated TERC accumulates, and DKC1, TERT and SMUG1 are all reduced. What is preserved is shelterin. The authors&#39; own reading is that impaired telomerase regulation is a consequence of altered nucleotide metabolism rather than an independent lesion.
@@ -5207,6 +5257,7 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antimetabolite-hypersensitivity" data-dismech-node="Antimetabolite Hypersensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Antimetabolite Hypersensitivity</div>
 
+
                 <div class="item-desc">A branch of the mechanism with direct clinical consequence rather than a downstream step of the disease process. Thymidylate synthase is the pharmacological target of 5-fluorouracil and capecitabine; a cell that has almost none of it has no margin. The same cells are separately hypersensitive to hydroxyurea, which inhibits ribonucleotide reductase rather than thymidylate synthase, so the vulnerability is to antimetabolites that squeeze dNTP supply generally and not to one drug class alone.
 This matters because dyskeratosis congenita carries an elevated risk of squamous cell carcinoma, for which fluoropyrimidines are a standard option. The genotype that causes the cancer risk also removes the tolerance for a common treatment of it.
 It is not only a prediction. One proband in the defining cohort was treated with topical 5-fluorouracil for squamous carcinoma and melanoma of the leg and had a severe adverse response. That is a single topical exposure rather than systemic dosing data, but it is a clinical observation and this entry previously stated, wrongly, that no such observation existed.</div>
@@ -5327,6 +5378,7 @@ It is not only a prediction. One proband in the defining cohort was treated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dyskeratosis-congenita-phenotype" data-dismech-node="Dyskeratosis Congenita Phenotype" data-dismech-type="pathophysiology">
                 <div class="item-name">Dyskeratosis Congenita Phenotype</div>
+
 
                 <div class="item-desc">The clinical endpoint: the mucocutaneous triad with progressive bone marrow failure, clinically indistinguishable from other forms of dyskeratosis congenita.</div>
 
@@ -6369,6 +6421,9 @@ This disease-associated gene is TYMS (hgnc:12441). hgnc:12441 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6437,6 +6492,9 @@ This disease-associated gene is ENOSF1 (hgnc:30365). hgnc:30365 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
