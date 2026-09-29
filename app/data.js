@@ -53482,6 +53482,88 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Borrelia Miyamotoi Disease",
+    "disease_id": "MONDO:0958150",
+    "category": "Infectious Disease",
+    "parents": [
+      "Relapsing Fever"
+    ],
+    "creation_date": "2026-09-29T04:07:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Borrelia miyamotoi disease is a hard-tick relapsing-fever borreliosis caused by the spirochete Borrelia miyamotoi. Ixodes ticks inoculate the organism into humans, where CbiA-mediated complement resistance helps spirochetes survive innate serum killing and produce an acute systemic syndrome with fever, chills, headache, arthralgia, cytopenias, transaminitis, and occasional recurrent fever waves as variable-major-protein-switched bacteremic variants escape the antibody response to the prior serotype.",
+    "pathophysiology": [
+      "Ixodes-Mediated Borrelia miyamotoi Inoculation",
+      "CbiA-Mediated Complement Evasion",
+      "B. miyamotoi Spirochetemia",
+      "Vmp-Switched Relapsing Bacteremia",
+      "B. miyamotoi CNS Infection"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "symbiont entry into host",
+      "negative regulation of complement activation",
+      "antigenic variation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Chills",
+      "Headache",
+      "Arthralgia",
+      "Skin rash",
+      "Recurrent Fever",
+      "Thrombocytopenia",
+      "Leukopenia",
+      "Elevated hepatic transaminase",
+      "Meningoencephalitis"
+    ],
+    "phenotype_categories": [
+      "Systemic",
+      "Constitutional",
+      "Neurologic",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Clinical",
+      "Hematologic",
+      "Hepatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0025143",
+      "HP:0002315",
+      "HP:0002829",
+      "HP:0000988",
+      "HP:0001954",
+      "HP:0001873",
+      "HP:0001882",
+      "HP:0002910"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Doxycycline or ceftriaxone"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Borrelia_Miyamotoi_Disease.yaml",
+    "page_url": "../pages/disorders/Borrelia_Miyamotoi_Disease.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Bosch-Boonstra-Schaaf Optic Atrophy Syndrome",
     "disease_id": "MONDO:0014320",
     "category": "Mendelian",
@@ -55615,10 +55697,15 @@ window.searchData = [
       "Organ-Specific Tropism",
       "ER and HER2 Receptor Heterogeneity",
       "Angiogenic Outgrowth",
-      "Immune Evasion in Metastatic Niches"
+      "Immune Evasion in Metastatic Niches",
+      "TP53 Loss of Function"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "mammary gland epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002327"
+    ],
     "biological_processes": [
       "epithelial to mesenchymal transition",
       "cell migration",
@@ -55626,7 +55713,8 @@ window.searchData = [
       "estrogen receptor signaling pathway",
       "cell surface receptor protein tyrosine kinase signaling pathway",
       "angiogenesis",
-      "negative regulation of immune response"
+      "negative regulation of immune response",
+      "signal transduction by p53 class mediator"
     ],
     "phenotypes": [
       "Headache",
@@ -55661,7 +55749,7 @@ window.searchData = [
     ],
     "genes": [
       "ESR1",
-      "ERBB2 (HER2)",
+      "ERBB2",
       "PIK3CA",
       "TP53"
     ],
@@ -55681,11 +55769,11 @@ window.searchData = [
     "source_file": "Breast_Carcinoma.yaml",
     "page_url": "../pages/disorders/Breast_Carcinoma.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 6,
-    "causal_graph_edges": "3",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Breast Fibroadenoma",
@@ -56373,6 +56461,110 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Brucella Melitensis Brucellosis",
+    "disease_id": "MONDO:0001972",
+    "category": "Infectious Disease",
+    "parents": [
+      "Brucellosis"
+    ],
+    "creation_date": "2026-09-29T05:55:32Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Brucella melitensis brucellosis is a small-ruminant-associated form of human brucellosis caused by the facultatively intracellular bacterium Brucella melitensis. Humans are infected through unpasteurized sheep/goat dairy products, contact with infected animals or birth products, and occupational or laboratory aerosol exposure; the resulting disease is a systemic febrile brucellosis syndrome that can relapse or seed focal complications when it is not treated with prolonged combination antibiotics.",
+    "pathophysiology": [
+      "Brucella melitensis zoonotic acquisition",
+      "Phagocyte Brucella-containing vacuole formation",
+      "VirB-dependent ER-derived replicative vacuole maturation",
+      "Brucella Omp25-dependent macrophage immune evasion",
+      "Th1 cytokine-dependent containment failure",
+      "Autophagic Brucella-containing vacuole egress",
+      "Hematogenous dissemination",
+      "Osteoarticular seeding",
+      "Cardiac valve seeding",
+      "Genitourinary seeding",
+      "Chronic splenic myeloid reservoir formation",
+      "Persistent multisystem infection",
+      "Granulomatous reticuloendothelial inflammation",
+      "Requirement for Cell-Penetrant Antimicrobials"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451"
+    ],
+    "biological_processes": [
+      "Response to Antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Joint pain",
+      "Hepatosplenomegaly",
+      "Elevated transaminases",
+      "Arthritis",
+      "Sacroiliitis",
+      "Spondylitis",
+      "Endocarditis",
+      "Epididymo-orchitis"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002829",
+      "HP:0001433",
+      "HP:0002910",
+      "HP:0001369",
+      "HP:0012317",
+      "HP:0033631",
+      "HP:0100584",
+      "HP:0100796"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "IL4 rs2243250 susceptibility allele",
+      "IL18 rs1946519 susceptibility allele",
+      "TGFB1 polymorphisms with negative pooled association",
+      "TNF-238 focal-disease modifier",
+      "TLR4 Asp299Gly susceptibility allele"
+    ],
+    "treatments": [
+      "Doxycycline-rifampicin combination therapy",
+      "Doxycycline-streptomycin combination therapy",
+      "Doxycycline-gentamicin combination therapy"
+    ],
+    "environmental": [
+      "Fresh milk, undercooked meat, and household livestock exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Brucella_Melitensis_Brucellosis.yaml",
+    "page_url": "../pages/disorders/Brucella_Melitensis_Brucellosis.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 14,
+    "num_genes": 5,
+    "num_treatments": 3,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "Brucellosis",
     "disease_id": "MONDO:0005683",
     "category": "Infectious Disease",
@@ -56382,7 +56574,9 @@ window.searchData = [
     ],
     "creation_date": "2026-05-08T13:18:32Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Brucella melitensis brucellosis"
+    ],
     "description": "Brucellosis is a zoonotic bacterial infection caused by Brucella species, typically acquired through exposure to infected animals, contaminated animal products, or unpasteurized dairy products. Clinical illness often presents as a systemic febrile syndrome and may relapse or involve focal complications.",
     "pathophysiology": [
       "Zoonotic acquisition and inoculation",
@@ -167470,6 +167664,148 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Hypomyelinating Leukodystrophy 14",
+    "disease_id": "MONDO:0033486",
+    "category": "Mendelian",
+    "parents": [
+      "leukodystrophy"
+    ],
+    "creation_date": "2026-09-25T20:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypomyelinating leukodystrophy 14 (HLD14) is an autosomal recessive leukodystrophy caused by biallelic variants in UFM1, which encodes ubiquitin fold modifier 1, the small ubiquitin-like protein conjugated to target proteins by the UBA5 (E1), UFC1 (E2) and UFL1-UFBP1 (E3) UFMylation cascade. Almost all reported patients are homozygous for a Roma founder 3-bp deletion in the UFM1 promoter (c.-273_-271delTCA; also written c.-155_-153delTCA against a different transcript), which lowers UFM1 transcription in neural cell lines. These children present in the first months of life with inspiratory stridor, feeding and swallowing failure, absent visual and auditory development, axial hypotonia with limb hypertonia, dystonia and opisthotonus, and later drug-resistant epilepsy and progressive microcephaly; most die in infancy or early childhood, often of respiratory insufficiency. MRI shows hypomyelination with a very small or absent putamen, small caudate and evolving cerebellar atrophy, the pattern of hypomyelination with atrophy of the basal ganglia and cerebellum (H-ABC) that is otherwise associated with dominant TUBB4A variants. A homozygous missense variant, p.Arg81Cys, found in two Sudanese families, causes a related early-onset encephalopathy with progressive microcephaly, delayed myelination and cerebellar hypoplasia but without the basal ganglia involvement of H-ABC. Mechanistically, UFMylation acts mainly at the endoplasmic reticulum, where modification of the ribosomal protein RPL26 supports ER-associated ribosome quality control and ER-phagy; UFM1 loss in neurons induces ER stress and the unfolded protein response and reduces protein translation. How these neuronal defects relate to the failure of myelination is not established.",
+    "pathophysiology": [
+      "Biallelic UFM1 Variants",
+      "Reduced UFM1 Expression in Neural Cells",
+      "Impaired UFM1 Thioester Formation with UBA5 and UFC1",
+      "Impaired Protein UFMylation",
+      "Defective ER-Associated Ribosome Quality Control",
+      "Impaired ER-Phagy",
+      "ER Stress and Unfolded Protein Response Activation",
+      "Reduced Neuronal Protein Translation",
+      "Impaired Neuronal Development and Synapse Function",
+      "Neuronal Death and Impaired Brain Growth",
+      "Deficient CNS Myelination"
+    ],
+    "cell_types": [
+      "neuron",
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "protein ufmylation",
+      "ribosome-associated quality control at the ER",
+      "reticulophagy",
+      "PERK-mediated unfolded protein response",
+      "translation",
+      "neuron apoptotic process",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "CNS Hypomyelination",
+      "Very Small or Absent Putamen",
+      "Small Caudate Nucleus",
+      "Cerebellar Atrophy",
+      "Cerebral Atrophy",
+      "Enlarged Cisterna Magna",
+      "Corpus Callosum Atrophy",
+      "Progressive Microcephaly",
+      "Profound Global Developmental Delay",
+      "Developmental Regression",
+      "Drug-Resistant Epilepsy",
+      "Infantile Spasms",
+      "Spasticity",
+      "Dystonia",
+      "Axial Hypotonia with Limb Hypertonia",
+      "Opisthotonus",
+      "Nystagmoid Eye Movements",
+      "Inspiratory Stridor",
+      "Bradypnea and Apnea",
+      "Dysphagia",
+      "Visual Impairment",
+      "Hearing Impairment",
+      "Failure to Thrive",
+      "Short Stature",
+      "Pseudobulbar Signs",
+      "Caudate Head Signal Abnormality",
+      "Respiratory Insufficiency"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Respiratory",
+      "Digestive",
+      "Ear",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003429",
+      "HP:0031982",
+      "HP:0002340",
+      "HP:0001272",
+      "HP:0002059",
+      "HP:0002280",
+      "HP:0007371",
+      "HP:0000253",
+      "HP:0012736",
+      "HP:0002376",
+      "HP:0200134",
+      "HP:0012469",
+      "HP:0001257",
+      "HP:0001332",
+      "HP:0008936",
+      "HP:0002179",
+      "HP:0000639",
+      "HP:0005348",
+      "HP:0046507",
+      "HP:0002015",
+      "HP:0000505",
+      "HP:0000365",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0002200",
+      "HP:0012751",
+      "HP:0002093"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "UFM1"
+    ],
+    "treatments": [
+      "Symptomatic and Supportive Care",
+      "Tracheostomy and Ventilatory Support",
+      "Tube Feeding",
+      "Antiseizure Medication",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_14.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_14.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Hypomyelinating Leukodystrophy 15",
     "disease_id": "MONDO:0054782",
     "category": "Mendelian",
@@ -252215,8 +252551,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "PKP2_Cardiomyopathy",
@@ -259149,6 +259485,84 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "2",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Pemphigus Foliaceus",
+    "disease_id": "MONDO:0019324",
+    "category": "Autoimmune",
+    "parents": [],
+    "creation_date": "2026-09-29T03:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pemphigus foliaceus is an autoimmune blistering disease in which IgG autoantibodies against desmoglein 1 cause loss of keratinocyte adhesion in the superficial epidermis, producing crusted, scaly erosions without mucosal involvement.",
+    "pathophysiology": [
+      "HLA-DRB1-Restricted Susceptibility",
+      "Anti-Desmoglein 1 IgG Autoantibody Production",
+      "IgG4 Subclass Switch and Epitope Maturation",
+      "Loss of Desmoglein 1 Adhesion",
+      "p38 MAPK Signaling and Desmosome Disassembly",
+      "Superficial Acantholysis and Blister Formation",
+      "Desmoglein Compensation and Mucosal Sparing"
+    ],
+    "cell_types": [
+      "B cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "immunoglobulin production",
+      "cell-cell adhesion",
+      "desmosome disassembly"
+    ],
+    "phenotypes": [
+      "Superficial crusted erosions",
+      "Flaccid blisters",
+      "Scaling skin",
+      "Exfoliative erythroderma",
+      "Granular-layer acantholysis"
+    ],
+    "phenotype_categories": [
+      "Cutaneous",
+      "Histopathologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0200041",
+      "HP:0008066",
+      "HP:0040189",
+      "HP:0001019",
+      "HP:0100792"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "HLA-DRB1"
+    ],
+    "treatments": [
+      "Rituximab",
+      "Systemic corticosteroids",
+      "Dapsone"
+    ],
+    "environmental": [
+      "Arthropod (sand fly) salivary antigen exposure",
+      "Drug exposure (thiol and other trigger drugs)"
+    ],
+    "biochemical": [],
+    "source_file": "Pemphigus_Foliaceus.yaml",
+    "page_url": "../pages/disorders/Pemphigus_Foliaceus.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Pemphigus Vulgaris",
@@ -273988,6 +274402,110 @@ window.searchData = [
     "num_treatments": 9,
     "causal_graph_edges": "49",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Propofol Infusion Syndrome",
+    "disease_id": null,
+    "category": "Environmental",
+    "parents": [
+      "adverse drug reaction",
+      "drug-induced mitochondrial toxicity"
+    ],
+    "creation_date": "2026-09-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Propofol infusion syndrome (PRIS) is a rare, frequently fatal multi-organ toxicity of high-dose, prolonged propofol sedation. The defining presentation is acute refractory bradycardia progressing toward asystole, accompanied by some combination of unexplained metabolic or lactic acidosis, rhabdomyolysis, hyperkalemia, hyperlipidemia, hepatomegaly, renal failure and rapidly progressive cardiac failure. The proposed mechanism is impairment of mitochondrial energy metabolism by propofol, through inhibition of the respiratory chain, uncoupling by proton leak, and a defect of fatty acid oxidation, which together starve tissues with high oxidative demand. Because the electrocardiogram in PRIS can show coved ST elevation in the right precordial leads, the syndrome is also the clinical setting in which the term Brugada phenocopy was first used. This entry models the toxic syndrome rather than propofol sedation in general or every adverse effect of the drug.",
+    "pathophysiology": [
+      "Mitochondrial Respiratory Chain Inhibition by Propofol",
+      "Impaired Mitochondrial Fatty Acid Oxidation",
+      "Cellular Bioenergetic Failure",
+      "Myocyte Injury and Necrosis",
+      "Cardiac Conduction Instability"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mitochondrial electron transport, NADH to ubiquinone",
+      "proton leak across the inner mitochondrial membrane",
+      "fatty acid beta-oxidation"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Metabolic acidosis",
+      "Rhabdomyolysis",
+      "Hyperkalemia",
+      "Hypertriglyceridemia",
+      "Elevated hepatic transaminases",
+      "Discolouration of urine",
+      "Hepatomegaly",
+      "Fever",
+      "Acute kidney injury",
+      "Arrhythmia",
+      "Hypotension",
+      "Bradycardia",
+      "Cardiogenic shock",
+      "Coved ST-segment elevation in right precordial leads",
+      "Complete right bundle branch block"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0001942",
+      "HP:0003201",
+      "HP:0002153",
+      "HP:0002155",
+      "HP:0002910",
+      "HP:0012086",
+      "HP:0002240",
+      "HP:0001945",
+      "HP:0001919",
+      "HP:0011675",
+      "HP:0002615",
+      "HP:0001662",
+      "HP:0030149",
+      "HP:6000984",
+      "HP:0011712"
+    ],
+    "frequencies": [
+      "77% of reported cases",
+      "56% of reported cases",
+      "24% of reported cases",
+      "24% of reported cases, and absent in most",
+      "13% of reported cases, tabulated as abnormal liver function test",
+      "11% of reported cases",
+      "19% of reported cases",
+      "39% of reported cases",
+      "66% of reported cases",
+      "30% of reported cases",
+      "23% of reported cases"
+    ],
+    "genes": [],
+    "treatments": [
+      "Immediate Discontinuation of Propofol",
+      "Continuous Haemofiltration",
+      "Haemodialysis with Cardiorespiratory Support",
+      "Sodium Bicarbonate for Acidosis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Propofol_Infusion_Syndrome.yaml",
+    "page_url": "../pages/disorders/Propofol_Infusion_Syndrome.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Prostate Adenocarcinoma",
@@ -344063,17 +344581,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3237,
-  "total_subtypes": 4435,
-  "total_disorders_and_subtypes": 7672,
-  "total_unique_evidence_sources": 47516,
-  "total_unique_publications": 44527,
+  "total_disorder_pages": 3242,
+  "total_subtypes": 4436,
+  "total_disorders_and_subtypes": 7678,
+  "total_unique_evidence_sources": 47579,
+  "total_unique_publications": 44590,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3232,
-  "total_unique_pathological_events": 20689,
+  "total_pathographs": 3237,
+  "total_unique_pathological_events": 20722,
   "total_modules": 179,
-  "total_research_reports": 3353,
+  "total_research_reports": 3358,
   "total_classifications": 20,
   "total_comorbidities": 51,
   "total_groupings": 109
