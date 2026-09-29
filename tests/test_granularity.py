@@ -584,8 +584,14 @@ def test_spotted_fever_rickettsiosis_pointers_are_pointers_not_defects(capsys):
     recs = _records(KB_DIR, capsys, str(KB_DIR / "Spotted_Fever_Rickettsiosis.yaml"))
     rec = recs["Spotted_Fever_Rickettsiosis"]
     pointers = {f["detail"] for f in rec["findings"] if f["class"] == POINTER}
-    assert "subtype 'RMSF' -> Rocky_Mountain_Spotted_Fever" in pointers
-    assert "subtype 'MSF' -> Boutonneuse_Fever" in pointers
+    assert {
+        "subtype 'RMSF' -> Rocky_Mountain_Spotted_Fever",
+        "subtype 'MSF' -> Boutonneuse_Fever",
+        "subtype 'ATBF' -> African_Tick-Bite_Fever",
+        "subtype 'Rickettsialpox' -> Rickettsialpox",
+        "subtype 'QTT' -> Queensland_Tick_Typhus",
+        "subtype 'NATT' -> Siberian_Tick_Typhus",
+    } <= pointers
     assert DOUBLE_MODELLED not in _classes(rec)
     assert POINTER_TERM_MISMATCH not in _classes(rec)
 
