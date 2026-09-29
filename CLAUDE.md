@@ -1231,6 +1231,79 @@ a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
 `Pancreatic_Ductal_Adenocarcinoma`. See
 [`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
 
+### Infectious Disease Entry Granularity
+
+Infectious disease entries follow the **granularity ladder** ratified in design
+decisions §3e (`docs/explanation/design-decisions.md`), the infection
+counterpart of the cancer ladder in §3a — consult it before creating, splitting,
+or lumping any microbial entry. The short version:
+
+- **The default level is the named clinical entity**: the pathogen–syndrome pair
+  the field names, diagnoses and treats as a unit (cholera, Legionnaires'
+  disease, Pontiac fever). Neither the organism alone nor the organ syndrome
+  alone. Every node in the entry's pathophysiology must be true of every case
+  it covers; a node written vaguely enough to span two organisms with different
+  mechanisms means the entry belongs at the rung above.
+- **Above it**: a union of diseases the field names separately, or an organ
+  syndrome across unrelated organisms, is a `Grouping` (`Treponematoses` is the
+  model), and an abstraction like *infectious disease* is an `OUT_OF_SCOPE`
+  stub.
+- **Below it, the default is to lump.** An organism stratum (species, serovar,
+  serotype) earns a `has_subtypes` row only when it is **documented to differ**
+  from its siblings on one axis — presentation, diagnosis, first-line therapy,
+  prognosis, transmission/vector/reservoir, or geography — and the row's
+  `description` says what differs and its `evidence` cites it. A taxonomy
+  offering a name is not a reason. Pathotypes, biotypes, lineages, genotypes
+  and clades are carried structurally with `classification: pathotype` (etc.)
+  and the defining determinant in `description`; never bind ETEC to
+  `NCBITaxon:562`, the parent species.
+- **Promotion to a separate entry needs two axes** of the five (transmission
+  or vector; reservoir; tempo; organ systems; first-line therapy), a covering
+  `Grouping`, and a **pointer subtype** left on the parent carrying
+  `curated_in: <file stem>` — `Spotted_Fever_Rickettsiosis` → `RMSF` →
+  `curated_in: Rocky_Mountain_Spotted_Fever` is the worked example. A subtype
+  with `curated_in` is a pointer, not a disease; one that names a disease with
+  its own entry and lacks it is the defect.
+- **A phase is never an entry, and the entry must list its phases** in
+  `progression:`. A post-infectious immune sequela is its own entry. An
+  infection-attributed neoplasm follows §3a. A shared mechanism is a module.
+- **Every microbial entry declares** at least one NCBITaxon-bound
+  `infectious_agent` and at least one `transmission` route, plus
+  `agent_life_cycle` with `hosts`/`vectors` wherever a non-human reservoir or
+  arthropod vector exists. NCBITaxon is the only organism vocabulary; do not
+  add GTDB or assembly accessions.
+- **Where the taxon lives.** A disease-level subtype is a *clinical* stratum
+  (MONDO-bound where a named variant exists); an `InfectiousAgent.has_subtypes`
+  stratum is a *taxonomic* one (NCBITaxon-bound once PR #10353 lands). There
+  is deliberately **no `pathotype:` slot**.
+- **Record a deliberate lump** with a paragraph of the entry-level
+  `review_notes` beginning `Deliberately lumped.` followed by at least twenty
+  words on which strata were kept together and what was searched — the same
+  shape as the `Left deliberately uncited.` environmental waiver. The sentence
+  alone does not record anything.
+
+```bash
+just check-granularity                          # census + worklist (report-only, in `just qc`)
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry, the computed columns
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on the deterministic classes
+just check-granularity --scope all              # DOUBLE_MODELLED / DUPLICATE_ANCHOR KB-wide
+```
+
+The **deterministic** classes (`MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION`, `ROOT_AS_ENTRY`, `DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`,
+`PATHOTYPE_COLLAPSE`, `DANGLING_POINTER`) are defects with no judgement in
+them; the **advisory** ones (`TAXON_LUMP`, `UNBOUND_SUBTYPE`,
+`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`,
+`POINTER_TERM_MISMATCH`) are questions for a curator and never gate — an undifferentiated lump is the ladder's default
+state, not a defect, so `TAXON_LUMP` means "no decision recorded" and clears on
+the waiver above. Neoplasms with a viral agent, Mendelian susceptibility
+disorders, post-infectious sequelae and mycotoxicoses are out of scope by the
+ladder's own rules and are counted, not assessed. Over-broad anchoring
+(`Travelers_Diarrhea` on *diarrheal disease*) needs a MONDO descendant count and
+stays a manual audit.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
@@ -2274,6 +2347,44 @@ phenotype_term:
 
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
+
+### Gene Classifications (`kb/gene_classifications/`)
+
+Transcriptions of external systems that classify **genes** (as opposed to
+diseases), validating against `GeneClassificationCollection`. Provenance sits
+once in the file header; rows carry an HGNC-bound gene plus a multivalued
+`values` list.
+
+```bash
+just fetch-nmd-gene-table          # regenerate the NMD gene table collection
+just validate-gene-classifications # validate every collection
+```
+
+**`values` is multivalued by design.** A gene appears once per clinically
+distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy, and a
+motoneuron-disease presentation). That is a true fact about TTN, and putting it
+on the gene is exactly why this axis exists; it becomes unmodellable if forced
+onto a disease entry's `classifications`.
+
+Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
+[Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
+Note this is a **gene catalogue**, not an expert nosology in the ISDS sense;
+there is no whole-domain nosology for neuromuscular disease. It is nuclear-genome
+and monogenic only, so mtDNA disease and acquired neuromuscular disease
+(myasthenia gravis, the inflammatory myopathies, Guillain-Barré) are simply
+absent rather than assigned to a catch-all.
+
+**Never hand-edit a collection** — regenerate with its script. Adding a new
+source means: a new enum module under `src/dismech/schema/classifications/`, a
+fetch script, and an entry in `SYSTEM_ENUMS` in
+`tests/test_gene_classifications.py` so its values are checked against that enum.
+
+Distinct from `gene_sets:`, which references flat, typically
+experimentally-derived sets (signatures, perturbation results) consumed as
+enrichment inputs. A gene classification is a curated, authoritative assertion
+about which genes cause disease in a domain. See
+[`docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md`](docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md).
 
 ### Gain/Loss of Function: which slot?
 
