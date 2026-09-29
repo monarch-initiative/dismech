@@ -2,16 +2,16 @@
 
 Where estrogen signalling is curated in `kb/disorders/`, counted in six tiers from loosest to strictest. Regenerate with `just estrogen-census`; the counts move with every curation PR, so treat the numbers here as a dated snapshot and the script as the deliverable. Background: issue #12925.
 
-Entries scanned: **3186**.
+Entries scanned: **3244**.
 
 | Tier | Test | Entries | Share |
 | --- | --- | ---: | ---: |
-| `MENTIONS_ESTROGEN` | names estrogen/estradiol/estrone/estriol or ER-alpha/ER-beta anywhere | 115 | 3.6% |
-| `NODE_INVOKES` | the same, restricted to `pathophysiology:` | 57 | 1.8% |
-| `GO_BOUND` | binds `GO:0030520` estrogen receptor signaling pathway | 12 | 0.4% |
-| `RECEPTOR_NAMED` | names `ESR1`/`ESR2` or the phrase “estrogen receptor” | 30 | 0.9% |
-| `GENE_BOUND` | binds `hgnc:3467` (ESR1) or `hgnc:3468` (ESR2) anywhere | 6 | 0.2% |
-| `GENE_ON_NODE` | binds either gene in a `genes:` descriptor on a pathophysiology node | 1 | 0.0% |
+| `MENTIONS_ESTROGEN` | names estrogen/estradiol/estrone/estriol or ER-alpha/ER-beta anywhere | 118 | 3.6% |
+| `NODE_INVOKES` | the same, restricted to `pathophysiology:` | 58 | 1.8% |
+| `GO_BOUND` | binds `GO:0030520` estrogen receptor signaling pathway | 13 | 0.4% |
+| `RECEPTOR_NAMED` | names `ESR1`/`ESR2` or the phrase “estrogen receptor” | 32 | 1.0% |
+| `GENE_BOUND` | binds `hgnc:3467` (ESR1) or `hgnc:3468` (ESR2) anywhere | 11 | 0.3% |
+| `GENE_ON_NODE` | binds either gene in a `genes:` descriptor on a pathophysiology node | 8 | 0.2% |
 
 The tiers are not strictly nested. An entry can bind the pathway without naming the receptor, and can name the receptor without binding the pathway, so each row is counted independently.
 
@@ -21,29 +21,24 @@ The baseline column is the figure reported in issue #12925 when the gap was desc
 
 | Tier | Baseline | Now | Change |
 | --- | ---: | ---: | ---: |
-| `MENTIONS_ESTROGEN` | 115 | 115 | +0 |
-| `NODE_INVOKES` | 57 | 57 | +0 |
-| `GO_BOUND` | 12 | 12 | +0 |
-| `RECEPTOR_NAMED` | 29 | 30 | +1 |
-| `GENE_BOUND` | 6 | 6 | +0 |
-| `GENE_ON_NODE` | 1 | 1 | +0 |
+| `MENTIONS_ESTROGEN` | 115 | 118 | +3 |
+| `NODE_INVOKES` | 57 | 58 | +1 |
+| `GO_BOUND` | 12 | 13 | +1 |
+| `RECEPTOR_NAMED` | 29 | 32 | +3 |
+| `GENE_BOUND` | 6 | 11 | +5 |
+| `GENE_ON_NODE` | 1 | 8 | +7 |
 
 One of those differences is not drift. `RECEPTOR_NAMED` was measured with a line-based search, which misses `CHEK2-related_Cancer_Predisposition`: it writes “oestrogen receptor” in a folded scalar, so the phrase is split across two source lines and only exists once the document is parsed. Re-measuring the baseline tree with this script gives 30, not 29.
 
 ## The gap this was written to measure
 
-11 entries bind `GO:0030520` on a node while putting no receptor gene on any node. The pathway is annotated and the receptor driving it is not.
+6 entries bind `GO:0030520` on a node while putting no receptor gene on any node. The pathway is annotated and the receptor driving it is not.
 
 | Entry | Node(s) binding the pathway |
 | --- | --- |
 | `Aromatase_Deficiency` | Estrogen Deficiency and Androgen Excess |
 | `Breast_Carcinoma` | ER and HER2 Receptor Heterogeneity |
 | `Breast_Fibroadenoma` | Dysregulated Stromal Estrogen Signaling and ECM Organization |
-| `ER_Positive_Breast_Cancer` | ESR1 Mutation-Driven Endocrine Resistance; Estrogen Receptor Activation |
-| `Endometrial_Carcinoma` | Unopposed Estrogen Signaling |
-| `Endometrial_Endometrioid_Adenocarcinoma` | Unopposed Estrogen Signaling |
-| `Heart_Failure` | Loss of Myocardial Oestrogen Receptor Signalling |
-| `Lymphangioleiomyomatosis` | Estrogen-Driven LAM Cell Survival and Dissemination |
 | `PIK3CA_Mutant_Breast_Cancer` | Endocrine Resistance |
 | `Testicular_Sex_Cord_Stromal_Neoplasm` | Estrogen-Mediated Clinical Manifestations |
 | `Triple_Negative_Breast_Cancer` | Loss of Hormone Receptor Signaling |
@@ -52,19 +47,24 @@ Each row is a research task, not a mechanical backfill. A `genes:` descriptor as
 
 ## Receptor bound, but off the pathograph
 
-5 entries bind ESR1 or ESR2 somewhere without the gene reaching a pathophysiology node. These are typically susceptibility polymorphisms in `genetic:`, where a genotype-association paper may legitimately stop short of supporting a causal edge.
+3 entries bind ESR1 or ESR2 somewhere without the gene reaching a pathophysiology node. These are typically susceptibility polymorphisms in `genetic:`, where a genotype-association paper may legitimately stop short of supporting a causal edge.
 
 | Entry | Gene(s) bound |
 | --- | --- |
 | `Breast_Carcinoma` | ESR1 |
-| `ER_Positive_Breast_Cancer` | ESR1 |
-| `Osteoporosis` | ESR1 |
 | `Premenstrual_Dysphoric_Disorder` | ESR1 |
 | `Skeletal_Fluorosis` | ESR1 |
 
 ## Receptor on the pathograph
 
 - `46_XX_Gonadal_Dysgenesis` — ESR2
+- `ER_Positive_Breast_Cancer` — ESR1
+- `Endometrial_Carcinoma` — ESR1
+- `Endometrial_Endometrioid_Adenocarcinoma` — ESR1
+- `Estrogen_Resistance_Syndrome` — ESR1
+- `Heart_Failure` — ESR1, ESR2
+- `Lymphangioleiomyomatosis` — ESR1
+- `Osteoporosis` — ESR1
 
 ## Modules
 
