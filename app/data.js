@@ -328063,6 +328063,7 @@ window.searchData = [
     "updated_date": null,
     "subtypes": [
       "Glandular form",
+      "Ulceroglandular",
       "Oculoglandular"
     ],
     "description": "Tularemia is a highly infectious zoonotic disease caused by the intracellular Gram-negative bacterium Francisella tularensis. Humans acquire infection through arthropod (tick or mosquito) bites, direct contact with infected animals (especially rabbits, hares, and rodents), ingestion of contaminated food or water, or inhalation of infectious aerosols; person-to-person transmission has not been reported. After uptake by macrophages, F. tularensis escapes the phagosome into the cytosol via the Francisella Pathogenicity Island-encoded type VI secretion system, where it replicates and triggers caspase-1 inflammasome activation and granulomatous inflammation. The route of inoculation determines the clinical form: ulceroglandular, glandular, oculoglandular, oropharyngeal, pneumonic, and typhoidal tularemia. F. tularensis requires as few as 10 organisms to cause disease and is classified as a Category A bioterrorism agent.\n",
@@ -330349,6 +330350,71 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "22",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Ulceroglandular Tularemia",
+    "disease_id": "MONDO:0001413",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tularemia"
+    ],
+    "creation_date": "2026-09-25T15:38:49Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Ulceroglandular tularemia is the cutaneous and regional-lymph-node form of Francisella tularensis infection, usually acquired when an arthropod bite or handling of an infected animal inoculates bacteria into skin and local inflammation produces both an ulcer and draining lymphadenopathy.",
+    "pathophysiology": [
+      "Cutaneous Francisella tularensis Inoculation",
+      "Macrophage Phagosomal Escape and Cytosolic Replication",
+      "Regional Skin and Lymph Node Inflammation"
+    ],
+    "cell_types": [
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont-mediated suppression of host phagosome maturation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Skin Ulcer",
+      "Lymphadenopathy",
+      "Suppurative Lymphadenitis",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Immune",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0200042",
+      "HP:0002716",
+      "HP:0002840",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Antibiotic therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Ulceroglandular_Tularemia.yaml",
+    "page_url": "../pages/disorders/Ulceroglandular_Tularemia.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 3,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Ullrich congenital muscular dystrophy",
@@ -344629,19 +344695,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3242,
-  "total_subtypes": 4459,
-  "total_disorders_and_subtypes": 7701,
-  "total_unique_evidence_sources": 47602,
-  "total_unique_publications": 44613,
+  "total_disorder_pages": 3243,
+  "total_subtypes": 4460,
+  "total_disorders_and_subtypes": 7703,
+  "total_unique_evidence_sources": 47607,
+  "total_unique_publications": 44618,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3237,
-  "total_unique_pathological_events": 20723,
-  "total_modules": 179,
-  "total_research_reports": 3358,
+  "total_pathographs": 3238,
+  "total_unique_pathological_events": 20725,
+  "total_modules": 180,
+  "total_research_reports": 3359,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 109
+  "total_groupings": 110
 };
 window.dispatchEvent(new Event('searchDataReady'));
