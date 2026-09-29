@@ -46990,6 +46990,74 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Bart-Pumphrey Syndrome",
+    "disease_id": "MONDO:0007866",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Palmoplantar Keratoderma",
+      "Connexin Disorders"
+    ],
+    "creation_date": "2026-09-28T12:50:16Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bart-Pumphrey syndrome is a rare autosomal dominant genodermatosis combining knuckle pads, leukonychia, palmoplantar keratoderma and sensorineural hearing loss, with considerable variability in which features an affected relative shows. It is one of the dominant connexin 26 (GJB2) disorders of skin and hearing: the molecularly confirmed families carry heterozygous missense variants in the first extracellular loop of connexin 26 (p.Asn54Lys, and p.Gly59Ser, an allele also reported in classic Vohwinkel syndrome). In cultured cells the p.Asn54Lys protein is retained intracellularly and acts transdominantly on co-expressed connexins, which is the current mechanistic explanation for the skin phenotype; the cochlear mechanism has not been studied in patient tissue.",
+    "pathophysiology": [
+      "Heterozygous GJB2 First Extracellular Loop Missense Variant",
+      "Connexin 26 Intracellular Retention",
+      "Transdominant Inhibition of Co-expressed Epidermal Connexins",
+      "Keratinocyte Gap Junctional Communication Deficit",
+      "Cochlear Gap Junction Network Dysfunction"
+    ],
+    "cell_types": [
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "protein localization to plasma membrane",
+      "gap junction-mediated intercellular transport"
+    ],
+    "phenotypes": [
+      "Knuckle pads",
+      "Leukonychia",
+      "Palmoplantar keratoderma",
+      "Sensorineural hearing impairment"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0032541",
+      "HP:0001820",
+      "HP:0000982",
+      "HP:0000407"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GJB2"
+    ],
+    "treatments": [
+      "Keratolytic and systemic retinoid therapy for keratoderma"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Bart-Pumphrey_Syndrome.yaml",
+    "page_url": "../pages/disorders/Bart-Pumphrey_Syndrome.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Barth syndrome",
     "disease_id": "MONDO:0010543",
     "category": "Mendelian",
@@ -121753,6 +121821,110 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Epidermolytic Hyperkeratosis 2",
+    "disease_id": "MONDO:0958184",
+    "category": "Mendelian",
+    "parents": [
+      "epidermolytic ichthyosis",
+      "keratinopathic ichthyosis"
+    ],
+    "creation_date": "2026-09-28T12:49:03Z",
+    "updated_date": null,
+    "subtypes": [
+      "EHK2A",
+      "EHK2B",
+      "AEI1"
+    ],
+    "description": "Epidermolytic hyperkeratosis 2 is the KRT10 form of epidermolytic ichthyosis, a keratinopathic ichthyosis of the suprabasal epidermis. Most patients carry a heterozygous missense variant in the helix initiation motif at the start of the 1A rod segment or the helix termination motif at the end of the 2B rod segment of keratin 10, the type I partner of keratin 1. The mutant chain is incorporated into K1/K10 heterodimers and blocks filament assembly and elongation, so the keratin network of spinous and granular keratinocytes collapses into perinuclear tonofilament clumps and the cells lyse. Affected newborns have erythroderma, blisters and erosions; blistering becomes less frequent with age while hyperkeratosis and ichthyotic scale increase. A minority of families carry biallelic KRT10 null alleles that abolish keratin 10 protein and cause a recessive form, and helix termination or 2B-domain variants produce the annular epidermolytic ichthyosis variant with episodic polycyclic plaques. Compared with KRT1 disease, KRT10 disease usually spares the palms and soles.",
+    "pathophysiology": [
+      "KRT10 Dominant-Negative Rod-Domain Variant",
+      "Biallelic KRT10 Null Alleles and Keratin 10 Absence",
+      "Keratin Filament Network Collapse and Aggregation",
+      "Suprabasal Keratinocyte Cytolysis",
+      "Compensatory Epidermal Hyperproliferation",
+      "Keratinocyte NLRP3 Inflammasome Activation and IL-18 Release",
+      "Cutaneous TH17 Inflammation"
+    ],
+    "cell_types": [
+      "spinous keratinocyte",
+      "basal keratinocyte",
+      "keratinocyte",
+      "T-helper 17 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000649",
+      "CL:0002187",
+      "CL:0000312",
+      "CL:0000899"
+    ],
+    "biological_processes": [
+      "keratin intermediate filament assembly",
+      "nonsense-mediated decay of KRT10 transcripts",
+      "intermediate filament cytoskeleton organization",
+      "keratinocyte proliferation",
+      "interleukin-18 production",
+      "interleukin-17 production"
+    ],
+    "phenotypes": [
+      "Congenital Ichthyosiform Erythroderma",
+      "Skin Blistering",
+      "Skin Erosion",
+      "Generalized Hyperkeratosis",
+      "Ichthyosis",
+      "Palmoplantar Keratoderma",
+      "Flexural Lichenification",
+      "Annular Polycyclic Erythematous Plaques",
+      "Pruritus",
+      "Skin Pain",
+      "Sepsis"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Infectious"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Limbs"
+    ],
+    "phenotype_ids": [
+      "HP:0007431",
+      "HP:0008066",
+      "HP:0200041",
+      "HP:0000962",
+      "HP:0008064",
+      "HP:0000982",
+      "HP:0007453",
+      "HP:0025528",
+      "HP:0000989",
+      "HP:0012531",
+      "HP:0100806"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "KRT10 heterozygous dominant-negative variants",
+      "KRT10 biallelic null variants"
+    ],
+    "treatments": [
+      "Emollients",
+      "Retinoids",
+      "IL-17A Blockade"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Epidermolytic_Hyperkeratosis_2.yaml",
+    "page_url": "../pages/disorders/Epidermolytic_Hyperkeratosis_2.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Epilepsy",
     "disease_id": "MONDO:0005027",
     "category": "Complex",
@@ -131249,6 +131421,107 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Far Eastern Spotted Fever",
+    "disease_id": "MONDO:0000231",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-28T08:01:19Z",
+    "updated_date": "2026-09-28T08:01:19Z",
+    "subtypes": [],
+    "description": "Far Eastern spotted fever is an acute tick-borne spotted-fever-group rickettsiosis caused by the obligately intracellular bacterium Rickettsia conorii subsp. heilongjiangensis. Infected Haemaphysalis ticks inoculate the organism into skin, where local infection can produce an eschar and regional lymphadenopathy; systemic endothelial infection and small-vessel vasculitis drive an acute fever, headache, myalgia or arthralgia, and rash syndrome.",
+    "pathophysiology": [
+      "Tick-Borne Rickettsia heilongjiangensis Inoculation",
+      "Dermal Mononuclear Phagocyte Infection",
+      "Lymphatic Dissemination to Regional Nodes",
+      "Intracytosolic Rickettsia heilongjiangensis Niche",
+      "Small-Vessel Vasculitis",
+      "Endothelial Tim-3-Mediated Rickettsial Killing",
+      "Rickettsial Ribosomal Translation"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell",
+      "vascular endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0002139"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "biological process involved in interaction with host",
+      "inflammatory response",
+      "regulation of vascular permeability",
+      "positive regulation of nitric oxide biosynthetic process",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Myalgia or Arthralgia",
+      "Maculopapular Rash",
+      "Inoculation Eschar",
+      "Regional Lymphadenopathy",
+      "Elevated Circulating Hepatic Transaminase Concentration",
+      "Hepatomegaly",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Neurological",
+      "Musculoskeletal",
+      "Dermatologic",
+      "Immune",
+      "Laboratory",
+      "Hepatic",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0003326",
+      "HP:0040186",
+      "HP:6000793",
+      "HP:0002716",
+      "HP:0002910",
+      "HP:0002240",
+      "HP:0001873"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Empiric doxycycline",
+      "Personal protection against tick bites"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Far_Eastern_Spotted_Fever.yaml",
+    "page_url": "../pages/disorders/Far_Eastern_Spotted_Fever.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Farber Disease",
     "disease_id": "MONDO:0009218",
     "category": "Mendelian",
@@ -133153,6 +133426,90 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Flea-Borne Spotted Fever",
+    "disease_id": "MONDO:0019364",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-28T13:09:20Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Flea-borne spotted fever is a febrile rickettsiosis attributed to the obligately intracellular Gram-negative bacterium Rickettsia felis. R. felis is carried by cat fleas, and reported human disease presents as an undifferentiated fever that can include headache, myalgia, maculopapular rash, and occasional eschar. The causal role of R. felis in every PCR-positive febrile illness is less settled than the R. typhi-murine typhus relationship, because R. felis DNA has also been detected in afebrile controls and on skin swabs; curated mechanisms therefore focus on rickettsial processes directly supported for R. felis or shared across flea-borne rickettsiae.",
+    "pathophysiology": [
+      "Rickettsia felis Ribosomal Translation",
+      "Obligate Intracellular Rickettsia felis Niche",
+      "Dermal Rickettsial Inoculation",
+      "Endothelial Rickettsial Invasion and Vascular Leak",
+      "Rickettsial NF-kappaB-Dependent Endothelial Survival",
+      "NK and CD8 IFN-Gamma Rickettsial Control",
+      "Chemokine and VEGF Response"
+    ],
+    "cell_types": [
+      "vascular endothelial cell",
+      "natural killer cell",
+      "CD8-positive, alpha-beta T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002139",
+      "CL:0000623",
+      "CL:0000625"
+    ],
+    "biological_processes": [
+      "translation",
+      "biological process involved in interaction with host",
+      "positive regulation of vascular permeability",
+      "positive regulation of NF-kappaB transcription factor activity",
+      "negative regulation of apoptotic process",
+      "response to type II interferon",
+      "natural killer cell mediated cytotoxicity",
+      "cytokine production"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Maculopapular rash",
+      "Neurological manifestations",
+      "Eschar"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0040186",
+      "HP:0000707",
+      "HP:6000793"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Flea_Borne_Spotted_Fever.yaml",
+    "page_url": "../pages/disorders/Flea-Borne_Spotted_Fever.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Flinders Island Spotted Fever",
@@ -342720,17 +343077,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3226,
-  "total_subtypes": 4432,
-  "total_disorders_and_subtypes": 7658,
-  "total_unique_evidence_sources": 47306,
-  "total_unique_publications": 44321,
+  "total_disorder_pages": 3230,
+  "total_subtypes": 4435,
+  "total_disorders_and_subtypes": 7665,
+  "total_unique_evidence_sources": 47351,
+  "total_unique_publications": 44366,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3221,
-  "total_unique_pathological_events": 20608,
+  "total_pathographs": 3225,
+  "total_unique_pathological_events": 20628,
   "total_modules": 179,
-  "total_research_reports": 3342,
+  "total_research_reports": 3346,
   "total_classifications": 20,
   "total_comorbidities": 51,
   "total_groupings": 109
