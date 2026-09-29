@@ -391,7 +391,7 @@ def collect(paths: list[str]) -> tuple[list[Finding], list[str]]:
 def iter_rows(findings: list[Finding]) -> Iterator[str]:
     yield "path\tkind\tgene\trecorded\tclingen\tdetail"
     for f in findings:
-        yield "\t".join((f.path, f.kind, f.gene, f.recorded, f.clingen, f.detail))
+        yield f"{f.path}\t{f.kind}\t{f.gene}\t{f.recorded}\t{f.clingen}\t{f.detail}"
 
 
 def main(argv: list[str] | None = None) -> int:
