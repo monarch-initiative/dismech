@@ -7145,12 +7145,15 @@ window.searchData = [
     "creation_date": "2026-08-24T13:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "ALG6-congenital disorder of glycosylation (ALG6-CDG, CDG-Ic) is an autosomal recessive disorder of protein N-linked glycosylation caused by biallelic ALG6 variants. ALG6 is the endoplasmic reticulum alpha-1,3-glucosyltransferase that adds the first of three glucose residues to the dolichol-linked Man9GlcNAc2 precursor. Because that glucose cap is what the oligosaccharyltransferase complex recognises, its loss leaves a poor donor substrate, causing hypoglycosylation of serum and cellular glycoproteins with a type I CDG transferrin pattern. Patients present with psychomotor retardation, muscular hypotonia, seizures, strabismus and feeding difficulties, and a subset develop protein-losing enteropathy. ALG6-CDG has been described as the second most common CDG after PMM2-CDG.",
+    "description": "ALG6-congenital disorder of glycosylation (ALG6-CDG, CDG-Ic) is an autosomal recessive defect of protein N-linked glycosylation caused by biallelic pathogenic ALG6 variants. Reduced ER alpha-1,3-glucosyltransferase function impairs addition of the first glucose to dolichol-linked Man9GlcNAc2, reducing efficient transfer of the glycan precursor to proteins. Developmental disability, axial hypotonia, epilepsy, ataxia, strabismus and feeding problems predominate; protein-losing enteropathy, endocrine and coagulation abnormalities, and cardiomyopathy occur in subsets. Severity and survival vary, and management is supportive and directed at the manifestations.",
     "pathophysiology": [
+      "Biallelic Pathogenic ALG6 Variants",
       "ALG6 Alpha-1,3-Glucosyltransferase Deficiency",
       "Incomplete Lipid-Linked Oligosaccharide Glucosylation",
+      "Reduced Oligosaccharyltransferase-Mediated Glycan Transfer",
       "Protein Hypoglycosylation",
       "Enterocyte Heparan Sulfate Loss",
+      "Intestinal Protein Loss",
       "Multisystem Glycoprotein Dysfunction"
     ],
     "cell_types": [
@@ -7164,86 +7167,127 @@ window.searchData = [
       "protein N-linked glycosylation"
     ],
     "phenotypes": [
-      "Global developmental delay",
+      "Neurodevelopmental delay",
       "Muscular hypotonia",
       "Seizure",
       "Strabismus",
       "Feeding difficulties",
       "Protein-losing enteropathy",
-      "Dysarthria",
-      "Cortical visual impairment",
-      "Partial agenesis of the corpus callosum",
       "Hyperinsulinemic hypoglycemia",
-      "Myoclonus",
-      "Delayed puberty",
+      "Myoclonic seizure",
       "Ataxia",
       "Proximal muscle weakness",
       "Failure to thrive",
-      "Abnormal bleeding",
+      "Abnormality of coagulation",
       "Brachydactyly",
       "Autistic behavior",
-      "Abnormal facial shape"
+      "Abnormal facial shape",
+      "Nystagmus",
+      "Hypoplasia of the corpus callosum",
+      "Cerebellar atrophy",
+      "Cerebral atrophy",
+      "Microcephaly",
+      "Delayed speech and language development",
+      "Visual impairment",
+      "Dilated cardiomyopathy",
+      "Hypoalbuminemia",
+      "Anemia",
+      "Sleep disturbance",
+      "Aggressive behavior",
+      "Recurrent infections"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Endocrine",
+      "Growth",
+      "Hematologic",
+      "Craniofacial",
+      "Cardiovascular",
+      "Metabolic",
+      "Behavioral",
+      "Immunologic"
+    ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Digestive",
       "Endocrine",
       "Eye",
       "Growth",
       "Head and Neck",
+      "Immune",
       "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
-      "HP:0001263",
+      "HP:0012758",
       "HP:0001252",
       "HP:0001250",
       "HP:0000486",
       "HP:0011968",
       "HP:0002243",
-      "HP:0001260",
-      "HP:0100704",
-      "HP:0007370",
       "HP:0000825",
-      "HP:0001336",
-      "HP:0000823",
+      "HP:0032794",
       "HP:0001251",
       "HP:0003701",
       "HP:0001508",
-      "HP:0001892",
+      "HP:0001928",
       "HP:0001156",
       "HP:0000729",
-      "HP:0001999"
+      "HP:0001999",
+      "HP:0000639",
+      "HP:0002079",
+      "HP:0001272",
+      "HP:0002059",
+      "HP:0000252",
+      "HP:0000750",
+      "HP:0000505",
+      "HP:0001644",
+      "HP:0003073",
+      "HP:0001903",
+      "HP:0002360",
+      "HP:0000718",
+      "HP:0002719"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "OCCASIONAL",
       "FREQUENT",
-      "VERY_RARE"
+      "OCCASIONAL"
     ],
     "genes": [
-      "ALG6 pathogenic variants",
-      "ALG6 p.Phe304Ser as a severity modifier in PMM2-CDG"
+      "ALG6 pathogenic variants"
     ],
     "treatments": [
-      "Supportive and multidisciplinary care"
+      "Multidisciplinary supportive care",
+      "Individualized antiseizure treatment",
+      "Nutritional and feeding support",
+      "Specialist management of protein-losing enteropathy",
+      "Developmental rehabilitation and communication support",
+      "Ophthalmologic assessment and treatment",
+      "Coagulation assessment and perioperative planning",
+      "Metabolic, endocrine, hepatic and cardiac surveillance",
+      "Cardiomyopathy treatment",
+      "Behavioral, psychiatric and sleep care",
+      "Genetic counseling and evaluation of relatives"
     ],
     "environmental": [],
     "biochemical": [
       "Type I CDG serum transferrin isoelectric focusing pattern",
-      "Dolichyl pyrophosphate-Man9GlcNAc2 accumulation in fibroblasts"
+      "Dolichyl pyrophosphate-Man9GlcNAc2 accumulation in fibroblasts",
+      "Low serum cholesterol and coagulation proteins"
     ],
     "source_file": "ALG6-Congenital_Disorder_of_Glycosylation.yaml",
     "page_url": "../pages/disorders/ALG6-congenital_disorder_of_glycosylation.html",
-    "num_phenotypes": 19,
-    "num_pathophysiology": 5,
-    "num_genes": 2,
-    "num_treatments": 1,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "num_phenotypes": 28,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 11,
+    "causal_graph_edges": "58",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "ALG9-congenital disorder of glycosylation",
@@ -298395,6 +298439,93 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Sennetsu Fever",
+    "disease_id": "MONDO:0000332",
+    "category": "Infectious Disease",
+    "parents": [
+      "Anaplasmataceae infectious disease",
+      "Bacterial infectious disease"
+    ],
+    "creation_date": "2026-09-28T19:03:01Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sennetsu fever is an acute fish-associated neorickettsiosis caused by the obligate intracellular bacterium Neorickettsia sennetsu. Human infection is probably acquired by eating raw or undercooked fish carrying infected digenean-fluke metacercariae, after which the organism enters monocytes and macrophages, persists in membrane-bound vacuoles, up-regulates host transferrin-receptor iron uptake through iron-responsive protein 1, expands as morulae, and produces a febrile infectious-mononucleosis-like illness with lymphadenopathy and hepatosplenomegaly.",
+    "pathophysiology": [
+      "Raw-Fish Neorickettsia Exposure",
+      "Monocyte-Macrophage Neorickettsia Entry",
+      "Neorickettsia Vacuolar Persistence",
+      "IRP1 Transferrin-Receptor Iron Piracy",
+      "Neorickettsia Morula Expansion",
+      "Lymphoreticular Inflammatory Syndrome",
+      "Neorickettsia Ribosomal Translation (Tetracycline Target)",
+      "Cell-Penetrant Antimicrobial Requirement"
+    ],
+    "cell_types": [
+      "monocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont entry into host",
+      "symbiont entry into host cell",
+      "biological process involved in interaction with host",
+      "phagosome maturation",
+      "iron ion transport",
+      "intracellular iron ion homeostasis",
+      "inflammatory response",
+      "translation",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Headache",
+      "Chills",
+      "Myalgia",
+      "Lymphadenopathy",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Atypical Lymphocytes"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0025143",
+      "HP:0003326",
+      "HP:0002716",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0004332"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Tetracycline-Class Pharmacotherapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Sennetsu_Fever.yaml",
+    "page_url": "../pages/disorders/Sennetsu_Fever.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Sensory Ataxic Neuropathy, Dysarthria, and Ophthalmoparesis",
     "disease_id": "MONDO:0011835",
     "category": "Mendelian",
@@ -343077,17 +343208,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3230,
+  "total_disorder_pages": 3231,
   "total_subtypes": 4435,
-  "total_disorders_and_subtypes": 7665,
-  "total_unique_evidence_sources": 47351,
-  "total_unique_publications": 44366,
+  "total_disorders_and_subtypes": 7666,
+  "total_unique_evidence_sources": 47374,
+  "total_unique_publications": 44387,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3225,
-  "total_unique_pathological_events": 20628,
+  "total_pathographs": 3226,
+  "total_unique_pathological_events": 20638,
   "total_modules": 179,
-  "total_research_reports": 3346,
+  "total_research_reports": 3347,
   "total_classifications": 20,
   "total_comorbidities": 51,
   "total_groupings": 109
