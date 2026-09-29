@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verruga Peruana · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Verruga Peruana</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Verruga Peruana</h1>
+                
+                <p class="report-subtitle">Verruga Peruana (Peruvian Wart) — Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0971058" target="_blank" rel="noopener noreferrer">MONDO:0971058</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Verruga Peruana (Peruvian Wart) — Comprehensive Disease Characterization Report</h1>
+<p><strong>Disease:</strong> Verruga Peruana (chronic eruptive phase of Carrión's disease)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0971058" target="_blank" rel="noopener noreferrer">MONDO:0971058</a>
+<strong>Category:</strong> Infectious Disease (neglected tropical, vector-borne, bacterial)
+<strong>Investigation:</strong> 5 iterations · 16 confirmed findings · 71 papers reviewed
+<strong>Evidence base:</strong> Aggregated disease-level literature (reviews, clinical series, meta-analysis, in vitro/molecular studies). No individual-patient (EHR) data or primary datasets were provided.</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Verruga Peruana ("Peruvian wart") is the chronic, eruptive tissue phase of Carrión's disease, a biphasic bacterial infection caused by the sand fly–transmitted α-proteobacterium <em>Bartonella bacilliformis</em> (rarely <em>B. ancashensis</em> or <em>B. rochalimae</em>).</strong> It is endemic to the Andean valleys of Peru, Ecuador, and Colombia (typically 500–3,200 m elevation), where an estimated <strong>1.7 million people are at risk</strong>. The disease is purely infectious and vector-borne: there is <strong>no human genetic etiology, no causal gene, and no inheritance pattern</strong>. The relevant genetics belong entirely to the pathogen.</p>
+<p>The core biology is best summarized as <strong>one pathogen with two tropisms</strong>. After inoculation by a <em>Lutzomyia</em>/<em>Pintomyia</em> sand fly, <em>B. bacilliformis</em> pursues two distinct cellular targets. In the <strong>acute phase (Oroya fever)</strong>, it invades and lyses circulating <strong>erythrocytes</strong> — up to 100% parasitized and 80% lysed — producing severe, often-fatal hemolytic anemia. In the <strong>chronic eruptive phase (verruga peruana)</strong>, tropism shifts to <strong>dermal vascular endothelial cells</strong>, where the bacterium drives pathological angiogenesis to produce crops of bleeding, angioproliferative skin nodules. The autotransporter <strong>BafA</strong> promotes endothelial proliferation via <strong>VEGF-receptor signaling</strong>, while an immunosuppressive, TH1-downregulated, pro-angiogenic (IL-10-high) cytokine milieu facilitates persistence.</p>
+<p>Clinically, the two phases diverge sharply in prognosis and treatment. Untreated Oroya fever carries high mortality; the eruptive verruga phase is rarely fatal and its nodules regress once the bacterial stimulus is cleared. Treatment is <strong>phase-specific</strong> — ciprofloxacin (or chloramphenicol + penicillin G) for the acute phase, and <strong>rifampin or azithromycin</strong> for the eruptive phase. Prevention relies on <strong>sand fly vector control and early case detection</strong>; there is <strong>no licensed vaccine</strong>, only preclinical <em>in silico</em> multi-epitope candidates. Diagnosis rests on peripheral blood smear/culture (acute) and skin biopsy with <strong>Warthin-Starry silver staining</strong> (eruptive), supported by PCR and serology. The disease remains neglected: asymptomatic carriers sustain transmission, diagnostics miss low-bacteremia carriers, and antibiotic-resistant strains are emerging.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — Verruga Peruana is the chronic eruptive phase of Carrión's disease</h3>
+<p>Verruga peruana is the <strong>tissue/eruptive phase</strong> of the biphasic <strong>Carrión's disease</strong>, caused by <em>Bartonella bacilliformis</em>, a motile, flagellated, Gram-negative intracellular α-proteobacterium. The eruptive phase is characterized by eruptive nodules that commonly bleed, plus arthralgias, with <strong>currently very low mortality</strong> — in stark contrast to the acute Oroya fever phase. A second causal agent, <em>Bartonella ancashensis</em>, was isolated from Verruga Peruana patients in the rural Ancash region of Peru.</p>
+<blockquote>
+<p><em>"produces in its tissue phase a characteristic dermal eruption (Verruga peruana) resulting from a pronounced endothelial cell proliferation"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/1693472/">PMID: 1693472</a></p>
+<p><em>"The eruptive phase, also known as Peruvian Wart, is characterized by eruptive nodes (which commonly bleed) and arthralgias. The mortality of the eruptive phase is currently extremely low."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15798808/">PMID: 15798808</a></p>
+<p><em>"Bartonella ancashensis, which was isolated in blood samples from 2 patients living in Caraz, Peru, during a clinical trial of treatment for bartonellosis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28221130/">PMID: 28221130</a></p>
+</blockquote>
+<p><strong>Synonyms / alternative names:</strong> Peruvian wart, Verruga peruana, eruptive-phase bartonellosis, chronic-phase Carrión's disease. <strong>Identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0971058" target="_blank" rel="noopener noreferrer">MONDO:0971058</a>; MeSH "Bartonella bacilliformis"/"Bartonella Infections"; ICD-10 A44.1 (cutaneous/mucocutaneous bartonellosis), A44.0 (systemic/Oroya fever); ICD-11 1C11.1. This is an aggregated disease-level characterization (not derived from individual EHR patients).</p>
+<h3>F002 — Pathological angiogenesis via VEGF-receptor signaling (BafA)</h3>
+<p>Verruga formation results from <em>B. bacilliformis</em>-driven endothelial cell proliferation and pathological angiogenesis. Bacterial extracts stimulate human endothelial cell proliferation <strong>up to three times control</strong> and induce new blood-vessel formation <em>in vivo</em>. The autotransporter <strong>BafA</strong> passenger domain promotes endothelial angiogenesis via <strong>VEGF-receptor signaling</strong>. Histologically, bacteria reside in the interstitium and within endothelial cytoplasm (Rocha-Lima inclusions).</p>
+<blockquote>
+<p><em>"B. bacilliformis possess an activity that stimulates endothelial cell proliferation up to three times that of control"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/1693472/">PMID: 1693472</a></p>
+<p><em>"B. bacilliformis extracts stimulate the formation of new blood vessels in an in vivo model for angiogenesis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/1693472/">PMID: 1693472</a></p>
+<p><em>"Bartonella bacilliformis is a Gram-negative bacterial pathogen that provokes pathological angiogenesis and causes Carrion's disease, a neglected tropical disease restricted to South America"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35379004/">PMID: 35379004</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0001525" target="_blank" rel="noopener noreferrer">GO:0001525</a> (angiogenesis), <a href="http://purl.obolibrary.org/obo/GO_0001938" target="_blank" rel="noopener noreferrer">GO:0001938</a> (positive regulation of endothelial cell proliferation), <a href="http://purl.obolibrary.org/obo/GO_0048010" target="_blank" rel="noopener noreferrer">GO:0048010</a> (VEGF receptor signaling pathway); <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell); protein: BafA autotransporter.</p>
+<h3>F003 — Sand fly transmission; endemic Andean valleys; ~1.7 million at risk</h3>
+<p>Transmission is by phlebotomine sand flies (<em>Lutzomyia verrucarum</em> and related <em>Pintomyia</em>/<em>Lutzomyia</em> spp.). <em>B. bacilliformis</em> DNA has been detected in <em>Pintomyia robusta</em> at the Ecuador–Peru border. The disease is endemic to Andean regions of Peru, Ecuador, and Colombia at 500–3,200 m; <strong>~1.7 million South Americans are estimated at risk</strong>. Seroprevalence of <strong>28% among healthy children</strong> in rural Loja Province, Ecuador, indicates widespread unrecognized infection.</p>
+<blockquote>
+<p><em>"This infection is endemic of Andean regions and it is estimated that approximately 1.7 million of South Americans are at risk."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26824740/">PMID: 26824740</a></p>
+<p><em>"Seroprevalence of 28% was found among children in the study communities."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29941982/">PMID: 29941982</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin of body); vector taxa <em>Lutzomyia verrucarum</em>, <em>Pintomyia robusta</em>.</p>
+<h3>F004 — Acute-phase hemolysis via porin A and an α/β-hydrolase</h3>
+<p>The acute phase (Oroya fever) is characterized by fatal hemolytic anemia. A Tn5 transposon screen identified <strong>porin A and an α/β-hydrolase</strong> as both <strong>necessary and sufficient</strong> for <em>B. bacilliformis</em>-induced hemolysis; the α/β-hydrolase catalytic triad (<strong>Ser205, Asp267, His310</strong>) is essential, and compound 48/80 inhibits hemolysis in the micromolar range. The bacterium invades and parasitizes erythrocytes, producing intracellular bacilli visible on blood smear.</p>
+<blockquote>
+<p><em>"we determine that porin A and α/β-hydrolase are both necessary and sufficient for hemolysis induced by B. bacilliformis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41315277/">PMID: 41315277</a></p>
+<p><em>"Carrion's disease is endemic to the South American Andes and is characterized by fatal hemolytic anemia."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41315277/">PMID: 41315277</a></p>
+</blockquote>
+<h3>F005 — Phase-specific treatment</h3>
+<p>Nationally standardized treatment for the <strong>acute phase</strong> in Peru is <strong>ciprofloxacin</strong>, with chloramphenicol plus penicillin G as an alternative. For the <strong>eruptive (verruga peruana) phase</strong> the recommended treatment is <strong>rifampin</strong> (azithromycin is also used). Emergence of antibiotic-resistant strains motivates anti-virulence and novel drug-target discovery efforts.</p>
+<blockquote>
+<p><em>"There are nationally standardized treatments for the acute phase, which consist of ciprofloxacin, and alternatively chloramphenicol plus penicillin G."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15798808/">PMID: 15798808</a></p>
+<p><em>"During the eruptive phase the recommended treatment is rifampin"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15798808/">PMID: 15798808</a></p>
+<p><em>"the emergence of antibiotic-resistant strains underscores the urgent need for novel therapeutic interventions"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41792177/">PMID: 41792177</a></p>
+</blockquote>
+<p><strong>Ontology suggestions (NCIT):</strong> Rifampin, Azithromycin, Ciprofloxacin, Chloramphenicol, Penicillin G.</p>
+<h3>F006 — Clinical phenotype</h3>
+<p>The eruptive verruga phase presents with <strong>crops of red-purple angiomatous papules/nodules</strong> on skin (face, trunk, extremities) that commonly bleed and can ulcerate, accompanied by arthralgias and malaise. Peruvian wart may be clinically indistinguishable from bacillary angiomatosis. The preceding acute Oroya fever phase presents with fever, anorexia, malaise, nausea/vomiting, pallor, hepatomegaly, lymphadenopathy, cardiac murmur, jaundice, arthralgias, and severe hemolytic anemia. In pediatric outbreaks, children are the most affected group.</p>
+<blockquote>
+<p><em>"Peruvian wart, caused by B. bacilliformis, may be indistinguishable from bacillary angiomatosis caused by the other two species."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/31780437/">PMID: 31780437</a></p>
+<p><em>"In the pediatric population, the acute phase symptoms are fever, anorexia, malaise, nausea and/or vomiting. The main signs are pallor, hepatomegaly, lymphadenopathies, cardiac murmur, and jaundice."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15798808/">PMID: 15798808</a></p>
+</blockquote>
+<p><strong>Suggested HPO terms:</strong> <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (skin nodule), <a href="http://purl.obolibrary.org/obo/HP_0011276" target="_blank" rel="noopener noreferrer">HP:0011276</a> (vascular skin abnormality), <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a> (arthralgia), <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (fever), <a href="http://purl.obolibrary.org/obo/HP_0001878" target="_blank" rel="noopener noreferrer">HP:0001878</a> (hemolytic anemia — acute phase), <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a> (hepatomegaly), <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a> (lymphadenopathy), <a href="http://purl.obolibrary.org/obo/HP_0000952" target="_blank" rel="noopener noreferrer">HP:0000952</a> (jaundice).</p>
+<h3>F007 — Diagnosis and differential</h3>
+<p>Acute-phase diagnosis relies on <strong>Giemsa-stained peripheral blood smear</strong> (intraerythrocytic bacilli) and blood culture; eruptive-phase diagnosis rests on skin biopsy showing vascular proliferation with prominent endothelium and <em>Bartonella</em> aggregates, demonstrable by <strong>Warthin-Starry silver stain</strong>. Serology and PCR (16S-23S ITS, <em>gltA</em>, MLST) confirm. The angioproliferative nodules resemble <strong>bacillary angiomatosis, Kaposi sarcoma, pyogenic granuloma, and epithelioid hemangioma</strong> — the differential diagnosis.</p>
+<blockquote>
+<p><em>"vessels with prominent endothelium and stroma rich in leukocytoclastic polymorphonuclears"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12152480/">PMID: 12152480</a></p>
+<p><em>"Histopathologically, BA may be confused with angiosarcoma, pyogenic granuloma and epithelioid hemangioma."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10718405/">PMID: 10718405</a></p>
+<p><em>"This bacterium is a fastidious slow growing microorganism, which is difficult and cumbersome to isolate from clinical sources"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26824740/">PMID: 26824740</a></p>
+</blockquote>
+<h3>F008 — Purely infectious etiology; no human genetics</h3>
+<p>Verruga Peruana / Carrión's disease is caused by infection with <em>B. bacilliformis</em> (rarely <em>B. ancashensis</em> or <em>B. rochalimae</em>), transmitted by phlebotomine sand flies. There is <strong>no Mendelian inheritance, no human causal gene, no pathogenic germline/somatic variant, and no chromosomal abnormality</strong>; OMIM has no gene entry. The relevant genetics are the pathogen's virulence genes: <em>bafA</em> (autotransporter), porin A, α/β-hydrolase, flagellin <em>flaA</em>, and the <em>ialB</em> invasion locus. <em>B. ancashensis</em> uniquely carries a <strong>type IV secretion system</strong> absent from <em>B. bacilliformis</em>.</p>
+<blockquote>
+<p><em>"B. ancashensis contains type IV secretion system proteins, which are not present in B. bacilliformis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28221130/">PMID: 28221130</a></p>
+</blockquote>
+<p><strong>Implication:</strong> Sections on causal genes, pathogenic variants, modifier genes, epigenetics, chromosomal abnormalities, inheritance patterns, penetrance, carrier frequency, and genetic screening are <strong>not applicable</strong> to this disease as a host trait.</p>
+<h3>F009 — Immunosuppressive, TH1-downregulated, pro-angiogenic cytokine profile</h3>
+<p>In 144 healthy Peruvian subjects from endemic/post-outbreak villages, bacteremia was associated with <strong>low concentrations of TH1/pro-inflammatory mediators</strong>: HGF (p=0.005), IL-15 (p=0.002), IL-6 (p=0.05), IP-10/CXCL10 (p=0.008), MIG/CXCL9 (p=0.03), and MIP-1α/CCL3 (p=0.03). Angiogenic chemokines and <strong>IL-10 were positively associated</strong> with infection. Recent acute infection (IgM+) showed lower eotaxin, IL-6, and VEGF but higher GM-CSF and IL-10.</p>
+<blockquote>
+<p><em>"the same and further TH1-related and pro-inflammatory biomarkers were inversely associated with infection, whereas angiogenic chemokines and IL-10 were positively associated"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28628613/">PMID: 28628613</a></p>
+<p><em>"The presence of bacteremia was associated with low concentrations of HGF (p = 0.005), IL-15 (p = 0.002), IL-6 (p = 0.05), IP-10 (p = 0.008), MIG (p = 0.03) and MIP-1α (p = 0.03)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28628613/">PMID: 28628613</a></p>
+</blockquote>
+<p><strong>Interpretation:</strong> Immune evasion (TH1 suppression) and a pro-angiogenic/IL-10-high milieu together support bacterial persistence and feed the angioproliferative phenotype — immune modulation and angiogenesis are mechanistically coupled.</p>
+<h3>F010 — Epidemiology and asymptomatic reservoir</h3>
+<p>A 2025 systematic review/meta-analysis (5 studies, 717 individuals, Peru &amp; Ecuador) found IgG seropositivity of <strong>28.21% (95% CI 6.29–33.39)</strong> in healthy Ecuadorian children and a pooled molecular detection rate of <strong>15.60% (95% CI 4.24–31.98)</strong> in symptomatic Peruvian individuals. A gradual reduction in infection rates among acute febrile patients in Peru was observed. <strong>Asymptomatic carriers act as a human reservoir</strong>, and current PCR tools poorly detect low-bacteremia carriers.</p>
+<blockquote>
+<p><em>"The percentage of seropositive IgG antibodies against B. bacilliformis was 28.21% (95% CI: 6.29-33.39) among healthy Ecuadorian children. In Peru, the pooled bacterial detection rate in symptomatic individuals was 15.60% (95% CI: 4.24-31.98)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40037746/">PMID: 40037746</a></p>
+<p><em>"misdiagnosis, wrong treatments and perpetuation of asymptomatic carriers living in endemic areas"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26959642/">PMID: 26959642</a></p>
+</blockquote>
+<h3>F011 — Phase-dependent prognosis</h3>
+<p>Untreated acute-phase Carrión's disease (Oroya fever) has <strong>high mortality</strong>, driven by severe hemolytic anemia and superimposed infections (e.g., <em>Salmonella</em>) plus cardiovascular/neurologic complications. In contrast, mortality of the eruptive (verruga peruana) phase is <strong>extremely low</strong>, and the angioproliferative nodules <strong>regress</strong> once the bacterial stimulus is cleared. Antibiotic-resistant strains have been reported, and there is no vaccine.</p>
+<blockquote>
+<p><em>"responsible for the Carrion's disease widely distributed in Ecuador, Peru, and Colombia with a high mortality rate when no specific treatment is received"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32931955/">PMID: 32931955</a></p>
+<p><em>"The mortality of the eruptive phase is currently extremely low."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15798808/">PMID: 15798808</a></p>
+</blockquote>
+<h3>F012 — Prevention: vector control; no vaccine</h3>
+<p>There is <strong>no available vaccine</strong>. Prevention is based on vector control against phlebotomine sand flies — insecticide spraying, insecticide-treated bed nets, protective clothing/repellents, and avoiding dusk-dawn exposure — plus early case detection and treatment to reduce the human reservoir. <strong>Multi-epitope subunit vaccine candidates</strong> (targeting flagellar biosynthetic protein, Pap31, heme/hemin transporters) have been designed by immunoinformatics but remain preclinical/<em>in silico</em>.</p>
+<blockquote>
+<p><em>"Currently there is no available vaccine against B. bacilliformis. While antibiotics are the standard treatment, resistant strains have been reported, and there is a potential spread of the vector that transmits the bacteria."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/39566279/">PMID: 39566279</a></p>
+<p><em>"B bacilliformis is transmitted by Sand fly (Lutzomyia verrucarum) to healthy individuals"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32931955/">PMID: 32931955</a></p>
+</blockquote>
+<h3>F013 — Erythrocyte tropism: adhesins bind spectrin, band 3, glycophorin A</h3>
+<p>During the acute phase, <strong>up to 100% of circulating erythrocytes can be parasitized and 80% lysed</strong>. <em>B. bacilliformis</em> binds multiple surface erythrocyte proteins: <strong>spectrin (α/β, 230/210 kDa), band 3 (100 kDa), and glycophorin A (83 kDa)</strong>, dependent on carbohydrate moieties. Invasion is mediated by invasion-associated loci <strong>ialA/ialB</strong>; <em>ialB</em> is induced by lower temperature (20°C) and acidic pH — cues signaling sandfly-to-host transmission — and repressed at 37°C. <em>B. bacilliformis</em> is the sole ancestral-lineage <em>Bartonella</em>, lacks the VirB/VirD4 T4SS, and the modern lineage uses the <strong>Trw T4SS pilus</strong> for erythrocyte invasion.</p>
+<blockquote>
+<p><em>"During the primary disease phase, up to 100% of the circulating erythrocytes can be parasitized and 80% lysed. During the secondary phase of this disease, bacterial invasion shifts to endothelial cells lining the vasculature."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12668141/">PMID: 12668141</a></p>
+<p><em>"the 230 and 210 kDa proteins are the alpha and beta subunits of spectrin; the 100 and 83 kDa proteins are band 3 protein and glycophorin A"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10968948/">PMID: 10968948</a></p>
+<p><em>"Trw, is present in a sub-branch of the modern lineage. Trw does not translocate any known effectors, but produces multiple variant pilus subunits critically involved in the invasion of erythrocytes"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18489724/">PMID: 18489724</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (erythrocyte); <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" rel="noopener noreferrer">GO:0007155</a> (cell adhesion); <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> (blood).</p>
+<h3>F014 — Endothelial invasion requires tyrosine phosphorylation and α5β1 integrin</h3>
+<p>In the secondary (tissue) phase, invasion shifts to endothelial cells. Invasion of human endothelial (HUVEC) and epithelial (HEp-2) cells is reduced by protein kinase inhibitors <strong>genistein</strong> (tyrosine kinase) and <strong>staurosporine</strong> (PKC/tyrosine kinase) dose-dependently. Infection induces host <strong>tyrosine phosphorylation</strong> of multiple proteins (110–243 kDa), and anti-α5 and anti-β1 integrin antibodies moderately decrease uptake, implicating <strong>α5β1 integrin</strong> in bacterial entry into nucleated cells.</p>
+<blockquote>
+<p><em>"exposure of normal human umbilical vein endothelial cells to staurosporine, a potent inhibitor of protein kinase C and some tyrosine protein kinases, resulted in a considerable reduction in the number of organisms internalized"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10077844/">PMID: 10077844</a></p>
+<p><em>"anti-alpha 5 and anti-beta 1 chain integrin monoclonal antibodies resulted in a moderate decrease in the invasion of these cells, suggesting a possible role of alpha 5 beta 1 integrins in the uptake"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/10077844/">PMID: 10077844</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007169" target="_blank" rel="noopener noreferrer">GO:0007169</a> (transmembrane receptor protein tyrosine kinase signaling), <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" rel="noopener noreferrer">GO:0007229</a> (integrin-mediated signaling pathway); protein: ITGA5/ITGB1 (α5β1 integrin).</p>
+<h3>F015 — Anatomical involvement and model systems</h3>
+<p>Primary anatomical targets: <strong>circulating erythrocytes/blood</strong> (acute) and <strong>dermal vascular endothelium/skin</strong> (eruptive). Secondary organ involvement in severe acute disease includes liver (hepatomegaly), spleen (splenomegaly), lymph nodes (lymphadenopathy), heart (murmur/myocarditis), and CNS (neurobartonellosis). Model systems are <strong>cellular/in vitro</strong> (HUVEC, HEp-2, human erythrocyte-binding assays) and <strong>entomological</strong> (experimental colonization of <em>Lutzomyia</em> sand flies). <strong>Humans (<em>Homo sapiens</em>, NCBI Taxon 9606) are the sole known reservoir</strong>; there is no established natural non-human animal disease, though historically experimental infection of non-human primates (rhesus macaque) was used.</p>
+<blockquote>
+<p><em>"B. bacilliformis is transferred between human hosts by the sandfly, Lutzomyia verrucarum"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12668141/">PMID: 12668141</a></p>
+<p><em>"colonize endothelial cells and erythrocytes of their mammalian reservoir hosts, thereby causing long-lasting intraerythrocytic infections"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18489724/">PMID: 18489724</a></p>
+</blockquote>
+<p><strong>Ontology suggestions:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> (skin), <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> (blood), <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> (blood vessel), <a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a> (liver), <a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a> (spleen); <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell), <a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a> (erythrocyte).</p>
+<h3>F016 — Integrated model: one pathogen, two tropisms</h3>
+<p>Synthesis of all findings: sand fly inoculation of <em>B. bacilliformis</em> → <strong>Branch A</strong> (IalA/IalB + flagella-mediated erythrocyte invasion via spectrin/band 3/glycophorin A; porin A/α-β-hydrolase hemolysis) → severe hemolytic anemia (Oroya fever, high untreated mortality); → <strong>Branch B</strong> (α5β1-integrin/tyrosine-kinase-dependent endothelial invasion + BafA/VEGFR-driven angiogenesis, aided by an IL-10/pro-angiogenic, TH1-suppressed immune milieu) → bleeding dermal angioproliferative nodules (verruga peruana, low mortality, regress with treatment). Endemic to Andean valleys (~1.7M at risk; 28% child seropositivity). Treatment is phase-specific; prevention is vector control.</p>
+<blockquote>
+<p><em>"During the secondary phase of this disease, bacterial invasion shifts to endothelial cells lining the vasculature."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12668141/">PMID: 12668141</a></p>
+<p><em>"Bartonella bacilliformis is a Gram-negative bacterial pathogen that provokes pathological angiogenesis and causes Carrion's disease"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35379004/">PMID: 35379004</a></p>
+</blockquote>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered causal chain (from initiating infection to clinical manifestation)</h3>
+<pre><code>1.  Phlebotomine sand fly (Lutzomyia verrucarum/Pintomyia spp.) bites human host
+│  leads to
+2.  Inoculation of Bartonella bacilliformis into dermis/bloodstream
+│  results in (temperature/pH cues: 20°C, acidic → ialB induction)
+3.  Flagella-driven motility + IalA/IalB adhesins engage host cells
+│
+├──────────────── BRANCH A: ACUTE PHASE (Oroya fever) ────────────────
+│  4A. Adhesins bind erythrocyte spectrin (α/β), band 3, glycophorin A
+│        │  leads to
+│  5A. Trw T4SS pilus–mediated erythrocyte invasion (up to 100% parasitized)
+│        │  results in
+│  6A. Porin A + α/β-hydrolase (Ser205/Asp267/His310) drive hemolysis (80% lysed)
+│        │  leads to
+│  7A. Severe hemolytic anemia + secondary infections (Salmonella)
+│        │  results in
+│  8A. High untreated mortality (Oroya fever)
+│
+└──────────────── BRANCH B: CHRONIC PHASE (verruga peruana) ──────────
+   4B. Tropism shifts to dermal vascular endothelial cells (HUVEC-type)
+ │  requires (inferred from in vitro inhibitor studies)
+   5B. Host tyrosine-kinase signaling + α5β1 integrin–mediated internalization
+ │  concurrent with
+   6B. TH1 suppression (↓IL-6, IP-10, MIG, MIP-1α) + ↑IL-10/pro-angiogenic milieu
+ │  leads to (immune evasion enables persistence)
+   7B. BafA autotransporter passenger domain activates VEGF-receptor signaling
+ │  results in
+   8B. Endothelial proliferation (up to 3× control) + neovascularization
+ │  produces
+   9B. Crops of bleeding angioproliferative dermal nodules (Peruvian wart)
+ │  regress upon
+  10B. Clearance of bacterial stimulus (rifampin/azithromycin) — low mortality
+</code></pre>
+<p><strong>Upstream vs downstream.</strong> The upstream, shared initiating event is sand fly inoculation and adhesin-mediated cell engagement. The two branches diverge at the level of <strong>cellular tropism</strong> (erythrocyte vs endothelium), which is the master switch dividing the acute from the chronic phase. Within Branch B, immune modulation (F009) is <strong>upstream/permissive</strong>, BafA-VEGFR angiogenesis (F002) is the <strong>central effector</strong>, and the visible nodule (F006) is the <strong>downstream manifestation</strong>.</p>
+<p><strong>Inferred vs demonstrated.</strong> Erythrocyte receptors (F013), hemolysis effectors (F004), the BafA-VEGFR axis (F002), and the tropism shift (F013/F014) are experimentally demonstrated. The α5β1-integrin/tyrosine-kinase requirement (F014) is inferred from <em>in vitro</em> inhibitor and antibody-blocking studies (moderate effect sizes), not from <em>in vivo</em> human tissue. The coupling of the IL-10/TH1-suppressed milieu to nodule formation (F009) is an association from cross-sectional human cohorts, not a proven causal step.</p>
+<h3>Two-tropism comparison</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Acute phase (Oroya fever)</th>
+<th>Chronic phase (Verruga Peruana)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Target cell</td>
+<td>Erythrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000232" target="_blank" rel="noopener noreferrer">CL:0000232</a>)</td>
+<td>Vascular endothelium (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>)</td>
+</tr>
+<tr>
+<td>Key adhesins/receptors</td>
+<td>Spectrin, band 3, glycophorin A; Trw pilus</td>
+<td>α5β1 integrin; host tyrosine kinases</td>
+</tr>
+<tr>
+<td>Effector mechanism</td>
+<td>Porin A + α/β-hydrolase hemolysis</td>
+<td>BafA → VEGFR → angiogenesis</td>
+</tr>
+<tr>
+<td>Immune milieu</td>
+<td>Massive parasitemia</td>
+<td>TH1-suppressed, IL-10/pro-angiogenic</td>
+</tr>
+<tr>
+<td>Clinical result</td>
+<td>Severe hemolytic anemia</td>
+<td>Bleeding angioproliferative skin nodules</td>
+</tr>
+<tr>
+<td>Mortality (untreated)</td>
+<td>High</td>
+<td>Very low</td>
+</tr>
+<tr>
+<td>First-line treatment</td>
+<td>Ciprofloxacin (or chloramphenicol+PenG)</td>
+<td>Rifampin (or azithromycin)</td>
+</tr>
+<tr>
+<td>Course</td>
+<td>Acute, life-threatening</td>
+<td>Chronic, self-limited/regressing</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Supports</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1693472/">1693472</a></td>
+<td><em>B. bacilliformis stimulates endothelial cells / angiogenic in vivo</em></td>
+<td>F001, F002 (angiogenesis, tissue phase)</td>
+<td>In vitro + in vivo model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35379004/">35379004</a></td>
+<td><em>BafA passenger domain promotes angiogenesis via VEGFR</em></td>
+<td>F002, F016 (VEGFR axis)</td>
+<td>In vitro molecular</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28221130/">28221130</a></td>
+<td><em>Whole-genome analysis of B. ancashensis</em></td>
+<td>F001, F008 (second species; T4SS)</td>
+<td>Genomic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26824740/">26824740</a></td>
+<td><em>MLST of B. bacilliformis in Oroya fever outbreak</em></td>
+<td>F003, F007 (at-risk pop; fastidious culture)</td>
+<td>Molecular epi</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29941982/">29941982</a></td>
+<td><em>Seroprevalence in Loja, Ecuador</em></td>
+<td>F003 (28% child seroprevalence)</td>
+<td>Serosurvey</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42127128/">42127128</a></td>
+<td><em>B. bacilliformis DNA in Pintomyia robusta</em></td>
+<td>F003 (vector)</td>
+<td>Entomological</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41315277/">41315277</a></td>
+<td><em>Porin A and α/β-hydrolase necessary/sufficient for hemolysis</em></td>
+<td>F004 (hemolysis effectors)</td>
+<td>Bacterial genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15798808/">15798808</a></td>
+<td><em>Bartonelosis in Peruvian pediatric population</em></td>
+<td>F001, F005, F006, F011</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41792177/">41792177</a></td>
+<td><em>Drug target mining for Oroya fever</em></td>
+<td>F005 (resistance)</td>
+<td>Computational</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31780437/">31780437</a></td>
+<td><em>Cutaneous manifestations of bartonellosis</em></td>
+<td>F006 (angiomatous nodule)</td>
+<td>Clinical review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12152480/">12152480</a></td>
+<td><em>Bacillary angiomatosis</em></td>
+<td>F007 (histopathology)</td>
+<td>Histopathology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10718405/">10718405</a></td>
+<td><em>BA affecting oral cavity</em></td>
+<td>F007 (differential dx)</td>
+<td>Case/review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28628613/">28628613</a></td>
+<td><em>Immunosuppressive/angiogenic cytokine profile</em></td>
+<td>F009 (cytokines)</td>
+<td>Human cohort (n=144)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40037746/">40037746</a></td>
+<td><em>Diagnosis of Carrion's disease: systematic review/meta-analysis</em></td>
+<td>F010 (seroprevalence, detection)</td>
+<td>Meta-analysis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26959642/">26959642</a></td>
+<td><em>Evaluation of PCR approaches</em></td>
+<td>F010 (asymptomatic reservoir)</td>
+<td>Diagnostic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32931955/">32931955</a></td>
+<td><em>Subtractive proteomics multi-epitope vaccine</em></td>
+<td>F011, F012 (mortality; vector)</td>
+<td>Computational</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39566279/">39566279</a></td>
+<td><em>Multi-epitope vaccine against Carrion disease</em></td>
+<td>F012 (no vaccine)</td>
+<td>Immunoinformatics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12668141/">12668141</a></td>
+<td><em>Differential expression of ialB</em></td>
+<td>F013, F014, F015, F016 (tropism, ialB cues)</td>
+<td>Bacterial genetics</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10968948/">10968948</a></td>
+<td><em>Interaction with erythrocyte membrane proteins</em></td>
+<td>F013 (receptors)</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18489724/">18489724</a></td>
+<td><em>Infection-associated T4SS of Bartonella</em></td>
+<td>F013, F015 (Trw pilus; reservoir)</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10077844/">10077844</a></td>
+<td><em>Host tyrosine phosphorylation in HEp-2 invasion</em></td>
+<td>F014 (integrin/kinase)</td>
+<td>In vitro</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Consistency and independent corroboration.</strong> The two-tropism model rests on multiple independent lines: bacterial genetics (F004, F013, F014), <em>in vitro</em> cell biology (F002, F014), human cohort immunology (F009), and molecular epidemiology (F003, F010). The angiogenesis mechanism is corroborated across a 1990 functional study (<a href="https://pubmed.ncbi.nlm.nih.gov/1693472/" target="_blank" rel="noopener noreferrer">PMID 1693472</a>) and a 2022 molecular study identifying BafA-VEGFR (<a href="https://pubmed.ncbi.nlm.nih.gov/35379004/" target="_blank" rel="noopener noreferrer">PMID 35379004</a>) — a 32-year span of consistent findings. No retrieved evidence contradicts the core model.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No human genetics.</strong> As a purely infectious disease, host-genetic sections of the template (causal genes, variants, inheritance, penetrance, epigenetics, chromosomal abnormalities, carrier/genetic screening, pharmacogenomics) are <strong>not applicable</strong>. This is a definitive negative finding (F008), not a data gap.</li>
+<li><strong>Mechanistic steps in Branch B are partly inferred.</strong> The α5β1-integrin/tyrosine-kinase requirement (F014) derives from <em>in vitro</em> inhibitor and antibody-blocking assays with moderate effect sizes; it has not been confirmed in human verruga tissue. The causal link between the IL-10/TH1-suppressed milieu (F009) and nodule formation is associative (cross-sectional cohort), not demonstrated by intervention.</li>
+<li><strong>No robust animal model.</strong> Humans are the sole reservoir (F015). There is no naturally occurring animal disease and no genetic model organism; work relies on cellular/<em>in vitro</em> systems and experimental sand fly colonization. This limits <em>in vivo</em> mechanistic and therapeutic testing.</li>
+<li><strong>Diagnostic sensitivity gaps.</strong> Current PCR poorly detects low-bacteremia asymptomatic carriers (F010), meaning prevalence is likely underestimated and the reservoir is imperfectly characterized.</li>
+<li><strong>Sparse quantitative phenotype data.</strong> Frequencies for individual verruga phenotypes (proportion with arthralgia, ulceration, mucosal involvement) and formal quality-of-life measures (EQ-5D/SF-36) are not available in the retrieved literature.</li>
+<li><strong>Emerging species and resistance underexplored.</strong> The clinical spectrum, virulence, and treatment response of <em>B. ancashensis</em> and <em>B. rochalimae</em>, and the prevalence/mechanisms of antibiotic resistance, remain poorly quantified.</li>
+<li><strong>BafA-VEGFR pathway details.</strong> Whether BafA acts directly on VEGFR or via induced host VEGF, and the downstream signaling (PI3K-AKT, MAPK) in verruga endothelium, are not fully resolved.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Validate the endothelial-entry receptor in situ.</strong> Use immunohistochemistry/spatial transcriptomics on human verruga peruana biopsies to confirm α5β1 integrin engagement and map tyrosine-phosphorylation signaling in lesional endothelium (moving F014 from <em>in vitro</em> inference to <em>in vivo</em> demonstration).</li>
+<li><strong>Dissect the BafA-VEGFR axis.</strong> Test BafA passenger-domain mutants for VEGFR2 binding/phosphorylation, and profile downstream PI3K-AKT/MAPK activation in HUVEC; evaluate anti-VEGF/VEGFR agents (e.g., bevacizumab, kinase inhibitors) as adjuncts to shrink refractory nodules.</li>
+<li><strong>Develop an improved diagnostic for asymptomatic carriers.</strong> Benchmark ultrasensitive/droplet-digital PCR and serologic multiplex assays against latent-class models to close the low-bacteremia detection gap (F010) and better estimate the reservoir.</li>
+<li><strong>Advance vaccine candidates beyond in silico.</strong> Move multi-epitope constructs (Pap31, flagellar biosynthetic protein, heme transporters) into immunogenicity/challenge testing; establish a tractable <em>in vivo</em> or organoid endothelial model for protection assays.</li>
+<li><strong>Characterize emerging species.</strong> Systematic genomic and clinical comparison of <em>B. ancashensis</em> (T4SS+) and <em>B. rochalimae</em> isolates versus <em>B. bacilliformis</em> to define virulence determinants and phase-specific treatment response.</li>
+<li><strong>Map antibiotic resistance.</strong> Surveil rifampin/ciprofloxacin/azithromycin susceptibility across endemic Andean foci; correlate with treatment failure and define resistance mechanisms to guide anti-virulence drug development (e.g., α/β-hydrolase inhibitors building on compound 48/80).</li>
+<li><strong>Vector-control trial.</strong> Evaluate insecticide-treated bed nets plus active case detection/treat-to-clear-reservoir in a cluster-randomized design in high-transmission valleys.</li>
+</ol>
+<hr />
+<h2>Applicability Notes for the Knowledge Base</h2>
+<ul>
+<li><strong>Not applicable (host genetics):</strong> causal genes, pathogenic variants, allele frequencies, modifier genes, epigenetics, chromosomal abnormalities, inheritance pattern, penetrance/expressivity, anticipation, mosaicism, founder effects, consanguinity, carrier frequency, genetic testing/screening, pharmacogenomics. Etiology is infectious (F008).</li>
+<li><strong>Pathogen taxonomy (NCBI Taxon):</strong> <em>Bartonella bacilliformis</em>, <em>Bartonella ancashensis</em>, <em>Bartonella rochalimae</em>; vectors <em>Lutzomyia verrucarum</em>, <em>Pintomyia robusta</em>; host <em>Homo sapiens</em> (Taxon 9606).</li>
+<li><strong>Key UBERON:</strong> skin (0002097), blood (0000178), blood vessel (0001981), liver (0002107), spleen (0002106).</li>
+<li><strong>Key CL:</strong> endothelial cell (0000115), erythrocyte (0000232).</li>
+<li><strong>Key GO:</strong> angiogenesis (0001525), VEGF receptor signaling (0048010), integrin-mediated signaling (0007229), positive regulation of endothelial cell proliferation (0001938).</li>
+<li><strong>Key NCIT (treatment):</strong> Rifampin, Azithromycin, Ciprofloxacin, Chloramphenicol.</li>
+</ul>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Verruga_Peruana-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Verruga_Peruana-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>21</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>6</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0048010</code> (1 mention) - the report calls it "VEGF receptor signaling pathway"; GO calls it <strong>vascular endothelial growth factor receptor signaling pathway</strong>, and lists "VEGF receptor signaling pathway" among its other names</li>
+<li><code>CL:0000115</code> (3 mentions) - the report calls it "endothelial cell", "Vascular endothelium"; CL calls it <strong>endothelial cell</strong>, and lists "endotheliocyte" among its other names</li>
+<li><code>UBERON:0002097</code> (2 mentions) - the report calls it "skin of body", "skin"; UBERON calls it <strong>skin of body</strong>, and lists "skin" among its other names</li>
+<li><code>HP:0000988</code> (1 mention) - the report calls it "skin nodule"; HP calls it <strong>Skin rash</strong></li>
+<li><code>HP:0001878</code> (1 mention) - the report calls it "hemolytic anemia — acute phase"; HP calls it <strong>Hemolytic anemia</strong></li>
+<li><code>GO:0007169</code> (1 mention) - the report calls it "transmembrane receptor protein tyrosine kinase signaling"; GO calls it <strong>cell surface receptor protein tyrosine kinase signaling pathway</strong>, and lists "transmembrane receptor protein tyrosine kinase signalling pathway" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CL:0000115</code> - called "endothelial cell", "Vascular endothelium"</li>
+<li><code>UBERON:0002097</code> - called "skin of body", "skin"</li>
+<li><code>CL:0000232</code> - called "erythrocyte", "Erythrocytes"</li>
+</ul>
+<p>Every term resolved, and every label the report gave matched.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Ventricular_Septal_Defect-claude_code.html">← Ventricular Septal Defect (Claude Code)</a>
+                
+                
+                <a href="Vertebral_Artery_Insufficiency-falcon.html">Vertebral Artery Insufficiency (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Verruga_Peruana.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Verruga_Peruana-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

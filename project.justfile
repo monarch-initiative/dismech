@@ -922,7 +922,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1041,6 +1041,22 @@ immune-antigen-audit *args="":
 [group('QC')]
 variant-mechanism-audit *args="":
     uv run python scripts/audit_variant_mechanism.py {{args}}
+
+# Ratchet on genetic[].mechanism_activity_grounding: a gene wired into the
+# pathograph whose landing node names no molecular function. Grandfathers
+# against origin/main in CI (GENE_ACTIVITY_BASELINE_REF), else against
+# tests/gene_activity_grounding_baseline.txt.
+# Fail on genes newly landing on a node with no molecular_functions
+[group('QC')]
+check-gene-activity-grounding *args="":
+    uv run python scripts/check_gene_activity_grounding.py {{args}}
+
+# Only ever to REMOVE fixed entries, or to grandfather a node that genuinely
+# has no single molecular function -- say which in the PR.
+# Rewrite tests/gene_activity_grounding_baseline.txt from the current tree
+[group('QC')]
+update-gene-activity-baseline:
+    uv run python scripts/check_gene_activity_grounding.py --update-baseline
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1463,6 +1479,17 @@ update-causal-target-baseline:
 [group('QC')]
 list-disconnected-phenotypes *args="":
     uv run python scripts/check_disconnected_phenotypes.py {{args}}
+
+# Infectious-disease entries against the granularity ladder (design decisions
+# §3e, issue #10115): deterministic classes (missing/unbound agent, missing
+# transmission, rung-0 anchor, double modelling, shared anchor, pathotype
+# collapse, dangling `curated_in` pointer) and advisory ones (undecided lumps,
+# unbound subtypes, no progression, lifecycle prompts). Report-only, exit 0;
+# `--strict` gates the deterministic classes, `--scope all` runs the
+# cross-entry classes KB-wide. See docs/quality-control.md.
+[group('QC')]
+check-granularity *args="":
+    uv run python scripts/check_granularity.py {{args}}
 
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
@@ -2088,6 +2115,24 @@ export-kgx-maximal out_dir="output/maximal_kgx":
 [group('Export')]
 export-hpoa:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+
+# Runs `export-hpoa` first (the script reads its output), then downloads the release,
+# hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
+# it -- `curl --fail` so an HTTP error aborts instead of caching an error page), and
+# writes the generated report sections to stdout and the per-disease worklist to
+# `dir`/per-disease.tsv. The committed report carries hand-written sections too, so
+# merge rather than overwrite it.
+# Compare the HPOA export against the HPO project's phenotype.hpoa release.
+[group('Export')]
+compare-hpoa-release dir="output/hpoa-compare": export-hpoa
+    mkdir -p {{dir}}
+    test -s {{dir}}/phenotype.hpoa || curl --fail -sSL -o {{dir}}/phenotype.hpoa https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/phenotype.hpoa
+    test -s {{dir}}/hp.obo || curl --fail -sSL -o {{dir}}/hp.obo https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/hp.obo
+    test -s {{dir}}/mondo.sssom.tsv || curl --fail -sSL -o {{dir}}/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    test -s {{dir}}/mondo.obo || curl --fail -sSL -o {{dir}}/mondo.obo http://purl.obolibrary.org/obo/mondo.obo
+    uv run python scripts/hpoa_release_compare.py \
+        --hpo {{dir}}/phenotype.hpoa --sssom {{dir}}/mondo.sssom.tsv \
+        --hp-obo {{dir}}/hp.obo --mondo-obo {{dir}}/mondo.obo --out-tsv {{dir}}/per-disease.tsv
 
 # Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
 [group('Export')]
@@ -3677,6 +3722,19 @@ sedml-export *args="":
 gen-model-results *args="":
     uv run python -m dismech.perturb.results_export {{args}}
 
+# Verify every repository-authored model (models/<id>/spec.yaml + run.py) has
+# current committed results: runs each run.py --check. Seconds, offline.
+[group('Analysis')]
+check-authored-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    status=0
+    for spec in models/*/spec.yaml; do
+        dir=$(dirname "$spec")
+        uv run python "$dir/run.py" --check || status=1
+    done
+    exit $status
+
 # Check the exported archives reproduce dismech-perturb's own numbers by
 # running each .omex through tellurium's SED-ML interpreter and diffing.
 # Requires tellurium: uv pip install tellurium
@@ -3872,3 +3930,14 @@ jev-audit-report output="reports/jev-audit" *args:
 [positional-arguments]
 jev-audit-cache *args:
     uv run python -m dismech.classifier.cache "$@"
+
+# ============== Curation-donation schedule (/donate-curation) ==============
+
+# Expand .claude/schedule-config.yaml (or another path) into its UTC cron(s),
+# expiry, self-disable flag, and DST-transition dates -- the deterministic core
+# of the /donate-curation skill. Pass --now to pin a reference instant.
+# Example: just schedule-expand
+# Example: just schedule-expand .claude/schedule-config.yaml --now 2026-07-15T09:00:00
+[group('Schedule')]
+schedule-expand config=".claude/schedule-config.yaml" *flags:
+    uv run python -m dismech.schedule --config {{config}} {{flags}}
