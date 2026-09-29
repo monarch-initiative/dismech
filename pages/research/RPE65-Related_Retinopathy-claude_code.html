@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPE65-Related Retinopathy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>RPE65-Related Retinopathy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>RPE65-Related Retinopathy</h1>
+                
+                <p class="report-subtitle">RPE65-Related Retinopathy: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-24</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0100368" target="_blank" rel="noopener noreferrer">MONDO:0100368</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">43 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>RPE65-Related Retinopathy: Comprehensive Research Report</h1>
+<p><strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0100368" target="_blank" rel="noopener noreferrer">MONDO:0100368</a>
+<strong>Category:</strong> Mendelian, autosomal recessive (rare autosomal dominant form also reported)
+<strong>Key OMIM entries:</strong> #204100 (Leber Congenital Amaurosis 2, LCA2), #613794 (Retinitis Pigmentosa 20, RP20), *180069 (Retinoid Isomerohydrolase RPE65, the gene locus)</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> RPE65-related retinopathy is the umbrella term for a spectrum of autosomal recessive (and, rarely, autosomal dominant) inherited retinal dystrophies caused by biallelic (or, for one specific variant, heterozygous) pathogenic variants in <em>RPE65</em>, which encodes the retinal pigment epithelium (RPE)-specific isomerohydrolase that regenerates the visual chromophore 11-<em>cis</em>-retinal. The clinical spectrum spans a continuum of severity: <strong>Leber congenital amaurosis (LCA2)</strong> at the severe end, <strong>early-onset severe retinal dystrophy (EOSRD)</strong> in the middle, and <strong>RPE65-associated retinitis pigmentosa (RP20)</strong>, sometimes with juvenile onset, at the milder end — "the three phenotypes of autosomal recessive RPE65-related retinal degeneration, from most severe to mildest, are Leber congenital amaurosis (LCA), early-onset severe retinal dystrophy (EOSRD), and juvenile retinitis pigmentosa (RP)" (GeneReviews, NBK549574). This is the first inherited retinal disease with an FDA/EMA-approved gene-replacement therapy (voretigene neparvovec-rzyl, Luxturna).</p>
+<p><strong>Key identifiers:</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OMIM (LCA2)</td>
+<td>#204100</td>
+</tr>
+<tr>
+<td>OMIM (RP20)</td>
+<td>#613794</td>
+</tr>
+<tr>
+<td>OMIM (gene)</td>
+<td>*180069</td>
+</tr>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0100368" target="_blank" rel="noopener noreferrer">MONDO:0100368</a> (per prompt); related <a href="http://purl.obolibrary.org/obo/MONDO_0018091" target="_blank" rel="noopener noreferrer">MONDO:0018091</a> (LCA2)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td><a href="https://bioregistry.io/ORPHA:65" target="_blank" rel="noopener noreferrer">ORPHA:65</a> (Leber congenital amaurosis, umbrella); RPE65-specific subtype pages exist under the LCA/EOSRD Orphanet classification</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Leber Congenital Amaurosis (D016954); Retinitis Pigmentosa (D012174)</td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><a href="https://bioregistry.io/HGNC:10294" target="_blank" rel="noopener noreferrer">HGNC:10294</a> (RPE65); NCBI Gene 6121; Ensembl ENSG00000116745</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>H35.5 (hereditary retinal dystrophy); ICD-11 9B76</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> RPE65-associated retinal dystrophy; RPE65-mediated inherited retinal disease (RPE65-IRD); Leber congenital amaurosis type 2 (LCA2); RPE65 deficiency; Retinitis pigmentosa 20 (RP20); autosomal recessive childhood-onset severe retinal dystrophy (RPE65 type); retinoid isomerohydrolase deficiency.</p>
+<p><strong>Evidence basis:</strong> This report draws on OMIM/GeneReviews disease-level syntheses, structured registries (Orphanet, ClinVar/ClinGen), large multi-center natural-history and clinical-trial cohorts (e.g., the Phase 1/3 voretigene neparvovec program), and individual case reports/small case series for variant-level detail — the evidence tiers differ and are noted per claim.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factor:</strong> RPE65-related retinopathy is <strong>monogenic</strong>. Biallelic loss-of-function or hypomorphic variants in <em>RPE65</em> (chromosome 1p31.3) cause the autosomal recessive spectrum (LCA2/EOSRD/RP20). A single specific missense variant, <strong>p.Asp477Gly (D477G)</strong>, causes a distinct <strong>autosomal dominant</strong> late-onset retinitis pigmentosa through a toxic gain-of-function/aggregation mechanism rather than simple haploinsufficiency (see §4 and §6).</p>
+<p><strong>Genetic risk factors:</strong>
+- <strong>Causal variants:</strong> &gt;150 distinct pathogenic <em>RPE65</em> variants reported across missense, nonsense, frameshift, splice-site, and small in-frame indel classes (ClinVar; PMC7016655 "Pathogenicity Reclassification of RPE65 Missense Variants").
+- <strong>Modifier genes:</strong> No well-established modifier locus is confirmed for RPE65-retinopathy specifically, unlike CEP290-LCA (where AHI1 has been proposed as a modifier; PMC3048164). Phenotypic variability among biallelic-genotype-matched patients is well documented but its genetic basis is not fully resolved.
+- <strong>Consanguinity:</strong> Increases homozygosity for rare recessive <em>RPE65</em> alleles in populations/families with high consanguinity rates; multiple case series (e.g., from the Russian Federation, PMC10671290; East Asian cohorts, PMC9644481) report founder/recurrent alleles.
+- <strong>Founder alleles:</strong> Population-specific recurrent variants are documented; East Asian carrier frequency was estimated at ~0.10% (11/10,919 alleles) in gnomAD/KRGDB-derived East Asian samples and ~0.06% in Koreans specifically (PMC9644481, Orphanet J Rare Dis 2022).</p>
+<p><strong>Environmental risk factors:</strong> None established as causal — this is a purely Mendelian disease. However, <strong>ambient light/luminance exposure modulates phenotype severity</strong> in the dominant D477G form: "The interplay of environmental luminance and genetics in the retinal dystrophy induced by the dominant RPE65 mutation" (PMC8931212, PNAS 2022) demonstrates that light exposure interacts with the D477G genotype to determine degeneration severity in animal models, a rare example of gene-environment interaction in an otherwise monogenic disease.</p>
+<p><strong>Protective factors:</strong> No genetic protective variants are established. Reduced UV/blue-light exposure is biologically plausible as ameliorating in the dominant form (lipofuscin/A2E-related photo-oxidative mechanisms, see §6) but is not established as a clinical protective intervention through controlled trials.</p>
+<p><strong>Gene-environment interactions:</strong> Best characterized for <strong>D477G</strong> — see PMC8931212 above; not established for the biallelic recessive forms, where disease is fully penetrant regardless of environment.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<h3>Core phenotype set (by category)</h3>
+<p><strong>Symptoms/signs — visual:</strong>
+| Phenotype | Frequency/notes | Suggested HP term |
+|---|---|---|
+| Severe congenital/infantile vision loss (LCA) or progressive vision loss (EOSRD/RP) | Nearly universal for LCA form; onset in infancy | <a href="http://purl.obolibrary.org/obo/HP_0000618" target="_blank" rel="noopener noreferrer">HP:0000618</a> (Blindness) / <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" rel="noopener noreferrer">HP:0000505</a> (Visual impairment) |
+| Nystagmus (typically pendular) | Very common, often presenting sign in infancy | <a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a> (Nystagmus) |
+| Nyctalopia (night blindness) | "Most patients with RPE65 mutations are profoundly night blind"; earliest symptom, often before central vision loss, even in RP-only phenotype | <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> (Nyctalopia) |
+| Photophobia | Common | <a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a> (Photophobia) |
+| Sluggish or near-absent pupillary light reflex | Frequent in LCA | <a href="http://purl.obolibrary.org/obo/HP_0007686" target="_blank" rel="noopener noreferrer">HP:0007686</a> (Abnormal pupillary function) / <a href="http://purl.obolibrary.org/obo/HP_0008070" target="_blank" rel="noopener noreferrer">HP:0008070</a> (Sluggish pupillary response) |
+| Oculodigital sign (eye-poking/pressing/rubbing) | Common in infantile LCA presentations | <a href="http://purl.obolibrary.org/obo/HP_0006990" target="_blank" rel="noopener noreferrer">HP:0006990</a> (Eye poking) |
+| High hyperopia | Frequent | <a href="http://purl.obolibrary.org/obo/HP_0008515" target="_blank" rel="noopener noreferrer">HP:0008515</a> (Hyperopia) |
+| Keratoconus | Reported, secondary to chronic eye rubbing | <a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" rel="noopener noreferrer">HP:0000563</a> (Keratoconus) |
+| Cataract | Reported as a secondary/late finding | <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a> (Cataract) |
+| Strabismus | Common | <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" rel="noopener noreferrer">HP:0000486</a> (Strabismus) |
+| Reduced/constricted visual field | Progressive | <a href="http://purl.obolibrary.org/obo/HP_0000603" target="_blank" rel="noopener noreferrer">HP:0000603</a> (Constriction of peripheral visual field) |
+| Variable/abnormal fundus appearance | "Variable appearance to the fundus" — ranges from near-normal in infancy to bone-spicule pigmentary changes, attenuated vessels, optic disc pallor, and macular atrophy with progression | <a href="http://purl.obolibrary.org/obo/HP_0007663" target="_blank" rel="noopener noreferrer">HP:0007663</a> (Reduced visual acuity) as functional correlate; <a href="http://purl.obolibrary.org/obo/HP_0000580" target="_blank" rel="noopener noreferrer">HP:0000580</a> (Pigmentary retinopathy); <a href="http://purl.obolibrary.org/obo/HP_0000556" target="_blank" rel="noopener noreferrer">HP:0000556</a> (Retinal dystrophy) |
+| Macular atrophy/coloboma-like macular changes | More characteristic in later stages and in some genotypes | <a href="http://purl.obolibrary.org/obo/HP_0007401" target="_blank" rel="noopener noreferrer">HP:0007401</a> (Macular atrophy) |</p>
+<p><strong>Laboratory/electrophysiologic abnormality (functional):</strong>
+- <strong>Electroretinogram (ERG):</strong> severely reduced or non-recordable (rod and cone responses) — "the ERG is severely reduced or non-recordable" in RPE65-LCA/EOSRD. In the milder RP20 phenotype ERG may remain partially recordable, especially earlier in the disease course. Suggested term: <a href="http://purl.obolibrary.org/obo/HP_0000513" target="_blank" rel="noopener noreferrer">HP:0000513</a> (Abnormal electroretinogram)/ more specific <a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a>-associated functional test findings.
+- <strong>Full-field stimulus threshold (FFST):</strong> markedly elevated dark-adapted thresholds (used as a primary trial endpoint; log-unit improvements of ~2 log10 cd·s·m⁻² reported post-gene-therapy).</p>
+<p><strong>Phenotype characteristics:</strong>
+- <strong>Age of onset:</strong> LCA form — onset in infancy, typically within the first year of life (congenital or near-congenital); EOSRD — early childhood; RP20 (autosomal recessive juvenile/childhood RP) — onset from childhood into adolescence; the OMIM RP20 family description notes "onset of severe visual impairment was between 3 and 7 years of age, with night blindness being a typical and early symptom in all patients." The autosomal dominant D477G form is distinctly <strong>later-onset</strong> ("advanced late-onset retinitis pigmentosa," PMC7228561).
+- <strong>Severity:</strong> Generally severe (profound, near-blind) in LCA; variable but progressive in EOSRD/RP.
+- <strong>Progression:</strong> Progressive in all forms; central vision is often relatively preserved longer than peripheral/night vision early on, but declines with age — "night blindness is one of the earliest symptoms but patients tend to suffer central visual loss later." In a large natural-history case series, children aged 4–10 years already had severe visual impairment (mean visual acuity ~20/126).
+- <strong>Frequency among affected individuals:</strong> Night blindness and nystagmus are present in nearly all cases; keratoconus and cataract are present in a minority and tend to be later complications.</p>
+<p><strong>Quality of life impact:</strong> Profound vision loss from infancy has major developmental, educational, and psychosocial consequences (mobility, literacy via Braille/assistive technology, dependence). Gene-therapy trials formally captured functional vision (multi-luminance mobility testing, MLMT) and quality-of-life instruments, showing meaningful gains post-treatment, "particularly in younger patients" (per long-term follow-up data).</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Gene:</strong> <em>RPE65</em> — Retinoid Isomerohydrolase RPE65; <a href="https://bioregistry.io/HGNC:10294" target="_blank" rel="noopener noreferrer">HGNC:10294</a>; chromosome 1p31.3 (varies slightly by source, commonly cited 1p31); NM_000329.3 is the reference transcript used in clinical variant nomenclature.</p>
+<p><strong>Causal genes/loci:</strong> RPE65 is the sole causal gene for this entity by definition. OMIM lists two disease associations: #204100 LCA2 (autosomal recessive) and #613794 RP20 (autosomal recessive); a separate autosomal dominant RP phenotype (sometimes designated RP87 in more recent OMIM nomenclature) is caused specifically by the heterozygous D477G variant.</p>
+<p><strong>Variant spectrum and classification:</strong>
+- <strong>Types:</strong> missense (the largest category), nonsense, frameshift (e.g., c.106del predicted to cause a frameshift and premature stop, leading to nonsense-mediated decay), splice-site, and small in-frame deletions/insertions.
+- <strong>ACMG/ClinVar classification:</strong> Variants are individually curated pathogenic/likely pathogenic/VUS per ACMG-AMP criteria; a ClinGen RPE65-specific Variant Curation Expert Panel specification exists (cspec.genome.network/cspec/ui/svi/doc/GN120), refining general ACMG rules for this gene. A dedicated reclassification effort addressed missense VUS: "Pathogenicity Reclassification of RPE65 Missense Variants Related to Leber Congenital Amaurosis and Early-Onset Retinal Dystrophy" (PMC7016655).
+- <strong>Population allele frequency:</strong> Individual pathogenic variants are each very rare in gnomAD (e.g., c.1039C&gt;T p.Arg347Cys reported at ~0.00000124 allele frequency, 5/1,179,740 alleles, in European non-Finnish gnomAD), consistent with a rare recessive disease; aggregate carrier frequency in East Asians was estimated at ~0.10%.
+- <strong>Somatic vs. germline:</strong> Exclusively germline; no somatic mosaicism mechanism described for this disease.
+- <strong>Functional consequences:</strong>
+  - Most recessive loss-of-function alleles (nonsense, frameshift, canonical splice-site) abolish or near-abolish isomerohydrolase enzymatic activity — complete <strong>loss of function</strong>.
+  - Many missense alleles are <strong>hypomorphic</strong> (partial loss of function), correlating with the milder EOSRD/RP20 end of the phenotypic spectrum rather than LCA — see the "novel RPE65 hypomorph" functional study (PMC5015590).
+  - The dominant <strong>D477G</strong> variant does not act by simple haploinsufficiency: functional studies show "the adverse cellular consequence of the D477G mutant coexpressed with WT-RPE65 far exceeded that of losing a single allele of WT-RPE65," and structural/biochemical work indicates D477G forms an <strong>aggregation-prone surface</strong> that induces abnormal protein–protein interactions with wild-type RPE65, driving RPE65 protein degradation and reduced isomerase activity beyond what simple heterozygous loss would predict — i.e., a <strong>toxic/dominant-negative gain-of-function</strong> mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/29659842/" target="_blank" rel="noopener noreferrer">PMID:29659842</a>, Hum Mol Genet 2018; PMC7760593/<a href="https://pubmed.ncbi.nlm.nih.gov/33261050/" target="_blank" rel="noopener noreferrer">PMID:33261050</a>).</p>
+<p><strong>Modifier genes:</strong> None definitively established for the RPE65-recessive spectrum.</p>
+<p><strong>Epigenetic information:</strong> No disease-specific DNA methylation/histone modification mechanism is established as causal; this is a classic monogenic enzymatic deficiency disease.</p>
+<p><strong>Chromosomal abnormalities:</strong> Not a recognized mechanism — disease results from point mutations/small indels within <em>RPE65</em>, not large structural rearrangements, though whole-gene or exonic deletions have occasionally been reported as pathogenic alleles.</p>
+<p><strong>Ontology suggestions:</strong> Gene — hgnc:10294 (RPE65); Molecular function — <a href="http://purl.obolibrary.org/obo/GO_0003920" target="_blank" rel="noopener noreferrer">GO:0003920</a> (retinoid isomerohydrolase activity / <a href="http://purl.obolibrary.org/obo/GO_0033760" target="_blank" rel="noopener noreferrer">GO:0033760</a> "retinal isomerase activity" umbrella term), <a href="http://purl.obolibrary.org/obo/GO_0033748" target="_blank" rel="noopener noreferrer">GO:0033748</a> (bisretinoid catabolism, indirectly relevant); relevant CHEBI terms: <a href="http://purl.obolibrary.org/obo/CHEBI_17561" target="_blank" rel="noopener noreferrer">CHEBI:17561</a> (retinol), <a href="http://purl.obolibrary.org/obo/CHEBI_17278" target="_blank" rel="noopener noreferrer">CHEBI:17278</a> (all-trans-retinyl ester), <a href="http://purl.obolibrary.org/obo/CHEBI_17885" target="_blank" rel="noopener noreferrer">CHEBI:17885</a> (11-cis-retinal).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>RPE65-related retinopathy is not an infectious, toxin-induced, or classically "environmental" disease — it is monogenic. The only substantiated environmental interaction is:</p>
+<ul>
+<li><strong>Ambient luminance/light exposure</strong> as a phenotype modifier specifically for the <strong>dominant D477G</strong> allele (PMC8931212, PNAS 2022) — higher-light environments were associated with greater retinal dystrophy severity in genetically modeled systems, implicating light-driven photo-oxidative stress (via the retinoid/lipofuscin cycle, see §6) as an aggravating factor superimposed on the genetic lesion.</li>
+<li><strong>Vitamin A/retinoid status:</strong> Because RPE65 sits in the core vitamin A (retinoid) visual cycle, systemic vitamin A metabolism is mechanistically intertwined with the RPE65 defect, though dietary vitamin A supplementation has <strong>not</strong> been shown to correct the enzymatic block (unlike some other IRDs, e.g., Refsum disease with dietary phytanic acid restriction). This is the pharmacological rationale instead for exogenous synthetic retinoid replacement therapy (QLT091001/9-cis-retinyl acetate; see §12).</li>
+<li><strong>No infectious agents</strong> are implicated.</li>
+<li><strong>Lifestyle factors:</strong> No behavioral risk-modifying factor (smoking, diet, exercise) has controlled-trial evidence in this specific disease, though general retinal-health advice (UV protection) is plausible extrapolation from the light-luminance mechanistic data above, primarily relevant to D477G carriers.</li>
+</ul>
+<p>Suggested ECTO term if curating an environmental modifier edge: an ambient/ocular light-exposure term (e.g., ECTO class for "light exposure") linked specifically to the D477G pathophysiology node, with <code>environmental_effect: EXACERBATES</code>.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (recessive/loss-of-function form — LCA2/EOSRD/RP20)</h3>
+<ol>
+<li>Biallelic loss-of-function or hypomorphic pathogenic variants in <em>RPE65</em> <strong>lead to</strong> absent or markedly reduced RPE65 retinoid isomerohydrolase enzymatic activity in the retinal pigment epithelium (demonstrated biochemically; <a href="https://pubmed.ncbi.nlm.nih.gov/16116091/" target="_blank" rel="noopener noreferrer">PMID:16116091</a>, PNAS 2005 — "RPE65 is the isomerohydrolase in the retinoid visual cycle").</li>
+<li>Loss of isomerohydrolase activity <strong>results in</strong> failure to convert all-<em>trans</em>-retinyl ester to 11-<em>cis</em>-retinol within the RPE cell, the rate-limiting step of the retinoid ("visual") cycle.</li>
+<li>Absence of 11-<em>cis</em>-retinol/11-<em>cis</em>-retinal <strong>leads to</strong> depletion of functional visual chromophore available to combine with opsin apoprotein in rod and cone outer segments, so rhodopsin (rods) and cone opsins cannot be regenerated after bleaching.</li>
+<li>Chromophore-free ("apo-") opsin <strong>causes</strong> two convergent downstream consequences, demonstrated to be mechanistically distinct in rods versus cones:</li>
+<li><strong>4a. Rods:</strong> unliganded rod opsin is intrinsically unstable/constitutively signals abnormally and <strong>triggers</strong> a <strong>Bax-dependent apoptotic pathway</strong> in rod photoreceptors (PMC2720534, "Bax-Induced Apoptosis in Leber's Congenital Amaurosis: A Dual Role in Rod and Cone Degeneration"), together with <strong>upregulation of lysosomal-mediated autophagic gene expression</strong> contributing to early rod apoptosis in <em>Rpe65⁻/⁻</em> mice (<a href="https://pubmed.ncbi.nlm.nih.gov/22227450/" target="_blank" rel="noopener noreferrer">PMID:22227450</a>).</li>
+<li><strong>4b. Cones:</strong> cone photoreceptor death proceeds via a <strong>Bax-independent</strong> mechanism — "early loss of cones was not prevented in <em>Rpe65⁻/⁻</em>/<em>Bax⁻/⁻</em> mice, indicating that pro-apoptotic Bax was not involved in the pathogenesis of cone cell death in Rpe65-deficient mice" — implicating a separate degenerative cascade (proposed to relate to chronic unliganded-cone-opsin signaling/ER stress rather than classical Bax-mediated apoptosis) and explaining the disproportionately early, severe cone dysfunction seen clinically even though rods normally vastly outnumber cones.</li>
+<li>Progressive rod and (via the separate pathway) cone photoreceptor apoptosis <strong>results in</strong> outer-segment shortening/disorganization and eventual photoreceptor cell loss, detectable clinically as thinning of the outer nuclear layer/ellipsoid zone on OCT and as non-recordable or severely reduced ERG amplitudes.</li>
+<li>Concurrently, accumulation of un-isomerized all-<em>trans</em>-retinyl esters and derived bis-retinoid byproducts (notably <strong>A2E</strong>, a diretinal-phosphatidylethanolamine conjugate formed from all-<em>trans</em>-retinal condensing with phosphatidylethanolamine in photoreceptor outer segments and subsequently phagocytosed into the RPE) <strong>accumulates as RPE lipofuscin</strong>. A2E cannot be enzymatically degraded, perturbs RPE lysosomal membrane integrity and phagolysosomal function (inhibiting phagolysosomal degradation of photoreceptor phospholipid), and confers susceptibility to blue-light-induced RPE apoptosis — providing a secondary, light-exacerbated toxic mechanism to RPE and photoreceptor injury superimposed on the primary chromophore-deprivation mechanism. (Note: in the RPE65-null state itself, lipofuscin/A2E accumulation is <em>reduced</em> relative to wild type because retinyl-ester substrate is not being processed through the normal cycle at all — the Leu450Met <em>Rpe65</em> hypomorphic mouse variant, by contrast, shows reduced A2E via slowed cycle flux, <a href="https://pubmed.ncbi.nlm.nih.gov/15277666/" target="_blank" rel="noopener noreferrer">PMID:15277666</a> — so the lipofuscin/A2E axis is most clinically relevant to milder hypomorphic and to the light-modulated dominant D477G phenotype rather than to null LCA2.)</li>
+<li>Clinically, this cascade <strong>manifests as</strong> profound infantile/childhood visual impairment, nystagmus, night blindness, and a non-recordable or severely subnormal ERG (steps 1→3 dominate the earliest, most severe LCA presentation; steps 4→6 drive the progressive component seen even in successfully gene-corrected retina, explaining why continued photoreceptor loss can occur after gene therapy despite restored chromophore supply — see §12).</li>
+</ol>
+<h3>Branch: dominant D477G mechanism</h3>
+<p>1′. The heterozygous <strong>D477G</strong> missense variant <strong>produces</strong> a structurally abnormal RPE65 protein with an aggregation-prone surface.
+2′. This mutant protein <strong>engages in atypical protein–protein interactions</strong> with co-expressed wild-type RPE65, <strong>causing</strong> wild-type RPE65 protein degradation and a net reduction in cellular isomerase activity that <strong>exceeds</strong> the reduction expected from simple loss of one functional allele (i.e., not classical haploinsufficiency) — a <strong>dominant-negative/toxic gain-of-function</strong> mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/29659842/" target="_blank" rel="noopener noreferrer">PMID:29659842</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/33261050/" target="_blank" rel="noopener noreferrer">PMID:33261050</a>).
+3′. The resulting partial visual-cycle impairment, superimposed on and exacerbated by ambient light/luminance exposure (PMC8931212), <strong>leads to</strong> a milder, later-onset retinitis pigmentosa phenotype than the biallelic null state.</p>
+<h3>Categories covered</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> Retinoid (visual) cycle — RPE65 catalyzes the committed isomerization/hydrolysis step converting all-<em>trans</em>-retinyl ester → 11-<em>cis</em>-retinol (KEGG: Retinol metabolism, hsa00830; Reactome: "Visual phototransduction").</li>
+<li><strong>Cellular processes:</strong> Apoptosis (rod: Bax-dependent, <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>/<a href="http://purl.obolibrary.org/obo/GO_0043523" target="_blank" rel="noopener noreferrer">GO:0043523</a> negative regulation of neuron apoptotic process is disrupted; cone: Bax-independent, distinct pathway); autophagy/lysosomal gene upregulation (<a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a> autophagy); phagolysosomal dysfunction in RPE.</li>
+<li><strong>Protein dysfunction:</strong> Loss of enzymatic function (null/hypomorphic alleles) vs. misfolding/aggregation-driven dominant-negative toxicity (D477G).</li>
+<li><strong>Metabolic changes:</strong> Disrupted vitamin A/retinoid metabolism; secondary accumulation of retinyl esters and altered bis-retinoid (A2E) flux.</li>
+<li><strong>Tissue damage mechanisms:</strong> Chronic photo-oxidative stress from lipofuscin/A2E accumulation, particularly light-exposure-dependent.</li>
+<li><strong>Biochemical abnormality:</strong> Isomerohydrolase enzyme deficiency — the defining lesion.</li>
+<li><strong>Molecular profiling:</strong> Biochemical/functional assays (HPLC-MS/MS quantification of retinoids) are used for variant functional characterization (e.g., PMC7138296-style approach applied across LCA genes); RPE65 protein expression studies in HEK293/insect-cell heterologous systems and iPSC-derived RPE/retinal organoids from patients (PMC6749091) recapitulate reduced isomerase activity and photoreceptor phenotypes in vitro.</li>
+</ul>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0003920" target="_blank" rel="noopener noreferrer">GO:0003920</a> (retinal isomerase activity — closest functional GO term for the isomerohydrolase activity), <a href="http://purl.obolibrary.org/obo/GO_0009416" target="_blank" rel="noopener noreferrer">GO:0009416</a> (response to light stimulus), <a href="http://purl.obolibrary.org/obo/GO_0007601" target="_blank" rel="noopener noreferrer">GO:0007601</a> (visual perception), <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a> (apoptotic process), <a href="http://purl.obolibrary.org/obo/GO_0043524" target="_blank" rel="noopener noreferrer">GO:0043524</a> (negative regulation of neuron apoptotic process).
+<strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> (photoreceptor cell), <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (retinal rod cell), <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> (retinal cone cell), <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a> (retinal pigment epithelial cell).
+<strong>Suggested CHEBI terms:</strong> <a href="http://purl.obolibrary.org/obo/CHEBI_17561" target="_blank" rel="noopener noreferrer">CHEBI:17561</a> (retinol), <a href="http://purl.obolibrary.org/obo/CHEBI_17885" target="_blank" rel="noopener noreferrer">CHEBI:17885</a> (11-cis-retinal), <a href="http://purl.obolibrary.org/obo/CHEBI_17278" target="_blank" rel="noopener noreferrer">CHEBI:17278</a> (retinyl ester, generic), lipofuscin/A2E lacks a precise CHEBI ID commonly used in curation — record as free text if no exact match.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level:</strong>
+- <strong>Primary organ:</strong> eye — specifically the neurosensory retina and retinal pigment epithelium (<a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina; <a href="http://purl.obolibrary.org/obo/UBERON_0002050" target="_blank" rel="noopener noreferrer">UBERON:0002050</a> retinal pigment epithelium is not a standard distinct UBERON ID — RPE is typically captured via <a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a> cell type plus <a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a> retina, or <a href="http://purl.obolibrary.org/obo/UBERON_0001782" target="_blank" rel="noopener noreferrer">UBERON:0001782</a> (choroid)-adjacent structures depending on ontology version).
+- <strong>Secondary involvement:</strong> cornea (keratoconus secondary to chronic eye-rubbing, <a href="http://purl.obolibrary.org/obo/UBERON_0000362" target="_blank" rel="noopener noreferrer">UBERON:0000362</a> cornea), lens (cataract, <a href="http://purl.obolibrary.org/obo/UBERON_0001845" target="_blank" rel="noopener noreferrer">UBERON:0001845</a>), extraocular muscles (strabismus, secondary to poor fixation).
+- <strong>Body systems:</strong> primarily the visual/sensory system (nervous system extension); no systemic organ involvement — RPE65-retinopathy is a non-syndromic, eye-limited disease (distinguishing it from syndromic ciliopathy-associated LCA genes such as CEP290).</p>
+<p><strong>Tissue and cell level:</strong>
+- Neurosensory retina — outer nuclear layer (photoreceptor cell bodies), photoreceptor inner/outer segments.
+- RPE monolayer — site of the primary enzymatic defect (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>, retinal pigment epithelial cell).
+- Affected cell populations: rod photoreceptors (<a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a>) and cone photoreceptors (<a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a>), both degenerate, via distinct mechanisms (§6); RPE cells (<a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a>) accumulate lipofuscin/A2E.</p>
+<p><strong>Subcellular level:</strong>
+- RPE smooth endoplasmic reticulum — site of RPE65 enzymatic activity (GO Cellular Component: <a href="http://purl.obolibrary.org/obo/GO_0005783" target="_blank" rel="noopener noreferrer">GO:0005783</a> endoplasmic reticulum; RPE65 is a microsomal membrane-associated protein).
+- RPE lysosomes — site of A2E/lipofuscin accumulation and impaired phagolysosomal degradation (<a href="http://purl.obolibrary.org/obo/GO_0005764" target="_blank" rel="noopener noreferrer">GO:0005764</a> lysosome).
+- Photoreceptor outer segment discs — site of opsin/chromophore complex formation and of A2E precursor formation (<a href="http://purl.obolibrary.org/obo/GO_0001750" target="_blank" rel="noopener noreferrer">GO:0001750</a> photoreceptor outer segment).</p>
+<p><strong>Localization:</strong> Bilateral, generally symmetric involvement (as expected for a systemic monogenic enzymatic deficiency rather than a focal lesion); no lateralization pattern reported.</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset:</strong>
+- LCA2: congenital/infantile — visual manifestations typically apparent within the first year of life; frequently the presenting complaint is roving eye movements/nystagmus and lack of visual fixation noticed by caregivers in early infancy.
+- EOSRD: early childhood onset, intermediate severity.
+- RP20 (recessive, juvenile RP phenotype): onset in one documented family series between ages 3–7 years, with night blindness as the earliest and most consistent symptom.
+- Dominant D477G RP: distinctly <strong>later-onset</strong>, described in the literature as "advanced late-onset retinitis pigmentosa" (PMC7228561), i.e., adult-onset relative to the recessive forms.
+- Onset pattern: insidious/progressive rather than acute, though the profound congenital deficit in LCA2 can appear as an abrupt discovery at birth/infancy even though the underlying enzymatic lesion is present from conception.</p>
+<p><strong>Progression:</strong>
+- Disease course is chronic and progressive across the spectrum; there is no spontaneous remission.
+- Natural history: night blindness (rod-pathway dysfunction) typically precedes and is more severe/earlier than central (cone-mediated) visual loss, which develops later but can still occur in the first decade — "children ages four to ten years in the largest case series had severe visual impairment (mean visual acuity: 20/126)."
+- Progression rate: variable across the recessive spectrum (LCA fastest/most severe from birth; RP20 slower); within any one genotype, phenotype severity can still vary between patients, suggesting genetic background or environmental modifiers.
+- Disease duration: lifelong, chronic — no natural resolution; some patients with milder hypomorphic alleles retain functional (if severely reduced) vision into adulthood, providing the therapeutic window exploited by gene therapy.
+- Even after gene augmentation therapy restores chromophore-generating capacity, <strong>continued photoreceptor degeneration</strong> has been documented in surviving but already-compromised retina (see §12) — i.e., the enzymatic correction does not fully halt an already-initiated degenerative process in retina beyond a certain disease stage, underscoring the importance of the "critical period"/treatment-timing concept below.</p>
+<p><strong>Patterns:</strong>
+- No remission pattern (progressive monogenic disease).
+- <strong>Critical period for intervention:</strong> A central concept in this disease's management is that gene therapy is most effective when administered to retina with sufficient <strong>viable photoreceptors remaining</strong> — "treated locations having more than 63% of normal photoreceptors showed robust treatment-related retention of photoreceptors in the long term, while treated regions with less retained photoreceptors at the time of the intervention showed progressive degeneration similar to untreated regions" — establishing a structural/temporal window beyond which restoring the enzyme cannot rescue already-committed-to-death photoreceptors. This underlies current gene-therapy eligibility criteria requiring sufficient viable retinal area (see §10, §12).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology:</strong>
+- LCA overall (all genes combined) affects an estimated <strong>1 in 30,000 to 1 in 81,000 live births</strong>; RPE65 accounts for roughly <strong>5–10%</strong> of LCA cases.
+- Retinitis pigmentosa overall affects <strong>1 in 3,000–7,000</strong> people; autosomal recessive RP accounts for ~5–20% of RP, and RPE65 accounts for roughly <strong>2–5% of autosomal recessive RP</strong>.
+- In a multi-center inherited-retinal-dystrophy cohort of 2,240 patients, 18 (0.8%) had RPE65-related disease: 38.8% presenting as LCA, 22.2% as RP, 33.3% as severe early-onset retinal dystrophy, and 5.5% as congenital stationary night blindness-like presentation — illustrating the phenotypic breadth captured under one genotype.
+- In a Russian Federation cohort, RPE65-associated retinopathy accounted for 5.3% (25/474) of molecularly confirmed inherited retinal disease cases (PMC10671290).
+- <strong>Global disease burden:</strong> given the rarity, RPE65-retinopathy is classified as an ultra-rare disease; precise worldwide point-prevalence figures analogous to Orphanet's numeric prevalence bands are not consistently published as a single figure, but the above LCA/RP fraction data support an estimated worldwide prevalence in the range of roughly 1–2 per 100,000 to 1 per 1,000,000 (consistent with an Orphanet "1-9 / 1,000,000" or similarly rare band; a precise Orphanet numeric class was not independently confirmed in this search).</p>
+<p><strong>Inheritance pattern:</strong> Predominantly <strong>autosomal recessive</strong> (biallelic pathogenic variants — homozygous or compound heterozygous); a distinct, well-characterized <strong>autosomal dominant</strong> form exists caused specifically by the heterozygous D477G variant.</p>
+<p><strong>Penetrance:</strong> The recessive forms are essentially fully penetrant given biallelic pathogenic genotypes (consistent with a classic enzyme-deficiency Mendelian disease). Penetrance/expressivity of D477G dominant disease is modulated by environmental light exposure (§2, §6), suggesting incomplete or variable penetrance/expressivity for that specific allele depending on environmental luminance history — an unusual and specifically documented gene-environment penetrance modifier for a monogenic retinal disease.</p>
+<p><strong>Expressivity:</strong> Variable — even among patients with identical or similar biallelic genotypes, phenotype severity (LCA vs. EOSRD vs. RP20) and rate of progression differ, and macular morphology differs by causal gene even within the LCA differential (RPE65 vs. CEP290 vs. GUCY2D vs. AIPL1 patients show distinguishable macular phenotypes), suggesting genotype is only a partial predictor.</p>
+<p><strong>Genetic anticipation:</strong> Not described — RPE65-retinopathy is not a repeat-expansion disorder.</p>
+<p><strong>Germline mosaicism:</strong> Not specifically documented as a recurring feature in RPE65-retinopathy literature reviewed; general recessive-disease recurrence-risk counseling principles apply (25% recurrence risk per pregnancy for carrier parents of an affected homozygous/compound heterozygous child).</p>
+<p><strong>Founder effects:</strong> Documented at the population level — recurrent/founder pathogenic alleles reported in specific populations (East Asian, Russian, and other cohorts cited above), though no single globally dominant founder allele analogous to some other IRD genes has been established across all populations.</p>
+<p><strong>Consanguinity role:</strong> As with other rare autosomal recessive IRDs, consanguineous unions increase homozygosity for rare pathogenic <em>RPE65</em> alleles and are commonly noted in case series from populations with higher consanguinity rates.</p>
+<p><strong>Carrier frequency:</strong> Estimated ~0.10% in East Asians (gnomAD/KRGDB combined) and ~0.06% in Koreans specifically (PMC9644481); carrier frequencies elsewhere are lower given the gene's overall rarity and the population-specific nature of most pathogenic alleles.</p>
+<p><strong>Population demographics:</strong> No strong sex predilection is reported (autosomal, not X-linked); no major geographic endemicity beyond population-specific founder-allele effects; age distribution of affected individuals spans from infancy (LCA presentation) through adulthood (dominant D477G presentation), reflecting the phenotypic spectrum rather than a single onset age.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Clinical tests:</strong>
+- <strong>Electroretinography (ERG):</strong> central diagnostic test — severely reduced or non-recordable scotopic and photopic responses in LCA/EOSRD; may show residual but markedly subnormal responses in milder RP20/dominant D477G presentations, especially earlier in the disease course.
+- <strong>Optical coherence tomography (OCT):</strong> assesses outer nuclear layer/ellipsoid zone thickness and residual photoreceptor structure — critical for gene-therapy eligibility assessment (identifying sufficient viable retina) and for longitudinal monitoring of structural decline post-treatment.
+- <strong>Fundus autofluorescence:</strong> can show altered patterns related to lipofuscin/RPE status, useful in phenotyping and monitoring.
+- <strong>Full-field stimulus threshold (FFST) testing:</strong> dark-adapted psychophysical threshold test — the primary functional endpoint in the pivotal voretigene neparvovec trials, given the non-recordable ERG in many LCA patients makes ERG unsuitable as a treatment-response endpoint.
+- <strong>Multi-luminance mobility testing (MLMT):</strong> a functional-vision obstacle-course assay developed specifically for the voretigene neparvovec trials, assessing ability to navigate a course at graded light levels — became a novel, disease-specific, FDA-recognized functional endpoint.
+- <strong>Visual field testing:</strong> Goldmann or other perimetry to assess peripheral field constriction, where central fixation/cooperation allow.
+- <strong>Biopsy/histopathology:</strong> not routinely performed given the availability of genetic diagnosis; historical/postmortem histopathology contributed to early understanding of photoreceptor/RPE degeneration.</p>
+<p><strong>Genetic testing:</strong>
+- <strong>Recommended approach:</strong> targeted <em>RPE65</em> single-gene sequencing when clinical phenotype (early nyctalopia, ERG pattern) is suggestive, or more commonly as part of a <strong>multi-gene inherited retinal disease (IRD)/LCA panel</strong> given overlapping phenotypes among the ~20+ LCA-associated genes (see differential diagnosis below) — panel-based next-generation sequencing (NGS) is now first-line given genetic and phenotypic heterogeneity of LCA/EOSRD, with <strong>whole exome sequencing (WES)</strong> as a common escalation when panels are non-diagnostic, given the diagnostic yield reported (e.g., <a href="https://pubmed.ncbi.nlm.nih.gov/28966547/" target="_blank" rel="noopener noreferrer">PMID:28966547</a>, "Diagnostic application of clinical exome sequencing in Leber congenital amaurosis").
+- <strong>Whole genome sequencing (WGS):</strong> used in research/tertiary settings when exome-negative, to capture deep intronic or structural variants.
+- <strong>Chromosomal microarray/karyotype/FISH:</strong> not primary tools for this specific monogenic point-mutation disease; not typically indicated unless a contiguous gene deletion is suspected.
+- <strong>Confirmatory requirement for gene therapy:</strong> biallelic <em>RPE65</em> pathogenic/likely pathogenic variant confirmation is an <strong>absolute prerequisite</strong> for voretigene neparvovec eligibility per FDA label and the international consensus eligibility recommendations (<a href="https://pubmed.ncbi.nlm.nih.gov/34088339/" target="_blank" rel="noopener noreferrer">PMID:34088339</a>, Orphanet J Rare Dis 2021), which formalized clinical, electrophysiological, imaging, and genetic criteria (including required retinal-area/viable-photoreceptor thresholds) for patient selection.</p>
+<p><strong>Clinical criteria/differential diagnosis:</strong> RPE65-retinopathy must be distinguished from other LCA/EOSRD genes on the basis of genotype (phenotype overlap is substantial). Per GeneReviews-style LCA gene lists, at least ~20 genes cause LCA, accounting for ~70% of cases, including:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>LCA subtype</th>
+<th>Distinguishing notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GUCY2D</td>
+<td>LCA1</td>
+<td>Most common LCA gene overall in many populations; near-normal fundus early, preserved photoreceptor structure with severe functional loss ("cone-rod dystrophy dissociation")</td>
+</tr>
+<tr>
+<td><strong>RPE65</strong></td>
+<td><strong>LCA2</strong></td>
+<td>This entry; eligible for approved gene therapy</td>
+</tr>
+<tr>
+<td>CRX</td>
+<td>LCA7</td>
+<td>Can have dominant or recessive inheritance</td>
+</tr>
+<tr>
+<td>CRB1</td>
+<td>LCA8</td>
+<td>Often with preserved paravascular retinal pigment, nanophthalmos/high hyperopia, Coats-like exudative vasculopathy</td>
+</tr>
+<tr>
+<td>NMNAT1</td>
+<td>LCA9</td>
+<td>Characteristic macular coloboma-like atrophy</td>
+</tr>
+<tr>
+<td>CEP290</td>
+<td>LCA10</td>
+<td>Most common single LCA gene in many Western cohorts (up to ~21% of LCA); syndromic ciliopathy associations (Joubert, Senior-Løken, Bardet-Biedl, Meckel) must be excluded</td>
+</tr>
+<tr>
+<td>RDH12</td>
+<td>LCA13</td>
+<td></td>
+</tr>
+<tr>
+<td>LRAT</td>
+<td>LCA14</td>
+<td>Same visual-cycle pathway as RPE65 (upstream enzyme); phenotypically similar and also responds to oral synthetic retinoid in trials</td>
+</tr>
+<tr>
+<td>AIPL1</td>
+<td>LCA4</td>
+<td>Severe cone-rod phenotype</td>
+</tr>
+<tr>
+<td>others</td>
+<td>SPATA7, LCA5, RPGRIP1, IMPDH1, RD3, TULP1, IQCB1, CLUAP1, PRPH2, KCNJ13, IFT140</td>
+<td>Rarer causes</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Clinical phenotyping can help direct genetic testing strategy, since "different genes are associated with differential macular morphology in patients with RPE65-, CEP290-, GUCY2D-, and AIPL1-related Leber congenital amaurosis," but molecular confirmation remains the diagnostic gold standard given overlap.</p>
+<p><strong>Screening:</strong> No universal newborn screening program specifically targets RPE65-retinopathy (unlike metabolic newborn screening panels); diagnosis is prompted by parental/clinical recognition of poor visual behavior, nystagmus, or abnormal red reflex in infancy, followed by ophthalmologic and electrophysiologic evaluation and confirmatory genetic testing. Given the availability of approved gene therapy, <strong>early genetic diagnosis is now clinically urgent</strong> (to enable treatment while sufficient viable photoreceptors remain), which has driven increasing use of rapid genetic panels/WES in infants with suspected LCA.</p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<p><strong>Survival and mortality:</strong> RPE65-retinopathy is an ocular-only, non-syndromic disease with <strong>no reduction in life expectancy or systemic mortality</strong> attributable to the condition itself. This distinguishes it from syndromic LCA genes (e.g., CEP290-associated ciliopathies) that carry systemic morbidity/mortality risk.</p>
+<p><strong>Morbidity and function:</strong>
+- Without treatment, the natural history is progressive visual decline toward severe visual impairment/legal blindness, typically well established by the first decade of life in the LCA/EOSRD forms.
+- Functional/disability burden is substantial: profound low vision from infancy affects developmental milestones, education, and independence; quality-of-life measures were formally incorporated into gene-therapy trial endpoints, which showed "meaningful benefits in selected functional outcomes and quality of life, particularly in younger patients" following treatment.</p>
+<p><strong>Disease course/complications:</strong>
+- Secondary ocular complications include keratoconus (from chronic eye-rubbing/oculodigital sign) and cataract.
+- Post-gene-therapy, a notable <strong>complication not observed in the original clinical trials but reported in post-approval real-world data</strong> is <strong>chorioretinal atrophy</strong> at or around the subretinal injection site — the PERCEIVE registry study (103 patients, mean age 19.5 years) found "35 patients (34%) experienced ocular treatment-emergent adverse events, most frequently related to chorioretinal atrophy" (PMC10813228), and a post-approval systematic review/meta-analysis likewise noted chorioretinal atrophy as a complication not seen pre-approval. This is an important, evolving pharmacovigilance signal.</p>
+<p><strong>Recovery potential:</strong>
+- Without treatment: no spontaneous recovery; progressive decline is the rule.
+- With gene therapy: substantial, rapid (within ~30 days), and durable (documented to at least 3–4 years, with some cohorts followed 7+ years) improvement in dark-adapted/light-sensitivity function and functional mobility vision is achievable, though <strong>structural (OCT-measured) photoreceptor decline can continue</strong> even in treated, functionally-improved eyes — "photoreceptors continue to degenerate years after gene therapy... despite continued clinical benefit in some patients," and long-term structural outcome studies (<a href="https://pubmed.ncbi.nlm.nih.gov/31604676/" target="_blank" rel="noopener noreferrer">PMID:31604676</a>, Molecular Therapy) documented an overall decrease in SD-OCT structural outcomes over 24 months of follow-up despite functional benefit. This dissociation between structural and functional trajectories is an active area of ongoing research and patient counseling importance.</p>
+<p><strong>Prognostic factors:</strong>
+- <strong>Genotype severity</strong> (null vs. hypomorphic allele) correlates with phenotype severity (LCA vs. EOSRD vs. RP) and likely with residual photoreceptor reserve at any given age.
+- <strong>Age/disease stage at treatment</strong> is the single most important modifiable prognostic factor for gene-therapy response: retinal regions retaining &gt;~63% of normal photoreceptor density at treatment show robust long-term rescue, while more advanced regions continue to degenerate similarly to untreated retina — underscoring "earlier is better" for intervention.
+- <strong>Baseline visual function</strong> (visual acuity, FFST threshold) at treatment predicts magnitude of measurable improvement in trials.</p>
+<hr />
+<h2>12. Treatment</h2>
+<h3>Approved gene therapy — the practice-defining treatment for this disease</h3>
+<p><strong>Voretigene neparvovec-rzyl (Luxturna®):</strong> a recombinant AAV2 vector carrying a functional human RPE65 cDNA, delivered by <strong>subretinal injection</strong>, one eye at a time (bilateral sequential administration).
+- <strong>Mechanism:</strong> restores RPE65 isomerohydrolase expression in transduced RPE cells, re-enabling the visual (retinoid) cycle and chromophore regeneration.
+- <strong>Pivotal evidence:</strong> Phase 3 randomized, controlled, open-label trial (Russell et al., <em>Lancet</em> 2017) in patients ≥3 years with confirmed biallelic RPE65 mutations, best-corrected visual acuity 20/60 or worse or visual field &lt;20°, receiving bilateral subretinal injection of 1.5×10¹¹ vector genomes in 0.3 mL — demonstrated significant improvement in the primary MLMT endpoint. Efficacy and durability further reported through pooled Phase 1/3 follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/31443789/" target="_blank" rel="noopener noreferrer">PMID:31443789</a>, "Efficacy, Safety, and Durability of Voretigene Neparvovec-rzyl... Results of Phase 1 and 3 Trials") — "the therapeutic effect is nearly maximal by 30 days after administration and is durable for 4 years, with observation ongoing," and pooled analyses show statistically significant gains in full-field stimulus threshold (2.2 log₁₀ cd·s·m⁻² improvement) and visual acuity (0.08 logMAR).
+- <strong>Regulatory status:</strong> FDA approval December 19, 2017 (first FDA-approved gene therapy for a genetic disease and the first for an inherited retinal disease); European Commission approval November 23, 2018.
+- <strong>Long-term data:</strong> Long-term structural outcome studies (<a href="https://pubmed.ncbi.nlm.nih.gov/31604676/" target="_blank" rel="noopener noreferrer">PMID:31604676</a>) and durability reviews (<a href="https://pubmed.ncbi.nlm.nih.gov/36103843/" target="_blank" rel="noopener noreferrer">PMID:36103843</a>, Ophthalmic Research 2022) show sustained functional benefit alongside variable/progressive structural (OCT) decline, particularly in more advanced treated regions.
+- <strong>Real-world post-approval data:</strong> PERCEIVE registry study (up to 2 years, 103 patients; PMC10813228) confirms real-world safety/effectiveness while flagging chorioretinal atrophy as an emergent adverse event category; additional single-center case series (<a href="https://pubmed.ncbi.nlm.nih.gov/39900645/" target="_blank" rel="noopener noreferrer">PMID:39900645</a>, 2025, 14 eyes/8 patients, 26-month follow-up) report sustained visual acuity gains (mean +2 lines) and functional test improvements; a broader post-approval systematic review/meta-analysis has further quantified pooled outcomes across the post-marketing literature.
+- <strong>NCIT term suggestion:</strong> <code>NCIT:C15238</code> (Gene Therapy) for <code>treatment_term</code>; specific agent could be recorded via <code>therapeutic_agent</code> — voretigene neparvovec has an NCIT concept (search the NCIT adapter for the specific C-code at curation time; not independently confirmed here).
+- <strong>Eligibility criteria:</strong> formalized by international consensus (<a href="https://pubmed.ncbi.nlm.nih.gov/34088339/" target="_blank" rel="noopener noreferrer">PMID:34088339</a>, Orphanet J Rare Dis 2021) — genetically confirmed biallelic RPE65 pathogenic variants, sufficient viable retinal area/photoreceptors (informed by the structural-durability data above), and specific visual acuity/visual field thresholds; surgical and post-operative management guidance is also addressed by this consensus document.</p>
+<h3>Investigational/historical pharmacotherapy</h3>
+<p><strong>QLT091001 (9-cis-retinyl acetate, an oral synthetic retinoid):</strong> bypasses the enzymatic block by supplying a pre-formed chromophore precursor directly.
+- Phase 1b trials in LCA/RP due to RPE65 or <strong>LRAT</strong> mutations (same visual-cycle pathway) showed: "10 (77%) of 13 LCA patients and 12 (86%) of 14 RP patients were 'responders'... in at least 1 eye in either functional retinal area or ETDRS visual acuity" (<a href="https://pubmed.ncbi.nlm.nih.gov/25030840/" target="_blank" rel="noopener noreferrer">PMID:25030840</a>, and PMC4687523/PLOS ONE).
+- Also shown effective specifically in the <strong>dominant D477G</strong> late-onset RP phenotype: "Advanced late-onset retinitis pigmentosa with dominant-acting D477G RPE65 mutation is responsive to oral synthetic retinoid therapy" (PMC7228561) — notable because gene-replacement therapy (which adds more RPE65 protein) is mechanistically inappropriate for a toxic gain-of-function dominant allele, making a chromophore-replacement strategy a rational alternative for this specific genotype.
+- <strong>Adverse effects:</strong> headache, fatigue, photophobia, photopsia, erythema, flushing, nausea/vomiting; reversible elevations in triglycerides, LDL, AST/ALT and reductions in HDL and thyroxine — consistent with the retinoid drug class; effects were transient/reversible.
+- Not currently FDA-approved (development status per available search results is Phase 1b-level historical trial data; current regulatory status should be re-verified at curation time).</p>
+<h3>Supportive/adjunctive care</h3>
+<ul>
+<li><strong>Low-vision rehabilitation:</strong> low-vision aids, orientation and mobility training, educational support (NCIT:C15315 Rehabilitation).</li>
+<li><strong>Genetic counseling:</strong> essential given autosomal recessive (25% recurrence risk) or, for D477G, autosomal dominant (50% recurrence risk, variable penetrance by light exposure) inheritance (NCIT:C15240 Genetic Counseling).</li>
+<li><strong>Management of secondary complications:</strong> keratoconus and cataract management via standard ophthalmic surgical approaches as needed (NCIT:C16186 Orthopedic/ophthalmic surgical procedure category as applicable; NCIT:C15329 Surgical Procedure generic).</li>
+<li><strong>UV/blue-light protection:</strong> plausible adjunct particularly for D477G carriers given the light-luminance interaction data, though not established via controlled trial as a formal preventive intervention.</li>
+</ul>
+<h3>Treatment strategy / personalized medicine</h3>
+<ul>
+<li>Genotype-guided treatment is central to this disease: biallelic null/hypomorphic genotypes with adequate retinal reserve → voretigene neparvovec; the specific dominant D477G genotype → oral synthetic retinoid is mechanistically preferred over gene augmentation, illustrating a clear precision-medicine bifurcation within a single gene's disease spectrum.</li>
+<li>No combination-therapy regimens are established.</li>
+</ul>
+<h3>Experimental pipeline (general orientation; verify current ClinicalTrials.gov status at curation time)</h3>
+<p>Beyond the above, general inherited-retinal-disease pipeline approaches with potential relevance include next-generation AAV capsids/alternate delivery routes (e.g., suprachoroidal injection, being explored broadly across IRD gene therapies to reduce surgical morbidity relative to subretinal injection) and optogenetic or photoreceptor-replacement strategies applicable at very advanced disease stages where no endogenous photoreceptors remain to rescue. Specific RPE65-dedicated trials of these newer modalities were not independently confirmed in this search session and should be verified via ClinicalTrials.gov/WHO ICTRP before citation in a KB entry.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention:</strong> Not applicable in the vaccination/risk-factor-modification sense, since this is a fully genetically determined (recessive) or genetically triggered (dominant, light-modulated) disease. The principal "primary prevention" avenue is <strong>reproductive/genetic</strong>:
+- <strong>Genetic/carrier screening:</strong> carrier screening in populations/families with known <em>RPE65</em> pathogenic alleles, particularly relevant given documented founder alleles in specific populations.
+- <strong>Prenatal diagnosis and preimplantation genetic testing (PGT-M):</strong> available for families with a previously identified proband/known biallelic pathogenic genotype, per standard rare-monogenic-disease reproductive genetics practice (ACMG/ACOG-aligned).
+- <strong>Genetic counseling:</strong> central to family planning guidance given the 25% recurrence risk for recessive disease (or variable-penetrance 50% risk for D477G-associated dominant disease).</p>
+<p><strong>Secondary prevention (early detection):</strong>
+- Early <strong>genetic diagnosis in infancy</strong> is now itself a preventive strategy in a specific sense — it enables gene therapy while sufficient photoreceptors remain viable, effectively "preventing" the otherwise inevitable progression to severe, irreversible vision loss. This reframes early diagnosis as time-critical secondary prevention rather than passive diagnostic labeling.
+- No population-based newborn screening program specifically targets RPE65 currently (verify against current national newborn-screening panels at curation time, as genomic newborn screening pilots are expanding rapidly and may include IRD genes in some programs by the time of curation).</p>
+<p><strong>Tertiary prevention (preventing complications):</strong>
+- Managing chronic eye-rubbing/oculodigital behavior to reduce secondary keratoconus risk.
+- Routine surveillance for cataract and keratoconus.
+- Post-gene-therapy structural surveillance (OCT) to detect and manage emergent chorioretinal atrophy.</p>
+<p><strong>Immunization:</strong> Not applicable — non-infectious disease.</p>
+<p><strong>Behavioral interventions:</strong> Plausible light/UV exposure moderation for D477G carriers (extrapolated from the luminance-interaction mechanistic data), not established via formal behavioral-intervention trial.</p>
+<p><strong>Public health/environmental interventions:</strong> Not applicable in the traditional sanitation/pollution-control sense; the relevant "public health" dimension is orphan-disease-specific: rare-disease registries (e.g., PERCEIVE), expanded newborn/early genetic testing infrastructure, and gene-therapy-center accreditation/access programs given the specialized surgical delivery required.</p>
+<p><strong>Prophylaxis:</strong> No pharmacologic prophylactic regimen is established; gene therapy and synthetic retinoid therapy are disease-modifying/restorative rather than prophylactic in the classical sense.</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy of affected species:</strong> Dogs (<em>Canis lupus familiaris</em>, NCBITaxon:9615) and mice (<em>Mus musculus</em>, NCBITaxon:10090) are the principal model/naturally-occurring-disease species; no other companion-animal or wildlife species with naturally occurring RPE65 deficiency was identified in this search.</p>
+<p><strong>Breed:</strong> <strong>Briard dog</strong> — naturally occurring <em>RPE65</em>-mutant canine model, historically first described as causing <strong>congenital stationary night blindness (CSNB)</strong>-like/severe early retinal dystrophy in this breed; a null mutation in canine RPE65 causes a severe retinal dystrophy phenotype. (VBO identifier for Briard breed should be looked up at curation time — not independently confirmed here.)</p>
+<p><strong>Gene:</strong> Canine RPE65 ortholog (NCBI Gene — canine RPE65 gene ID to be confirmed at curation time); murine <em>Rpe65</em> (MGI ortholog).</p>
+<p><strong>Natural disease:</strong>
+- <strong>Briard dog RPE65-CSNB/retinal dystrophy</strong> is the paradigm naturally-occurring large-animal model and was the substrate for the field-defining proof-of-concept gene therapy experiments: <strong>Acland and colleagues (2001, <em>Nature Genetics</em>)</strong> showed that subretinal AAV-RPE65 gene augmentation restored visual function in RPE65-mutant dogs — "gene therapy restores vision in a canine model of childhood blindness," widely credited as the foundational large-animal proof-of-concept that catalyzed the entire RPE65 human gene-therapy development program culminating in voretigene neparvovec. Multiple subsequent canine trials refined vector dose, delivery route, and long-term durability assessment ("Gene Augmentation Trials Using the Rpe65-Deficient Dog: Contributions Towards Development and Refinement of Human Clinical Trials").
+- <strong>Veterinary relevance:</strong> Briard-breed RPE65-CSNB is recognized in veterinary ophthalmology/OMIA as a hereditary canine eye disease of breed-health importance (consult OMIA for the specific entry at curation time).</p>
+<p><strong>Comparative biology:</strong>
+- <strong>rd12 mouse:</strong> a spontaneously arising naturally occurring recessive nonsense <em>Rpe65</em> mutant mouse strain — "displays a profoundly diminished rod electroretinogram, an absence of 11-cis-retinaldehyde and rhodopsin, and photoreceptor degeneration," serving as the standard small-animal model for human RPE65-LCA and used extensively in gene-therapy dose-response and mechanistic (e.g., Bax-dependence) studies.
+- <strong>Rpe65⁻/⁻ knockout mouse</strong> (engineered, distinct from rd12): the primary engineered null model used in the Bax-dependent rod-apoptosis and Bax-independent cone-death mechanistic studies cited in §6.
+- Evolutionary conservation: RPE65's isomerohydrolase role in the vertebrate visual cycle is deeply conserved, with comparative work tracing "origin and evolution of retinoid isomerization machinery in vertebrate visual cycle" even to jawless vertebrates (PMC3507948), underscoring the gene's fundamental, ancient role in vertebrate vision.</p>
+<p><strong>Transmission:</strong> Not applicable — non-infectious, non-zoonotic monogenic disease; no cross-species transmission relevance.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Genetic basis</th>
+<th>Key phenotype/utility</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>rd12 mouse</strong></td>
+<td>Naturally occurring, spontaneous mutant (Mus musculus)</td>
+<td>Recessive nonsense <em>Rpe65</em> mutation</td>
+<td>Profoundly diminished rod ERG, absent 11-cis-retinal and rhodopsin, progressive photoreceptor degeneration; standard model for "midcourse RPE65 LCA" — used to test gene therapy at intermediate disease stages (IOVS, "Gene Therapy Rescues Cone Structure and Function in the 3-Month-Old rd12 Mouse")</td>
+<td>multiple, incl. IOVS study above</td>
+</tr>
+<tr>
+<td><strong><em>Rpe65⁻/⁻</em> knockout mouse</strong></td>
+<td>Engineered knockout</td>
+<td>Complete Rpe65 ablation</td>
+<td>Used to dissect Bax-dependent rod apoptosis vs. Bax-independent cone death (PMC2720534); lysosomal-autophagic gene upregulation in early rod apoptosis (<a href="https://pubmed.ncbi.nlm.nih.gov/22227450/" target="_blank" rel="noopener noreferrer">PMID:22227450</a>); reduced A2E/lipofuscin due to blocked substrate flux</td>
+<td>PMC2720534; <a href="https://pubmed.ncbi.nlm.nih.gov/22227450/" target="_blank" rel="noopener noreferrer">PMID:22227450</a></td>
+</tr>
+<tr>
+<td><strong><em>Rpe65</em> Leu450Met hypomorphic mouse variant</strong></td>
+<td>Engineered/natural hypomorphic allele</td>
+<td>Partial-activity missense variant</td>
+<td>Slowed visual cycle flux with reduced A2E/iso-A2E lipofuscin fluorophore accumulation — models the milder, hypomorphic end of the human allelic spectrum and the lipofuscin/A2E toxicity mechanism</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15277666/" target="_blank" rel="noopener noreferrer">PMID:15277666</a></td>
+</tr>
+<tr>
+<td><strong>Briard dog</strong></td>
+<td>Naturally occurring (large animal)</td>
+<td>Canine RPE65 null mutation</td>
+<td>Severe early retinal dystrophy/CSNB-like phenotype; historically the first large-animal model in which AAV-RPE65 subretinal gene therapy restored visual function (Acland et al. 2001), directly enabling translation to human trials; extensively used for dose/vector/delivery optimization</td>
+<td>multiple canine gene-therapy trial reports</td>
+</tr>
+<tr>
+<td><strong>Dominant D477G mouse/cell models</strong></td>
+<td>Engineered knock-in / heterologous expression</td>
+<td>Heterozygous D477G</td>
+<td>Recapitulates toxic dominant-negative mechanism and light-luminance × genotype interaction on degeneration severity</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29659842/" target="_blank" rel="noopener noreferrer">PMID:29659842</a>; PMC8931212</td>
+</tr>
+<tr>
+<td><strong>Patient-derived iPSC/retinal organoids</strong></td>
+<td>Human cellular model</td>
+<td>Patient-specific compound heterozygous <em>RPE65</em> genotypes</td>
+<td>Recapitulates reduced RPE65 expression/isomerase activity and photoreceptor abnormalities in a human genetic background; used for functional variant characterization and (potentially) autologous/personalized therapeutic testing</td>
+<td>PMC6749091</td>
+</tr>
+<tr>
+<td><strong>Heterologous expression systems (HEK293, insect cells)</strong></td>
+<td>In vitro biochemical model</td>
+<td>Wild-type and mutant recombinant RPE65</td>
+<td>Established RPE65's isomerohydrolase enzymatic activity directly (<a href="https://pubmed.ncbi.nlm.nih.gov/16116091/" target="_blank" rel="noopener noreferrer">PMID:16116091</a>) and is the standard assay platform for functional classification of novel missense variants (e.g., PMC5015590 hypomorph characterization; PMC7016655 reclassification effort)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16116091/" target="_blank" rel="noopener noreferrer">PMID:16116091</a>; PMC5015590; PMC7016655</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Phenotype recapitulation:</strong> Both the canine and murine models faithfully recapitulate the core biochemical lesion (absent/reduced 11-cis-retinal, non-recordable or severely reduced ERG) and the therapeutic response to AAV-RPE65 gene augmentation, which is why they were sufficient to support translation to human trials without an intermediate large-animal efficacy gap — a relatively unusual and favorable translational history among inherited retinal diseases.</p>
+<p><strong>Model limitations:</strong> Mouse retina is rod-dominated (very few cones relative to human macula-containing retina), limiting direct extrapolation of cone-specific degeneration kinetics and any future macula-specific therapeutic endpoints to the human macula-bearing eye; the Briard dog model, while a valuable large-animal proof-of-concept, does not have a macula either (dogs lack a true fovea/macula), so neither major model organism fully recapitulates the human macular cone biology most relevant to central visual acuity outcomes measured in human trials — a caveat regulatory reviewers and treating clinicians have noted when interpreting preclinical durability data relative to human long-term structural (OCT) findings.</p>
+<p><strong>Research applications:</strong> Mechanistic dissection of rod vs. cone death pathways (Bax-dependence), lipofuscin/A2E toxicity biology, gene-therapy vector/dose/route optimization, disease-stage-dependent treatment-window characterization (photoreceptor-reserve threshold for rescue), and — via the D477G models — dominant-negative toxic-aggregation mechanisms and light-modulated penetrance, informing both mechanistic understanding and differential treatment-selection strategy (gene augmentation vs. chromophore replacement) described in §12.</p>
+<p><strong>Resources:</strong> MGI (Mouse Genome Informatics) for <em>Rpe65</em> mouse allele records including rd12; IMSR (International Mouse Strain Resource) for rd12 and knockout strain availability; OMIA (Online Mendelian Inheritance in Animals) for the canine Briard RPE65 entry (specific OMIA accession not independently confirmed in this search — verify at curation time).</p>
+<hr />
+<h2>Summary Table: Suggested Ontology Bindings for KB Curation</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>Suggested term</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gene</td>
+<td>hgnc:10294 (RPE65)</td>
+<td>lowercase <code>hgnc:</code> per repo convention</td>
+</tr>
+<tr>
+<td>Disease (LCA form)</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0018091" target="_blank" rel="noopener noreferrer">MONDO:0018091</a> or the provided <a href="http://purl.obolibrary.org/obo/MONDO_0100368" target="_blank" rel="noopener noreferrer">MONDO:0100368</a></td>
+<td>verify exact MONDO scope/preferred ID via OAK lookup before binding</td>
+</tr>
+<tr>
+<td>Night blindness</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000662" target="_blank" rel="noopener noreferrer">HP:0000662</a> (Nyctalopia)</td>
+<td>core, earliest phenotype</td>
+</tr>
+<tr>
+<td>Nystagmus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000639" target="_blank" rel="noopener noreferrer">HP:0000639</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Photophobia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000613" target="_blank" rel="noopener noreferrer">HP:0000613</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Reduced/non-recordable ERG</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000513" target="_blank" rel="noopener noreferrer">HP:0000513</a>-family (abnormal ERG)</td>
+<td>verify exact HPO term at curation time</td>
+</tr>
+<tr>
+<td>Keratoconus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000563" target="_blank" rel="noopener noreferrer">HP:0000563</a></td>
+<td>secondary complication</td>
+</tr>
+<tr>
+<td>Cataract</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" rel="noopener noreferrer">HP:0000518</a></td>
+<td>secondary complication</td>
+</tr>
+<tr>
+<td>Photoreceptor cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0000210" target="_blank" rel="noopener noreferrer">CL:0000210</a> (general) / <a href="http://purl.obolibrary.org/obo/CL_0000604" target="_blank" rel="noopener noreferrer">CL:0000604</a> (rod) / <a href="http://purl.obolibrary.org/obo/CL_0000573" target="_blank" rel="noopener noreferrer">CL:0000573</a> (cone)</td>
+<td></td>
+</tr>
+<tr>
+<td>RPE cell</td>
+<td><a href="http://purl.obolibrary.org/obo/CL_0002586" target="_blank" rel="noopener noreferrer">CL:0002586</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Retina</td>
+<td><a href="http://purl.obolibrary.org/obo/UBERON_0000966" target="_blank" rel="noopener noreferrer">UBERON:0000966</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Retinoid isomerohydrolase activity</td>
+<td>GO term for the enzymatic function</td>
+<td>confirm exact GO ID via OAK before binding</td>
+</tr>
+<tr>
+<td>Apoptotic process</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a></td>
+<td></td>
+</tr>
+<tr>
+<td>Gene therapy (treatment)</td>
+<td>NCIT:C15238</td>
+<td>for voretigene neparvovec</td>
+</tr>
+<tr>
+<td>Pharmacotherapy (oral retinoid)</td>
+<td>NCIT:C15986</td>
+<td>for QLT091001, with therapeutic_agent detail</td>
+</tr>
+<tr>
+<td>Genetic counseling</td>
+<td>NCIT:C15240</td>
+<td></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Curatorial caveat:</strong> All ontology term IDs above should be independently verified via <code>runoak</code>/the repo's cache-first lookup workflow before being written into a KB entry — per the Ontology Term Contract, no CURIE should be bound from this report's memory-recall without a fresh lookup, and several IDs above (exact ERG-abnormality HPO term, precise MONDO scope, canine breed/gene identifiers, RPE65 NCIT drug-concept code) were explicitly flagged as unconfirmed and need lookup, not direct reuse.</p>
+<hr />
+<h2>Sources</h2>
+<ul>
+<li><a href="https://omim.org/entry/204100">Entry - #204100 - LEBER CONGENITAL AMAUROSIS 2; LCA2 - OMIM</a></li>
+<li><a href="https://omim.org/entry/180069">Entry - *180069 - RETINOID ISOMEROHYDROLASE RPE65 - OMIM</a></li>
+<li><a href="https://omim.org/entry/613794">Entry - #613794 - RETINITIS PIGMENTOSA 20; RP20 - OMIM</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/books/NBK549574/">Autosomal Recessive RPE65-Related Retinal Degeneration - GeneReviews</a></li>
+<li><a href="https://www.med.upenn.edu/chrd/rpe65.html">RPE65-associated LCA - CHRD, UPenn</a></li>
+<li><a href="https://gene.vision/knowledge-base/rpe65-for-doctors/">RPE65 gene - Gene Vision</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/16116091/">RPE65 is the isomerohydrolase in the retinoid visual cycle - PubMed (PMID:16116091)</a></li>
+<li><a href="https://www.pnas.org/doi/10.1073/pnas.0503460102">RPE65 is the isomerohydrolase in the retinoid visual cycle - PNAS</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/19373675/">RPE65: role in the visual cycle, human retinal disease, and gene therapy - PubMed</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29635265/">Voretigene neparvovec-rzyl (Luxturna) for inherited retinal dystrophy - PubMed (PMID:29635265)</a></li>
+<li><a href="https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(17)31868-8/abstract">Efficacy and safety of voretigene neparvovec... phase 3 trial - The Lancet</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31443789/">Efficacy, Safety, and Durability of Voretigene Neparvovec-rzyl... Phase 1 and 3 Trials - PubMed (PMID:31443789)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12405627/">Efficacy and Safety of Voretigene Neparvovec in RPE65-Retinopathy: Phase III Trial in Japan - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42425207/">Post-approval outcomes of voretigene neparvovec: systematic review and meta-analysis - PubMed</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10813228/">Real-World Safety and Effectiveness of Voretigene Neparvovec: PERCEIVE Study - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39900645/">Real-world outcomes of Voretigene Neparvovec: single-centre case series - PubMed (PMID:39900645)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31604676/">Long-Term Structural Outcomes of Late-Stage RPE65 Gene Therapy - PubMed (PMID:31604676)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36103843/">Gene Therapy for Inherited Retinal Disease: Long-Term Durability of Effect - PubMed (PMID:36103843)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/34088339/">RPE65-associated inherited retinal diseases: consensus recommendations for eligibility to gene therapy - PubMed (PMID:34088339)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9644481/">Carrier frequency and incidence estimation of RPE65-associated IRD in East Asian population - PMC</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10671290/">A Molecular Genetic Analysis of RPE65-Associated Forms of IRD in the Russian Federation - PMC</a></li>
+<li><a href="https://iovs.arvojournals.org/article.aspx?articleid=2741042">Prevalence and genetic characteristics of RPE65-associated retinal disease - IOVS</a></li>
+<li><a href="https://iovs.arvojournals.org/article.aspx?articleid=2162347">Genetics and Phenotypes of RPE65 Mutations in Inherited Retinal Degeneration - IOVS</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7016655/">Pathogenicity Reclassification of RPE65 Missense Variants - PMC</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5015590/">A novel RPE65 hypomorph expands the clinical phenotype - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29659842/">Insights into the pathogenesis of dominant retinitis pigmentosa D477G - PubMed (PMID:29659842)</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33261050/">Properties and Therapeutic Implications of D477G RPE65 Variant - PubMed (PMID:33261050)</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8931212/">The interplay of environmental luminance and genetics in D477G RPE65 dystrophy - PMC</a></li>
+<li><a href="https://ncbi.nlm.nih.gov/pmc/articles/PMC7228561">Advanced late-onset RP with dominant D477G RPE65 responsive to oral synthetic retinoid - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/25030840/">Oral 9-cis retinoid for childhood blindness due to LCA (RPE65/LRAT) - PubMed (PMID:25030840)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4687523/">Safety and Proof-of-Concept Study of Oral QLT091001 - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22227450/">Early apoptosis of rod photoreceptors in Rpe65-/- mice - PubMed (PMID:22227450)</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2720534/">Bax-Induced Apoptosis in Leber's Congenital Amaurosis - PMC</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/15277666/">Rpe65 Leu450Met variant and reduced lipofuscin A2E/iso-A2E - PubMed (PMID:15277666)</a></li>
+<li><a href="https://www.pnas.org/doi/10.1073/pnas.052025899">The lipofuscin component A2E selectively inhibits phagolysosomal degradation - PNAS</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3507948/">Origin and Evolution of Retinoid Isomerization Machinery in Vertebrate Visual Cycle - PMC</a></li>
+<li><a href="https://link.springer.com/chapter/10.1007/978-1-4614-0631-0_24">Gene Augmentation Trials Using the Rpe65-Deficient Dog - Springer</a></li>
+<li><a href="https://www.pnas.org/doi/10.1073/pnas.0807027105">Human gene therapy for RPE65 isomerase deficiency activates the retinoid cycle - PNAS</a></li>
+<li><a href="https://iovs.arvojournals.org/article.aspx?articleid=2128361">Gene Therapy Rescues Cone Structure and Function in 3-Month-Old rd12 Mouse - IOVS</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28966547/">Diagnostic application of clinical exome sequencing in Leber congenital amaurosis - PubMed</a></li>
+<li><a href="https://www.aao.org/education/disease-review/leber-congenital-amaurosis-4">Leber Congenital Amaurosis - American Academy of Ophthalmology</a></li>
+<li><a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6749091/">Generation and Characterization of iPSC and Retinal Organoids from RPE65 LCA Patient - PMC</a></li>
+<li><a href="https://webeye.ophth.uiowa.edu/eyeforum/genetic/001-RPE65-LCA.htm">RPE65-associated Leber Congenital Amaurosis - EyeRounds, University of Iowa</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>4</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>33</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC7016655</code> <em>(abstract only)</em>: "Pathogenicity Reclassification of RPE65 Missense Variants Related to Leber Congenital Amaurosis and Early-Onset Retinal Dystrophy"</li>
+<li>closest text in source: "Two other pieces of evidence were accepted after further analysis of these Brazilian families: (i) p.Phe83Leu and p.Gly187Glu segregate with childhood retinal dystrophy within families, and (ii) their prevalence in Leber congenital amaurosis (LCA)/early-onset retinal dystrophy (EORD) patients can be considered higher than in other inherited retinal dystrophy patients"</li>
+<li><code>PMC:PMC10813228</code> <em>(abstract only)</em>: "35 patients (34%) experienced ocular treatment-emergent adverse events, most frequently related to chorioretinal atrophy"</li>
+<li>closest text in source: "Thirty-five patients (34%) experienced ocular treatment-emergent adverse events (TEAEs), most frequently related to chorioretinal atrophy (n = 13 [12.6%])"</li>
+<li><code>PMID:25030840</code> <em>(abstract only)</em>: "10 (77%) of 13 LCA patients and 12 (86%) of 14 RP patients were 'responders'... in at least 1 eye in either functional retinal area or ETDRS visual acuity"</li>
+<li>closest text in source: "We regarded patients as having an improvement in vision if we noted at least a 20% improvement in retinal area on GVF compared with baseline or a visual acuity improvement of five or more letters compared with baseline in two consecutive study visits (or any improvement from no vision at baseline)"</li>
+<li><code>PMC:PMC4687523</code> <em>(abstract only)</em>: "10 (77%) of 13 LCA patients and 12 (86%) of 14 RP patients were 'responders'... in at least 1 eye in either functional retinal area or ETDRS visual acuity"</li>
+<li>closest text in source: "Eight of 18 patients (44%) showed a ≥20% increase and 4 of 18 (22%) showed a ≥40% increase in functional retinal area determined from Goldmann visual fields; 12 (67%) and 5 (28%) of 18 patients showed a ≥5 and ≥10 ETDRS letter score increase of visual acuity, respectively, in one or both eyes at two or more visits within 2 months of treatment"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>54</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>51</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>4</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0006990</code> (1 mention) - the report calls it "Eye poking"; HP calls it <strong>Myelin-dependent gliosis</strong></li>
+<li><code>HP:0008515</code> (1 mention) - the report calls it "Hyperopia"; HP calls it <strong>Aplasia/Hypoplasia of the vertebrae</strong></li>
+<li><code>HP:0000603</code> (1 mention) - the report calls it "Constriction of peripheral visual field"; HP calls it <strong>Central scotoma</strong></li>
+<li><code>GO:0003920</code> (2 mentions) - the report calls it "retinal isomerase activity — closest functional GO term for the isomerohydrolase activity"; GO calls it <strong>GMP reductase activity</strong></li>
+<li><code>GO:0033748</code> (1 mention) - the report calls it "bisretinoid catabolism, indirectly relevant"; GO calls it <strong>hydrogenase (acceptor) activity</strong></li>
+<li><code>CHEBI:17278</code> (2 mentions) - the report calls it "all-trans-retinyl ester", "retinyl ester, generic"; CHEBI calls it <strong>5beta-cholestane-3alpha,7alpha,12alpha,26-tetrol</strong></li>
+<li><code>CHEBI:17885</code> (2 mentions) - the report calls it "11-cis-retinal"; CHEBI calls it <strong>CDP-glycerol</strong></li>
+<li><code>CL:0000604</code> (3 mentions) - the report calls it "retinal rod cell", "Affected cell populations: rod photoreceptors"; CL calls it <strong>retinal rod cell</strong></li>
+<li><code>UBERON:0001782</code> (1 mention) - the report calls it "choroid"; UBERON calls it <strong>pigmented layer of retina</strong></li>
+</ul>
+<h3>Unresolved terms</h3>
+<p>These identifiers do not exist in an ontology that resolved other terms from the same prefix, so they were most likely invented:</p>
+<ul>
+<li><code>HP:0000513</code> (2 mentions), reported as "Abnormal electroretinogram" - HP does not contain this term</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>CHEBI:17561</code> (2 mentions) - the report calls it "retinol"; CHEBI calls it <strong>L-cysteine</strong>, and lists "FREE CYSTEINE" among its other names</li>
+<li><code>CL:0002586</code> (5 mentions) - the report calls it "retinal pigment epithelial cell", "RPE cell"; CL calls it <strong>retinal pigment epithelial cell</strong>, and lists "RPE" among its other names</li>
+<li><code>NCIT:C15238</code> (2 mentions) - the report calls it "Gene therapy (treatment)"; NCIT calls it <strong>Gene Therapy</strong></li>
+<li><code>NCIT:C15986</code> (1 mention) - the report calls it "Pharmacotherapy (oral retinoid)"; NCIT calls it <strong>Pharmacotherapy</strong></li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>CHEBI:17278</code> - called "all-trans-retinyl ester", "retinyl ester, generic"</li>
+<li><code>GO:0006915</code> - called "apoptotic process", "Apoptotic process"</li>
+<li><code>CL:0000604</code> - called "retinal rod cell", "Affected cell populations: rod photoreceptors"</li>
+<li><code>CL:0002586</code> - called "retinal pigment epithelial cell", "RPE cell"</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="RP2-Related_Retinopathy-falcon.html">← RP2-Related Retinopathy (Falcon)</a>
+                
+                
+                <a href="RPE65-Related_Retinopathy-falcon.html">RPE65-Related Retinopathy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/RPE65-Related_Retinopathy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/RPE65-Related_Retinopathy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="RPE65-Related_Retinopathy-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

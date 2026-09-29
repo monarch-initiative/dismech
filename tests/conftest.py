@@ -163,3 +163,41 @@ def preserve_kb_cache_environment():
         os.environ.pop("DISMECH_KB_CACHE", None)
     else:
         os.environ["DISMECH_KB_CACHE"] = before
+
+
+# --- CI step twins ------------------------------------------------------------
+#
+# A few whole-repo gate tests run the same check as an ungated step in
+# .github/workflows/main.yaml -- the same script in a subprocess, or the same
+# scan function the script's CLI calls. In that workflow both run in one job,
+# so the pytest copy repeats work the job has already done and passed: ~900s
+# of the ~2,700s serial lane, measured 2026-09-24.
+#
+# The test is marked `ci_step_twin("<the step's command>")`, and the workflow
+# sets DISMECH_SKIP_CI_STEP_TWINS=1 on its pytest step to deselect them there.
+# Everywhere else they run as before: `just test-code` locally, and the
+# nightly sweep. tests/test_ci_step_twins.py checks that every twin's command
+# is still an ungated step in main.yaml, so removing or path-gating the step
+# brings its twin back into the lane.
+#
+# Only exact twins qualify. A test that is stricter than its step in any
+# corner (test_committed_kb_waivers_say_what_was_searched fails a thin waiver
+# that the script lets pass when real evidence supersedes it) is not a twin.
+# For a ratchet, "exact" includes the baseline: its gate passes
+# --against-ref origin/<base>, so the pytest step must set the script's
+# BASELINE_REF_ENV to the same ref, or the test would grandfather against the
+# committed baseline file instead. tests/test_ci_step_twins.py checks that too.
+# Outside that workflow the test falls back to the committed file.
+
+SKIP_CI_STEP_TWINS_ENV = "DISMECH_SKIP_CI_STEP_TWINS"
+
+
+def pytest_collection_modifyitems(config, items):
+    if os.environ.get(SKIP_CI_STEP_TWINS_ENV) != "1":
+        return
+    kept, twins = [], []
+    for item in items:
+        (twins if item.get_closest_marker("ci_step_twin") else kept).append(item)
+    if twins:
+        config.hook.pytest_deselected(items=twins)
+        items[:] = kept

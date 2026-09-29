@@ -175,9 +175,16 @@ def _name_lookup_key(value: Any) -> set[str]:
 
 
 def _gene_lookup_keys(
-    item: dict[str, Any], *, allow_name_fallback: bool = False
+    item: dict[str, Any],
+    *,
+    allow_name_fallback: bool = False,
+    include_genetic_context: bool = False,
 ) -> set[str]:
-    """Collect structured gene identifiers from an item."""
+    """Collect structured gene identifiers from an item.
+
+    ``include_genetic_context`` also reads the gene a pathophysiology node
+    records under ``genetic_context`` (issue #11999).
+    """
     keys: set[str] = set()
 
     keys.update(_descriptor_lookup_keys(item.get("gene")))
@@ -185,6 +192,12 @@ def _gene_lookup_keys(
 
     for gene in item.get("genes", []) or []:
         keys.update(_descriptor_lookup_keys(gene))
+
+    genetic_context = item.get("genetic_context")
+    if include_genetic_context and isinstance(genetic_context, dict):
+        keys.update(_descriptor_lookup_keys(genetic_context.get("gene")))
+        for gene in genetic_context.get("genes", []) or []:
+            keys.update(_descriptor_lookup_keys(gene))
 
     # An explicitly regional record can have a short gene-like name (e.g. ZRS).
     # Its name alone does not become a gene identifier; real descriptors above
@@ -389,7 +402,14 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
         disorder.get("phenotypes", []) or [], descriptor_key="phenotype_term"
     )
 
+    # Two gene indexes over pathophysiology nodes. A `genetic` record is a
+    # gene-level claim, so it also matches a node that records its gene under
+    # `genetic_context`. A variant is one event; `genetic_context` usually
+    # describes one specific lesion, so matching a variant against it by gene
+    # alone would wire it to every same-gene lesion node (two MEF2C-AS1
+    # breakpoint nodes, for example). Variants keep the narrower index.
     pathophysiology_by_gene_key: dict[str, set[str]] = defaultdict(set)
+    pathophysiology_by_gene_key_with_context: dict[str, set[str]] = defaultdict(set)
     for item in disorder.get("pathophysiology", []) or []:
         if not isinstance(item, dict):
             continue
@@ -398,6 +418,8 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
             continue
         for key in _gene_lookup_keys(item):
             pathophysiology_by_gene_key[key].add(source)
+        for key in _gene_lookup_keys(item, include_genetic_context=True):
+            pathophysiology_by_gene_key_with_context[key].add(source)
 
     genetic_nodes_by_gene_key: dict[str, set[str]] = defaultdict(set)
     for item in disorder.get("genetic", []) or []:
@@ -658,7 +680,7 @@ def build_causal_graph(disorder: dict[str, Any]) -> CausalGraph:
 
         targets: set[str] = set()
         for key in _gene_lookup_keys(item, allow_name_fallback=True):
-            targets.update(pathophysiology_by_gene_key.get(key, set()))
+            targets.update(pathophysiology_by_gene_key_with_context.get(key, set()))
 
         for target in sorted(targets):
             graph.edges.append(

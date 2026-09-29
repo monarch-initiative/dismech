@@ -113,6 +113,7 @@ def _violations(data, mapping):
 # --- the guard itself -------------------------------------------------------
 
 
+@pytest.mark.ci_step_twin("scripts/check_reference_titles.py")
 def test_no_new_mismatched_reference_titles(kb_findings):
     # resolve_baseline() grandfathers against origin/main when CI sets
     # REFERENCE_TITLE_BASELINE_REF (so the base branch is green by construction

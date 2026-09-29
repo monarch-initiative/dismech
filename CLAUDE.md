@@ -30,6 +30,9 @@ Claude Code skills are available in `.claude/skills/`:
   scope and alignment investigations, Boomer results, proxy merges, and source
   correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[evidence-claim-mismatch](.claude/skills/evidence-claim-mismatch/SKILL.md)**:
+  Use when reviewing an existing disease for mismatches between its claims and
+  supporting snippets, including issues from the evaluation queue.
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
@@ -193,6 +196,19 @@ explicit `DISMECH_KB_CACHE` still wins.
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
 
+### Models Directory (`models/`)
+One folder per model, `models/<model_id>/`, with fixed file names:
+`config.yaml` + `model.xml` (+ `model.ant`, `extension.ant`) for a model
+`dismech-perturb` runs, or `spec.yaml` + `run.py` + `results.json` for a model
+authored in this repository with its own runner (the rosacea Boolean network,
+the neuronal-migration agent-based model). A folder holds exactly one of
+`config.yaml` or `spec.yaml`, and the folder name is the `model_id` the KB
+record points at. `src/dismech/model_registry.py` is the only place that
+resolves these paths; route a new consumer through it rather than globbing.
+`tests/test_model_registry.py` gates the layout, so a branch still adding a
+flat `models/<id>.config.yaml` fails with a message. `just
+check-authored-models` runs every `run.py --check`. See `models/README.md`.
+
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
 pr-shepherd, discussion-scanner, literature-scan, knowledge-gap-scan,
@@ -206,17 +222,24 @@ config instead. Page/build crons are intentionally unmanaged. See
 
 ### Agent Model Config (`.github/agent-config.yaml`)
 The Claude **model** backing each agentic workflow (curation-scanner,
-discussion-scanner, knowledge-gap-scan, literature-scan, preprint-scan,
+discussion-scanner, claude-dedupe-issues, knowledge-gap-scan, literature-scan, preprint-scan,
 post-review-agent, pr-shepherd, weekly-compliance, claude-code-review, claude)
 is centralized in `.github/agent-config.yaml` — one source of truth instead of a
-`--model` hardcoded per workflow. At run time each workflow's `Resolve agent
+`--model` hardcoded per workflow. For single-model workflows, the `Resolve agent
 config` step (the `.github/actions/resolve-agent-config` composite action) reads
 the config and exports `AGENT_MODEL`; the agent invocation uses `--model ${{
 env.AGENT_MODEL }}`. Resolution order: a `workflow_dispatch` `model:` override >
 the per-workflow `model:` > `default_model`. To bump a model for scheduled runs,
 edit `agent-config.yaml` — do NOT re-add a hardcoded `--model` to a workflow (a
 test enforces this). `curation-scanner`'s per-effort-tier models live in the same
-file as a `matrix:` and drive its strategy matrix via a `setup` job. This
+file as a `matrix:` and drive its strategy matrix via a `setup` job, which calls
+the resolver's `--matrix` mode directly. Each row requires its own `model:`;
+there is no `default_model` fallback or manual model override for the scanner.
+Use the `opus`, `sonnet`, and `haiku` family aliases to follow new releases
+without model-bump PRs. Every managed workflow installs the latest CLI via
+`.github/actions/setup-claude-code` and passes its executable explicitly to the
+upstream action; the action's SDK bundle does not select the CLI version.
+Exact model IDs are for temporary rollbacks. This
 complements — and is separate from — cron cadence (cron-profiles.yaml); it covers
 the model only. See [`docs/agent-config.md`](docs/agent-config.md) and issue #5218.
 
@@ -395,6 +418,19 @@ Rules:
   `docs/reports/` for analysis reports, `docs/research/` for research provenance,
   `docs/curation-notes/` for per-disease curation notes). Everything under `docs/`
   should also be surfaced in the `mkdocs.yml` nav.
+- **Everything under `docs/` is written for a human reader, never for another
+  agent or a future session of yourself.** This holds even in
+  `docs/superpowers/`, whose *subject* is agent investigations — the audience
+  is still a person deciding whether to act on one, not the agent that wrote
+  it. Denser, technical language than a PR body is fine (see the
+  `github-communication` skill's scope note), but density is not license for a
+  diary entry: a title built as a metaphor, a sentence reminding your future
+  self of a rule you already broke once, or a section narrating your own
+  review-round count is process narration, not documentation, and does not
+  belong here even when every fact in it is correct. If a draft report turns
+  out to be mostly that, close the PR rather than merge it, and move anything
+  genuinely reusable into this file or a tracked issue instead. See #12535 and
+  #8908.
 - **Exception — deterministic script outputs may live in `research/`.** A handful
   of scripts write generated data here by design (e.g.
   `scripts/nec_risk_audit.py` → `research/nec_risk_disease_classes.md`,
@@ -422,6 +458,39 @@ report predating a prompt edit is superseded by construction, so a gate would go
 red for the whole corpus on every edit. See
 [`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
 and issue #10183.
+
+### `docs/` and `notes:` Are Written For a Human Reader, Not the Agent That Wrote Them
+
+The denser register `docs/` and `notes:` are allowed (see the
+`github-communication` skill's scope note) is a licence for domain vocabulary,
+not a licence to skip having a reader in mind. A `docs/` file (outside
+`docs/superpowers/`, which is explicitly an agent-facing investigation/plan/spec
+log) or a `notes:` field should tell a curator something about the disease,
+the schema, the corpus, or a decision — not narrate the writing agent's own
+compliance with its own process rules.
+
+PR #12535 is the worked example. It added a "curation retrospective" to
+`docs/reports/` — dense, well-sourced, every figure independently
+re-verified by review — whose actual content was three sections of first-person
+reflection on the writing agent's own workflow ("Everything I intend to change
+has to go in one push, including the things I find on my own after the verdict
+lands") under a title, "Custody of a Claim", that told a reader nothing about
+what was inside. A maintainer closed it, reading it correctly as an agent
+writing itself a note that happened to be committed to the repository rather
+than kept in its own context. The one piece of the document with lasting value
+— a table of ontology identifiers written from memory and what they actually
+resolve to — was exactly the kind of fact this rule asks for, and belongs next
+to the *Every CURIE is read from a source in the same step it is written* rule
+above rather than buried in a retrospective essay.
+
+The test before committing prose to `docs/` or `notes:`: if a passage were
+deleted, would a curator who has never seen this session lose a fact about the
+subject matter — or only lose a reflection on how the writing agent did its
+job? The latter belongs in the PR or issue thread that already carries that
+conversation, under the `github-communication` skill's plain-language rules,
+where a human reviewer will actually see it once and it will not persist as
+permanent content. See issue #8908 for the related, broader problem of
+elliptical AI prose in PR/issue bodies themselves.
 
 ### Hypothesis Provider Data and Analysis Artifacts
 
@@ -1162,6 +1231,79 @@ a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
 `Pancreatic_Ductal_Adenocarcinoma`. See
 [`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
 
+### Infectious Disease Entry Granularity
+
+Infectious disease entries follow the **granularity ladder** ratified in design
+decisions §3e (`docs/explanation/design-decisions.md`), the infection
+counterpart of the cancer ladder in §3a — consult it before creating, splitting,
+or lumping any microbial entry. The short version:
+
+- **The default level is the named clinical entity**: the pathogen–syndrome pair
+  the field names, diagnoses and treats as a unit (cholera, Legionnaires'
+  disease, Pontiac fever). Neither the organism alone nor the organ syndrome
+  alone. Every node in the entry's pathophysiology must be true of every case
+  it covers; a node written vaguely enough to span two organisms with different
+  mechanisms means the entry belongs at the rung above.
+- **Above it**: a union of diseases the field names separately, or an organ
+  syndrome across unrelated organisms, is a `Grouping` (`Treponematoses` is the
+  model), and an abstraction like *infectious disease* is an `OUT_OF_SCOPE`
+  stub.
+- **Below it, the default is to lump.** An organism stratum (species, serovar,
+  serotype) earns a `has_subtypes` row only when it is **documented to differ**
+  from its siblings on one axis — presentation, diagnosis, first-line therapy,
+  prognosis, transmission/vector/reservoir, or geography — and the row's
+  `description` says what differs and its `evidence` cites it. A taxonomy
+  offering a name is not a reason. Pathotypes, biotypes, lineages, genotypes
+  and clades are carried structurally with `classification: pathotype` (etc.)
+  and the defining determinant in `description`; never bind ETEC to
+  `NCBITaxon:562`, the parent species.
+- **Promotion to a separate entry needs two axes** of the five (transmission
+  or vector; reservoir; tempo; organ systems; first-line therapy), a covering
+  `Grouping`, and a **pointer subtype** left on the parent carrying
+  `curated_in: <file stem>` — `Spotted_Fever_Rickettsiosis` → `RMSF` →
+  `curated_in: Rocky_Mountain_Spotted_Fever` is the worked example. A subtype
+  with `curated_in` is a pointer, not a disease; one that names a disease with
+  its own entry and lacks it is the defect.
+- **A phase is never an entry, and the entry must list its phases** in
+  `progression:`. A post-infectious immune sequela is its own entry. An
+  infection-attributed neoplasm follows §3a. A shared mechanism is a module.
+- **Every microbial entry declares** at least one NCBITaxon-bound
+  `infectious_agent` and at least one `transmission` route, plus
+  `agent_life_cycle` with `hosts`/`vectors` wherever a non-human reservoir or
+  arthropod vector exists. NCBITaxon is the only organism vocabulary; do not
+  add GTDB or assembly accessions.
+- **Where the taxon lives.** A disease-level subtype is a *clinical* stratum
+  (MONDO-bound where a named variant exists); an `InfectiousAgent.has_subtypes`
+  stratum is a *taxonomic* one (NCBITaxon-bound once PR #10353 lands). There
+  is deliberately **no `pathotype:` slot**.
+- **Record a deliberate lump** with a paragraph of the entry-level
+  `review_notes` beginning `Deliberately lumped.` followed by at least twenty
+  words on which strata were kept together and what was searched — the same
+  shape as the `Left deliberately uncited.` environmental waiver. The sentence
+  alone does not record anything.
+
+```bash
+just check-granularity                          # census + worklist (report-only, in `just qc`)
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry, the computed columns
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on the deterministic classes
+just check-granularity --scope all              # DOUBLE_MODELLED / DUPLICATE_ANCHOR KB-wide
+```
+
+The **deterministic** classes (`MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION`, `ROOT_AS_ENTRY`, `DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`,
+`PATHOTYPE_COLLAPSE`, `DANGLING_POINTER`) are defects with no judgement in
+them; the **advisory** ones (`TAXON_LUMP`, `UNBOUND_SUBTYPE`,
+`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`,
+`POINTER_TERM_MISMATCH`) are questions for a curator and never gate — an undifferentiated lump is the ladder's default
+state, not a defect, so `TAXON_LUMP` means "no decision recorded" and clears on
+the waiver above. Neoplasms with a viral agent, Mendelian susceptibility
+disorders, post-infectious sequelae and mycotoxicoses are out of scope by the
+ladder's own rules and are counted, not assessed. Over-broad anchoring
+(`Travelers_Diarrhea` on *diarrheal disease*) needs a MONDO descendant count and
+stays a manual audit.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
@@ -1181,7 +1323,26 @@ sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just grouping-nesting-audit          # declared tree + undeclared containments
+just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+**Check a MONDO mapping by walking members up, not the class down.** A grouping
+mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
+sit inside that class. Verifying that by expanding the class's descendant
+closure is the expensive direction — it scales with the ontology, and the
+configured `ols:mondo` adapter cannot do it at all. Inverted, it is cheap:
+resolve each member's own MONDO term to its ancestors and look the mapped class
+up in that set, one bounded walk per member, no 588 MB build. `broadMatch`,
+`closeMatch` and `relatedMatch` assert no subsumption, so members outside the
+class are expected there and are not reported.
+
+**A member outside the mapped class is a lead, not a defect.** It is either a
+genuine scope difference — the dismech concept is broader than the MONDO class,
+so the *predicate* is wrong — or MONDO classifying that disease by clinical
+presentation rather than mechanism, which is a candidate MONDO term request and
+not a membership error. Both occur in the current corpus, which is why the
+recipe is report-only and `--strict` gates on the predicate rather than on any
+individual member.
 
 **Nesting is declared, never inferred.** A grouping sits below another only
 when the parent lists it as a `member_type: GROUPING` member, and that is the
@@ -1560,7 +1721,7 @@ epistasis sentence), separate from the general disease evidence.
 models digenicity both as an RP7-digenic subtype (listing PRPH2 + ROM1) and as a
 top-level `Digenic inheritance` block bound to `HP:0010984`, citing the classic
 double-heterozygote study (`PMID:8202715`). Other worked digenic/oligogenic
-entries: `Alport_Syndrome`, `Usher_Syndrome`,
+entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Facioscapulohumeral_Muscular_Dystrophy` (FSHD2),
 `MITF_Waardenburg_Tietz_Spectrum`, `Meckel_Syndrome`, `Hirschsprung_Disease`
 (oligogenic RET-EDNRB), `GJB2-GJB6_Digenic_Nonsyndromic_Hearing_Loss`,
@@ -1765,6 +1926,20 @@ Rules:
 For structured curation, review, and audit provenance, add append-only history
 records under `history/`, not inside the KB YAML and not beside KB files as
 `kb/**/*.history.yaml`.
+
+**"Not inside the KB YAML" means `notes:` is not a session log.** A recurring
+drift is writing the *curation session's own narrative* into an entry's
+`notes:` field instead: "Review round 1. The screening-yield rate is deleted,
+as above", "`just preflight-dr` returned SKIP", "Correction, review round 1.
+The first version of this entry said…". That content presumes a reader who
+already has the review thread open, describes what an agent did rather than a
+fact about the disease, and duplicates the `history/` record's job in a
+denser, more elliptical register — see #8908 and the discussion on #12535.
+`notes:` should read as a caveat or fact the entry's own claims need,
+checkable independent of who wrote it or when: why a term is bound this way,
+why a source is thin, what a search returned. If a sentence stops making
+sense once the review thread or PR it refers to is gone, it belongs in the
+`details` field of a `history/` record below — not in `notes:`.
 
 Path pattern:
 
@@ -2367,8 +2542,20 @@ or NCIT (for drug classes).
 
 **Ontology selection:**
 - **CHEBI**: preferred for specific small-molecule drugs (`CHEBI:36796` duloxetine, `CHEBI:46345` 5-fluorouracil)
+  and for chemical classes (`CHEBI:50858` corticosteroid)
 - **NCIT**: use for drug classes, or for biologics/newer drugs that lack a CHEBI term
-  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C2322` Corticosteroid, `NCIT:C65216` Adalimumab)
+  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C65216` Adalimumab)
+- **Not every NCIT drug class is admissible.** `therapeutic_agent` binds to the
+  `ChemicalEntityTerm` dynamic enum, whose NCIT root is `NCIT:C1909` (Pharmacologic
+  Substance). NCIT files some classes elsewhere, so they fail validation even though the
+  CURIE and label are correct: `NCIT:C2322` Corticosteroid sits under Hormone, and
+  `NCIT:C572` Immunoglobulin is outside the enum too (use `CHEBI:50858` and
+  `NCIT:C80829` Human Immunoglobulin G). A quick positive check is
+  `grep -qx "NCIT:C2322" <(cut -d, -f1 cache/enums/chemicalentityterm_*.csv)`, but the
+  enum cache only holds terms something in `kb/` has already bound, so a hit means
+  admissible and a miss means *unknown*, not excluded. The authoritative answer is
+  `just validate-terms <file>` after binding the term, which expands the enum from the
+  ontology (issue #10978; the wider reachability question is #7355).
 - Leave `therapeutic_agent` absent when the treatment is non-pharmacological
   (surgery, physical therapy, counseling, dietary intervention — use `dietary_modifications` for the latter)
 
@@ -2534,7 +2721,7 @@ with no per-disease research needed, when that action term's own definition
 |---|---|
 | `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `NCIT:C15289` (surgical procedure / resection / transplantation) | `SURGERY` |
 | `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
-| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
+| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech language therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
 | `NCIT:C15238` (gene therapy) | `GENE_THERAPY` |
 | `NCIT:C15431` (hematopoietic cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
 | `NCIT:C15346` (vaccination) | `VACCINE` |
@@ -3096,6 +3283,24 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 *descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
 makes the free-text form look plausible; the permissible value is the upper-snake-case key.
 
+**Status/phase go stale — audit, don't assume.** `status:` and `phase:` are a
+snapshot taken at curation time. ClinicalTrials.gov is the one live-API source in
+the repo with no `*-refresh` recipe, and the cached trial records carry no
+retrieval timestamp, so drift is invisible offline. Before trusting or reusing a
+curated status, re-check it:
+
+```bash
+just clinicaltrials-status-audit                            # whole KB
+just clinicaltrials-status-audit kb/disorders/Asthma.yaml   # one file
+just clinicaltrials-status-audit --only-drift               # just the worklist
+```
+
+The audit reports; it never rewrites the KB, because a trial moving to
+`COMPLETED`/`TERMINATED` usually wants its `description`/`evidence` revisited too,
+and some drift is a curation-time error rather than staleness. Network-dependent
+and therefore advisory — not part of `just qc`. See
+[`docs/clinical-trial-status.md`](docs/clinical-trial-status.md).
+
 ### MorPhiC Cellular Phenotypes
 
 The MorPhiC Consortium (Molecular Phenotypes of Null Alleles in Cells) creates null alleles of human genes in iPSC-derived multicellular systems and measures their molecular and cellular phenotypes. MorPhiC data can enrich dismech entries with `category: Cellular` phenotypes.
@@ -3445,6 +3650,19 @@ is the answer to "can this be served without a download". They have in common
 that the ontology is incidental to what they are doing, and each already had a
 degradation path to take.
 
+**Inverting a closure question can remove the build dependency entirely, but
+only for the questions that are actually per-member.** `ols:mondo` raises
+`NotImplementedError` for `descendants` *and* `ancestors`, so the OAK wrapper
+looks like a dead end — but the OLS REST `hierarchicalAncestors` endpoint
+underneath serves ancestors fine, and "is this member under that class" only
+ever needed ancestors. That is what `just grouping-mondo-consistency` does.
+What it cannot do is replace `render`'s grouping coverage table or
+`scripts/grouping_mondo_gaps.py`: both enumerate MONDO descendants that have
+**no** dismech entry, and you cannot discover terms you do not hold by walking
+up from ones you do. That half is irreducibly a descendant query and still
+needs the local build. Before reaching for the build, ask which direction the
+question actually runs in.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -3452,6 +3670,13 @@ docstring says so. And `groupings.py` only *looks* like another bypass: it
 resolves its adapter through `conf/oak_config.yaml`, so HP there is `ols:hp` and
 no build is involved. The test is whether the caller can do its job without the
 ontology.
+
+**When it cannot, the guard fails instead of degrading.**
+`preflight_dr.open_mondo_adapter` (`just preflight-dr`) reads MONDO's
+`RO:0004003` causal gene and OMIM xrefs, which *are* the check, so there is no
+degradation path: an empty record would read as "MONDO records no causal gene"
+and come out as `SKIP`. With no local `mondo.db` it exits 2 naming
+`just fetch-ontology-dbs mondo`, before the HGNC lexicon is built (#12687).
 
 **The `phenoagent` one is the case that shows why the two-guard rule exists.**
 Its tests are what actually pulled `hp.db` in the fast lane, and 21 of them
@@ -3539,10 +3764,13 @@ just check-case-collisions      # whole repo, <1s, offline
 
 It runs in `just qc` and as an ungated CI step. The usual source was a DOI
 fetched in two capitalizations: DOIs resolve case-insensitively, but the cache
-filename copies the DOI as written. The patched fetcher now reuses an existing
-`DOI_*.md` file whose name differs only in case, on both read and write
-(`src/dismech/doi_cache_case.py`, #9112), so a second spelling no longer writes a
-second file; a DOI with no cache file yet is still saved as written. To fix a
+filename copies the DOI as written. `linkml-reference-validator` now reuses an
+existing `DOI_*.md` file whose name differs only in case, on both read and write
+(upstream LRV #87, for dismech#9112), so a second spelling no longer writes a
+second file; a DOI with no cache file yet is still saved as written. That
+behaviour used to live here as a runtime patch over the validator's internals
+and no longer does — see the `dismech-references` skill on why a patch like that
+is always temporary. To fix a
 collision that gets past it, keep the path matching the publisher's
 capitalization and remove the other from the index with `git rm --cached <path>`,
 which works on a case-insensitive disk because it never touches the file itself.
@@ -3885,6 +4113,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 
 | Path | Commit? | Reason |
 |------|---------|--------|
+| `analysis/classification/**` | NO | Corpus evaluation history belongs in `monarch-initiative/dismech-evals`; local `just jev-audit` checkpoints default to ignored `build/jev-assessments/` |
 | `pages/disorders/*.html` | NO | Derived — regenerated by downstream CI after merge |
 | `dashboard/*.html` | NO | Derived — generated by `just gen-dashboard` |
 | `docs/` HTML output | NO | Derived — regenerated by CI |
@@ -4166,6 +4395,17 @@ Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
 review, or assignee: its only trace is a `SKIP` line in the run summary naming
 the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
 and this paragraph are the only places it is recorded.
+
+**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
+added by a PR enqueued earlier in the *same* sweep is skipped, because the two
+would conflict in the queue and the second would be ejected. Only multi-field
+rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
+bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
+only, clears itself on the next sweep, and is disabled by
+`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
+line in the run summary, which names the PR holding the contended row;
+`just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is
