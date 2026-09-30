@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5066,6 +5105,7 @@ This entry is deliberately kept separate from the Marfan_Syndrome entry, which m
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fbn1-3-truncating-variant-escaping-nonsense-mediated-decay" data-dismech-node="FBN1 3&#39; Truncating Variant Escaping Nonsense-Mediated Decay" data-dismech-type="pathophysiology">
                 <div class="item-name">FBN1 3&#39; Truncating Variant Escaping Nonsense-Mediated Decay</div>
 
+
                 <div class="item-desc">The initiating lesion. A heterozygous frameshift or splice-site variant in the penultimate FBN1 exon, its donor site, or the final intron places the premature termination codon 3&#39; of the last 50 nucleotides of the penultimate exon. This is the canonical position at which the exon-junction-complex rule that triggers nonsense-mediated mRNA decay no longer applies, so the mutant transcript is spared. This is the single molecular difference that separates MFLS from the many Marfan-causing FBN1 premature-termination alleles, which are degraded by NMD and therefore act by haploinsufficiency.</div>
 
 
@@ -5160,6 +5200,8 @@ This genetic context concerns FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: frameshift or splice-site truncating variant at the FBN1 3&#39; terminus</span>
 
 
@@ -5175,6 +5217,9 @@ This genetic context concerns FBN1 (hgnc:3603). hgnc:3603 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Plasma asprosin in affected individuals falls further than heterozygosity alone predicts, and overexpression of the truncated protein in wild-type cells suppresses asprosin secretion — direct evidence of a dominant-negative effect on the wild-type allele rather than simple haploinsufficiency.</div>
 
@@ -5335,6 +5380,7 @@ This pathophysiological event involves decreased nonsense-mediated decay of the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stable-truncated-profibrillin-1-with-an-altered-c-terminus" data-dismech-node="Stable Truncated Profibrillin-1 with an Altered C-Terminus" data-dismech-type="pathophysiology">
                 <div class="item-name">Stable Truncated Profibrillin-1 with an Altered C-Terminus</div>
+
 
                 <div class="item-desc">The neomorphic gene product. Profibrillin-1 is a 2,871-residue proprotein normally cleaved at its C-terminus by furin to yield mature fibrillin-1 plus a 140-residue C-terminal peptide. The MFLS variants cluster around that cleavage site and truncate the protein just before or within it, leaving an extremely charged terminal motif. That the mutant allele is expressed rather than degraded is not merely predicted: in one proband, cycloheximide treatment of lymphoblastoid cells failed to change the abundance of the exon-skipped transcript, experimentally confirming NMD escape in patient material. The resulting protein is the shared origin of both disease arms — it is incorporated into (and perturbs) the microfibrillar matrix, and it destroys the furin cleavage event that would have released asprosin.</div>
 
@@ -5552,6 +5598,7 @@ This pathophysiological event involves abnormal microfibril binding (GO:0050436)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microfibril-and-extracellular-matrix-assembly-defect" data-dismech-node="Microfibril and Extracellular Matrix Assembly Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Microfibril and Extracellular Matrix Assembly Defect</div>
+
 
                 <div class="item-desc">The first node of the arm shared with classic Marfan syndrome. Fibrillin-1 is the principal structural component of extracellular microfibrils, and its charged, truncated form perturbs proper protein aggregation and hence incorporation into the microfibrillar matrix, with knock-on effects on the strength and elasticity of connective tissue. This node conforms to the aortopathy module&#39;s primary-lesion node because the underlying defect is the same fibrillin-1 microfibril lesion; what differs from Marfan syndrome is the allelic mechanism producing it.</div>
 
@@ -5861,6 +5908,7 @@ This pathophysiological event involves abnormal extracellular matrix assembly (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-tgf-beta-signaling" data-dismech-node="Dysregulated TGF-beta Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated TGF-beta Signaling</div>
 
+
                 <div class="item-desc">Fibrillin-1 microfibrils sequester latent TGF-beta complexes in the matrix, so a defective microfibrillar network raises TGF-beta bioavailability and downstream SMAD2 phosphorylation. Both a classic Marfan allele and an MFLS allele upregulate SMAD2 phosphorylation in vitro, which is why this node is shared with the aortopathy module rather than being MFLS-specific; the causal reasoning for MFLS in the primary literature is that TGF-beta signaling is altered by, rather than untouched by, the neomorphic truncated protein.</div>
 
 
@@ -6049,6 +6097,7 @@ This pathophysiological event involves increased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-aortic-root-dilation" data-dismech-node="Progressive Aortic Root Dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Aortic Root Dilation</div>
 
+
                 <div class="item-desc">Dilation of the aortic bulb/root is documented in several molecularly confirmed MFLS patients and is reproduced in the rabbit model, so the marfanoid arm does reach the aorta. It is not, however, universal: at least one molecularly confirmed child had stable mild mitral regurgitation with a normal aortic root through nine years of follow-up, so aortic involvement is less uniform than in classic Marfan syndrome. Conformance is asserted only to this dilation node of the aortopathy module — aortic dissection or rupture, the module&#39;s terminal node, has not been reported in MFLS, and the reported case total is far too small to establish or exclude that risk. MFLS should nonetheless be managed with the aortic surveillance appropriate to a fibrillinopathy.</div>
 
 
@@ -6214,6 +6263,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-furin-cleavage-and-asprosin-deficiency" data-dismech-node="Loss of Furin Cleavage and Asprosin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Furin Cleavage and Asprosin Deficiency</div>
+
 
                 <div class="item-desc">The first node of the arm unique to MFLS. Furin cleavage of profibrillin-1 normally releases a 140-residue C-terminal peptide — asprosin — encoded by the final two FBN1 exons. Every MFLS variant clusters around that cleavage site, so the truncated allele cannot yield asprosin. Crucially, circulating asprosin falls further than the 50% a heterozygous null would predict, because the expressed truncated profibrillin also suppresses secretion of asprosin from the wild-type allele. This node is the mechanistic hinge of the entry: it is where MFLS departs from classic Marfan syndrome, whose alleles are degraded by NMD and therefore leave asprosin production largely intact.</div>
 
@@ -6520,6 +6570,7 @@ This pathophysiological event involves decreased peptide hormone secretion (aspr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hepatic-glucose-release-with-preserved-insulin-sensitivity" data-dismech-node="Reduced Hepatic Glucose Release with Preserved Insulin Sensitivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Hepatic Glucose Release with Preserved Insulin Sensitivity</div>
 
+
                 <div class="item-desc">Asprosin is recruited to the liver, where it activates a G-protein-cAMP-PKA pathway and drives hepatic glucose release; loss of function lowers glucose and insulin secondary to reduced hepatic glucose production. This is the node that explains the single most counterintuitive feature of MFLS: unlike generalized lipodystrophies in general — which characteristically cause severe insulin resistance, hypertriglyceridemia, hepatic steatosis, and diabetes — MFLS patients have low fasting insulin and remain euglycemic and insulin-sensitive despite near-absent adipose tissue.</div>
 
 
@@ -6754,6 +6805,7 @@ This pathophysiological event involves abnormal glucose homeostasis (GO:0042593)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-central-orexigenic-drive" data-dismech-node="Reduced Central Orexigenic Drive" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Central Orexigenic Drive</div>
 
+
                 <div class="item-desc">Circulating asprosin crosses the blood-brain barrier and directly activates orexigenic AgRP-positive arcuate neurons through a cAMP-dependent pathway, which in turn inhibits anorexigenic POMC neurons via GABA. Asprosin-deficient patients are hypophagic, consuming fewer calories than matched peers, and the corresponding mouse model shows both hypophagia and AgRP neuron hypoactivity that is rescued by recombinant asprosin. Hypophagia, rather than adipocyte failure alone, is therefore a substantive contributor to the leanness of MFLS.</div>
 
 
@@ -6945,6 +6997,7 @@ This pathophysiological event involves decreased regulation of feeding behavior 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-generalized-lipodystrophy-and-extreme-leanness" data-dismech-node="Congenital Generalized Lipodystrophy and Extreme Leanness" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Generalized Lipodystrophy and Extreme Leanness</div>
+
 
                 <div class="item-desc">The convergent clinical endpoint of the asprosin arm. Adipose tissue is profoundly reduced from birth, giving both the generalized lipodystrophy and the sunken, aged facial appearance that earned the syndrome its &#34;progeroid&#34; label. Two mechanisms plausibly converge here and are not fully separated in the literature: the reduced orexigenic drive above, and a direct role for fibrillin-1 in the adipose extracellular-matrix niche during adipogenesis. Fibrillin-1 is expressed as mesenchymal stem cells enter adipogenesis and declines as adipocytes mature, and the region of FBN1 affected in FBN1-associated lipodystrophy is highly conserved — but the proposal that low fibrillin-1 causes a failure to differentiate adipocytes is explicitly flagged by its authors as not yet demonstrated experimentally, and is framed for reduced fibrillin-1 rather than for the stable dysfunctional protein MFLS actually produces.</div>
 
@@ -9778,6 +9831,9 @@ This disease-associated gene is FBN1 (hgnc:3603). hgnc:3603 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

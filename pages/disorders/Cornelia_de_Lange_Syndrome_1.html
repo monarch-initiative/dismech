@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4518,6 +4557,7 @@ This entry is scoped to the NIPBL form. The umbrella entry Cornelia_de_Lange_Syn
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nipbl-haploinsufficiency" data-dismech-node="NIPBL Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">NIPBL Haploinsufficiency</div>
 
+
                 <div class="item-desc">A heterozygous loss-of-function variant halves functional NIPBL, the cohesin loading factor. In humans and in the mouse models alike the transcript and protein deficit is modest, under about 30% below normal, so the disorder is a dosage disorder rather than a null-allele one: there is no second hit and no threshold below which the phenotype appears.</div>
 
 
@@ -4578,6 +4618,8 @@ This pathophysiological event involves NIPBL (hgnc:28862). hgnc:28862 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4590,6 +4632,9 @@ This pathophysiological event involves NIPBL (hgnc:28862). hgnc:28862 is a gene 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4683,6 +4728,7 @@ This pathophysiological event involves NIPBL (hgnc:28862). hgnc:28862 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genome-wide-reduction-in-cohesin-binding" data-dismech-node="Genome-Wide Reduction in Cohesin Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Genome-Wide Reduction in Cohesin Binding</div>
+
 
                 <div class="item-desc">Less loader means less chromatin-bound cohesin, at CTCF boundary sites and at repeats. Cohesin-bound genes are enriched for H3K4me3 at their promoters and are disproportionately downregulated, which points at gene activation rather than cohesion as the sensitive function.</div>
 
@@ -4854,6 +4900,7 @@ This pathophysiological event involves decreased cohesin binding to chromatin, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collapse-of-cohesin-mediated-chromatin-loops" data-dismech-node="Collapse of Cohesin-Mediated Chromatin Loops" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of Cohesin-Mediated Chromatin Loops</div>
 
+
                 <div class="item-desc">Reduced chromatin-bound cohesin weakens enhancer-promoter contacts and CTCF insulation. Acute NIPBL depletion in vivo diminishes chromatin loops rapidly, and the genes that depend most on NIPBL-supported conformation are cell-identity and developmental genes sitting near super-enhancers. That selectivity is what turns a globally acting chromatin factor into a developmental disorder.</div>
 
 
@@ -4965,6 +5012,7 @@ This pathophysiological event involves decreased chromatin looping (GO:0140588).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-rna-polymerase-ii-transcription" data-dismech-node="Impaired RNA Polymerase II Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired RNA Polymerase II Transcription</div>
+
 
                 <div class="item-desc">Transcription itself is impaired at both ends: initiation at promoters and elongation through gene bodies. This is measured in CdLS patient cells, not only in models.</div>
 
@@ -5078,6 +5126,7 @@ This pathophysiological event involves decreased regulation of transcription by 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collective-small-gene-expression-perturbations" data-dismech-node="Collective Small Gene-Expression Perturbations" data-dismech-type="pathophysiology">
                 <div class="item-name">Collective Small Gene-Expression Perturbations</div>
 
+
                 <div class="item-desc">The distinctive feature of this disease&#39;s mechanism, and the reason it resists the usual one-pathway account. Hundreds to thousands of genes change expression and nearly all the changes are modest, usually under 1.5-fold. No single perturbation is individually pathogenic; the phenotype is the sum. This is also why there is no obvious therapeutic target: there is no dominant node to correct.</div>
 
 
@@ -5178,6 +5227,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-multi-organ-developmental-programmes" data-dismech-node="Disrupted Multi-Organ Developmental Programmes" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Multi-Organ Developmental Programmes</div>
+
 
                 <div class="item-desc">Developmental programmes fail across limb bud, cardiac and left-right patterning, foregut and diaphragm, craniofacial structures and the central nervous system. In the zebrafish model the deregulation is detectable from gastrulation onwards in endodermal differentiation and left-right patterning genes, which places the lesion early enough to explain heart and gut defects.</div>
 
@@ -6868,6 +6918,9 @@ This disease-associated gene is NIPBL (hgnc:28862). hgnc:28862 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9044,19 +9097,21 @@ notes: &gt;-
 
   Every frequency band in this entry was audited against the figure behind it, after
   a third instance of the denominator error survived a sweep run for the first two.
-  Sixteen phenotypes, and the audit sorts them into four groups. Ten carry a band
-  supported by a counted figure in a cited source and are unchanged: synophrys,
-  upper-limb reduction defect, congenital heart defect, pulmonic stenosis,
-  intellectual disability, self-injurious behavior, delayed gross motor development,
-  abnormal brain morphology, cleft palate, and motor stereotypy, the last banded
-  below a 100% figure for a broader construct. Three carry no band at all, because
-  no cited source counts them: gastroesophageal reflux, congenital diaphragmatic
-  hernia, and feeding difficulties, whose only figure counts gastrostomies rather
-  than the phenotype. Two are banded from a number that is not a direct measurement
-  and say so on the phenotype: intrauterine growth retardation, from a low
-  birth-weight proxy restricted to term births, and hirsutism, whose only published
-  figure is in a source not cached here. And one, delayed speech and language
-  development, is lowered to the band containing the number quoted for it.
+  Sixteen phenotypes, and the audit sorts them into four groups. Nine carry a band
+  supported by a counted figure in a cited source and are unchanged: upper-limb
+  reduction defect, congenital heart defect, pulmonic stenosis, intellectual
+  disability, self-injurious behavior, delayed gross motor development, abnormal
+  brain morphology, cleft palate, and motor stereotypy, the last banded below a 100%
+  figure for a broader construct. Three carry no band at all, because no cited
+  source counts them: gastroesophageal reflux, congenital diaphragmatic hernia, and
+  feeding difficulties, whose only figure counts gastrostomies rather than the
+  phenotype. Three are banded from a number that is not a direct measurement and say
+  so on the phenotype: synophrys, whose eleven-of-eleven figure is a ceiling on the
+  composite craniofacial gestalt it is named within rather than a measurement of
+  synophrys alone; intrauterine growth retardation, from a low birth-weight proxy
+  restricted to term births; and hirsutism, whose only published figure is in a
+  source not cached here. And one, delayed speech and language development, is
+  lowered to the band containing the number quoted for it.
 
   One repair to that audit is worth recording, because the audit caused it. The
   registry evidence item added for intrauterine growth retardation was written to
@@ -9909,7 +9964,7 @@ Resolving is not the same as being relevant, though - see the references listed 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cornelia de Lange Syndrome 1", "mondoId": "MONDO:0007387", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cornelia_de_Lange_Syndrome_1", "yamlRevision": "ff3065f1f06e"};
+        const OS_CONFIG = {"diseaseName": "Cornelia de Lange Syndrome 1", "mondoId": "MONDO:0007387", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cornelia_de_Lange_Syndrome_1", "yamlRevision": "2a5859c769ba"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

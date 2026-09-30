@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic ingress policy for PR-shepherd automation.
-
-GitHub exposes App identities in more than one spelling depending on the API
-surface (for example ``app/ai4c-agent`` and ``ai4c-agent[bot]``).  Keep that
-normalization here rather than duplicating fragile login strings in prompts and
-workflow shell.
-"""
+"""Deterministic ingress policy for tending unassigned PRs from any author."""
 
 from __future__ import annotations
 
@@ -16,9 +10,6 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-BOT_APP_LOGINS = frozenset({"ai4c-agent", "claude", "github-actions"})
-MACHINE_USER_LOGINS = frozenset({"dragon-ai-agent"})
-AGENT_LOGINS = BOT_APP_LOGINS | MACHINE_USER_LOGINS
 AUTOMATED_HEAD_PREFIX = "auto/"
 
 
@@ -30,20 +21,8 @@ class Decision:
     reason: str
 
 
-def normalize_login(value: str | dict | None) -> str:
-    """Normalize GraphQL, REST, and plain GitHub actor spellings."""
-    if isinstance(value, dict):
-        value = value.get("login")
-    login = str(value or "").strip().casefold()
-    if login.startswith("app/"):
-        login = login.removeprefix("app/")
-    if login.endswith("[bot]"):
-        login = login.removesuffix("[bot]")
-    return login
-
-
 def agent_candidate_decision(pr: dict) -> Decision:
-    """Return whether the LLM shepherd may tend this PR.
+    """Return whether the repair jobs may tend this PR, regardless of author.
 
     Draft state is deliberately absent: in DisMech, opening a PR places the work
     in the review queue.  Assignment, review state, and explicit workflow lanes
@@ -54,9 +33,11 @@ def agent_candidate_decision(pr: dict) -> Decision:
         return Decision(False, f"PR is not open (state={state or 'missing'})")
     if pr.get("baseRefName") != "main":
         return Decision(False, "base branch is not main")
-    if "assignees" not in pr:
-        return Decision(False, "PR response omitted assignees")
-    assignees = pr.get("assignees") or []
+    if pr.get("isCrossRepository") is not False:
+        return Decision(False, "head does not belong to this repository")
+    assignees = pr.get("assignees")
+    if not isinstance(assignees, list):
+        return Decision(False, "PR response omitted or malformed assignees")
     if assignees:
         logins = ", ".join(str(item.get("login") or "?") for item in assignees)
         return Decision(False, f"PR is assigned to {logins}")
@@ -65,15 +46,7 @@ def agent_candidate_decision(pr: dict) -> Decision:
     if head.startswith(AUTOMATED_HEAD_PREFIX):
         return Decision(False, f"separately managed lane {AUTOMATED_HEAD_PREFIX!r}")
 
-    author = pr.get("author")
-    login = normalize_login(author)
-    if login not in AGENT_LOGINS:
-        return Decision(False, f"author {login or '(missing)'} is not allowlisted")
-    if login in BOT_APP_LOGINS and not (
-        isinstance(author, dict) and author.get("is_bot") is True
-    ):
-        return Decision(False, f"author {login} lacks a verified Bot identity")
-    return Decision(True, f"allowlisted agent author {login}")
+    return Decision(True, "unassigned PR outside separately managed automation lanes")
 
 
 def _gh_json(args: list[str]) -> object:
@@ -173,8 +146,8 @@ def list_agent_candidates(
     if limit < 1:
         raise ValueError("candidate limit must be positive")
     fields = (
-        "number,author,baseRefName,headRefName,isDraft,state,reviewDecision,"
-        "updatedAt,baseRefOid,headRefOid,mergeable,assignees"
+        "number,baseRefName,headRefName,isDraft,state,reviewDecision,"
+        "updatedAt,baseRefOid,headRefOid,mergeable,assignees,isCrossRepository"
     )
     if specific_pr is not None:
         payload = _gh_json(

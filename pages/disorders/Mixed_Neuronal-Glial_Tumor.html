@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4530,6 +4569,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-pathway-activation" data-dismech-node="MAPK Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK Pathway Activation</div>
 
+
                 <div class="item-desc">The initiating and central pathogenic event is a somatic genetic alteration that constitutively activates the RAS-RAF-MEK-ERK (MAPK) signaling cascade. In ganglioglioma the dominant driver is the BRAF p.V600E missense mutation (glutamic acid-to-valine substitution in the kinase domain), while in DNET and other entities FGFR1 hotspot mutations (N546K, K656E) predominate; FGFR1 activation simultaneously stimulates the RAS/RAF/MEK and PI3K-AKT cascades. These low-grade glioneuronal tumors are considered developmental neoplasms arising from MAPK-activated neural progenitors rather than from environmental exposures.</div>
 
 
@@ -4723,6 +4763,44 @@ This pathophysiological event involves increased negative regulation of apoptosi
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        protein serine/threonine kinase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004674" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0004674</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves increased protein serine/threonine kinase activity (GO:0004674). GO:0004674 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↑ INCREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4812,6 +4890,7 @@ This pathophysiological event involves increased negative regulation of apoptosi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dual-neuronal-glial-differentiation" data-dismech-node="Dual Neuronal-Glial Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dual Neuronal-Glial Differentiation</div>
 
+
                 <div class="item-desc">Aberrant differentiation of MAPK-activated neural progenitors yields a neoplasm containing both a neoplastic neuronal component (dysmorphic ganglion cells, floating neurons, or neurocytic rosettes depending on subtype) and a neoplastic glial component (astrocytic GFAP-positive and/or oligodendrocyte-like OLIG2-positive cells). This dual lineage is the defining histological feature of glioneuronal tumors and distinguishes them from pure gliomas.</div>
 
 
@@ -4826,11 +4905,11 @@ This pathophysiological event involves increased negative regulation of apoptosi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000540</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000540</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neoplastic neuron, annotated with neuron (CL:0000540). CL:0000540 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4856,11 +4935,11 @@ This pathophysiological event involves neoplastic neuron, annotated with neuron 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000127</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000127</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neoplastic astrocyte, annotated with astrocyte (CL:0000127). CL:0000127 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4886,11 +4965,11 @@ This pathophysiological event involves neoplastic astrocyte, annotated with astr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000128</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000128" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000128</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neoplastic oligodendrocyte-like cell, annotated with oligodendrocyte (CL:0000128). CL:0000128 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4927,11 +5006,11 @@ This pathophysiological event involves neoplastic oligodendrocyte-like cell, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0030182</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030182" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030182</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal neuron differentiation (GO:0030182). GO:0030182 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4961,11 +5040,11 @@ This pathophysiological event involves abnormal neuron differentiation (GO:00301
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0001709</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001709" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0001709</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal cell fate determination (GO:0001709). GO:0001709 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5054,6 +5133,7 @@ This pathophysiological event involves abnormal cell fate determination (GO:0001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-low-grade-neoplasm" data-dismech-node="Cortical Low-Grade Neoplasm" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Low-Grade Neoplasm</div>
 
+
                 <div class="item-desc">A circumscribed, indolent (most commonly CNS WHO grade 1) neoplasm situated in the cerebral cortex, most often the temporal lobe. The cortical/subcortical location and intimate relationship with surrounding cortex underlie both the typical seizure presentation and the favorable outcome after gross total resection.</div>
 
 
@@ -5078,11 +5158,11 @@ This pathophysiological event involves abnormal cell fate determination (GO:0001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-11">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5095,11 +5175,11 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-12">UBERON:0001871</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0001871</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0001871 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5168,6 +5248,7 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epileptogenic-cortical-disruption" data-dismech-node="Epileptogenic Cortical Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Epileptogenic Cortical Disruption</div>
 
+
                 <div class="item-desc">Glioneuronal tumors, particularly ganglioglioma and DNET, are among the most common causes of drug-resistant focal epilepsy. The intimate cortical location, abnormal neuronal differentiation, and frequent association with focal cortical dysplasia generate a highly epileptogenic substrate, such that these tumors have been informally termed &#34;epileptomas&#34;.</div>
 
 
@@ -5192,11 +5273,11 @@ This pathophysiological event occurs in temporal lobe (UBERON:0001871). UBERON:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0000956" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-14">UBERON:0000956</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON:0000956 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5287,7 +5368,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Most common somatic driver mutation (p.V600E)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF/MEK Inhibitor Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For BRAF p.V600E-mutant tumors that are progressive, recurrent, or unresectable, combined BRAF and MEK inhibition (e.g., dabrafenib plus trametinib) is the preferred targeted approach; BRAF V600E is the only molecular target of proven clinical benefit in adult gliomas/glioneuronal tumors per EANO. In a multi-institutional series of BRAF-mutant pediatric high-grade gliomas (including anaplastic gangliogliomas) treated upfront, 3-year progression-free and overall survival were 65% and 82%.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cortical Low-Grade Neoplasm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A circumscribed, indolent (most commonly CNS WHO grade 1) neoplasm situated in the cerebral cortex, most often the temporal lobe. The cortical/subcortical location and intimate relationship with surrounding cortex underlie both the typical seizure presentation and the favorable outcome after gross total resection.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebral cortex\", \"temporal lobe\"]}}, {\"id\": \"Drug-Resistant Focal Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic focal-onset seizures, frequently medically refractory, are the dominant clinical presentation of mixed neuronal-glial tumors, especially ganglioglioma and DNET. Onset is typically in childhood to young adulthood with a long pre-diagnosis history.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Dual Neuronal-Glial Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant differentiation of MAPK-activated neural progenitors yields a neoplasm containing both a neoplastic neuronal component (dysmorphic ganglion cells, floating neurons, or neurocytic rosettes depending on subtype) and a neoplastic glial component (astrocytic GFAP-positive and/or oligodendrocyte-like OLIG2-positive cells). This dual lineage is the defining histological feature of glioneuronal tumors and distinguishes them from pure gliomas.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neoplastic neuron\", \"neoplastic astrocyte\", \"neoplastic oligodendrocyte-like cell\"], \"biological_processes\": [\"neuron differentiation\", \"cell fate determination\"]}}, {\"id\": \"Epileptogenic Cortical Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glioneuronal tumors, particularly ganglioglioma and DNET, are among the most common causes of drug-resistant focal epilepsy. The intimate cortical location, abnormal neuronal differentiation, and frequent association with focal cortical dysplasia generate a highly epileptogenic substrate, such that these tumors have been informally termed \\\"epileptomas\\\".\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"MAPK Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating and central pathogenic event is a somatic genetic alteration that constitutively activates the RAS-RAF-MEK-ERK (MAPK) signaling cascade. In ganglioglioma the dominant driver is the BRAF p.V600E missense mutation (glutamic acid-to-valine substitution in the kinase domain), while in DNET and other entities FGFR1 hotspot mutations (N546K, K656E) predominate; FGFR1 activation simultaneously stimulates the RAS/RAF/MEK and PI3K-AKT cascades. These low-grade glioneuronal tumors are considered developmental neoplasms arising from MAPK-activated neural progenitors rather than from environmental exposures.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"MAPK cascade\", \"positive regulation of cell proliferation\", \"negative regulation of apoptosis\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}]}}, {\"id\": \"Surgical Resection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gross total surgical resection is the cornerstone of treatment and is considered curative for most CNS WHO grade 1 glioneuronal tumors. For epilepsy-associated tumors, extended resection that includes the epileptogenic zone improves seizure-free outcomes.\"}], \"edges\": [{\"source\": \"MAPK Pathway Activation\", \"target\": \"Dual Neuronal-Glial Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive MAPK activation in neural progenitors during development drives aberrant proliferation and dual differentiation toward both neuronal and glial lineages, producing the characteristic mixed cellular composition.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dual Neuronal-Glial Differentiation\", \"target\": \"Cortical Low-Grade Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mixed neuronal-glial proliferation forms a circumscribed, slow-growing (CNS WHO grade 1) tumor, typically in the cerebral cortex with a predilection for the temporal and frontal lobes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Low-Grade Neoplasm\", \"target\": \"Epileptogenic Cortical Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cortical tumor, frequently associated with adjacent focal cortical dysplasia, disrupts local cortical circuitry and creates an epileptogenic zone with high intrinsic epileptogenic potential.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Epileptogenic Cortical Disruption\", \"target\": \"Drug-Resistant Focal Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epileptogenic cortical substrate manifests clinically as chronic, frequently drug-resistant focal seizures, the dominant presenting phenotype of these tumors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Surgical Resection\", \"target\": \"Cortical Low-Grade Neoplasm\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BRAF/MEK Inhibitor Targeted Therapy\", \"target\": \"MAPK Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"MAPK Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"BRAF\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}], \"association\": \"Most common somatic driver mutation (p.V600E)\", \"relationship_type\": \"SOMATIC_DRIVER\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"BRAF/MEK Inhibitor Targeted Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For BRAF p.V600E-mutant tumors that are progressive, recurrent, or unresectable, combined BRAF and MEK inhibition (e.g., dabrafenib plus trametinib) is the preferred targeted approach; BRAF V600E is the only molecular target of proven clinical benefit in adult gliomas/glioneuronal tumors per EANO. In a multi-institutional series of BRAF-mutant pediatric high-grade gliomas (including anaplastic gangliogliomas) treated upfront, 3-year progression-free and overall survival were 65% and 82%.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Cortical Low-Grade Neoplasm\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A circumscribed, indolent (most commonly CNS WHO grade 1) neoplasm situated in the cerebral cortex, most often the temporal lobe. The cortical/subcortical location and intimate relationship with surrounding cortex underlie both the typical seizure presentation and the favorable outcome after gross total resection.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebral cortex\", \"temporal lobe\"]}}, {\"id\": \"Drug-Resistant Focal Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic focal-onset seizures, frequently medically refractory, are the dominant clinical presentation of mixed neuronal-glial tumors, especially ganglioglioma and DNET. Onset is typically in childhood to young adulthood with a long pre-diagnosis history.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0007359\"}}, {\"id\": \"Dual Neuronal-Glial Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant differentiation of MAPK-activated neural progenitors yields a neoplasm containing both a neoplastic neuronal component (dysmorphic ganglion cells, floating neurons, or neurocytic rosettes depending on subtype) and a neoplastic glial component (astrocytic GFAP-positive and/or oligodendrocyte-like OLIG2-positive cells). This dual lineage is the defining histological feature of glioneuronal tumors and distinguishes them from pure gliomas.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neoplastic neuron\", \"neoplastic astrocyte\", \"neoplastic oligodendrocyte-like cell\"], \"biological_processes\": [\"neuron differentiation\", \"cell fate determination\"]}}, {\"id\": \"Epileptogenic Cortical Disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glioneuronal tumors, particularly ganglioglioma and DNET, are among the most common causes of drug-resistant focal epilepsy. The intimate cortical location, abnormal neuronal differentiation, and frequent association with focal cortical dysplasia generate a highly epileptogenic substrate, such that these tumors have been informally termed \\\"epileptomas\\\".\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"cerebral cortex\"]}}, {\"id\": \"MAPK Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating and central pathogenic event is a somatic genetic alteration that constitutively activates the RAS-RAF-MEK-ERK (MAPK) signaling cascade. In ganglioglioma the dominant driver is the BRAF p.V600E missense mutation (glutamic acid-to-valine substitution in the kinase domain), while in DNET and other entities FGFR1 hotspot mutations (N546K, K656E) predominate; FGFR1 activation simultaneously stimulates the RAS/RAF/MEK and PI3K-AKT cascades. These low-grade glioneuronal tumors are considered developmental neoplasms arising from MAPK-activated neural progenitors rather than from environmental exposures.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neural progenitor cell\"], \"biological_processes\": [\"MAPK cascade\", \"positive regulation of cell proliferation\", \"negative regulation of apoptosis\"], \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"BRAF\"], \"gene_terms\": [{\"label\": \"BRAF\", \"id\": \"hgnc:1097\"}]}}, {\"id\": \"Surgical Resection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Gross total surgical resection is the cornerstone of treatment and is considered curative for most CNS WHO grade 1 glioneuronal tumors. For epilepsy-associated tumors, extended resection that includes the epileptogenic zone improves seizure-free outcomes.\"}], \"edges\": [{\"source\": \"MAPK Pathway Activation\", \"target\": \"Dual Neuronal-Glial Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive MAPK activation in neural progenitors during development drives aberrant proliferation and dual differentiation toward both neuronal and glial lineages, producing the characteristic mixed cellular composition.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Dual Neuronal-Glial Differentiation\", \"target\": \"Cortical Low-Grade Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The mixed neuronal-glial proliferation forms a circumscribed, slow-growing (CNS WHO grade 1) tumor, typically in the cerebral cortex with a predilection for the temporal and frontal lobes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cortical Low-Grade Neoplasm\", \"target\": \"Epileptogenic Cortical Disruption\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cortical tumor, frequently associated with adjacent focal cortical dysplasia, disrupts local cortical circuitry and creates an epileptogenic zone with high intrinsic epileptogenic potential.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Epileptogenic Cortical Disruption\", \"target\": \"Drug-Resistant Focal Epilepsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The epileptogenic cortical substrate manifests clinically as chronic, frequently drug-resistant focal seizures, the dominant presenting phenotype of these tumors.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Surgical Resection\", \"target\": \"Cortical Low-Grade Neoplasm\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BRAF/MEK Inhibitor Targeted Therapy\", \"target\": \"MAPK Pathway Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"BRAF\", \"target\": \"MAPK Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5337,10 +5418,10 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5385,10 +5466,10 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Drug-resistant focal-onset seizure, annotated with Focal-onset seizure (HP:0007359), qualified as temporality chronic. HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5500,10 +5581,10 @@ This clinical feature is Drug-resistant focal-onset seizure, annotated with Foca
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5572,10 +5653,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5609,10 +5690,10 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000238</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000238" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000238</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5657,10 +5738,10 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0025170</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025170" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0025170</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neuronal/glioneuronal neoplasm of the central nervous system (HP:0025170). HP:0025170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5772,10 +5853,10 @@ This clinical feature is Neuronal/glioneuronal neoplasm of the central nervous s
                         Gene: BRAF
 
 
-    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:1097</a>
+    <a href="https://bioregistry.io/hgnc:1097" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:1097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5787,6 +5868,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5848,10 +5932,10 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
                         Gene: FGFR1
 
 
-    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:3688</a>
+    <a href="https://bioregistry.io/hgnc:3688" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:3688</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5863,6 +5947,9 @@ This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -5932,7 +6019,7 @@ This disease-associated gene is FGFR1 (hgnc:3688). hgnc:3688 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6026,7 +6113,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6179,7 +6266,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">radiation therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6411,11 +6498,11 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6646,6 +6733,12 @@ pathophysiology:
     term:
       id: hgnc:1097
       label: BRAF
+  molecular_functions:
+  - preferred_term: protein serine/threonine kinase activity
+    term:
+      id: GO:0004674
+      label: protein serine/threonine kinase activity
+    modifier: INCREASED
   biological_processes:
   - preferred_term: MAPK cascade
     term:
@@ -7779,7 +7872,7 @@ The EANO guideline recommends next-generation sequencing (NGS) panel diagnostics
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Mixed Neuronal-Glial Tumor", "mondoId": "MONDO:0016729", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mixed_Neuronal-Glial_Tumor", "yamlRevision": "93a7032b2e50"};
+        const OS_CONFIG = {"diseaseName": "Mixed Neuronal-Glial Tumor", "mondoId": "MONDO:0016729", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Mixed_Neuronal-Glial_Tumor", "yamlRevision": "e0e084978203"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

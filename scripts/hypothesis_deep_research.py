@@ -78,8 +78,8 @@ DEFAULT_SUBPROCESS_TIMEOUT_SECONDS = 7800
 # resolves the same CURIE to "mitochondrial chromosome". Both are false alarms.
 #
 # Unlike reference validation, this path does not read or write
-# `references_cache/`, so it does not need the `patch_reference_validator`
-# repairs that `scripts/run_deep_research_client.sh` applies.
+# `references_cache/`, so it does not need the reference-cache handling that
+# `scripts/run_deep_research_client.sh` routes through.
 #
 # Note what is still missing here, since it is the asymmetry a reader will hit:
 # this script does NOT reference-validate (no `--validate-references`), unlike

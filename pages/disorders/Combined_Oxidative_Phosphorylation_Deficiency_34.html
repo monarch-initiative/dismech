@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4571,6 +4610,7 @@ Read one way, MRPS7 causes a single disease whose severe end kills in adolescenc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-mrps7-variants" data-dismech-node="Biallelic MRPS7 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MRPS7 Variants</div>
 
+
                 <div class="item-desc">Two damaged copies of MRPS7. Three alleles are known across the two published families. The 2015 sisters are homozygous for c.550A&gt;G, p.Met184Val, replacing a highly conserved methionine. The 2022 patient carries c.373A&gt;T, p.(Lys125*), a nonsense allele, in trans with c.536G&gt;A, p.(Arg179His); both were novel at the time of report and were called pathogenic on in-silico prediction rather than on a functional assay, which is a real limit on that family&#39;s molecular evidence.</div>
 
 
@@ -4671,6 +4711,8 @@ This genetic context concerns MRPS7 (hgnc:14499). hgnc:14499 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: a homozygous conserved-residue missense variant in one family, and a nonsense variant in trans with a missense variant in the other</span>
 
 
@@ -4684,6 +4726,9 @@ This genetic context concerns MRPS7 (hgnc:14499). hgnc:14499 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Zygosity differs between the two families - homozygous in the 2015 siblings, compound heterozygous in the 2022 patient - so no single zygosity value describes the entity and the slot is left unset rather than asserting one family&#39;s configuration for both.</div>
 
@@ -4781,6 +4826,7 @@ This genetic context concerns MRPS7 (hgnc:14499). hgnc:14499 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-destabilization-of-the-us7m-protein-of-the-mitoribosomal-small-subunit" data-dismech-node="Destabilization of the uS7m Protein of the Mitoribosomal Small Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">Destabilization of the uS7m Protein of the Mitoribosomal Small Subunit</div>
+
 
                 <div class="item-desc">MRPS7 is a 12S ribosomal-RNA-binding protein of the small subunit of the mitochondrial ribosome and is required for that subunit&#39;s assembly. The mammalian mitoribosome is a 55S particle built from a 28S small subunit - 12S rRNA plus about thirty nuclear-encoded proteins - and a 39S large subunit, with the proteins arranged largely on the periphery around the catalytic RNA core. A missense change at a conserved residue in one of those thirty proteins is therefore a defect in the scaffold that holds the rRNA in place, not in a catalytic site.
 The general rule established across mitoribosomal-protein disease is that such variants reduce the steady-state level of the affected protein, and this entry follows that reading. No direct measurement of MRPS7 protein abundance in patient cells is reported in the sources cited here, so this node is an inference from the assembly and rRNA phenotypes below rather than a measured quantity.</div>
@@ -5007,6 +5053,7 @@ This pathophysiological event involves mitochondrial small ribosomal subunit (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-12s-rrna-and-impaired-small-subunit-assembly" data-dismech-node="Reduced 12S rRNA and Impaired Small Subunit Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced 12S rRNA and Impaired Small Subunit Assembly</div>
 
+
                 <div class="item-desc">12S rRNA transcript levels were reduced in patient fibroblasts and were restored to normal by exogenous wild-type MRPS7. The direction of that rescue is the informative part: the rRNA loss follows the protein defect rather than preceding it, so this is a failure to build and hold the small subunit together, not a transcriptional lesion in the mitochondrial genome.</div>
 
 
@@ -5136,6 +5183,7 @@ This pathophysiological event involves decreased mitochondrial small ribosomal s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-protein-synthesis" data-dismech-node="Impaired Mitochondrial Protein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Protein Synthesis</div>
 
+
                 <div class="item-desc">Pulse labelling of mitochondrial translation products in patient fibroblasts showed impaired mitochondrial protein synthesis. This is the functional consequence of a defective small subunit and the step at which a single ribosomal-protein defect becomes a multi-complex disease: the mitoribosome makes only thirteen proteins, but they are distributed across complexes I, III, IV and V.</div>
 
 
@@ -5247,6 +5295,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-deficiency-of-respiratory-chain-complexes-i-iii-and-iv" data-dismech-node="Combined Deficiency of Respiratory Chain Complexes I, III and IV" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Deficiency of Respiratory Chain Complexes I, III and IV</div>
+
 
                 <div class="item-desc">Complexes I, III and IV were all deficient, and the deficiency was demonstrated in two tissues - cultured fibroblasts and liver. The *combined* pattern is diagnostically informative: it points to mitochondrial gene expression rather than to any single respiratory-chain gene, because every complex except complex II carries mtDNA-encoded subunits and complex II alone is entirely nuclear-encoded.</div>
 
@@ -5419,6 +5468,7 @@ This pathophysiological event involves decreased electron transport chain (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-oxidative-phosphorylation" data-dismech-node="Impaired Oxidative Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oxidative Phosphorylation</div>
+
 
                 <div class="item-desc">With three of the four electron-transport complexes deficient, oxidative ATP synthesis falls. This is the bioenergetic endpoint that disease-specific mitochondrial lesions converge on, and the node conforms to the shared mitochondrial_dysfunction module at that point, as the sibling entry COXPD48 does.
 The module&#39;s central effector state pairs falling oxidative phosphorylation with rising reactive oxygen species. Only the first half is claimed here: no ROS measurement has been reported in an MRPS7 patient, and asserting the second half would import a claim from the module rather than from this disease.
@@ -5596,6 +5646,7 @@ This pathophysiological event involves decreased mitochondrial ATP synthesis cou
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-of-hepatocytes" data-dismech-node="Bioenergetic Failure of Hepatocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure of Hepatocytes</div>
 
+
                 <div class="item-desc">Liver was one of the two tissues in which the combined respiratory-chain deficiency was measured, and hepatic failure was the clinical course in the more severely affected sister. Hepatocytes are oxidative and carry a high mitochondrial load, and hepatic involvement is a recurrent feature of mitochondrial translation defects. Why one sister with an identical homozygous genotype developed liver failure and the other did not is unexplained.</div>
 
 
@@ -5704,6 +5755,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bioenergetic-failure-of-renal-tubular-epithelium" data-dismech-node="Bioenergetic Failure of Renal Tubular Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Bioenergetic Failure of Renal Tubular Epithelium</div>
 
+
                 <div class="item-desc">The proximal tubule is among the most mitochondria-dense epithelia in the body, and renal failure accompanied the hepatic failure in the same severely affected sister. No renal biopsy, tubular-function profile or respiratory-chain assay in kidney is reported, so the tubular localisation is inferred from the general biology rather than demonstrated here.</div>
 
 
@@ -5811,6 +5863,7 @@ This pathophysiological event involves kidney epithelial cell (CL:0002518). CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-bioenergetic-failure" data-dismech-node="Cochlear Bioenergetic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Bioenergetic Failure</div>
+
 
                 <div class="item-desc">Sensorineural hearing loss is the one feature shared by all three published patients and is congenital in the two sisters. Cochlear hair cells and the stria vascularis maintain the endocochlear potential at a very high metabolic cost, which is the standing explanation for why hearing is disproportionately affected across mitochondrial disease generally and across mitoribosomal defects in particular. No cochlear tissue study exists for this gene, so the node asserts the vulnerability rather than a demonstrated mechanism.</div>
 
@@ -5921,6 +5974,7 @@ This pathophysiological event involves auditory hair cell (CL:0000202). CL:00002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovarian-follicular-depletion" data-dismech-node="Ovarian Follicular Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovarian Follicular Depletion</div>
+
 
                 <div class="item-desc">Premature ovarian insufficiency is the phenotype that gave MRPS7 its second identity, as a Perrault syndrome gene. It appeared in the surviving 2015 sister - only after the report, and only once she reached reproductive age - and in the 2022 patient. Ovarian insufficiency recurs across the mitoribosomal and mitochondrial-translation genes, but the mechanism linking a translation defect to follicular loss is not established, and no ovarian histology or hormone-response study exists for MRPS7.</div>
 
@@ -6961,6 +7015,9 @@ This disease-associated gene is MRPS7 (hgnc:14499). hgnc:14499 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

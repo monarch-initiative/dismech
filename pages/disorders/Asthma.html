@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -7237,6 +7276,7 @@ This readout is measured by spirometry.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-inflammation" data-dismech-node="Airway Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Inflammation</div>
 
+
                 <div class="item-desc">Chronic inflammation leads to airway hyperresponsiveness and recurrent episodes of wheezing, breathlessness, chest tightness, and coughing.</div>
 
 
@@ -7626,6 +7666,7 @@ This pathophysiological event involves Inflammatory response to antigenic stimul
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-2-immune-response-th2-signaling" data-dismech-node="Type 2 Immune Response / Th2 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Type 2 Immune Response / Th2 Signaling</div>
+
 
                 <div class="item-desc">Allergic asthma is driven by a type 2 immune response in which allergen-activated dendritic cells promote Th2 cell differentiation. Th2 cells and ILC2s produce IL-4, IL-5, and IL-13, which drive IgE class switching, eosinophil recruitment and survival, goblet cell metaplasia, and airway hyperresponsiveness. IL-4/IL-13 signal through STAT6 to amplify the type 2 program, while IL-5 is the principal regulator of eosinophil maturation and survival, acting through the IL-5 receptor alpha subunit carried by eosinophils; IL-4, IL-13 and epithelial alarmins modulate tissue recruitment and amplification of the inflammation.</div>
 
@@ -8337,6 +8378,7 @@ This pathophysiological event involves Interleukin-4 production (GO:0032633). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchoconstriction" data-dismech-node="Bronchoconstriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchoconstriction</div>
 
+
                 <div class="item-desc">During an asthma attack, smooth muscles around the airways tighten and narrow the airway.</div>
 
 
@@ -8622,6 +8664,7 @@ This pathophysiological event involves Smooth muscle contraction (GO:0006939). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucus-overproduction" data-dismech-node="Mucus Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucus Overproduction</div>
 
+
                 <div class="item-desc">Inflammatory cells infiltrate the airways, increasing mucus production, which can block airways and further impair breathing.</div>
 
 
@@ -8879,6 +8922,7 @@ This pathophysiological event involves Mucus secretion (GO:0070254). GO:0070254 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-remodeling" data-dismech-node="Airway Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Remodeling</div>
+
 
                 <div class="item-desc">Long-standing inflammation can lead to structural changes in the airway, permanently affecting lung function.</div>
 
@@ -9175,6 +9219,7 @@ This pathophysiological event involves Tissue remodeling (GO:0048771). GO:004877
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sirt1-mediated-nad-signaling-and-protective-deacetylation" data-dismech-node="SIRT1-Mediated NAD+ Signaling and Protective Deacetylation" data-dismech-type="pathophysiology">
                 <div class="item-name">SIRT1-Mediated NAD+ Signaling and Protective Deacetylation</div>
+
 
                 <div class="item-desc">SIRT1 (Sirtuin 1), an NAD+-dependent deacetylase, exerts protective effects in asthma by inhibiting pro-inflammatory signaling pathways (NF-κB, STAT3) while activating stress-response transcription factors (Nrf2, FOXO3) and suppressing pro-fibrotic TGF-β/Smad signaling. SIRT1 activation attenuates Th2 inflammation, suppresses mucus hypersecretion and goblet cell metaplasia, and reduces airway smooth muscle proliferation. SIRT1 also mitigates oxidative stress and mitochondrial dysfunction.</div>
 
@@ -9752,6 +9797,7 @@ This pathophysiological event involves transcriptional regulation, annotated wit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-life-rhinovirus-wheezing-illness-and-asthma-inception" data-dismech-node="Early-Life Rhinovirus Wheezing Illness and Asthma Inception" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Life Rhinovirus Wheezing Illness and Asthma Inception</div>
 
+
                 <div class="item-desc">Viral lower respiratory wheezing illnesses in infancy and early childhood, particularly those caused by human rhinovirus (and to a lesser extent respiratory syncytial virus), are among the strongest early-life predictors of subsequent childhood asthma. In a high-risk prospective birth cohort, wheezing with rhinovirus in the first three years of life conferred an almost ten-fold increase in the odds of asthma at age 6, an effect that grew stronger when wheezing occurred later in early childhood. Rhinovirus infection of the developing airway epithelium interacts with allergic (type 2) sensitization to injure and remodel the epithelium and bias the immune response toward the Th2 program, contributing to asthma inception rather than acting purely as a marker of pre-existing susceptibility. This positions early respiratory infection as an upstream, potentially modifiable contributor to the chronic airway inflammation that defines established asthma.
 </div>
 
@@ -10047,6 +10093,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-house-dust-mite-allergen-protease-induced-epithelial-oxidant-signaling" data-dismech-node="House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">House Dust Mite Allergen Protease-Induced Epithelial Oxidant Signaling</div>
+
 
                 <div class="item-desc">Group 1 house dust mite (HDM) allergens, exemplified by the cysteine peptidase Der p 1, are potent triggers of intracellular reactive oxygen species (ROS) generation in airway epithelial cells, an event relevant to asthma because the disease is associated with deficits in antioxidant defences and because ROS amplify inflammation through transcription-factor and chromatin regulation. Der p 1 behaves as a prothrombinase, generating thrombin that activates protease-activated receptors (PAR1/PAR4); the resulting signaling, converging with purinoceptor (P2X7/P2Y) activation by ATP released through pannexons, drives sheddase activity of the metalloprotease ADAM10. ADAM10 in turn sustains further prothrombin activation, establishing a self-amplifying thrombin-ROS signaling cycle. As the principal sheddase of the adherens-junction protein E-cadherin, ADAM10 activation also compounds the epithelial-barrier disruption caused by direct cleavage of tight junctions by group 1 HDM allergens, and ADAM10 liberates chemokines (CCL20, CCL2, CCL5, CXCL8) and promotes TH2 bias and IgE synthesis (via CD23 shedding) - tying allergen-protease sensing to the type 2 inflammatory program of allergic asthma.
 </div>
@@ -11715,6 +11762,9 @@ This disease-associated gene is IL4 (hgnc:6014). hgnc:6014 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -11827,6 +11877,9 @@ This disease-associated gene is IL13 (hgnc:5973). hgnc:5973 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -11949,6 +12002,9 @@ This disease-associated gene is ADAM33 (hgnc:15478). hgnc:15478 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -12042,6 +12098,9 @@ This disease-associated gene is GSDMB (hgnc:23690). hgnc:23690 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12086,6 +12145,9 @@ This disease-associated gene is GSDMB (hgnc:23690). hgnc:23690 is a gene from th
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Associated)</span>
 
                 </div>
+
+
+
 
 
 
@@ -12156,6 +12218,9 @@ This disease-associated gene is ORMDL3 (hgnc:16038). hgnc:16038 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -12278,6 +12343,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-tnfaip3" data-dismech-node="TNFAIP3" data-dismech-type="genetic">
@@ -12309,6 +12377,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -12352,6 +12423,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
@@ -12383,6 +12457,9 @@ This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12426,6 +12503,9 @@ This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
@@ -12457,6 +12537,9 @@ This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12500,6 +12583,9 @@ This disease-associated gene is IRF4 (hgnc:6119). hgnc:6119 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-satb1" data-dismech-node="SATB1" data-dismech-type="genetic">
@@ -12531,6 +12617,9 @@ This disease-associated gene is SATB1 (hgnc:10541). hgnc:10541 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12574,6 +12663,9 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-il21r" data-dismech-node="IL21R" data-dismech-type="genetic">
@@ -12611,6 +12703,9 @@ This disease-associated gene is IL21R (hgnc:6006). hgnc:6006 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cdhr3" data-dismech-node="CDHR3" data-dismech-type="genetic">
@@ -12642,6 +12737,9 @@ This disease-associated gene is CDHR3 (hgnc:26308). hgnc:26308 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

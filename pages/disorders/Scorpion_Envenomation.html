@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4806,6 +4845,7 @@ This is filed as a model mismatch rather than a knowledge gap because the eviden
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-scorpion-venom-neurotoxin-binding-to-voltage-gated-sodium-channels" data-dismech-node="Scorpion Venom Neurotoxin Binding to Voltage-Gated Sodium Channels" data-dismech-type="pathophysiology">
                 <div class="item-name">Scorpion Venom Neurotoxin Binding to Voltage-Gated Sodium Channels</div>
 
+
                 <div class="item-desc">Buthid venom carries small peptide neurotoxins that bind the voltage-sensing domains of voltage-gated sodium channels. The alpha-toxins are the structurally resolved case: AaH2 from Androctonus australis wedges into voltage-sensing domain IV and traps it in a deactivated state, so the S4 helix cannot make the translation that normally unlatches the fast inactivation gate. The modifier on the channel activity is `GAIN_OF_FUNCTION` rather than `INCREASED` deliberately: the claim is not that sodium current is quantitatively larger but that the channel has been taken outside its own regulatory constraint, since the gate that terminates its opening no longer operates. There is no host variant anywhere in this, so there is nothing for `functional_impact_category` to describe - the gain of function is imposed on a normal channel by a bound peptide.</div>
 
 
@@ -4927,6 +4967,7 @@ This pathophysiological event involves voltage-gated sodium channel activity, wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-sodium-channel-fast-inactivation-and-repetitive-firing" data-dismech-node="Failure of Sodium Channel Fast Inactivation and Repetitive Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Sodium Channel Fast Inactivation and Repetitive Firing</div>
+
 
                 <div class="item-desc">Channels that cannot inactivate leave the membrane depolarized and firing repetitively. Because sodium-channel fast inactivation is what terminates every action potential, disabling it converts a single stimulus into a train - the cellular event underlying the whole syndrome.</div>
 
@@ -5075,6 +5116,7 @@ This pathophysiological event involves increased membrane depolarization during 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-neurotransmitter-storm" data-dismech-node="Autonomic Neurotransmitter Storm" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic Neurotransmitter Storm</div>
+
 
                 <div class="item-desc">Both divisions of the autonomic nervous system discharge at once. Sympathetic terminals and the adrenal medulla release catecholamines while parasympathetic terminals release acetylcholine, so the clinical picture is not a coherent adrenergic or cholinergic syndrome but both superimposed - tachycardia with hypersalivation, hypertension with vomiting, sweating with bradycardia.</div>
 
@@ -5395,6 +5437,7 @@ This pathophysiological event involves increased acetylcholine secretion (GO:006
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catecholamine-mediated-myocardial-injury" data-dismech-node="Catecholamine-Mediated Myocardial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Catecholamine-Mediated Myocardial Injury</div>
 
+
                 <div class="item-desc">Sustained adrenergic stimulation injures the myocardium by three routes that the literature has not fully separated: a direct adrenergic myocarditis, a toxic myocarditis attributed to venom itself, and myocardial ischaemia driven by raised oxygen demand together with cytokine and neuropeptide Y effects on the coronary vessels.</div>
 
 
@@ -5553,6 +5596,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-venom-triggered-cardiac-il-1r-signaling-and-pge2-production" data-dismech-node="Venom-Triggered Cardiac IL-1R Signaling and PGE2 Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Venom-Triggered Cardiac IL-1R Signaling and PGE2 Production</div>
+
 
                 <div class="item-desc">Venom reaching the heart is sensed as a danger signal. Cardiac fibroblasts and resident macrophages produce IL-1 beta through an NLRP3-, ASC- and caspase-1-dependent route and prostaglandin E2 alongside it, and IL-1 receptor signalling is required to sustain the PGE2 output. This node is the entry point of the emerging hypothesis arm and is demonstrated only in mice.</div>
 
@@ -5742,6 +5786,7 @@ This pathophysiological event involves increased prostaglandin E2 biosynthesis i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-vagal-acetylcholine-release-at-the-heart" data-dismech-node="Excessive Vagal Acetylcholine Release at the Heart" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Vagal Acetylcholine Release at the Heart</div>
 
+
                 <div class="item-desc">The cholinergic arm of the emerging account. Parasympathetic output to the heart is driven beyond the range the organ tolerates, producing the bradycardia and arrhythmia of the syndrome and, in mice, the fatal cardiac dysfunction itself.</div>
 
 
@@ -5877,6 +5922,7 @@ This pathophysiological event involves increased acetylcholine secretion (GO:006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-dysfunction-and-pulmonary-edema" data-dismech-node="Cardiac Dysfunction and Pulmonary Edema" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Dysfunction and Pulmonary Edema</div>
+
 
                 <div class="item-desc">The convergence point of both hypothesis arms and the proximate cause of almost every scorpion-sting death. Left ventricular failure with pulmonary oedema develops within hours, is far commoner in children, and is reversible in survivors - left ventricular function recovers in almost all who live.</div>
 
@@ -6055,6 +6101,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytolytic-venom-membrane-damage" data-dismech-node="Cytolytic Venom Membrane Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytolytic Venom Membrane Damage</div>
 
+
                 <div class="item-desc">The Hemiscorpius lepturus branch, and the point at which this subtype leaves the rest of the entry. The venom is cytolytic rather than neurotoxic, lysing cell membranes at the sting site and in the circulation. The sting itself is characteristically not painful, which is why presentation is late.</div>
 
 
@@ -6134,6 +6181,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intravascular-hemolysis-with-acquired-adamts13-deficiency" data-dismech-node="Intravascular Hemolysis with Acquired ADAMTS13 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Intravascular Hemolysis with Acquired ADAMTS13 Deficiency</div>
+
 
                 <div class="item-desc">Haemolysis is followed by a fall in ADAMTS13 together with an anti-ADAMTS13 IgG in almost every severe case - an acquired, antibody-mediated deficiency of the von Willebrand factor-cleaving protease rather than consumption alone. The deficiency tracks the renal outcome exactly: every child with acute kidney injury had it, and no child with normal ADAMTS13 developed renal failure.</div>
 
@@ -6233,6 +6281,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thrombotic-microangiopathy-and-acute-kidney-injury" data-dismech-node="Thrombotic Microangiopathy and Acute Kidney Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Thrombotic Microangiopathy and Acute Kidney Injury</div>
+
 
                 <div class="item-desc">The terminal node of the cytotoxic branch: disseminated intravascular coagulation and haemolytic uraemic syndrome, with acute kidney injury in about a quarter of severe cases.</div>
 

@@ -60,9 +60,9 @@ means giving it a fetcher and adding it to ``REFERENCE_CACHED_PREFIXES``.
 
 This deliberately replaces the old shared ``cache/dataset_accessions`` JSON
 blob, which every curation PR rewrote in full and which therefore collided
-between PRs. That file is frozen: nothing reads or writes it any more, and
+between PRs. That file is deleted: nothing reads or writes it any more, and
 ``test_no_automation_touches_the_frozen_dataset_cache`` keeps it that way. Do
-not edit it.
+not restore it.
 """
 
 from __future__ import annotations
@@ -648,10 +648,6 @@ def fetch_reference_record(prefix: str, local_id: str) -> bool:
         from linkml_reference_validator.cli.shared import load_validation_config
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 
-        # Applies at import and mutates the ReferenceFetcher class, so it is in
-        # effect for the instantiation below regardless of import order -- which
-        # is isort's (first-party last), not a sequencing requirement.
-        import dismech.patch_reference_validator  # noqa: F401  (network resilience)
     except ImportError as exc:  # pragma: no cover - depends on the environment
         raise RuntimeError(f"linkml-reference-validator unavailable: {exc}") from exc
 

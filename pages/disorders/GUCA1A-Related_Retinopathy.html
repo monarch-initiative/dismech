@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4290,6 +4329,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gcap1-loss-of-calcium-dependent-inhibitory-control" data-dismech-node="GCAP1 Loss of Calcium-Dependent Inhibitory Control" data-dismech-type="pathophysiology">
                 <div class="item-name">GCAP1 Loss of Calcium-Dependent Inhibitory Control</div>
 
+
                 <div class="item-desc">Dominant missense variants in GUCA1A cluster in the EF-hand calcium-binding loops of GCAP1 (e.g. EF3 for the founding p.Tyr99Cys variant, EF4 for p.Asp144Gly), impairing the protein&#39;s ability to sense rising dark-adapted Ca2+ and switch into its RetGC-inhibiting conformation. The founding p.Tyr99Cys variant does not decrease GCAP1&#39;s ability to activate RetGC, but the resulting RetGC-GCAP1 complex remains active even at Ca2+ concentrations above 1 microM, well into the physiological dark-adapted range, rather than being suppressed as normal GCAP1 would suppress it. Other variants (p.Asn104His, p.Leu176Phe, p.Asp144Gly) act through related biophysical mechanisms: impaired Ca2+ sensitivity, altered Mg2+/Ca2+ exchange kinetics, or increased binding affinity for RetGC, all converging on loss of the normal Ca2+-dependent brake on cyclase activation.</div>
 
 
@@ -4450,6 +4490,8 @@ This genetic context concerns GUCA1A (hgnc:4678). hgnc:4678 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4465,6 +4507,9 @@ This genetic context concerns GUCA1A (hgnc:4678). hgnc:4678 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Monoallelic missense variants that leave GCAP1&#39;s capacity to activate RetGC intact and remove its Ca2+-dependent off-switch, so the variant acts by adding constitutive activation rather than by abolishing function.</div>
 
@@ -4625,6 +4670,7 @@ This pathophysiological event involves decreased detection of calcium ion (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retgc-constitutive-hyperactivity" data-dismech-node="RetGC Constitutive Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">RetGC Constitutive Hyperactivity</div>
+
 
                 <div class="item-desc">Constitutively activating mutant GCAP1 continues to stimulate retinal guanylate cyclase (RetGC1 and, for some variants, also RetGC2) even at Ca2+ concentrations characteristic of the dark-adapted state, when wild-type GCAP1 would normally suppress the enzyme. This produces chronically elevated cGMP synthesis that is no longer coupled to the light-dependent Ca2+ signal, independent of the ambient light state.</div>
 
@@ -4860,6 +4906,7 @@ This pathophysiological event involves increased cGMP biosynthetic process (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-cng-channel-opening-and-outer-segment-calcium-overload" data-dismech-node="Sustained CNG Channel Opening and Outer-Segment Calcium Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained CNG Channel Opening and Outer-Segment Calcium Overload</div>
 
+
                 <div class="item-desc">Chronically elevated cGMP holds cyclic nucleotide-gated channels open independent of the light state, so Ca2+ and Na+ enter the outer segment continuously and free Ca2+ rises above its normal dark level. This is the branch point at which a phototransduction set-point lesion becomes a degenerative rather than a stationary disease.</div>
 
 
@@ -5061,6 +5108,7 @@ This pathophysiological event involves increased calcium ion transmembrane impor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cone-light-response-generation-and-delayed-recovery" data-dismech-node="Impaired Cone Light-Response Generation and Delayed Recovery" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cone Light-Response Generation and Delayed Recovery</div>
 
+
                 <div class="item-desc">Loss of the Ca2+-gated cyclase brake degrades the cone light response itself, separately from the degenerative arm. Cone-driven full-field ERG amplitudes are reduced in most affected patients, and in the most severely affected the 30-Hz flicker response is also delayed, which is the timing signature of a recovery defect rather than a pure amplitude loss.</div>
 
 
@@ -5253,6 +5301,7 @@ This pathophysiological event involves decreased regulation of opsin-mediated si
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-photoreceptor-to-on-bipolar-synaptic-transmission" data-dismech-node="Abnormal Photoreceptor-to-ON-Bipolar Synaptic Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Photoreceptor-to-ON-Bipolar Synaptic Transmission</div>
+
 
                 <div class="item-desc">In some patients the dysregulated GCAP1-cyclase complex disturbs signaling at the photoreceptor synaptic terminal rather than only in the outer segment, producing an attenuated b-wave and an electronegative ERG waveform that indicate an ON-pathway transmission defect.</div>
 
@@ -5456,6 +5505,7 @@ This pathophysiological event involves decreased synaptic transmission, glutamat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-photoreceptor-degeneration" data-dismech-node="Cone Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cone Photoreceptor Degeneration</div>
+
 
                 <div class="item-desc">Persistent calcium and cGMP elevation triggers photoreceptor cell death. Cones bear the earliest and most severe toxicity because GCAP1 expression is higher in cones and cone recovery kinetics depend on it more heavily, with later, more variable rod and macular RPE involvement depending on the specific variant.</div>
 
@@ -5749,6 +5799,7 @@ This pathophysiological event involves decreased photoreceptor cell maintenance 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-variable-rod-photoreceptor-involvement" data-dismech-node="Variable Rod Photoreceptor Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Variable Rod Photoreceptor Involvement</div>
+
 
                 <div class="item-desc">GCAP1 is expressed in rods as well as cones, so the rod population is not immune to the same cGMP and calcium set-point lesion. Rod involvement is the exception rather than the rule: dark-adapted rod-specific ERGs were normal in almost every tested patient, and peripheral pigmentary change appeared in 2 of 19. Where it occurs it marks the cone-rod end of the phenotypic range, not a conversion to a rod-first disease.</div>
 
@@ -6196,6 +6247,7 @@ This clinical feature is Reduced visual acuity (HP:0007663). HP:0007663 is a phe
 
 
             </div>
+
 
 
             <div class="context-notes">In a mixed-effects model across 144 visits, male sex was associated with worse visual acuity independent of age. The cohort was 68.4% male and the authors treat the association as provisional.</div>
@@ -6923,6 +6975,9 @@ This disease-associated gene is GUCA1A (hgnc:4678). hgnc:4678 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

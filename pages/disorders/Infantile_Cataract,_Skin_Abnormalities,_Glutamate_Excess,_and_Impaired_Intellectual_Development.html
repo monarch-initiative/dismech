@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4546,6 +4585,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-gls-p-ser482cys-hypermorphic-variant" data-dismech-node="De Novo GLS p.Ser482Cys Hypermorphic Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo GLS p.Ser482Cys Hypermorphic Variant</div>
 
+
                 <div class="item-desc">The primary lesion is a heterozygous de novo missense variant, p.Ser482Cys, in GLS. Ser482 is not itself a catalytic residue but is conserved to the same degree as the catalytic residues across roughly 12,000 GLS sequences from more than 1,000 genera — evidence that its identity is under strong selection precisely because it tunes enzyme activity downward.
 </div>
 
@@ -4649,6 +4689,7 @@ The Ser482 residue is conserved across roughly 12,000 GLS protein sequences from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-glutaminase-hyperactivity" data-dismech-node="Intrinsic Glutaminase Hyperactivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Glutaminase Hyperactivity</div>
+
 
                 <div class="item-desc">Ser482Cys is proposed to improve the electrostatic environment of the glutaminase catalytic site, intrinsically inducing hyperactivity. This is a qualitative change in regulation rather than a simple quantitative increase: the enzyme is driven above the submaximal activity that evolutionary constraint on Ser482 appears designed to maintain, and the cell&#39;s homeostatic responses (see the compensatory node) fail to restore balance.
 </div>
@@ -4800,6 +4841,7 @@ This pathophysiological event involves glutaminase activity (GO:0004359), qualif
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-homeostatic-compensation" data-dismech-node="Failed Homeostatic Compensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Homeostatic Compensation</div>
 
+
                 <div class="item-desc">Cells mount a two-armed homeostatic response to the hyperactive enzyme: compensatory downregulation of GLS expression, and upregulation of the counteracting enzyme glutamine synthetase, which runs the reverse reaction (glutamate to glutamine). The persistence of severe glutamate excess and glutamine depletion in patient tissues shows this compensation to be insufficient. The presence of the compensatory response is itself part of the evidence for pathogenicity, since it demonstrates the cell registers the variant as a perturbation.
 </div>
 
@@ -4877,6 +4919,7 @@ This pathophysiological event involves glutaminase activity (GO:0004359), qualif
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-excess-and-glutamine-depletion" data-dismech-node="Glutamate Excess and Glutamine Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutamate Excess and Glutamine Depletion</div>
+
 
                 <div class="item-desc">Hyperactive glutaminase drives excessive conversion of glutamine to glutamate. Increased glutamate with decreased glutamine was measured in urine and in fibroblasts, and the imbalance is far more extreme in brain, where magnetic resonance spectroscopic imaging showed extremely high glutamate in both grey and white matter with glutamine almost undetectable. This is the exact biochemical inverse of the hyperglutaminemia of glutaminase deficiency. Notably the imbalance is compartment-dependent: cerebrospinal-fluid glutamate and glutamine were reported as unremarkable even while brain-tissue spectroscopy was grossly abnormal, so a normal CSF amino acid profile does not exclude the diagnosis.
 </div>
@@ -5096,6 +5139,7 @@ This pathophysiological event involves increased L-glutamate biosynthetic proces
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-broad-metabolic-network-remodeling" data-dismech-node="Broad Metabolic Network Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Broad Metabolic Network Remodeling</div>
 
+
                 <div class="item-desc">Because glutaminase sits at the junction of many pathways, its hyperactivity remodels the metabolome well beyond the glutamine/glutamate pair. In a HEK293 model tuning GLS activity, 109 endogenously relevant metabolite features were significantly affected: TCA-cycle intermediates rose with a truncation of the cycle at citrate; transamination products, proline and ornithine synthesis, and GABA metabolism increased; and asparagine and nucleotide metabolites — notably pyrimidine/thymine metabolites — fell in step with glutamine. This positions the disorder as a broad metabolic perturbation rather than a single-metabolite excess, and plausibly underlies the mild hyperammonemia and the raised brain alanine and lactate reported in the patient.
 </div>
 
@@ -5249,6 +5293,7 @@ This pathophysiological event involves increased glutamate metabolic process (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-neurotoxicity" data-dismech-node="Glutamate Neurotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutamate Neurotoxicity</div>
 
+
                 <div class="item-desc">Glutamate is neurotoxic in excess (excitotoxicity), and the brain glutamate concentrations measured in this patient were strikingly high. The original authors advance this as the explanation for the profound developmental delay. Note the direction of the claim: this is the same neurotransmitter whose deficiency is invoked in GLS loss-of-function disease, so glutaminase disorders damage the brain from either direction.
 </div>
 
@@ -5395,6 +5440,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-reactive-oxygen-species-detoxification" data-dismech-node="Impaired Reactive Oxygen Species Detoxification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Reactive Oxygen Species Detoxification</div>
 
+
                 <div class="item-desc">Expression of the hypermorphic Ser482Cys allele reduces the capacity to detoxify reactive oxygen species. Because cataract is a known consequence of oxidative stress, this provides the mechanistic route from a glutamine metabolism defect to a lens phenotype — a connection that is otherwise non-obvious.
 </div>
 
@@ -5537,6 +5583,7 @@ This pathophysiological event involves decreased reactive oxygen species detoxif
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lens-opacification" data-dismech-node="Lens Opacification" data-dismech-type="pathophysiology">
                 <div class="item-name">Lens Opacification</div>
 
+
                 <div class="item-desc">Loss of lens transparency producing bilateral cataract of early onset. The causal chain from the GLS variant was demonstrated experimentally in zebrafish: cataract was evoked by expressing hypermorphic Ser482Cys-GLS, and — importantly for therapeutic reasoning — was alleviated by inhibition of GLS.
 </div>
 
@@ -5649,6 +5696,7 @@ This pathophysiological event involves lens fiber cell (CL:0011004). CL:0011004 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-onset-bilateral-cataract" data-dismech-node="Early-Onset Bilateral Cataract" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset Bilateral Cataract</div>
 
+
                 <div class="item-desc">Cataract of early onset, one of the two title features of the disorder. The review&#39;s clinical table further records it as bilateral and neonatal in onset, while the original report titles it an infantile cataract; that laterality and timing detail comes from a table cell rather than a quotable sentence, so it is described here rather than carried as an evidence snippet.
 </div>
 
@@ -5712,6 +5760,7 @@ This pathophysiological event involves lens fiber cell (CL:0011004). CL:0011004 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-white-matter-involvement" data-dismech-node="Cerebral White Matter Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral White Matter Involvement</div>
 
+
                 <div class="item-desc">Structural white matter involvement on neuroimaging. The review offers a mechanistic reading of why this recurs across inborn errors of glutamate metabolism: glutamate induces myelination of axons, so disturbed glutamate metabolism plausibly disturbs myelin.
 </div>
 
@@ -5774,6 +5823,7 @@ This pathophysiological event involves lens fiber cell (CL:0011004). CL:0011004 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-developmental-delay" data-dismech-node="Profound Developmental Delay" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Developmental Delay</div>
+
 
                 <div class="item-desc">Profound impairment of development, the dominant clinical burden of the disorder, accompanied by axial hypotonia, kyphosis, and agitated and self-injuring behaviour.
 </div>
@@ -6593,6 +6643,9 @@ This disease-associated gene is GLS (hgnc:4331). hgnc:4331 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6668,6 +6721,7 @@ This disease-associated gene is GLS (hgnc:4331). hgnc:4331 is a gene from the HU
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6689,7 +6743,13 @@ This variant is in GLS (hgnc:4331). hgnc:4331 is a gene from the HUGO Gene Nomen
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo heterozygous missense variant substituting cysteine for the highly conserved serine at position 482 of glutaminase. Not a catalytic residue, but conserved to the same degree as the catalytic residues; the substitution is proposed to improve the electrostatic environment of the catalytic site and thereby raise activity.</div>

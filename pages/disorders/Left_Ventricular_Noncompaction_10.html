@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5510,6 +5549,7 @@ Two 2024 human systems surfaced by the same deep-research pass were left out and
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mybpc3-loss-of-function-variant-and-cmybp-c-depletion" data-dismech-node="MYBPC3 Loss-of-Function Variant and cMyBP-C Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">MYBPC3 Loss-of-Function Variant and cMyBP-C Depletion</div>
 
+
                 <div class="item-desc">MYBPC3 encodes cardiac myosin-binding protein C (cMyBP-C), a thick-filament accessory protein of the sarcomeric A band. As in CMH4, most MYBPC3 disease alleles are truncating (frameshift, nonsense, or splice variants), the truncated peptide is not stably detected in patient myocardium, and the operative consequence is reduced functional cMyBP-C protein rather than a dominant-negative poison peptide (see kb/disorders/Hypertrophic_Cardiomyopathy_4.yaml for the detailed nonsense-mediated-decay/proteasomal-degradation mechanism, which is shared with this entry). What differs in LVNC10 is allelic dose: a single truncating allele produces the classic CMH4 haploinsufficiency state (roughly 50% residual protein), while two loss-of-function alleles, or a loss-of-function allele combined with a destabilizing missense allele on the second copy, can reduce residual cMyBP-C to as little as ~20% of normal.</div>
 
 
@@ -5872,6 +5912,7 @@ This pathophysiological event involves Sarcomeric A band, annotated with A band 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dose-dependent-failure-of-myocardial-compaction" data-dismech-node="Dose-Dependent Failure of Myocardial Compaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dose-Dependent Failure of Myocardial Compaction</div>
 
+
                 <div class="item-desc">When cMyBP-C is reduced to a small fraction of normal by biallelic truncating (or loss-of-function-plus-missense) MYBPC3 genotypes, the fetal myocardium fails to complete the normal trabecular-to-compact remodeling process, leaving a persistently noncompacted, hypertrabeculated ventricular wall. The precise molecular step by which near-complete cMyBP-C loss diverts the myocardium toward a noncompaction phenotype, rather than toward the hypertrophic remodeling seen with partial (monoallelic) haploinsufficiency in CMH4, is not established (see the discussion below).</div>
 
 
@@ -6095,6 +6136,7 @@ This pathophysiological event occurs in left ventricle myocardium (UBERON:000656
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dose-dependent-congenital-septal-and-ductal-structural-defects" data-dismech-node="Dose-Dependent Congenital Septal and Ductal Structural Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Dose-Dependent Congenital Septal and Ductal Structural Defects</div>
 
+
                 <div class="item-desc">The same severe biallelic MYBPC3 genotype that produces compaction failure is also strongly associated with co-occurring congenital structural anomalies of the cardiac septum and the ductus arteriosus, which accompanied cardiomyopathy in the majority of the pooled biallelic literature cohort. The founding case series and its pooled literature review report these anomalies jointly (&#34;septal defects or a patent ductus arteriosus&#34;) without distinguishing atrial from ventricular septal involvement, so this node is deliberately not more specific than the cited evidence supports.</div>
 
 
@@ -6272,6 +6314,7 @@ This pathophysiological event occurs in ductus arteriosus (UBERON:0005440). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoallelic-cmybp-c-deficiency-and-noncompaction-hypertrophy-phenotypic-overlap" data-dismech-node="Monoallelic cMyBP-C Deficiency and Noncompaction-Hypertrophy Phenotypic Overlap" data-dismech-type="pathophysiology">
                 <div class="item-name">Monoallelic cMyBP-C Deficiency and Noncompaction-Hypertrophy Phenotypic Overlap</div>
 
+
                 <div class="item-desc">A single truncating MYBPC3 allele - the CMH4 haploinsufficiency mechanism - produces a milder gene-dosage state that, in a subset of families, is associated with a noncompaction phenotype instead of, or together with, hypertrophic remodeling, and unaffected or hypertrophic-only relatives can carry the identical allele. This phenotypic plasticity supports a continuum-of-sarcomeric-cardiomyopathies model in which the same MYBPC3 lesion can manifest as hypertrophic, noncompaction, or restrictive disease depending on modifying genetic or environmental factors.</div>
 
 
@@ -6429,6 +6472,7 @@ This pathophysiological event involves abnormal Sarcomere Organization (GO:00452
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neonatal-structural-cardiac-failure" data-dismech-node="Neonatal Structural Cardiac Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neonatal Structural Cardiac Failure</div>
+
 
                 <div class="item-desc">The severe biallelic MYBPC3-cMyBP-C-deficient phenotype presents in the newborn period with feeding difficulties, failure to thrive, and dyspnea, and progresses to fatal cardiac failure within the first few months of life in the founding case series; heart transplantation has been used as a salvage therapy in an independently reported compound heterozygous case.</div>
 
@@ -7363,6 +7407,9 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7478,6 +7525,7 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7499,7 +7547,13 @@ This variant is in MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Two Dutch founder truncating alleles - the same c.2373dup allele responsible for roughly a quarter of Dutch heterozygous CMH4 cases, and c.2827C&gt;T - were found together as compound heterozygotes, or each in the homozygous state, in the four neonates of the founding LVNC10 case series, all of whom died of cardiac failure or had severe cardiomyopathy with noncompaction features and septal defects.</div>
@@ -7562,6 +7616,7 @@ This variant is in MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7583,7 +7638,13 @@ This variant is in MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">An independently reported compound heterozygous genotype: a loss-of-function MYBPC3 allele combined in trans with a de novo missense variant on the second allele. The missense allele was associated with an unstable protein product, reducing overall residual cMyBP-C to approximately 20% of control levels in affected cardiac tissue, and produced a severe early-onset noncompaction phenotype that required heart transplantation. The reporting study also recommends considering copy-number variants as an additional route to the same biallelic-dose mechanism, though no specific CNV genotype is documented for this MYBPC3 case in the cited literature.</div>

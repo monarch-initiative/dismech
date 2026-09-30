@@ -1,11 +1,12 @@
 """Guards for the repository-authored rosacea innate-immune Boolean model.
 
-The model in ``models/rosacea_innate_boolean.yaml`` is a transcription of causal
+The model in ``models/rosacea_innate_boolean/spec.yaml`` is a transcription of causal
 edges curated in ``kb/disorders/Rosacea.yaml``. Two things can silently rot: the
 committed results can fall behind the spec, and a node rename in the KB entry can
 strand the model's ``maps_to`` provenance - the same dangling-reference hazard the
 pathograph itself has.
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -16,10 +17,10 @@ import pytest
 import yaml
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
-MODEL_DIR = REPO_ROOT / "models"
-SPEC_PATH = MODEL_DIR / "rosacea_innate_boolean.yaml"
-RESULTS_PATH = MODEL_DIR / "rosacea_innate_boolean.results.json"
-RUNNER_PATH = MODEL_DIR / "rosacea_innate_boolean.py"
+MODEL_DIR = REPO_ROOT / "models" / "rosacea_innate_boolean"
+SPEC_PATH = MODEL_DIR / "spec.yaml"
+RESULTS_PATH = MODEL_DIR / "results.json"
+RUNNER_PATH = MODEL_DIR / "run.py"
 ENTRY_PATH = REPO_ROOT / "kb" / "disorders" / "Rosacea.yaml"
 
 # `maps_to` prefix -> (KB section, key holding the item's name)
@@ -49,13 +50,13 @@ def entry():
 
 
 def test_committed_results_match_the_spec():
-    """`python models/rosacea_innate_boolean.py` must be a no-op on a clean tree."""
+    """`python models/rosacea_innate_boolean/run.py` must be a no-op on a clean tree."""
     runner = load_runner()
     model = runner.BooleanModel(yaml.safe_load(SPEC_PATH.read_text()))
     expected = json.dumps(runner.build_results(model), indent=2, sort_keys=True) + "\n"
     assert RESULTS_PATH.read_text() == expected, (
         "committed Boolean-model results are stale; "
-        "re-run `uv run python models/rosacea_innate_boolean.py`"
+        "re-run `uv run python models/rosacea_innate_boolean/run.py`"
     )
 
 
@@ -87,9 +88,13 @@ def test_every_node_maps_to_a_node_that_exists_in_the_entry(spec_dict, entry):
 
 def test_intervention_targets_are_model_nodes(spec_dict):
     """Each intervention must inhibit a node the network actually has."""
-    known = set(spec_dict["inputs"]) | set(spec_dict["rules"]) | set(spec_dict["outputs"])
+    known = (
+        set(spec_dict["inputs"]) | set(spec_dict["rules"]) | set(spec_dict["outputs"])
+    )
     for name, body in spec_dict["interventions"].items():
-        assert body["inhibits"] in known, f"{name} inhibits unknown node {body['inhibits']!r}"
+        assert body["inhibits"] in known, (
+            f"{name} inhibits unknown node {body['inhibits']!r}"
+        )
 
 
 def test_rules_only_reference_declared_nodes(spec_dict):
@@ -106,4 +111,6 @@ def test_rules_only_reference_declared_nodes(spec_dict):
             for token in runner.tokenize(body["rule"]):
                 if token in {"and", "or", "not", "(", ")"}:
                     continue
-                assert token in declared, f"rule for {node} references unknown node {token!r}"
+                assert token in declared, (
+                    f"rule for {node} references unknown node {token!r}"
+                )

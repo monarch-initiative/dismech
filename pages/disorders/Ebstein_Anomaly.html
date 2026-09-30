@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4551,6 +4590,7 @@ This subtype is caused by variation in MYH7 (hgnc:7577). hgnc:7577 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-tricuspid-leaflet-delamination" data-dismech-node="Failure of tricuspid leaflet delamination" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of tricuspid leaflet delamination</div>
 
+
                 <div class="item-desc">During normal atrioventricular valvulogenesis the tricuspid leaflets are excavated from the inner layer of the right ventricular myocardium by an undermining and delamination process involving localized apoptosis and extracellular matrix remodelling of the developing valve primordium. In Ebstein anomaly this delamination is incomplete, so the septal and posteroinferior leaflets remain adherent to the underlying ventricular myocardium and interventricular septum rather than forming discrete, freely mobile, chordally tethered structures. This is the primary developmental lesion from which every downstream feature of the disease follows.
 </div>
 
@@ -4862,6 +4902,7 @@ This pathophysiological event occurs in Tricuspid valve leaflet (UBERON:0005484)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apical-displacement-of-the-functional-tricuspid-orifice" data-dismech-node="Apical displacement of the functional tricuspid orifice" data-dismech-type="pathophysiology">
                 <div class="item-name">Apical displacement of the functional tricuspid orifice</div>
 
+
                 <div class="item-desc">The functional tricuspid annulus is displaced downward (apically) into the right ventricle, well below the true anatomic atrioventricular junction. Echocardiography demonstrates apical displacement of the septal leaflet with variable tethering of leaflet tissue to the right ventricular myocardium, and in many hearts the valve is additionally rotated towards the right ventricular outflow tract.
 </div>
 
@@ -4995,6 +5036,7 @@ This pathophysiological event occurs in Tricuspid valve anulus (UBERON:0005997).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterosuperior-leaflet-redundancy-and-abnormal-tethering" data-dismech-node="Anterosuperior leaflet redundancy and abnormal tethering" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterosuperior leaflet redundancy and abnormal tethering</div>
 
+
                 <div class="item-desc">The anterosuperior leaflet is usually not displaced but is enlarged, redundant, and frequently fenestrated, with abnormal chordal and direct muscular attachments to the right ventricular free wall. This sail-like leaflet is the tissue that cone reconstruction mobilizes and rotates to build a competent neo-valve, so its morphology determines repairability. Multiple valve orifices, and the absence of the severe inferior leaflet displacement or extreme valve rotation that liberate spare tissue, are the intraoperative features that predict a need for pericardial patch augmentation of a deficient septal leaflet.
 </div>
 
@@ -5118,6 +5160,7 @@ This pathophysiological event occurs in Tricuspid valve leaflet (UBERON:0005484)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrialization-of-the-right-ventricle" data-dismech-node="Atrialization of the right ventricle" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrialization of the right ventricle</div>
+
 
                 <div class="item-desc">The segment of right ventricular myocardium lying between the true anatomic tricuspid annulus and the displaced functional orifice becomes thin-walled and dyskinetic, and contracts in phase with the right atrium rather than the ventricle. Three morphologic components are therefore recognisable within the right heart: the right atrium proper, the atrialized right ventricle, and a reduced functional right ventricle. The loss of effective ventricular volume, compounded by an intrinsic right ventricular myopathy, limits antegrade pulmonary blood flow.
 </div>
@@ -5294,6 +5337,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tricuspid-regurgitation-haemodynamic-lesion" data-dismech-node="Tricuspid regurgitation (haemodynamic lesion)" data-dismech-type="pathophysiology">
                 <div class="item-name">Tricuspid regurgitation (haemodynamic lesion)</div>
 
+
                 <div class="item-desc">The regurgitant lesion itself: retrograde systolic flow from the right ventricle into the right atrium, usually severe, and the dominant haemodynamic burden of the disease and the target of surgical repair. The tissue-level causes of the leaflet coaptation failure that produces it are modeled upstream, on the apical-displacement and anterosuperior-leaflet nodes, so this node carries a single organism-scale claim rather than bundling the tissue-scale mechanism with its haemodynamic consequence.
 </div>
 
@@ -5392,6 +5436,7 @@ This pathophysiological event occurs in Tricuspid valve (UBERON:0002134). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-heart-volume-overload-and-progressive-dilation" data-dismech-node="Right heart volume overload and progressive dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Right heart volume overload and progressive dilation</div>
+
 
                 <div class="item-desc">Chronic regurgitant volume loading dilates the right atrium, the atrialized right ventricle, and the right atrioventricular junction. Annular dilation further separates the leaflet coaptation surfaces, so regurgitation begets regurgitation in a self-reinforcing cycle that drives progressive right heart enlargement and systolic dysfunction over years to decades. Advanced right-sided remodelling is accompanied by left-sided remodelling, and cone reconstruction reverses right ventricular dilation.
 </div>
@@ -5543,6 +5588,7 @@ This pathophysiological event occurs in Right ventricle, annotated with heart ri
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-to-left-shunting-through-an-interatrial-communication" data-dismech-node="Right-to-left shunting through an interatrial communication" data-dismech-type="pathophysiology">
                 <div class="item-name">Right-to-left shunting through an interatrial communication</div>
 
+
                 <div class="item-desc">A patent foramen ovale or secundum atrial septal defect is present in most patients. When right atrial pressure exceeds left atrial pressure, deoxygenated blood crosses the septum into the systemic circulation, producing cyanosis, exercise intolerance, and a route for paradoxical embolism. Because the interatrial communication also decompresses the failing right heart, surgical closure is often deliberately partial (subtotal) or a small fenestration is left open.
 </div>
 
@@ -5650,6 +5696,7 @@ This pathophysiological event occurs in Interatrial septum (UBERON:0002085). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accessory-atrioventricular-pathway-substrate" data-dismech-node="Accessory atrioventricular pathway substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Accessory atrioventricular pathway substrate</div>
+
 
                 <div class="item-desc">Discontinuity of the central fibrous body and the septal atrioventricular ring at the malformed junction leaves direct atrioventricular muscular connections that bypass the atrioventricular node. These accessory pathways are typically right-sided or septal, frequently multiple, and produce ventricular pre-excitation and atrioventricular reentrant tachycardia. Ebstein anomaly is the congenital heart defect most frequently associated with the Wolff-Parkinson-White syndrome.
 </div>
@@ -5834,6 +5881,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atrial-remodelling-and-atrial-tachyarrhythmia" data-dismech-node="Atrial remodelling and atrial tachyarrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Atrial remodelling and atrial tachyarrhythmia</div>
 
+
                 <div class="item-desc">Chronic right atrial dilation and the accompanying electrical and structural remodelling create a reentrant substrate for atrial flutter and atrial fibrillation. Atrial tachyarrhythmias are the commonest late complication of Ebstein anomaly and develop at unusually young ages relative to the general population; in adults, atrial fibrillation is independently associated with hospitalisation for heart failure.
 </div>
 
@@ -5941,6 +5989,7 @@ This pathophysiological event occurs in Right atrium, annotated with right cardi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-circular-shunt-physiology" data-dismech-node="Fetal circular shunt physiology" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal circular shunt physiology</div>
+
 
                 <div class="item-desc">In the most severe fetal presentations, torrential tricuspid regurgitation combined with pulmonary regurgitation across an incompetent or functionally atretic pulmonary valve establishes a circular shunt: blood passes from the aorta through the ductus arteriosus retrogradely into the pulmonary artery, back across the pulmonary valve into the right ventricle, through the incompetent tricuspid valve into the right atrium, and around again, largely bypassing the systemic capillary bed. The resulting massive cardiomegaly, low systemic output, and hydrops carry a high risk of intrauterine demise, and interrupting the circular shunt, by ductal constriction in utero or emergent interruption after birth, is the central management goal.
 </div>
@@ -7392,6 +7441,9 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7502,6 +7554,9 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7572,6 +7627,9 @@ This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -7671,6 +7729,9 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

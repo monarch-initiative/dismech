@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4845,6 +4884,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alg12-mannosyltransferase-deficiency" data-dismech-node="ALG12 mannosyltransferase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ALG12 mannosyltransferase deficiency</div>
 
+
                 <div class="item-desc">Pathogenic ALG12 variants impair the alpha-mannosyltransferase step needed for dolichol-linked oligosaccharide biosynthesis and N-glycan precursor formation.</div>
 
 
@@ -5133,6 +5173,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-n-glycan-precursor-formation-defect" data-dismech-node="N-glycan precursor formation defect" data-dismech-type="pathophysiology">
                 <div class="item-name">N-glycan precursor formation defect</div>
 
+
                 <div class="item-desc">Impaired N-glycan precursor formation leads to hypoglycosylation of transferrin and other plasma proteins, consistent with a type I CDG biochemical pattern.</div>
 
 
@@ -5312,6 +5353,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-glycoprotein-dysfunction" data-dismech-node="Multisystem glycoprotein dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem glycoprotein dysfunction</div>
+
 
                 <div class="item-desc">Defective N-glycosylation disrupts many glycoproteins and is associated with neurodevelopmental, growth, immune, coagulation, dysmorphic, and genitourinary manifestations. Rare severe prenatal renal-skeletal and exceptional adult cardioskeletal observations are modeled as separately bounded branches rather than core consequences.</div>
 
@@ -5564,6 +5606,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-serum-and-igg-n-glycosylation" data-dismech-node="Abnormal serum and IgG N-glycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal serum and IgG N-glycosylation</div>
 
+
                 <div class="item-desc">Abnormal total-serum and IgG N-glycan profiles co-occur with low immunoglobulins, recurrent infections, and hypoglycosylated coagulation proteins. The evidence does not establish a specific responsible cell type or a direct causal path to the immune findings.</div>
 
 
@@ -5762,6 +5805,7 @@ This pathophysiological event involves abnormal protein N-linked glycosylation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-brain-involvement" data-dismech-node="Neurodevelopmental and brain involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and brain involvement</div>
+
 
                 <div class="item-desc">ALG12-CDG neurodevelopmental involvement includes developmental delay, intellectual disability, hypotonia, and reported brain anomalies.</div>
 
@@ -5983,6 +6027,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-and-feeding-impairment" data-dismech-node="Growth and feeding impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth and feeding impairment</div>
 
+
                 <div class="item-desc">ALG12-CDG can impair somatic growth and feeding, presenting as failure to thrive, growth retardation, anorexia, or short stature.</div>
 
 
@@ -6125,6 +6170,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysmorphic-and-genitourinary-developmental-involvement" data-dismech-node="Dysmorphic and genitourinary developmental involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysmorphic and genitourinary developmental involvement</div>
 
+
                 <div class="item-desc">ALG12-CDG can involve craniofacial dysmorphism and male genitourinary developmental abnormalities.</div>
 
 
@@ -6266,6 +6312,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-and-skeletal-developmental-involvement" data-dismech-node="Renal and skeletal developmental involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal and skeletal developmental involvement</div>
+
 
                 <div class="item-desc">Severe ALG12-CDG can involve prenatal renal malformation and skeletal-dysplasia-like abnormalities.</div>
 
@@ -6518,6 +6565,7 @@ This pathophysiological event occurs in skeletal system (UBERON:0001434). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adult-cardioskeletal-structural-involvement" data-dismech-node="Adult cardioskeletal structural involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Adult cardioskeletal structural involvement</div>
+
 
                 <div class="item-desc">A single exceptional adult had ventricular septal defect and severe scoliosis. Coexisting ALG6 and KMT2D variants confound attribution, so this node records a bounded clinical association rather than an established consequence of ALG12 deficiency.</div>
 
@@ -8200,6 +8248,9 @@ This disease-associated gene is ALG12 (hgnc:19358). hgnc:19358 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
