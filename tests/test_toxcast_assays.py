@@ -1,8 +1,15 @@
 """Tests for the ToxCast assay-endpoint annotation client.
 
-All tests run offline against a trimmed fixture of live CTX API responses. Seven
+All tests run offline against a trimmed fixture of live CTX API responses. Nine
 endpoints are kept, chosen to exercise each field group and each documented gap
 rather than to be representative. No test needs ``CTX_API_KEY``.
+
+Seven were retrieved on 2026-09-24. Endpoints 2240 and 2247 were added from a
+2026-09-30 fetch, in which all seven originals were byte-identical, so the
+fixture's ``retrieved`` date still describes every record in it. They are the
+THRB pair the ToxCast project page's worked example rests on, kept here so the
+annotation facts that argument uses are checkable without a ``CTX_API_KEY``
+(#12858).
 """
 
 from __future__ import annotations
@@ -121,12 +128,51 @@ def test_parse_gene_returns_none_without_a_symbol():
     assert parse_gene({"entrezGeneId": 1}) is None
 
 
+# ----- the THRB pair behind the project page's worked example -----
+
+
+def test_a_cell_free_endpoint_reports_NA_tissue_and_cell_not_an_empty_one():
+    """Endpoint 2247 is the case `ExperimentalModel` cannot describe.
+
+    The class is for a cultured system, and this assay has no cell in it: a
+    GST-tagged receptor domain, a coactivator peptide and an antibody. EPA
+    writes the two system fields as the literal string ``NA``, which the parser
+    passes through rather than normalising away, so the absence stays visible.
+    """
+    e = parse_annotation(_raw(2247))
+    assert e.name == "TOX21_TRB_COA_Antagonist_Followup_ratio"
+    assert e.format_type == "cell-free"
+    assert (e.tissue, e.cell) == ("NA", "NA")
+
+
+def test_the_sibling_endpoint_of_the_same_receptor_is_cell_based():
+    """Endpoint 2240 measures the same receptor in the same direction and does
+    fill the system fields, so two endpoints a curator reaches for together
+    need different treatment."""
+    e = parse_annotation(_raw(2240))
+    assert e.name == "TOX21_TRB_BLA_Antagonist_Followup_ratio"
+    assert e.format_type == "cell-based"
+    assert (e.tissue, e.cell) == ("kidney", "TRb-UAS-bla-HEK293T")
+
+
+def test_the_two_thrb_endpoints_agree_on_receptor_direction_and_publication():
+    """What the pair has in common is what makes the format difference the
+    only thing separating them."""
+    coa, bla = parse_annotation(_raw(2247)), parse_annotation(_raw(2240))
+    for e in (coa, bla):
+        assert e.gene_symbols == ("THRB",)
+        assert e.genes[0].is_human
+        assert e.signal_direction == "loss"
+        assert e.function_type == "ratio"
+        assert e.citation_pmids == (31566444,)
+
+
 # ----- the snapshot -----
 
 
 def test_load_indexes_every_endpoint(annotations: ToxCastAssayAnnotations):
     snapshot = annotations.load()
-    assert len(snapshot) == 7
+    assert len(snapshot) == 9
     assert snapshot.retrieved == "2026-09-24"
     assert snapshot.get(1816).name.startswith("TOX21_AR_LUC")
 
@@ -179,9 +225,9 @@ def test_refresh_writes_a_manifest_recording_provenance(tmp_path: Path, monkeypa
     src = ToxCastAssayAnnotations(tmp_path / "toxcast")
     raw = json.loads((DATA_DIR / "assay_annotations.json").read_text())["endpoints"]
     monkeypatch.setattr(src, "_get", lambda path: raw)
-    assert src.refresh() == 7
+    assert src.refresh() == 9
     manifest = src.manifest_path.read_text()
-    assert "n_endpoints: 7" in manifest
+    assert "n_endpoints: 9" in manifest
     assert "retrieved:" in manifest
     assert "invitrodbVersion" in manifest  # says where the release can be read
 
@@ -193,4 +239,4 @@ def test_refresh_is_a_noop_when_already_cached(annotations: ToxCastAssayAnnotati
         raise AssertionError("refresh should not fetch when already cached")
 
     annotations._get = _fail  # type: ignore[method-assign]
-    assert annotations.refresh() == 7
+    assert annotations.refresh() == 9
