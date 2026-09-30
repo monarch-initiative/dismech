@@ -258,7 +258,7 @@ def _candidate_reasons(
     name: str,
     description: str,
 ) -> tuple[str, ...]:
-    haystack = "\n".join([short_name, name, description])
+    haystack = f"{short_name}\n{name}\n{description}"
     reasons: list[str] = []
     if DUF_SHORT_NAME_RE.search(short_name):
         reasons.append("short_name_matches_duf")

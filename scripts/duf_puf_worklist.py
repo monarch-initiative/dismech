@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Build the first DUF/Pfam worklist from InterPro."""
 
 from __future__ import annotations
