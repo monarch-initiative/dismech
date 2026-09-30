@@ -25,7 +25,9 @@ it would have caught the cluster above with no network at all.
 Signal
 ------
 A reference/snippet pair whose snippet holds fewer than
-:data:`MIN_SNIPPET_WORDS` words.
+:data:`MIN_SNIPPET_WORDS` words. In Chinese and Japanese text, which does not
+put spaces between words, each Han or kana character counts as one word (see
+:func:`count_words`).
 
 Structured-database rows are exempt. A quoted row from an Orphanet, ClinGen,
 ICEES, or NCIT cache file (``HP:0001987 | Hyperammonemia | Very frequent
@@ -98,16 +100,33 @@ BASELINE_REF_ENV = "SNIPPET_BASELINE_REF"
 MIN_SNIPPET_WORDS = 5
 
 # A token counts as a word if it contains a letter or a digit, so "c.142G" and
-# "18F-FDOPA" count once and stray punctuation counts for nothing.
-_WORD_RE = re.compile(r"[^\s]*[A-Za-z0-9][^\s]*")
+# "18F-FDOPA" count once and stray punctuation counts for nothing. Hangul
+# syllables count as letters here: Korean separates words with spaces, so a
+# whitespace token is already a word (issue #11530).
+_WORD_RE = re.compile(r"[^\s]*[A-Za-z0-9\uac00-\ud7a3][^\s]*")
+
+# Chinese and Japanese do not separate words with spaces, so a whole sentence is
+# one whitespace token, or none if it has no Latin letter or digit -- which left
+# every snippet from a Chinese- or Japanese-language abstract below the floor,
+# however long, and such a paper uncitable (issue #11530). Each Han ideograph and
+# each kana counts as one word instead, the usual approximation (one character is
+# roughly one morpheme). Kana: U+3040-U+30FF, minus the middle dot and length
+# mark (U+30FB-U+30FC), which are punctuation-like. Han: CJK Unified Ideographs
+# and Extension A. These ranges share no character with the Latin class above,
+# so no Latin-script snippet's count changes.
+_CJK_RE = re.compile(r"[\u3040-\u30fa\u30fd-\u30ff\u3400-\u4dbf\u4e00-\u9fff]")
 
 # A pipe-delimited row quoted out of a structured-source cache file.
 _TABLE_ROW_RE = re.compile(r"\S\s*\|\s*\S")
 
 
 def count_words(snippet: str) -> int:
-    """Number of word-like tokens in *snippet*."""
-    return len(_WORD_RE.findall(snippet))
+    """Number of word-like tokens in *snippet*.
+
+    Whitespace-delimited tokens carrying a Latin letter, digit, or Hangul
+    syllable, plus one per Han or kana character.
+    """
+    return len(_WORD_RE.findall(snippet)) + len(_CJK_RE.findall(snippet))
 
 
 def is_structured_row(snippet: str) -> bool:
