@@ -280,9 +280,28 @@ three non-proliferative receptor bindings in different tissues (myocardium in
 Heart_Failure, bone lining cells in Osteoporosis, and the systemic
 loss-of-signalling state in Estrogen_Resistance_Syndrome), against four
 proliferative ones that already have `sex_steroid_driven_proliferation` as a
-home. Whether three tissues and one monogenic receptor disease cluster into a
-module, or argue for widening `osteoporosis_bone_resorption`, or neither, is
-the remaining decision on this project. It is not settled here.
+home. **Decided: no estrogen receptor signalling module in dismech.** Three tissues
+and one monogenic receptor disease do not cluster tightly enough to earn one.
+Below the shared node the three diverge immediately - to profibrotic effectors in
+`Heart_Failure`, to RANKL/OPG dysregulation in `Osteoporosis`, and to six
+target-tissue arms in `Estrogen_Resistance_Syndrome` - so what they have in
+common is a single node and nothing after it. A module here earns its place by
+saving conforming entries from duplicating a shared chain, and one node is
+thinner than that. `Estrogen_Resistance_Syndrome` could not conform in any case,
+because the existing module's chain is sustained signalling driving mitosis and
+that disease is loss of signalling.
+
+The receptor-keyed view is real, but its home is elsewhere. dismech organises on
+the disease, and its modules on the outcome; the receptor is the axis ToxCast
+assays and AOP initiating events are keyed on. That view is now tracked as
+[EnviroMech issue #3](https://github.com/monarch-initiative/enviromech/issues/3),
+where the fan-out across tissues is the object of interest rather than a reason
+the cluster is too thin.
+
+`sex_steroid_driven_proliferation#Nuclear Steroid Receptor Hyperactivation`
+accordingly keeps no receptor gene, and its node `notes` now records why: the
+receptor is the substitution a conforming entry makes, so naming one would fix
+the choice the module leaves open.
 
 ## Related issues
 
