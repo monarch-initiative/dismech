@@ -85,30 +85,30 @@ pathway is characterised well enough that new assays can be validated against a
 standard rather than adopted individually. TG 440 records that the bioassay
 "originated in the 1930's and was first standardized for screening by an expert
 committee in 1962", and its modern international ring trial was published across
-four papers in *Environmental Health Perspectives*: phase 1 (PMID:11564613), the
-programme overview (PMID:12948895), the phase 2 dose-response studies
-(PMID:12948896) and the phase 2 coded single-dose studies (PMID:12948897). A
-fifth paper covers the dietary phytoestrogen confound (PMID:12948898).
+four papers in *Environmental Health Perspectives*: phase 1 ([PMID:11564613](https://pubmed.ncbi.nlm.nih.gov/11564613/)), the
+programme overview ([PMID:12948895](https://pubmed.ncbi.nlm.nih.gov/12948895/)), the phase 2 dose-response studies
+([PMID:12948896](https://pubmed.ncbi.nlm.nih.gov/12948896/)) and the phase 2 coded single-dose studies ([PMID:12948897](https://pubmed.ncbi.nlm.nih.gov/12948897/)). A
+fifth paper covers the dietary phytoestrogen confound ([PMID:12948898](https://pubmed.ncbi.nlm.nih.gov/12948898/)).
 
 **ToxCast built its first pathway model on this receptor, and it is the only
 endocrine target where high-throughput data replaced a guideline animal study.**
 Judson and colleagues integrated 18 in vitro assays spanning receptor binding,
 dimerisation, chromatin binding, transactivation and receptor-dependent
-proliferation into a single pathway model (PMID:26272952), closing with the
+proliferation into a single pathway model ([PMID:26272952](https://pubmed.ncbi.nlm.nih.gov/26272952/)), closing with the
 observation that the approach "is generalizable to any molecular pathway" — the
 estrogen receptor was the proving ground. Browne and colleagues then reported
 that "EPA is accepting ToxCast ER model data for 1812 chemicals as alternatives
 for EDSP Tier 1 ER binding, ER transactivation, and uterotrophic assays"
-(PMID:26066997; cite alongside its correction, PMID:28767231). The androgen
-receptor model that followed used 11 assays (PMID:27933809). Assay-minimisation
-work ran in the same order, estrogen in 2017 (PMID:28993267) and androgen in 2020
-(PMID:32798611).
+([PMID:26066997](https://pubmed.ncbi.nlm.nih.gov/26066997/); cite alongside its correction, [PMID:28767231](https://pubmed.ncbi.nlm.nih.gov/28767231/)). The androgen
+receptor model that followed used 11 assays ([PMID:27933809](https://pubmed.ncbi.nlm.nih.gov/27933809/)). Assay-minimisation
+work ran in the same order, estrogen in 2017 ([PMID:28993267](https://pubmed.ncbi.nlm.nih.gov/28993267/)) and androgen in 2020
+([PMID:32798611](https://pubmed.ncbi.nlm.nih.gov/32798611/)).
 
 **The modelling consortia ran estrogen first and named the successor after it.**
 CERAPP pooled 17 groups across the US and Europe, 48 models, and screened 32,464
-structures against a training set drawn from the ToxCast data (PMID:26908244).
+structures against a training set drawn from the ToxCast data ([PMID:26908244](https://pubmed.ncbi.nlm.nih.gov/26908244/)).
 CoMPARA applied the same methodology to the androgen receptor four years later
-(PMID:32074470). No comparable consortium exists for any other endocrine
+([PMID:32074470](https://pubmed.ncbi.nlm.nih.gov/32074470/)). No comparable consortium exists for any other endocrine
 receptor.
 
 **The receptor dominates the mechanistic pathway literature.** In the AOP-Wiki
@@ -124,12 +124,12 @@ and #12682.
 The historical reason for all of this is chemical promiscuity rather than
 regulatory accident. The founding xenoestrogen observations were incidental
 contamination findings — nonylphenol leaching from modified polystyrene
-(PMID:1935846) and bisphenol A from autoclaved polycarbonate (PMID:8504731) — and
+([PMID:1935846](https://pubmed.ncbi.nlm.nih.gov/1935846/)) and bisphenol A from autoclaved polycarbonate ([PMID:8504731](https://pubmed.ncbi.nlm.nih.gov/8504731/)) — and
 Katzenellenbogen set out the underlying argument the same decade in "The
-structural pervasiveness of estrogenic activity" (PMID:8593885): the receptor's
+structural pervasiveness of estrogenic activity" ([PMID:8593885](https://pubmed.ncbi.nlm.nih.gov/8593885/)): the receptor's
 ligand tolerance is broad enough that structurally unrelated industrial chemicals
 hit it. Shanle and Xu's review of endocrine disrupting chemicals targeting this
-signalling pathway is the best single entry point (PMID:21053929).
+signalling pathway is the best single entry point ([PMID:21053929](https://pubmed.ncbi.nlm.nih.gov/21053929/)).
 
 ### Two things not to claim
 
