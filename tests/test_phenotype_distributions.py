@@ -1318,3 +1318,71 @@ def test_backticked_identifiers_in_schema_prose_resolve() -> None:
         if not (REPO_ROOT / token).exists()
     ]
     assert not missing, f"schema prose points at paths that do not exist: {missing}"
+
+
+def test_the_docs_code_block_matches_the_example_it_quotes() -> None:
+    """The abridged example in the docs must agree with the file it abridges.
+
+    `docs/phenotype-distributions.md` opens with a trimmed copy of
+    `minimal_asthma_illustrative.yaml`, and nothing compared the two. A fenced
+    block is not YAML anyone loads, so it is invisible to `linkml-validate`, to
+    `--check-terms`, and to every other gate in this PR.
+
+    That gap was not hypothetical. When the COHD code check found that
+    `4145356` is "Severe persistent asthma" rather than Wheezing, the example
+    was corrected and the docs were not, so the page went on teaching the wrong
+    OMOP id — the one defect the new check exists to catch, surviving in the
+    one place the check cannot see.
+
+    The comparison is deliberately narrow. The block is an abridgement: it
+    drops comments, uses flow style, and omits fields. So this asserts only
+    that what it *does* quote is true of the example — identifiers, labels, and
+    code/label pairs — rather than demanding the two files be equal, which
+    would make every editorial trim a test failure.
+    """
+    import re
+
+    import yaml
+
+    text = (REPO_ROOT / DOCS_PATH).read_text(encoding="utf-8")
+    blocks = re.findall(r"```yaml\n(.*?)```", text, re.S)
+    assert blocks, "the docs no longer show the shape they are meant to teach"
+
+    quoted = yaml.safe_load(blocks[0])
+    example = yaml.safe_load(
+        (EXAMPLES_DIR / "minimal_asthma_illustrative.yaml").read_text(encoding="utf-8")
+    )
+
+    assert quoted["collection_id"] == example["collection_id"], (
+        "the docs quote a different collection than the file they name"
+    )
+
+    by_id = {p["profile_id"]: p for p in example["profiles"]}
+    labels = {
+        (code["code"], code["code_label"])
+        for profile in example["profiles"]
+        for dist in profile["code_distributions"]
+        for code in dist["weighted_codes"]
+    }
+    codes = {code: label for code, label in labels}
+
+    for profile in quoted["profiles"]:
+        pid = profile["profile_id"]
+        assert pid in by_id, (
+            f"the docs quote profile {pid!r}, which the example does not define"
+        )
+        assert profile["profile_label"] == by_id[pid]["profile_label"], (
+            f"profile {pid} is labelled differently in the docs and the example"
+        )
+        for dist in profile["code_distributions"]:
+            for entry in dist["weighted_codes"]:
+                code, label = entry["code"], entry["code_label"]
+                assert code in codes, (
+                    f"the docs quote code {code!r} ({label}), which appears "
+                    "nowhere in the example — the docs are teaching a code "
+                    "nothing has verified"
+                )
+                assert codes[code] == label, (
+                    f"code {code} is {codes[code]!r} in the example and "
+                    f"{label!r} in the docs"
+                )

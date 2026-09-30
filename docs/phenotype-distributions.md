@@ -40,8 +40,8 @@ profile_source:
   method: COMPUTATIONAL_INFERENCE
   weight_basis: Fraction of the whole fitted corpus.
 profiles:
-- profile_id: EXAMPLE-ASTHMA-EXACERBATION-001
-  profile_label: Frequent exacerbation with oral corticosteroid use
+- profile_id: EXAMPLE-ASTHMA-OBSTRUCTIVE-001
+  profile_label: Asthma with obstructive airway findings
   profile_weight: 0.02
   code_distributions:
   - clinical_domain: CONDITION
@@ -50,7 +50,7 @@ profiles:
     weighted_codes:
     - {code: '317009', code_label: Asthma, code_weight: 0.31}
     - {code: '255573', code_label: Chronic obstructive lung disease, code_weight: 0.14}
-    - {code: '4145356', code_label: Wheezing, code_weight: 0.10}
+    - {code: '314754', code_label: Wheezing, code_weight: 0.10}
 ```
 
 Everything below is why each of those fields is shaped the way it is. The same
