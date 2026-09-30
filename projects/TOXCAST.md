@@ -256,6 +256,23 @@ experimental_models:
       heterozygous missense allele whose product keeps DNA binding and RXR
       heterodimerization while failing to release corepressor. Target gene and
       signal direction agree; the mechanism does not.
+    readouts:
+    - name: TR-FRET 520:495 coactivator-recruitment emission ratio
+      target: THRB Dominant-Negative Receptor Formation
+      direction: DECREASED
+      interpretation: >-
+        Less coactivator peptide recruited to the receptor gives less resonance
+        energy transfer and so a lower emission ratio. This is the quantity the
+        endpoint reports, and the direction EPA annotates as a loss signal.
+      evidence:
+      - reference: PMID:31566444
+        reference_title: "Limited Chemical Structural Diversity Found to Modulate Thyroid Hormone Receptor in the Tox21 Chemical Library."
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: "A time-resolved fluorescence resonance energy transfer (TR-FRET) signal was indicative of coactivator recruitment"
+        explanation: >-
+          States that the measured TR-FRET signal is the coactivator-recruitment
+          readout this entry records.
     divergences:
     - divergence_type: CAUSE_UNREPRESENTED
       materiality: INVALIDATING
@@ -290,8 +307,10 @@ the node without modelling the disease. `CAUSE_UNREPRESENTED` is defined as the
 lesion not being encoded, with "the mechanism is imposed phenomenologically
 instead of arising from the allele" — a taxonomy derived from the
 computational-model caveats already in the corpus, extending here unchanged.
-`BOUNDARY_OMISSION` carries the rest. #12858's claim that dismech already
-has the words for this holds up.
+`BOUNDARY_OMISSION` carries the rest, and `ExperimentalReadout` takes the
+measured quantity — the 520:495 emission ratio — with its direction, exactly as
+it would for a readout of an organoid or an animal. #12858's claim that dismech
+already has the words for this holds up.
 
 **Both divergences come out `INVALIDATING`.** Neither is a caveat on an
 otherwise usable link; each says on its own that the claim should not transfer.
@@ -314,7 +333,8 @@ them carry nothing, because `tissue` and `cellShortName` are both `NA`.
 `experimental_model_type` is not among those four and has no value that fits
 either: a cell-free reaction falls to `OTHER`, which records nothing, and
 #12858 already flags that 481 of the panel's endpoints are biochemical or
-cell-free. Its sibling endpoint 2240,
+cell-free — a different 481 from the candidate count in the report's own
+summary table, which happens to take the same value. Its sibling endpoint 2240,
 `TOX21_TRB_BLA_Antagonist_Followup_ratio`, is the same receptor in the same
 direction from the same paper, and is cell-based in HEK293T cells, so it fills
 all four and types as `CELL_LINE`. Two endpoints a curator would reach for

@@ -286,7 +286,9 @@ class Coverage:
     kb_commit: str = ""
     #: The nodes each endpoint reaches, filled on first use. Every count below
     #: is a fold over this, so it is computed once per endpoint.
-    _nodes_by_aeid: dict[int, set[Node]] = field(default_factory=dict, repr=False)
+    _nodes_by_aeid: dict[int, set[Node]] = field(
+        default_factory=dict, repr=False, compare=False
+    )
 
     # --- genes ---
 
