@@ -1345,7 +1345,7 @@ def test_the_docs_code_block_matches_the_example_it_quotes() -> None:
     import yaml
 
     text = (REPO_ROOT / DOCS_PATH).read_text(encoding="utf-8")
-    blocks = re.findall(r"```yaml\n(.*?)```", text, re.S)
+    blocks = re.findall(r"```yaml\n(.*?)```", text, re.DOTALL)
     assert blocks, "the docs no longer show the shape they are meant to teach"
 
     quoted = yaml.safe_load(blocks[0])
