@@ -216,6 +216,7 @@ def test_committed_tree_class_ids_are_unique_and_slug_safe():
     assert all(id_ and id_.replace("_", "").isalnum() for id_ in ids)
 
 
+@pytest.mark.ci_step_twin("dismech.node_classes --verify-kb")
 def test_committed_tree_examples_resolve_in_kb():
     """Every cited leaf must be a real pathophysiology node.
 

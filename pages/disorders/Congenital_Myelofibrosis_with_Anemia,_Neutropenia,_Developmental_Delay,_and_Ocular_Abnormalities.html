@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4641,6 +4680,13 @@ Both phenotype nodes are therefore left with no incoming causal edge, which is t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rbsn-loss-of-function" data-dismech-node="RBSN Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">RBSN Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A germline RBSN variant removes normal rabenosyn-5 function. Rabenosyn-5 is a Rab5 effector that reaches early endosomes through a FYVE finger domain binding phosphatidylinositol 3-phosphate, and it is the component that brings the Sec1-like protein hVPS45 to that membrane, since hVPS45 does not bind Rab5 itself. Loss of function is the defining report&#39;s own characterisation of the allele, stated in its title; the Letter carries no quotable text, so this node is evidenced from the rabenosyn-5 cell biology rather than from patient material.
 </div>
 
@@ -4702,6 +4748,8 @@ This pathophysiological event involves RBSN (hgnc:20759). hgnc:20759 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4712,6 +4760,9 @@ This pathophysiological event involves RBSN (hgnc:20759). hgnc:20759 is a gene f
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4903,6 +4954,13 @@ This pathophysiological event involves early endosome (GO:0005769). GO:0005769 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-rabenosyn-5-vps45-coupling-at-the-early-endosome" data-dismech-node="Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Without rabenosyn-5 at the early-endosomal membrane, the tethering and SNARE-binding module it forms with hVPS45 - a Sec1/Munc18-family protein - is not assembled there. The dependency runs in both directions: in patients who lack VPS45, rabenosyn-5 protein itself is reduced, and depleting either partner produces the same recycling failure. That reciprocity is what makes the VPS45 disease the closest available model for this one.
 </div>
 
@@ -5076,6 +5134,13 @@ This pathophysiological event involves decreased early endosomal fusion, annotat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endosomal-receptor-recycling-and-cargo-sorting" data-dismech-node="Impaired Endosomal Receptor Recycling and Cargo Sorting" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endosomal Receptor Recycling and Cargo Sorting</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cellular consequence, and the step that is best evidenced in this disease&#39;s biology. Rabenosyn-5 determines what happens to receptors after clathrin-mediated internalisation: depleting it sends transferrin receptors to lysosomal degradation instead of back to the surface, and it impairs recycling of beta1 integrin. Because rabenosyn-5 sets the recycling rate of many receptors rather than one, the consequences are not confined to a single ligand - nutrient uptake, growth-factor and neurotransmitter signalling, and integrin-dependent motility all depend on it.
 </div>
@@ -5268,6 +5333,13 @@ This pathophysiological event involves decreased receptor-mediated endocytosis (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-myeloid-differentiation-and-neutrophil-output" data-dismech-node="Failure of Myeloid Differentiation and Neutrophil Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Myeloid Differentiation and Neutrophil Output</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Neutropenia is one of the three hematologic findings in the disease&#39;s name, and the one with a candidate molecular route. In VPS45 deficiency - where rabenosyn-5 protein is itself reduced - seven children presented with neutropenia and neutrophil dysfunction, and the granulocyte colony-stimulating factor receptor is mistrafficked in VPS45-null cells. This curation found no equivalent experiment in RBSN-deficient cells, so the node is provisional. One practical consequence carries over from the partner disease and is worth recording: its neutropenia does not respond to G-CSF, which is why no growth-factor treatment is listed in this entry.
 </div>
@@ -5483,6 +5555,13 @@ This pathophysiological event involves decreased granulocyte differentiation (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-reticulin-fibrosis" data-dismech-node="Bone Marrow Reticulin Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Reticulin Fibrosis</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Fibrous replacement of the marrow, the finding the disease is named for. This node records what is observed and deliberately does not name a fibrogenic cell. In the partner disease, whose marrow phenotype is described in far more detail, the mechanism is explicitly stated to be unknown, with transforming growth factor beta from apoptotic neutrophils and abnormal megakaryocytes offered as a candidate; the same review reports that its marrow shows hypercellularity, megakaryocyte hyperplasia, reticulin and collagen fibrosis, and extramedullary hematopoiesis, and that it does not transform to malignancy. A `KNOWLEDGE_GAP` discussion is attached to this node.
 </div>
 
@@ -5635,6 +5714,13 @@ This pathophysiological event involves increased extracellular matrix organizati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-marrow-failure-with-multilineage-cytopenia" data-dismech-node="Marrow Failure with Multilineage Cytopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Marrow Failure with Multilineage Cytopenia</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinical convergence point. Hematologic abnormalities are apparent in infancy and involve more than one lineage - neutropenia and anemia consistently, thrombocytopenia variably - over a fibrotic marrow. Transplantation restores the hematologic abnormalities, from which it follows that the hematologic disease is intrinsic to the hematopoietic compartment rather than secondary to the neurological or ocular involvement. That inference is this entry&#39;s; no source states it.
 </div>
 
@@ -5727,6 +5813,13 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-receptor-signalling-in-the-developing-nervous-system" data-dismech-node="Disrupted Receptor Signalling in the Developing Nervous System" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Receptor Signalling in the Developing Nervous System</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The neurodevelopmental arm, and the part of the mechanism that is an inference rather than a result. Rabenosyn-5 controls the recycling rate of many receptor species, including growth-factor and neurotransmitter receptors, so a recycling defect is a plausible route to impaired neurodevelopment. This curation found no study of rabenosyn-5 in neural tissue or neural cells in any RBSN-related disorder - a Europe PMC search for rabenosyn or RBSN together with neural, neuron or brain returned no such work on 2026-09-19 - and the node carries no cell type for that reason.
 </div>
@@ -5869,7 +5962,7 @@ This pathophysiological event involves decreased endocytic recycling (GO:0032456
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in the disease definition as part of the severe neurodevelopmental delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia from infancy, part of the multilineage cytopenia over a fibrotic marrow.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Bone Marrow Reticulin Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrous replacement of the marrow, the finding the disease is named for. This node records what is observed and deliberately does not name a fibrogenic cell. In the partner disease, whose marrow phenotype is described in far more detail, the mechanism is explicitly stated to be unknown, with transforming growth factor beta from apoptotic neutrophils and abnormal megakaryocytes offered as a candidate; the same review reports that its marrow shows hypercellularity, megakaryocyte hyperplasia, reticulin and collagen fibrosis, and extramedullary hematopoiesis, and that it does not transform to malignancy. A `KNOWLEDGE_GAP` discussion is attached to this node.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Decreased total neutrophil count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neutropenia apparent in infancy. It is the hematologic feature with the clearest candidate mechanism, through mistrafficking of a hematopoietic growth-factor receptor.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001875\"}}, {\"id\": \"Disrupted Receptor Signalling in the Developing Nervous System\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neurodevelopmental arm, and the part of the mechanism that is an inference rather than a result. Rabenosyn-5 controls the recycling rate of many receptor species, including growth-factor and neurotransmitter receptors, so a recycling defect is a plausible route to impaired neurodevelopment. This curation found no study of rabenosyn-5 in neural tissue or neural cells in any RBSN-related disorder - a Europe PMC search for rabenosyn or RBSN together with neural, neuron or brain returned no such work on 2026-09-19 - and the node carries no cell type for that reason.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endocytic recycling\"]}}, {\"id\": \"Extramedullary hematopoiesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematopoiesis displaced out of the fibrotic marrow. This is the one phenotype added in this round that the entry can also reach mechanistically: the partner VPS45 disease is reported with extramedullary hematopoiesis alongside its marrow fibrosis, which is the evidence cited on the `Bone Marrow Reticulin Fibrosis` node, and the feature is annotated to this concept on the cached MedGen record.\\n\", \"meta\": {\"term_id\": \"HP:0001978\"}}, {\"id\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutropenia is one of the three hematologic findings in the disease\u0027s name, and the one with a candidate molecular route. In VPS45 deficiency - where rabenosyn-5 protein is itself reduced - seven children presented with neutropenia and neutrophil dysfunction, and the granulocyte colony-stimulating factor receptor is mistrafficked in VPS45-null cells. This curation found no equivalent experiment in RBSN-deficient cells, so the node is provisional. One practical consequence carries over from the partner disease and is worth recording: its neutropenia does not respond to G-CSF, which is why no growth-factor treatment is listed in this entry.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"hematopoietic stem cell\"], \"biological_processes\": [\"granulocyte differentiation\"]}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe and global. Its two most concrete expressions - absent speech and inability to walk - are recorded as separate phenotypes below and reached through this node.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention reported to change the hematologic course: transplantation can restore the hematologic abnormalities. The disease definition records only that hematologic effect, so this entry makes no claim about the neurodevelopmental or ocular features. Transplanting into a fibrotic marrow niche is a recognised difficulty in the partner disease, where outcomes have been poor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Annotated to this concept on the cached MedGen record and surfaced independently by the deep-research report. Reached in the pathograph from extramedullary hematopoiesis, which is the conventional route and not one any source demonstrates here.\\n\", \"meta\": {\"term_id\": \"HP:0002240\"}}, {\"id\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular consequence, and the step that is best evidenced in this disease\u0027s biology. Rabenosyn-5 determines what happens to receptors after clathrin-mediated internalisation: depleting it sends transferrin receptors to lysosomal degradation instead of back to the surface, and it impairs recycling of beta1 integrin. Because rabenosyn-5 sets the recycling rate of many receptors rather than one, the consequences are not confined to a single ligand - nutrient uptake, growth-factor and neurotransmitter signalling, and integrin-dependent motility all depend on it.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"endocytic recycling\", \"receptor-mediated endocytosis\"]}}, {\"id\": \"Inability to walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in the disease definition as part of the severe neurodevelopmental delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002540\"}}, {\"id\": \"Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without rabenosyn-5 at the early-endosomal membrane, the tethering and SNARE-binding module it forms with hVPS45 - a Sec1/Munc18-family protein - is not assembled there. The dependency runs in both directions: in patients who lack VPS45, rabenosyn-5 protein itself is reduced, and depleting either partner produces the same recycling failure. That reciprocity is what makes the VPS45 disease the closest available model for this one.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein localization to early endosome\", \"early endosomal fusion\"]}}, {\"id\": \"Marrow Failure with Multilineage Cytopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical convergence point. Hematologic abnormalities are apparent in infancy and involve more than one lineage - neutropenia and anemia consistently, thrombocytopenia variably - over a fibrotic marrow. Transplantation restores the hematologic abnormalities, from which it follows that the hematologic disease is intrinsic to the hematopoietic compartment rather than secondary to the neurological or ocular involvement. That inference is this entry\u0027s; no source states it.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Myelofibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fibrosis on bone marrow biopsy, present from infancy, and the feature the disease is named for.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011974\"}}, {\"id\": \"RBSN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RBSN\"], \"gene_terms\": [{\"label\": \"RBSN\", \"id\": \"hgnc:20759\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RBSN Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline RBSN variant removes normal rabenosyn-5 function. Rabenosyn-5 is a Rab5 effector that reaches early endosomes through a FYVE finger domain binding phosphatidylinositol 3-phosphate, and it is the component that brings the Sec1-like protein hVPS45 to that membrane, since hVPS45 does not bind Rab5 itself. Loss of function is the defining report\u0027s own characterisation of the allele, stated in its title; the Letter carries no quotable text, so this node is evidenced from the rabenosyn-5 cell biology rather than from patient material.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"phosphatidylinositol-3-phosphate binding\", \"Rab5 binding\"], \"genes\": [\"RBSN\"], \"gene_terms\": [{\"label\": \"RBSN\", \"id\": \"hgnc:20759\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable rather than constant, which is how the disease definition qualifies it and why it is not named in the disease title alongside anemia and neutropenia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Transfusion Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transfusion for anemia and for thrombocytopenia where it is present. Included as the standard supportive management of a multilineage cytopenia rather than on the strength of a report in this disease: no source this entry can quote describes transfusion in an RBSN patient, and the treatment carries no evidence block for that reason.\\n\"}], \"edges\": [{\"source\": \"RBSN Loss of Function\", \"target\": \"Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rabenosyn-5 is the physical link between Rab5 and hVPS45, so losing it uncouples the two.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome\", \"target\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depleting either partner of this module impairs recycling of the same cargo.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"target\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mistrafficking of a hematopoietic growth-factor receptor is the proposed route. It has been shown for the granulocyte colony-stimulating factor receptor in cells lacking the partner protein VPS45, not in RBSN-deficient cells.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"target\": \"Bone Marrow Reticulin Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This is the weakest link in the chain and is recorded as such. Reviewers of the partner disease state that the mechanism connecting the endosomal lesion to reticulin deposition is not known, and nothing fills that step for RBSN either. What supports the edge is that the two diseases caused by lesions in this module both produce marrow fibrosis, and that the same inference was drawn prospectively in 2014, four years before the RBSN marrow phenotype was reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"target\": \"Disrupted Receptor Signalling in the Developing Nervous System\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed, not shown. Rabenosyn-5 sets the recycling rate of growth-factor and neurotransmitter receptors, which is a route by which a recycling defect could impair neurodevelopment; this curation found no experiment tracing it in this disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"target\": \"Decreased total neutrophil count\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"target\": \"Marrow Failure with Multilineage Cytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The myeloid deficit is one lineage of a multilineage failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Reticulin Fibrosis\", \"target\": \"Myelofibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Reticulin Fibrosis\", \"target\": \"Marrow Failure with Multilineage Cytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrous replacement of the marrow space accompanies progressive marrow failure. The displacement step is standard myelofibrosis reasoning rather than a result measured in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Failure with Multilineage Cytopenia\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Failure with Multilineage Cytopenia\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recorded as variable rather than constant in the disease definition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Failure with Multilineage Cytopenia\", \"target\": \"Extramedullary hematopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematopoiesis displaced out of a marrow that can no longer support it. Evidenced for the partner VPS45 disease rather than for this one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Receptor Signalling in the Developing Nervous System\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed route only; no intermediate step has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global developmental delay\", \"target\": \"Absent speech\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global developmental delay\", \"target\": \"Inability to walk\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extramedullary hematopoiesis\", \"target\": \"Hepatomegaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hematopoiesis relocating to the liver is the standard explanation for the hepatomegaly annotated to this concept. Recorded as the reading it is; no source demonstrates the step in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Cell Transplantation\", \"target\": \"Marrow Failure with Multilineage Cytopenia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transfusion Support\", \"target\": \"Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transfusion Support\", \"target\": \"Thrombocytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"RBSN\", \"target\": \"RBSN Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent speech\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in the disease definition as part of the severe neurodevelopmental delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001344\"}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia from infancy, part of the multilineage cytopenia over a fibrotic marrow.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Bone Marrow Reticulin Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fibrous replacement of the marrow, the finding the disease is named for. This node records what is observed and deliberately does not name a fibrogenic cell. In the partner disease, whose marrow phenotype is described in far more detail, the mechanism is explicitly stated to be unknown, with transforming growth factor beta from apoptotic neutrophils and abnormal megakaryocytes offered as a candidate; the same review reports that its marrow shows hypercellularity, megakaryocyte hyperplasia, reticulin and collagen fibrosis, and extramedullary hematopoiesis, and that it does not transform to malignancy. A `KNOWLEDGE_GAP` discussion is attached to this node.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Decreased total neutrophil count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Neutropenia apparent in infancy. It is the hematologic feature with the clearest candidate mechanism, through mistrafficking of a hematopoietic growth-factor receptor.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001875\"}}, {\"id\": \"Disrupted Receptor Signalling in the Developing Nervous System\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The neurodevelopmental arm, and the part of the mechanism that is an inference rather than a result. Rabenosyn-5 controls the recycling rate of many receptor species, including growth-factor and neurotransmitter receptors, so a recycling defect is a plausible route to impaired neurodevelopment. This curation found no study of rabenosyn-5 in neural tissue or neural cells in any RBSN-related disorder - a Europe PMC search for rabenosyn or RBSN together with neural, neuron or brain returned no such work on 2026-09-19 - and the node carries no cell type for that reason.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"endocytic recycling\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Extramedullary hematopoiesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hematopoiesis displaced out of the fibrotic marrow. This is the one phenotype added in this round that the entry can also reach mechanistically: the partner VPS45 disease is reported with extramedullary hematopoiesis alongside its marrow fibrosis, which is the evidence cited on the `Bone Marrow Reticulin Fibrosis` node, and the feature is annotated to this concept on the cached MedGen record.\\n\", \"meta\": {\"term_id\": \"HP:0001978\"}}, {\"id\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutropenia is one of the three hematologic findings in the disease\u0027s name, and the one with a candidate molecular route. In VPS45 deficiency - where rabenosyn-5 protein is itself reduced - seven children presented with neutropenia and neutrophil dysfunction, and the granulocyte colony-stimulating factor receptor is mistrafficked in VPS45-null cells. This curation found no equivalent experiment in RBSN-deficient cells, so the node is provisional. One practical consequence carries over from the partner disease and is worth recording: its neutropenia does not respond to G-CSF, which is why no growth-factor treatment is listed in this entry.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neutrophil\", \"hematopoietic stem cell\"], \"biological_processes\": [\"granulocyte differentiation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe and global. Its two most concrete expressions - absent speech and inability to walk - are recorded as separate phenotypes below and reached through this node.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hematopoietic Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only intervention reported to change the hematologic course: transplantation can restore the hematologic abnormalities. The disease definition records only that hematologic effect, so this entry makes no claim about the neurodevelopmental or ocular features. Transplanting into a fibrotic marrow niche is a recognised difficulty in the partner disease, where outcomes have been poor.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Annotated to this concept on the cached MedGen record and surfaced independently by the deep-research report. Reached in the pathograph from extramedullary hematopoiesis, which is the conventional route and not one any source demonstrates here.\\n\", \"meta\": {\"term_id\": \"HP:0002240\"}}, {\"id\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular consequence, and the step that is best evidenced in this disease\u0027s biology. Rabenosyn-5 determines what happens to receptors after clathrin-mediated internalisation: depleting it sends transferrin receptors to lysosomal degradation instead of back to the surface, and it impairs recycling of beta1 integrin. Because rabenosyn-5 sets the recycling rate of many receptors rather than one, the consequences are not confined to a single ligand - nutrient uptake, growth-factor and neurotransmitter signalling, and integrin-dependent motility all depend on it.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"endocytic recycling\", \"receptor-mediated endocytosis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Inability to walk\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recorded in the disease definition as part of the severe neurodevelopmental delay.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002540\"}}, {\"id\": \"Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without rabenosyn-5 at the early-endosomal membrane, the tethering and SNARE-binding module it forms with hVPS45 - a Sec1/Munc18-family protein - is not assembled there. The dependency runs in both directions: in patients who lack VPS45, rabenosyn-5 protein itself is reduced, and depleting either partner produces the same recycling failure. That reciprocity is what makes the VPS45 disease the closest available model for this one.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"protein localization to early endosome\", \"early endosomal fusion\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Marrow Failure with Multilineage Cytopenia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical convergence point. Hematologic abnormalities are apparent in infancy and involve more than one lineage - neutropenia and anemia consistently, thrombocytopenia variably - over a fibrotic marrow. Transplantation restores the hematologic abnormalities, from which it follows that the hematologic disease is intrinsic to the hematopoietic compartment rather than secondary to the neurological or ocular involvement. That inference is this entry\u0027s; no source states it.\\n\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Myelofibrosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fibrosis on bone marrow biopsy, present from infancy, and the feature the disease is named for.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0011974\"}}, {\"id\": \"RBSN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RBSN\"], \"gene_terms\": [{\"label\": \"RBSN\", \"id\": \"hgnc:20759\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"RBSN Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A germline RBSN variant removes normal rabenosyn-5 function. Rabenosyn-5 is a Rab5 effector that reaches early endosomes through a FYVE finger domain binding phosphatidylinositol 3-phosphate, and it is the component that brings the Sec1-like protein hVPS45 to that membrane, since hVPS45 does not bind Rab5 itself. Loss of function is the defining report\u0027s own characterisation of the allele, stated in its title; the Letter carries no quotable text, so this node is evidenced from the rabenosyn-5 cell biology rather than from patient material.\\n\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"phosphatidylinositol-3-phosphate binding\", \"Rab5 binding\"], \"genes\": [\"RBSN\"], \"gene_terms\": [{\"label\": \"RBSN\", \"id\": \"hgnc:20759\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\"}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable rather than constant, which is how the disease definition qualifies it and why it is not named in the disease title alongside anemia and neutropenia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}, {\"id\": \"Transfusion Support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Transfusion for anemia and for thrombocytopenia where it is present. Included as the standard supportive management of a multilineage cytopenia rather than on the strength of a report in this disease: no source this entry can quote describes transfusion in an RBSN patient, and the treatment carries no evidence block for that reason.\\n\"}], \"edges\": [{\"source\": \"RBSN Loss of Function\", \"target\": \"Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rabenosyn-5 is the physical link between Rab5 and hVPS45, so losing it uncouples the two.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Rabenosyn-5-VPS45 Coupling at the Early Endosome\", \"target\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Depleting either partner of this module impairs recycling of the same cargo.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"target\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mistrafficking of a hematopoietic growth-factor receptor is the proposed route. It has been shown for the granulocyte colony-stimulating factor receptor in cells lacking the partner protein VPS45, not in RBSN-deficient cells.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"target\": \"Bone Marrow Reticulin Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"This is the weakest link in the chain and is recorded as such. Reviewers of the partner disease state that the mechanism connecting the endosomal lesion to reticulin deposition is not known, and nothing fills that step for RBSN either. What supports the edge is that the two diseases caused by lesions in this module both produce marrow fibrosis, and that the same inference was drawn prospectively in 2014, four years before the RBSN marrow phenotype was reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Endosomal Receptor Recycling and Cargo Sorting\", \"target\": \"Disrupted Receptor Signalling in the Developing Nervous System\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed, not shown. Rabenosyn-5 sets the recycling rate of growth-factor and neurotransmitter receptors, which is a route by which a recycling defect could impair neurodevelopment; this curation found no experiment tracing it in this disease.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"target\": \"Decreased total neutrophil count\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Myeloid Differentiation and Neutrophil Output\", \"target\": \"Marrow Failure with Multilineage Cytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The myeloid deficit is one lineage of a multilineage failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Reticulin Fibrosis\", \"target\": \"Myelofibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bone Marrow Reticulin Fibrosis\", \"target\": \"Marrow Failure with Multilineage Cytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fibrous replacement of the marrow space accompanies progressive marrow failure. The displacement step is standard myelofibrosis reasoning rather than a result measured in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Failure with Multilineage Cytopenia\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Failure with Multilineage Cytopenia\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recorded as variable rather than constant in the disease definition.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marrow Failure with Multilineage Cytopenia\", \"target\": \"Extramedullary hematopoiesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hematopoiesis displaced out of a marrow that can no longer support it. Evidenced for the partner VPS45 disease rather than for this one.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Receptor Signalling in the Developing Nervous System\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed route only; no intermediate step has been demonstrated.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Global developmental delay\", \"target\": \"Absent speech\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global developmental delay\", \"target\": \"Inability to walk\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extramedullary hematopoiesis\", \"target\": \"Hepatomegaly\", \"predicate\": \"leads_to\", \"is_orphan\": false, \"description\": \"Hematopoiesis relocating to the liver is the standard explanation for the hepatomegaly annotated to this concept. Recorded as the reading it is; no source demonstrates the step in this disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hematopoietic Cell Transplantation\", \"target\": \"Marrow Failure with Multilineage Cytopenia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transfusion Support\", \"target\": \"Anemia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Transfusion Support\", \"target\": \"Thrombocytopenia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"RBSN\", \"target\": \"RBSN Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7010,6 +7103,9 @@ This disease-associated gene is RBSN (hgnc:20759). hgnc:20759 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

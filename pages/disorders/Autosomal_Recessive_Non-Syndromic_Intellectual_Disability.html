@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -6806,6 +6845,7 @@ This subtype is caused by variation in MBOAT7 (hgnc:15505). hgnc:15505 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-variant-in-an-autosomal-neurodevelopmental-gene" data-dismech-node="Biallelic Loss-of-Function Variant in an Autosomal Neurodevelopmental Gene" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function Variant in an Autosomal Neurodevelopmental Gene</div>
 
+
                 <div class="item-desc">The initiating lesion is the presence of two damaging alleles at one autosomal locus - most often a homozygous protein-truncating variant, but also homozygous whole-gene or partial deletion (TUSC3), complex rearrangement (GRIK2), or homozygous hypomorphic missense (MED23, MAN1B1) - so that the gene product is absent or severely reduced. Unlike the dominant class the affected genes are NOT restricted to the haploinsufficiency-intolerant fraction of the genome: because one working copy suffices, a damaging recessive allele is under weak purifying selection and persists in the population, so the recessive class draws on a far larger gene pool. That is the structural reason the number of candidate loci is estimated in the thousands and each individual gene explains only a handful of families. Homozygous copy-number lesions are a genuine and recurrent subset of the trigger, which is why chromosomal microarray remains part of the workup even in a suspected-recessive workflow.</div>
 
 
@@ -7030,6 +7070,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autozygosity-exposes-recessive-alleles-in-consanguineous-pedigrees" data-dismech-node="Autozygosity Exposes Recessive Alleles in Consanguineous Pedigrees" data-dismech-type="pathophysiology">
                 <div class="item-name">Autozygosity Exposes Recessive Alleles in Consanguineous Pedigrees</div>
 
+
                 <div class="item-desc">Parental consanguinity does not create the mutant allele; it raises the probability that a rare carrier allele is inherited in duplicate, identical by descent, so that the two copies lie inside a shared run of homozygosity. This is the population-genetic step that converts an invisible recessive burden into overt disease, and it is why the class is concentrated in populations where cousin marriage is common - the risk of recessive intellectual disability in children of first cousins or closer is an order of magnitude higher than in children of unrelated parents. It is also the methodological lever: because the causal variant must lie inside an autozygous interval shared by all affected siblings, homozygosity mapping reduces the search space enough for exome sequencing to identify the gene in a single family. The same reasoning explains why the class was almost invisible before this method - conventional linkage requires many independent families per locus, which extreme locus heterogeneity makes impossible.</div>
 
 
@@ -7214,6 +7255,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-a-gene-specific-molecular-function-required-by-developing-neurons" data-dismech-node="Loss of a Gene-Specific Molecular Function Required by Developing Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of a Gene-Specific Molecular Function Required by Developing Neurons</div>
+
 
                 <div class="item-desc">The class has no shared pathway. The authoritative review states plainly that there are no prevalent ARID genes, pathways, or protein complexes, and that the functions of the affected proteins are very diverse. What recurs is a limited set of cellular THEMES, each entered by several genes: synaptic transmission and proteolysis (GRIK2, PRSS12, MPDZ), activity-dependent and general transcriptional regulation (MED23, TET1), RNA and tRNA modification (NSUN2, ADAT3, ELP2, METTL23), protein N-glycosylation and glycoprotein quality control (TUSC3, MAN1B1, ST3GAL3), vesicle trafficking with NF-kB signalling (TRAPPC9, TRAPPC6B, WASHC4, TBC1D23, CC2D1A), regulated protein degradation (CRBN), and membrane phospholipid remodelling (MBOAT7). These are post-hoc organising themes, not a claim of pathway convergence. What IS statistically established at class level is weaker but real: the gene set is enriched for co-expression, for direct protein-protein interaction with products of already-known intellectual disability genes, and for prenatal and infant brain expression.</div>
 
@@ -7787,6 +7829,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-synaptic-transmission-and-plasticity" data-dismech-node="Impaired Synaptic Transmission and Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Synaptic Transmission and Plasticity</div>
+
 
                 <div class="item-desc">Where the affected theme is synaptic, the immediate cellular consequence is a defect in excitatory neurotransmission or in the activity-dependent changes that encode experience. GRIK2 loss removes a kainate-receptor subunit from the excitatory synapse with electrophysiologically confirmed loss of function; PRSS12/neurotrypsin loss removes a protease acting at the presynaptic membrane lining the synaptic cleft, where its proteolysis is required for normal synaptic function; MED23 loss blocks JUN/FOS immediate-early-gene induction, the transcriptional arm of activity-dependent plasticity; MBOAT7 loss alters the arachidonoyl phosphatidylinositol pool from which synaptic signalling lipids derive; and CC2D1A loss releases PDE4D hyperactivity, depleting hippocampal cAMP and reducing CREB signalling. The resulting deficit is in the machinery of learning and memory rather than in gross brain structure - which is precisely why the phenotype is cognitive and non-syndromic.</div>
 
@@ -8365,6 +8408,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cortical-circuit-formation-and-connectivity" data-dismech-node="Impaired Cortical Circuit Formation and Connectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cortical Circuit Formation and Connectivity</div>
 
+
                 <div class="item-desc">Where the affected theme acts during development - vesicle trafficking, N-glycosylation of nascent membrane and secreted proteins, general transcriptional regulation - the consequence is a defect in the BUILDING of cortical circuitry rather than in its moment-to-moment operation. The recessive gene set is preferentially expressed in prenatal brain, and the best-characterised example, TRAPPC9, is highly expressed in postmitotic cortical neurons, with affected individuals showing MRI evidence of impaired axonal connectivity and mild cerebral white matter hypoplasia. Crucially the structural consequence is subtle - reduced connectivity and, in some subtypes, mild postnatal microcephaly - rather than a gross malformation such as lissencephaly or agenesis of the corpus callosum. This quantitative rather than qualitative structural effect is what keeps the class inside the non-syndromic category: routine clinical neuroimaging is usually reported as normal or near-normal. Note also what this node is NOT: there is no degenerative, ischaemic, oxidative, inflammatory, or fibrotic arm. AR-NSID is a mis-built circuit, not a damaged one.</div>
 
 
@@ -8848,6 +8892,7 @@ This pathophysiological event occurs in white matter (UBERON:0002316). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-postnatal-microcephaly" data-dismech-node="Secondary (Postnatal) Microcephaly" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary (Postnatal) Microcephaly</div>
 
+
                 <div class="item-desc">An incompletely penetrant consequence in a subset of subtypes, most clearly TRAPPC9-related disease, in which head circumference is normal at birth and falls across centiles postnatally. Its variability is diagnostically important: because microcephaly is present in some but not all affected individuals even within the same gene, its absence does not exclude the diagnosis, and its presence does not by itself reclassify the case as syndromic.</div>
 
 
@@ -9012,6 +9057,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-learning-memory-and-cognitive-development" data-dismech-node="Impaired Learning, Memory, and Cognitive Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Learning, Memory, and Cognitive Development</div>
+
 
                 <div class="item-desc">The convergent organism-level outcome: significantly impaired intellectual functioning and adaptive behaviour with onset in the developmental period. Severity spans the range from mild (CRBN, IQ 50-70) to severe (CC2D1A), with moderate-to-severe the commonest reported band - though that distribution is inflated by ascertainment through multiplex families referred to specialist genetics services. Because the upstream lesions damage the machinery of synaptic plasticity and cortical connectivity rather than producing a specific structural or metabolic lesion, the deficit is global and STATIC rather than regressive: the developmental trajectory is shallower, so the gap versus peers widens with age, but there is no loss of previously acquired skills. Developmental regression therefore argues against this diagnosis and toward a degenerative or metabolic alternative. Notably, this class is not the low tail of the normal-range polygenic intelligence distribution - common variants in NS-ARID genes are not enriched for intelligence QTLs.</div>
 
@@ -10602,6 +10648,9 @@ This disease-associated gene is PRSS12 (hgnc:9477). hgnc:9477 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10701,6 +10750,9 @@ This disease-associated gene is CRBN (hgnc:30185). hgnc:30185 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10771,6 +10823,9 @@ This disease-associated gene is CC2D1A (hgnc:30237). hgnc:30237 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10874,6 +10929,9 @@ This disease-associated gene is NSUN2 (hgnc:25994). hgnc:25994 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10948,6 +11006,9 @@ This disease-associated gene is GRIK2 (hgnc:4580). hgnc:4580 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11018,6 +11079,9 @@ This disease-associated gene is TUSC3 (hgnc:30242). hgnc:30242 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11121,6 +11185,9 @@ This disease-associated gene is TRAPPC9 (hgnc:30832). hgnc:30832 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11216,6 +11283,9 @@ This disease-associated gene is MAN1B1 (hgnc:6823). hgnc:6823 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11319,6 +11389,9 @@ This disease-associated gene is MED23 (hgnc:2372). hgnc:2372 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11389,6 +11462,9 @@ This disease-associated gene is MBOAT7 (hgnc:15505). hgnc:15505 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11492,6 +11568,9 @@ This disease-associated gene is ADAT3 (hgnc:25151). hgnc:25151 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11587,6 +11666,9 @@ This disease-associated gene is TUSC3 (hgnc:30242). hgnc:30242 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -13267,10 +13349,10 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
                 </div>
 
-                <div class="evidence-snippet">"The identified point mutations were mostly recessive (n=117, 81%), consistent with the high consanguinity of the study cohort"</div>
+                <div class="evidence-snippet">"Intellectual disability (ID) is a measurable phenotypic consequence of genetic and environmental factors. In this study, we prospectively assessed the diagnostic yield of genomic tools (molecular karyotyping, multi-gene panel and exome sequencing) in a cohort of 337 ID subjects as a first-tier..."</div>
 
 
-                <div class="evidence-explanation">Quantifies the recessive share of solved cases in a highly consanguineous clinical cohort.</div>
+                <div class="evidence-explanation">In a selected cohort of 337 individuals with intellectual disability, recessive variants comprised 81% of the identified point mutations. This is a diagnostic-yield result in a highly consanguineous cohort, not population prevalence of nonsyndromic recessive intellectual disability.</div>
 
 
 
@@ -14112,11 +14194,21 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The identified point mutations were mostly recessive (n=117, 81%),
-      consistent with the high consanguinity of the study cohort
+      Intellectual disability (ID) is a measurable phenotypic consequence of genetic and
+      environmental factors. In this study, we prospectively assessed the diagnostic yield of
+      genomic tools (molecular karyotyping, multi-gene panel and exome sequencing) in a cohort of
+      337 ID subjects as a first-tier test and compared it with a standard clinical evaluation
+      performed in parallel. ... On the other hand, the genomic approach revealed a likely diagnosis
+      in 58% (n=196). These included copy number variants in 14% (n=54, 15% are novel), and point
+      mutations revealed by multi-gene panel and exome sequencing in the remaining 43% (1% were
+      found to have Fragile-X). The identified point mutations were mostly recessive (n=117, 81%),
+      consistent with the high consanguinity of the study cohort, but also X-linked (n=8, 6%) and de
+      novo dominant (n=19, 13%).
     explanation: &gt;-
-      Quantifies the recessive share of solved cases in a highly consanguineous
-      clinical cohort.
+      In a selected cohort of 337 individuals with intellectual disability, recessive variants
+      comprised 81% of the identified point mutations. This is a diagnostic-yield result in a highly
+      consanguineous cohort, not population prevalence of nonsyndromic recessive intellectual
+      disability.
   - reference: PMID:24176302
     reference_title: &#34;Genetics of recessive cognitive disorders.&#34;
     supports: SUPPORT
@@ -19467,7 +19559,7 @@ Severity is specified by <strong>adaptive functioning</strong>, not IQ.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Recessive Non-Syndromic Intellectual Disability", "mondoId": "MONDO:0019502", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Recessive_Non-Syndromic_Intellectual_Disability", "yamlRevision": "5b03d59fcd27"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Recessive Non-Syndromic Intellectual Disability", "mondoId": "MONDO:0019502", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Recessive_Non-Syndromic_Intellectual_Disability", "yamlRevision": "3a5fc93a0e38"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

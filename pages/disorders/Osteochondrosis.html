@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4882,6 +4921,7 @@ This subtype is caused by variation in ACAN (hgnc:319). hgnc:319 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-canal-ischemic-chondronecrosis" data-dismech-node="Cartilage-Canal Ischemic Chondronecrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage-Canal Ischemic Chondronecrosis</div>
 
+
                 <div class="item-desc">In the articular/epiphyseal osteochondrosis family, blood vessels running through cartilage canals supply the secondary (epiphyseal) ossification center during growth. Focal failure or transection of these vessels causes ischemic necrosis of chondrocytes and vascular endothelium in the epiphyseal cartilage, before any bone is yet mineralized at that site. This mechanism was reproduced experimentally by surgically transecting cartilage-canal vessels in foals, and morphologically identical lesions (confirmed by histology to represent cartilage-canal blood-supply failure and ischemic chondronecrosis) were subsequently identified at the predilection sites for juvenile osteochondritis dissecans in human pediatric knee specimens.
 </div>
 
@@ -5239,6 +5279,7 @@ This pathophysiological event occurs in Subchondral region of epiphysis (UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-endochondral-ossification-and-necrotic-fragmentation" data-dismech-node="Delayed Endochondral Ossification and Necrotic Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Endochondral Ossification and Necrotic Fragmentation</div>
 
+
                 <div class="item-desc">The necrotic, unossified cartilage/subchondral bone segment fails to bear load normally. Continued mechanical loading of the affected epiphysis or subarticular bone (e.g., the immature femoral head in Perthes disease, or the second metatarsal head in Freiberg infraction) leads to increased bone resorption relative to delayed new bone formation, producing structural weakening, collapse, sclerosis, flattening, and fragmentation on imaging. In the most severe articular presentations this culminates in pathological cartilage fracture and, in osteochondritis dissecans, a detached osteochondral fragment (loose body).
 </div>
 
@@ -5416,6 +5457,7 @@ This pathophysiological event involves increased Bone resorption (GO:0045453). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-revascularization-and-remodeling-under-mechanical-load" data-dismech-node="Revascularization and Remodeling under Mechanical Load" data-dismech-type="pathophysiology">
                 <div class="item-name">Revascularization and Remodeling under Mechanical Load</div>
 
+
                 <div class="item-desc">The articular osteochondrosis family is characteristically self-limited: revascularization delivers chondroclasts/osteoclasts and granulation tissue that remove necrotic tissue while new bone formation proceeds, under the influence of ongoing mechanical loading of the growing epiphysis. Outcome depends on the balance between repair and load — a spherical, congruent joint surface if repair keeps pace, or residual flattening/ deformity and premature secondary osteoarthritis if mechanical failure outpaces repair.
 </div>
 
@@ -5568,6 +5610,7 @@ This pathophysiological event involves Bone remodeling (GO:0046849). GO:0046849 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heritable-type-ii-collagen-defect-in-familial-perthes-disease" data-dismech-node="Heritable Type II Collagen Defect in Familial Perthes Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Heritable Type II Collagen Defect in Familial Perthes Disease</div>
+
 
                 <div class="item-desc">A minority of Legg-Calve-Perthes disease is not sporadic. In a Japanese family, an autosomal dominant hip disorder manifesting as LCPD was found to carry a COL2A1 missense variant, making it a type II collagenopathy rather than a primary cartilage-canal vascular event. The steps between the altered type II collagen and the radiographic cascade have not been worked out, so this route is modelled as a separate initiating lesion that converges on the same fragmentation phenotype rather than as a branch of the ischemic chain.
 </div>
@@ -5763,6 +5806,7 @@ This pathophysiological event involves abnormal collagen fibril organization (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aggrecan-g3-domain-defect-in-familial-osteochondritis-dissecans" data-dismech-node="Aggrecan G3-Domain Defect in Familial Osteochondritis Dissecans" data-dismech-type="pathophysiology">
                 <div class="item-name">Aggrecan G3-Domain Defect in Familial Osteochondritis Dissecans</div>
 
+
                 <div class="item-desc">A rare autosomal dominant form of osteochondritis dissecans is caused by missense variants clustered in the C-type lectin repeat of the aggrecan G3 domain. The variant proteoglycan is secreted less efficiently than wild-type and binds cartilage extracellular matrix ligands less well, so the initiating lesion is a defective matrix component rather than the cartilage-canal vascular failure that underlies the sporadic articular osteochondroses.
 </div>
 
@@ -5956,6 +6000,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-repetitive-traction-apophysitis" data-dismech-node="Repetitive Traction Apophysitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Repetitive Traction Apophysitis</div>
+
 
                 <div class="item-desc">In the non-articular apophyseal osteochondrosis family, the mechanism is NOT primary ischemia. A traction apophysis is a secondary ossification center at a tendon insertion (the tibial tuberosity for the patellar tendon in Osgood-Schlatter disease; the calcaneal apophysis for the Achilles tendon in Sever disease). Repetitive, forceful traction from running/jumping sports during a rapid growth spurt — often compounded by relative muscle-tendon tightness outpacing bone growth — causes chronic microtrauma, inflammation, and disordered ossification at the unfused apophysis, distinct from the ischemic mechanism of the articular family.
 </div>
@@ -6185,6 +6230,7 @@ This pathophysiological event occurs in Calcaneal (Achilles) tendon insertion, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apophyseal-pain-prominence-and-fragmentation" data-dismech-node="Apophyseal Pain, Prominence, and Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Apophyseal Pain, Prominence, and Fragmentation</div>
 
+
                 <div class="item-desc">The end-stage clinical/radiographic phenotype of traction apophysitis: localized pain and swelling that worsen with activity and improve with rest, sometimes with a palpable bony prominence, and self-resolution once the apophysis fuses at the end of skeletal growth.
 </div>
 
@@ -6247,6 +6293,7 @@ This pathophysiological event occurs in Calcaneal (Achilles) tendon insertion, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compressive-vertebral-endplate-growth-failure" data-dismech-node="Compressive Vertebral Endplate Growth Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Compressive Vertebral Endplate Growth Failure</div>
+
 
                 <div class="item-desc">In the physeal/endplate osteochondrosis family, excessive mechanical (compressive) loading impairs growth of the cartilaginous vertebral endplate and ring apophysis at the thoracic spine, distinct from both the ischemic mechanism of the articular family and the tensile-traction mechanism of the apophyseal family. This is associated with Schmorl&#39;s node formation (nucleus pulposus herniation through a weakened endplate), disruption of the ring apophysis, and compromised intervertebral disc integrity. A shortened sternum has also been proposed to increase anterior compressive force on the vertebral endplates, though this remains a single-study hypothesis.
 </div>
@@ -6458,6 +6505,7 @@ This pathophysiological event occurs in Vertebral growth plate cartilage, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterior-vertebral-wedging-and-kyphotic-deformity" data-dismech-node="Anterior Vertebral Wedging and Kyphotic Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterior Vertebral Wedging and Kyphotic Deformity</div>
+
 
                 <div class="item-desc">Radiographically defined by Sorensen&#39;s criteria (at least three consecutive vertebrae wedged five degrees or more at the apex), accompanied by irregular endplates, decreased disc height, and Schmorl&#39;s nodes, producing a rigid dorsal kyphosis that may be accompanied by pain and cosmetic complaints.
 </div>
@@ -7364,6 +7412,9 @@ This disease-associated gene is COL2A1 (hgnc:2200). hgnc:2200 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7436,6 +7487,9 @@ This disease-associated gene is F5 (hgnc:3542). hgnc:3542 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
 
@@ -7516,6 +7570,9 @@ This disease-associated gene is F2 (hgnc:3535). hgnc:3535 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7590,6 +7647,9 @@ This disease-associated gene is ACAN (hgnc:319). hgnc:319 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

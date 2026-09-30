@@ -19,7 +19,6 @@ from typing import Any
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from dismech.doi_cache_case import is_doi_reference, resolve_doi_cache_path
 from dismech.yaml_io import safe_load
 
 CITATION_FILE_RE = re.compile(r"^(?P<name>.+)-deep-research-[^.]+\.md\.citations\.md$")
@@ -351,15 +350,25 @@ def collect_existing_refs(node: Any, out: set[str]) -> None:
 
 
 def cache_path_for_ref(reference: str, references_cache_dir: str) -> Path:
-    safe = reference.replace(":", "_").replace("/", "_")
-    path = Path(references_cache_dir) / f"{safe}.md"
-    # ``canonical_ref`` lowercases DOIs, but a DOI cached as ``DOI_10.1172_JCI89626.md``
-    # must still be found here -- otherwise the missing-file branch runs
-    # ``just fetch-reference`` on the lowercase spelling for a paper that is
-    # already cached (#9112).
-    if is_doi_reference(reference):
-        return resolve_doi_cache_path(path)
-    return path
+    """Where this reference is cached, whatever capitalization it is written in.
+
+    ``canonical_ref`` lowercases DOIs, but a DOI cached as
+    ``DOI_10.1172_JCI89626.md`` must still be found -- otherwise the
+    missing-file branch runs ``just fetch-reference`` on the lowercase spelling
+    for a paper that is already cached (#9112). The fetcher resolves that
+    itself, so this asks it rather than reimplementing the rule.
+
+    ``forget_cache_listing`` first: this script shells out to
+    ``just fetch-reference``, and a file written by that subprocess is not in
+    the listing this process built (#12083).
+    """
+    from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+    from linkml_reference_validator.models import ReferenceValidationConfig
+
+    cache_dir = Path(references_cache_dir)
+    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=cache_dir))
+    fetcher.forget_cache_listing()
+    return fetcher.get_cache_path(reference)
 
 
 def parse_cache_title(cache_path: Path) -> str | None:

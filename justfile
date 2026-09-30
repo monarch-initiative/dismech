@@ -113,9 +113,27 @@ test-code: _test-schema _test-python-code _test-examples test-search test-extens
 [group('model development')]
 test-schema: _test-schema
 
+# Extra arguments go to pytest, e.g. `just test-python-code -n 4` (CI).
 # Python code/logic tests, excluding the whole-KB `kb_data` sweep.
 [group('model development')]
-test-python-code: _test-python-code
+test-python-code *args: (_test-python-code args)
+
+# Validate a gene-classification collection (kb/gene_classifications/*.yaml).
+[group('data validation')]
+validate-gene-classifications:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  for f in kb/gene_classifications/*.yaml; do
+    echo "Validating $f"
+    uv run linkml-validate --schema src/dismech/schema/dismech.yaml \
+      --target-class GeneClassificationCollection "$f"
+  done
+
+# Regenerate the Gene Table of Neuromuscular Disorders gene classification.
+# Scrapes musclegenetable.fr and HGNC; never hand-edit the output.
+[group('data ingest')]
+fetch-nmd-gene-table:
+  uv run python scripts/fetch_nmd_gene_table.py
 
 # Validate a provider-by-assessor hypothesis report review sidecar.
 [group('data validation')]
@@ -280,9 +298,13 @@ _update-linkml:
 _test-schema:
   uv run gen-project {{config_yaml}} -d tmp {{source_schema_path}}
 
+# Serial by default. xdist works (the lane passes under `-n 4`), but each
+# worker holds its own parse of the KB, ~2 GB apiece: 4 workers peaked at
+# 8.2 GB, so `-n auto` on a many-core laptop can exhaust memory. CI passes an
+# explicit worker count sized to its 4-vCPU, 16 GB runner.
 # Run the fast Python unit tests (excludes the whole-KB `kb_data` sweep)
-_test-python-code: gen-python
-  uv run python -m pytest -m "not kb_data and not oak_db"
+_test-python-code *args: gen-python
+  uv run python -m pytest -m "not kb_data and not oak_db" {{args}}
 
 # Run the whole-KB schema-conformance sweep (`kb_data`), parallelized with xdist
 _test-python-kb: gen-python

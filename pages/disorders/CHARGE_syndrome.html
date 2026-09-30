@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4546,6 +4585,7 @@ The gap is not merely bookkeeping. It determines whether immune screening should
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chd7-haploinsufficiency-and-impaired-atp-dependent-chromatin-remodeling" data-dismech-node="CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling</div>
 
+
                 <div class="item-desc">CHD7 encodes a chromodomain helicase DNA-binding protein that functions as an ATP-dependent chromatin-remodeling enzyme. Heterozygous loss-of-function variants reduce CHD7 dosage (haploinsufficiency), impairing the chromatin-remodeling activity needed to fine-tune transcriptional programs during development. Most pathogenic variants are unique nonsense or frameshift variants scattered throughout the gene, consistent with a loss-of-function mechanism.</div>
 
 
@@ -4640,6 +4680,44 @@ This pathophysiological event involves decreased ATP-dependent chromatin remodel
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ATP-dependent chromatin remodeler activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0140658" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0140658</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ATP-dependent chromatin remodeler activity (GO:0140658). GO:0140658 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4802,6 +4880,7 @@ This pathophysiological event involves decreased ATP-dependent chromatin remodel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neural-crest-cell-development" data-dismech-node="Disrupted neural crest cell development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted neural crest cell development</div>
 
+
                 <div class="item-desc">CHD7 acts cell-autonomously in multipotent neural crest cells to fine-tune expression of gene networks critical for their development and migration. Conditional deletion of Chd7 in neural crest cells in mice causes severe conotruncal heart defects and perinatal lethality, recapitulating the cardiac neural crest contribution to CHARGE-type malformations. Disrupted neural crest development provides a unifying explanation for the multisystem craniofacial, cardiac, and other anomalies of CHARGE syndrome.</div>
 
 
@@ -4816,11 +4895,11 @@ This pathophysiological event involves decreased ATP-dependent chromatin remodel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000333</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4857,11 +4936,11 @@ This pathophysiological event involves Migratory neural crest cell (CL:0000333).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0014032</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4891,11 +4970,11 @@ This pathophysiological event involves abnormal Neural crest cell development (G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001755</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5074,6 +5153,7 @@ This pathophysiological event involves abnormal Neural crest cell migration (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inappropriate-p53-activation" data-dismech-node="Inappropriate p53 activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Inappropriate p53 activation</div>
 
+
                 <div class="item-desc">CHD7 binds the p53 promoter and negatively regulates p53 expression. Loss of CHD7 in neural crest cells (and in samples from patients with CHARGE syndrome) results in inappropriate p53 activation, and p53 heterozygosity partially rescues Chd7-null mouse phenotypes, indicating that excessive p53 activity contributes to CHARGE-type developmental defects downstream of CHD7 loss.</div>
 
 
@@ -5095,11 +5175,11 @@ This pathophysiological event involves abnormal Neural crest cell migration (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0072331</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072331" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0072331</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Signal transduction by p53 class mediator (GO:0072331). GO:0072331 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5213,6 +5293,7 @@ This pathophysiological event involves increased Signal transduction by p53 clas
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cranial-and-otic-placode-derived-development" data-dismech-node="Impaired cranial and otic placode-derived development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired cranial and otic placode-derived development</div>
 
+
                 <div class="item-desc">CHD7 is required for normal development of cranial placodes and the inner ear. A consistent and highly specific feature of CHARGE syndrome is hypoplasia of the semicircular canals (derived from the otic placode/otocyst), which produces vestibular dysfunction. Olfactory placode dysfunction contributes to anosmia and to the GnRH-neuron migration defect underlying hypogonadotropic hypogonadism.</div>
 
 
@@ -5234,11 +5315,11 @@ This pathophysiological event involves increased Signal transduction by p53 clas
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043049" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0043049</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043049" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0043049</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Otic placode formation (GO:0043049). GO:0043049 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5268,11 +5349,11 @@ This pathophysiological event involves abnormal Otic placode formation (GO:00430
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042472" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0042472</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042472" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0042472</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Inner ear morphogenesis (GO:0042472). GO:0042472 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5408,6 +5489,7 @@ This pathophysiological event involves abnormal Inner ear morphogenesis (GO:0042
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thymic-development-and-t-cell-output" data-dismech-node="Impaired thymic development and T-cell output" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired thymic development and T-cell output</div>
 
+
                 <div class="item-desc">The immune arm of CHD7 disorder, and the reason CHARGE syndrome appears in the IUIS classification of inborn errors of immunity. A minority of patients have thymic aplasia or hypoplasia with consequent reduction in T-cell numbers, ranging from mild T-cell lymphopenia through combined T- and B-cell defects to, in rare patients, a T-B+NK+ severe combined immunodeficiency that is fatal without immune reconstitution. The phenotype overlaps that of 22q11.2 deletion syndrome, with which CHARGE syndrome shares several non-immune features.
 Two things about this node are deliberately understated. First, it is not a constitutive feature: the source that catalogues it calls immunological problems &#34;a rare feature of CHARGE syndrome&#34;, and a prospective cohort of 21 CHD7-genotyped patients found no significant immune defect at the time of testing despite recurrent sinopulmonary infections. Second, the population frequency is genuinely unsettled rather than merely unmeasured here - see the charge_immunodeficiency_prevalence discussion. Nothing in this entry should be read as asserting that T-cell deficiency is expected in an individual with CHARGE syndrome.</div>
 
@@ -5430,11 +5512,11 @@ Two things about this node are deliberately understated. First, it is not a cons
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048538</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048538" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0048538</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Thymus development (GO:0048538). GO:0048538 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5613,7 +5695,7 @@ This pathophysiological event involves abnormal Thymus development (GO:0048538).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both obstructive and central apnea occur in CHARGE syndrome, contributing \\u2014 with airway and feeding issues \\u2014 to respiratory morbidity and decreased life expectancy, and requiring airway surveillance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002104\"}}, {\"id\": \"Brain anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain anomalies are part of the expanded CHARGE phenotype recognized after identification of the molecular cause.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012443\"}}, {\"id\": \"CHD7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"CHD7\"], \"gene_terms\": [{\"label\": \"CHD7\", \"id\": \"hgnc:20626\"}], \"association\": \"causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 encodes a chromodomain helicase DNA-binding protein that functions as an ATP-dependent chromatin-remodeling enzyme. Heterozygous loss-of-function variants reduce CHD7 dosage (haploinsufficiency), impairing the chromatin-remodeling activity needed to fine-tune transcriptional programs during development. Most pathogenic variants are unique nonsense or frameshift variants scattered throughout the gene, consistent with a loss-of-function mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ATP-dependent chromatin remodeling\"], \"genes\": [\"CHD7\"], \"gene_terms\": [{\"label\": \"CHD7\", \"id\": \"hgnc:20626\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Choanal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atresia (or stenosis) of the choanae, the bony or membranous narrowing of the posterior nasal passages, is one of the defining CHARGE anomalies. Its incidence is inversely related to that of clefting, the choanae usually being normal when a cleft is present.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000453\"}}, {\"id\": \"Cleft lip and/or palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft lip and/or cleft palate are commonly associated orofacial anomalies in CHARGE syndrome, present in about a third of patients and at similar rates regardless of CHD7 mutation status.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular coloboma is a cardinal feature of CHARGE syndrome and is more frequent in CHD7 mutation-positive individuals. It typically involves the choroid, retina and optic nerve and is commonly bilateral; iris, eyelid and optic-disc colobomas are described less often.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects are common in CHARGE syndrome; conotruncal anomalies are among the most prevalent forms and reflect the cardiac neural crest contribution to the disorder. Complex heart defects are a major contributor to early mortality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cranial nerve dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cranial nerve anomalies are part of the expanded CHARGE phenotype recognized after identification of the genetic cause, and include facial nerve palsy, olfactory dysfunction, and impaired swallowing from lower cranial nerve involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006824\"}}, {\"id\": \"Disrupted neural crest cell development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 acts cell-autonomously in multipotent neural crest cells to fine-tune expression of gene networks critical for their development and migration. Conditional deletion of Chd7 in neural crest cells in mice causes severe conotruncal heart defects and perinatal lethality, recapitulating the cardiac neural crest contribution to CHARGE-type malformations. Disrupted neural crest development provides a unifying explanation for the multisystem craniofacial, cardiac, and other anomalies of CHARGE syndrome.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Migratory neural crest cell\"], \"biological_processes\": [\"Neural crest cell development\", \"Neural crest cell migration\"]}}, {\"id\": \"External Ear Anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural anomalies of the external (outer) ear \\u2014 classically low-set, cup-shaped, or asymmetric ears with small or absent lobes \\u2014 are the \\\"E\\\" (ear anomalies) of the CHARGE mnemonic and a cardinal external feature, distinct from the sensorineural hearing loss and inner-ear (semicircular canal) findings already captured in this entry. They are present in about 90% of patients.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000356\"}}, {\"id\": \"External Genital Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital hypoplasia \\u2014 the \\\"G\\\" of the CHARGE mnemonic \\u2014 reflects underlying hypogonadotropic hypogonadism and presents most often as micropenis with cryptorchidism in males and hypoplasia of the uterus and labia in females. Because the female findings are less readily detected, use of this feature as a diagnostic criterion is biased toward males.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003241\"}}, {\"id\": \"Facial palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial nerve (cranial nerve VII) palsy is a frequent cranial nerve anomaly in CHARGE syndrome and is roughly twice as common in CHD7 mutation-positive as in mutation-negative individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties (including dysphagia from cranial nerve dysfunction) are very common in CHARGE syndrome, often necessitating tube feeding, and associated aspiration is a leading cause of non-cardiovascular death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation is the \\\"R\\\" (retarded growth and development) of the CHARGE mnemonic and a recognized manifestation warranting ongoing monitoring of growth; it is distinct from the developmental/cognitive delay already captured in this entry.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Growth and developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth deficiency and developmental delay/intellectual disability (\\\"retardation of growth and development\\\") are core CHARGE features, with variable severity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss in CHARGE syndrome may be conductive (from inner-ear structural anomalies), sensorineural (from cranial nerve VIII deficiency), or mixed, and ear anomalies including deafness are a cardinal feature. It affects close to 90% of patients regardless of CHD7 mutation status.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Hypogonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadotropic hypogonadism with genital hypoplasia is a feature of CHARGE syndrome, reflecting impaired development/migration of GnRH neurons from the olfactory placode and overlapping mechanistically with Kallmann syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is part of the expanded CHARGE phenotype recognized after identification of the molecular cause, and is clinically important for endocrine surveillance and management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000821\"}}, {\"id\": \"Impaired cranial and otic placode-derived development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 is required for normal development of cranial placodes and the inner ear. A consistent and highly specific feature of CHARGE syndrome is hypoplasia of the semicircular canals (derived from the otic placode/otocyst), which produces vestibular dysfunction. Olfactory placode dysfunction contributes to anosmia and to the GnRH-neuron migration defect underlying hypogonadotropic hypogonadism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Otic placode formation\", \"Inner ear morphogenesis\"]}}, {\"id\": \"Impaired thymic development and T-cell output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune arm of CHD7 disorder, and the reason CHARGE syndrome appears in the IUIS classification of inborn errors of immunity. A minority of patients have thymic aplasia or hypoplasia with consequent reduction in T-cell numbers, ranging from mild T-cell lymphopenia through combined T- and B-cell defects to, in rare patients, a T-B+NK+ severe combined immunodeficiency that is fatal without immune reconstitution. The phenotype overlaps that of 22q11.2 deletion syndrome, with which CHARGE syndrome shares several non-immune features.\\nTwo things about this node are deliberately understated. First, it is not a constitutive feature: the source that catalogues it calls immunological problems \\\"a rare feature of CHARGE syndrome\\\", and a prospective cohort of 21 CHD7-genotyped patients found no significant immune defect at the time of testing despite recurrent sinopulmonary infections. Second, the population frequency is genuinely unsettled rather than merely unmeasured here - see the charge_immunodeficiency_prevalence discussion. Nothing in this entry should be read as asserting that T-cell deficiency is expected in an individual with CHARGE syndrome.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Thymus development\"]}}, {\"id\": \"Inappropriate p53 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 binds the p53 promoter and negatively regulates p53 expression. Loss of CHD7 in neural crest cells (and in samples from patients with CHARGE syndrome) results in inappropriate p53 activation, and p53 heterozygosity partially rescues Chd7-null mouse phenotypes, indicating that excessive p53 activity contributes to CHARGE-type developmental defects downstream of CHD7 loss.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Signal transduction by p53 class mediator\"]}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent ear and sinopulmonary infections are common in children with CHARGE syndrome. Importantly, they are usually not attributable to a measurable immune defect: palatal, airway, eustachian-tube and aspiration factors contribute, and the prospective cohort cited here found an identifiable immune abnormality in only 2 of 21 patients. Recurrent infection in CHARGE syndrome should therefore prompt immune testing rather than be assumed to establish immunodeficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Renal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal (kidney) anomalies are part of the expanded CHARGE phenotype recognized after identification of the molecular cause.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000077\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur as part of the expanded CHARGE phenotype and may contribute to morbidity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Semicircular canal hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia (or aplasia) of the semicircular canals is a consistent and highly specific radiologic feature of CHARGE syndrome, resulting in vestibular areflexia and balance problems. It is one of the major diagnostic criteria and, at 98% of CHD7 mutation-positive patients, the most highly penetrant feature of the syndrome \\u2014 the finding that makes temporal bone CT the single most informative diagnostic image.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011382\"}}, {\"id\": \"Severe combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A T-B+NK+ severe combined immunodeficiency has been reported in rare individuals with CHD7 pathogenic variants. It is the one immunological presentation of CHARGE syndrome that is fatal without immune reconstitution, which is why it matters clinically out of proportion to its frequency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0004430\"}}, {\"id\": \"T-cell lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased circulating T-cell counts follow reduced thymic output. Severity ranges from isolated mild T-cell lymphopenia to profound T-cell deficiency. Transient lymphopenia in the first years of life is separately reported and is more common than a persistent identifiable T-cell defect.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0005403\"}}, {\"id\": \"Tracheoesophageal fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tracheoesophageal and esophageal anomalies, including tracheo-oesophageal fistula, occur in a subset of individuals with CHARGE syndrome, cause feeding difficulty and aspiration in infancy, and are typically corrected surgically.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002575\"}}, {\"id\": \"Vestibular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vestibular (balance) dysfunction, related to the semicircular canal anomalies characteristic of CHARGE, is part of the expanded CHD7-disorder phenotype and contributes to delayed motor milestones and gait imbalance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001751\"}}], \"edges\": [{\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Disrupted neural crest cell development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CHD7 chromatin-remodeling activity disrupts the transcriptional programs of multipotent neural crest cells.\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Inappropriate p53 activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CHD7 normally binds the p53 promoter to repress p53; haploinsufficiency releases this repression and causes inappropriate p53 activation.\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Impaired cranial and otic placode-derived development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CHD7 dosage impairs the chromatin remodeling required for cranial/otic placode and inner ear development.\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Growth and developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Brain anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"External Ear Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"External Genital Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Impaired thymic development and T-cell output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of individuals with CHD7 haploinsufficiency have thymic aplasia or hypoplasia with reduced T-cell output. The thymus is a pharyngeal-pouch derivative patterned by cranial neural crest, which is the usual rationale offered for the overlap with 22q11.2 deletion syndrome, but no study has established that intermediate chain in CHARGE syndrome itself, so this edge is left indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Choanal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Facial palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Cleft lip and/or palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Tracheoesophageal fistula\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Renal anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inappropriate p53 activation\", \"target\": \"Disrupted neural crest cell development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inappropriate p53 activation contributes to the neural crest-related phenotypes downstream of CHD7 loss; p53 heterozygosity partially rescues Chd7-null phenotypes.\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Semicircular canal hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Cranial nerve dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Hypogonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Vestibular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired thymic development and T-cell output\", \"target\": \"T-cell lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue lowers thymic T-cell output, giving decreased circulating T-cell counts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired thymic development and T-cell output\", \"target\": \"Severe combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum, absent thymic output produces a T-B+NK+ severe combined immunodeficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired thymic development and T-cell output\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent sinopulmonary infection is common in CHARGE syndrome, but the cited cohort could not attribute it to a measurable immune defect - airway, palatal and aspiration factors plausibly contribute - so this edge is left indirect rather than typed as immunodeficiency-driven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7\", \"target\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Apnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Both obstructive and central apnea occur in CHARGE syndrome, contributing \\u2014 with airway and feeding issues \\u2014 to respiratory morbidity and decreased life expectancy, and requiring airway surveillance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002104\"}}, {\"id\": \"Brain anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural brain anomalies are part of the expanded CHARGE phenotype recognized after identification of the molecular cause.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012443\"}}, {\"id\": \"CHD7\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"CHD7\"], \"gene_terms\": [{\"label\": \"CHD7\", \"id\": \"hgnc:20626\"}], \"association\": \"causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 encodes a chromodomain helicase DNA-binding protein that functions as an ATP-dependent chromatin-remodeling enzyme. Heterozygous loss-of-function variants reduce CHD7 dosage (haploinsufficiency), impairing the chromatin-remodeling activity needed to fine-tune transcriptional programs during development. Most pathogenic variants are unique nonsense or frameshift variants scattered throughout the gene, consistent with a loss-of-function mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"ATP-dependent chromatin remodeling\"], \"molecular_functions\": [\"ATP-dependent chromatin remodeler activity\"], \"genes\": [\"CHD7\"], \"gene_terms\": [{\"label\": \"CHD7\", \"id\": \"hgnc:20626\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Choanal atresia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Atresia (or stenosis) of the choanae, the bony or membranous narrowing of the posterior nasal passages, is one of the defining CHARGE anomalies. Its incidence is inversely related to that of clefting, the choanae usually being normal when a cleft is present.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000453\"}}, {\"id\": \"Cleft lip and/or palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft lip and/or cleft palate are commonly associated orofacial anomalies in CHARGE syndrome, present in about a third of patients and at similar rates regardless of CHD7 mutation status.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular coloboma is a cardinal feature of CHARGE syndrome and is more frequent in CHD7 mutation-positive individuals. It typically involves the choroid, retina and optic nerve and is commonly bilateral; iris, eyelid and optic-disc colobomas are described less often.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects are common in CHARGE syndrome; conotruncal anomalies are among the most prevalent forms and reflect the cardiac neural crest contribution to the disorder. Complex heart defects are a major contributor to early mortality.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Cranial nerve dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cranial nerve anomalies are part of the expanded CHARGE phenotype recognized after identification of the genetic cause, and include facial nerve palsy, olfactory dysfunction, and impaired swallowing from lower cranial nerve involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006824\"}}, {\"id\": \"Disrupted neural crest cell development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 acts cell-autonomously in multipotent neural crest cells to fine-tune expression of gene networks critical for their development and migration. Conditional deletion of Chd7 in neural crest cells in mice causes severe conotruncal heart defects and perinatal lethality, recapitulating the cardiac neural crest contribution to CHARGE-type malformations. Disrupted neural crest development provides a unifying explanation for the multisystem craniofacial, cardiac, and other anomalies of CHARGE syndrome.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Migratory neural crest cell\"], \"biological_processes\": [\"Neural crest cell development\", \"Neural crest cell migration\"]}}, {\"id\": \"External Ear Anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural anomalies of the external (outer) ear \\u2014 classically low-set, cup-shaped, or asymmetric ears with small or absent lobes \\u2014 are the \\\"E\\\" (ear anomalies) of the CHARGE mnemonic and a cardinal external feature, distinct from the sensorineural hearing loss and inner-ear (semicircular canal) findings already captured in this entry. They are present in about 90% of patients.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000356\"}}, {\"id\": \"External Genital Hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Genital hypoplasia \\u2014 the \\\"G\\\" of the CHARGE mnemonic \\u2014 reflects underlying hypogonadotropic hypogonadism and presents most often as micropenis with cryptorchidism in males and hypoplasia of the uterus and labia in females. Because the female findings are less readily detected, use of this feature as a diagnostic criterion is biased toward males.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003241\"}}, {\"id\": \"Facial palsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Facial nerve (cranial nerve VII) palsy is a frequent cranial nerve anomaly in CHARGE syndrome and is roughly twice as common in CHD7 mutation-positive as in mutation-negative individuals.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010628\"}}, {\"id\": \"Feeding difficulties\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Feeding difficulties (including dysphagia from cranial nerve dysfunction) are very common in CHARGE syndrome, often necessitating tube feeding, and associated aspiration is a leading cause of non-cardiovascular death.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011968\"}}, {\"id\": \"Growth Retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth retardation is the \\\"R\\\" (retarded growth and development) of the CHARGE mnemonic and a recognized manifestation warranting ongoing monitoring of growth; it is distinct from the developmental/cognitive delay already captured in this entry.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001510\"}}, {\"id\": \"Growth and developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postnatal growth deficiency and developmental delay/intellectual disability (\\\"retardation of growth and development\\\") are core CHARGE features, with variable severity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss in CHARGE syndrome may be conductive (from inner-ear structural anomalies), sensorineural (from cranial nerve VIII deficiency), or mixed, and ear anomalies including deafness are a cardinal feature. It affects close to 90% of patients regardless of CHD7 mutation status.\", \"meta\": {\"evidence_count\": 4, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Hypogonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypogonadotropic hypogonadism with genital hypoplasia is a feature of CHARGE syndrome, reflecting impaired development/migration of GnRH neurons from the olfactory placode and overlapping mechanistically with Kallmann syndrome.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000044\"}}, {\"id\": \"Hypothyroidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypothyroidism is part of the expanded CHARGE phenotype recognized after identification of the molecular cause, and is clinically important for endocrine surveillance and management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000821\"}}, {\"id\": \"Impaired cranial and otic placode-derived development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 is required for normal development of cranial placodes and the inner ear. A consistent and highly specific feature of CHARGE syndrome is hypoplasia of the semicircular canals (derived from the otic placode/otocyst), which produces vestibular dysfunction. Olfactory placode dysfunction contributes to anosmia and to the GnRH-neuron migration defect underlying hypogonadotropic hypogonadism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Otic placode formation\", \"Inner ear morphogenesis\"]}}, {\"id\": \"Impaired thymic development and T-cell output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The immune arm of CHD7 disorder, and the reason CHARGE syndrome appears in the IUIS classification of inborn errors of immunity. A minority of patients have thymic aplasia or hypoplasia with consequent reduction in T-cell numbers, ranging from mild T-cell lymphopenia through combined T- and B-cell defects to, in rare patients, a T-B+NK+ severe combined immunodeficiency that is fatal without immune reconstitution. The phenotype overlaps that of 22q11.2 deletion syndrome, with which CHARGE syndrome shares several non-immune features.\\nTwo things about this node are deliberately understated. First, it is not a constitutive feature: the source that catalogues it calls immunological problems \\\"a rare feature of CHARGE syndrome\\\", and a prospective cohort of 21 CHD7-genotyped patients found no significant immune defect at the time of testing despite recurrent sinopulmonary infections. Second, the population frequency is genuinely unsettled rather than merely unmeasured here - see the charge_immunodeficiency_prevalence discussion. Nothing in this entry should be read as asserting that T-cell deficiency is expected in an individual with CHARGE syndrome.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Thymus development\"]}}, {\"id\": \"Inappropriate p53 activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CHD7 binds the p53 promoter and negatively regulates p53 expression. Loss of CHD7 in neural crest cells (and in samples from patients with CHARGE syndrome) results in inappropriate p53 activation, and p53 heterozygosity partially rescues Chd7-null mouse phenotypes, indicating that excessive p53 activity contributes to CHARGE-type developmental defects downstream of CHD7 loss.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Signal transduction by p53 class mediator\"]}}, {\"id\": \"Recurrent infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent ear and sinopulmonary infections are common in children with CHARGE syndrome. Importantly, they are usually not attributable to a measurable immune defect: palatal, airway, eustachian-tube and aspiration factors contribute, and the prospective cohort cited here found an identifiable immune abnormality in only 2 of 21 patients. Recurrent infection in CHARGE syndrome should therefore prompt immune testing rather than be assumed to establish immunodeficiency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002719\"}}, {\"id\": \"Renal anomalies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal (kidney) anomalies are part of the expanded CHARGE phenotype recognized after identification of the molecular cause.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000077\"}}, {\"id\": \"Seizures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Seizures occur as part of the expanded CHARGE phenotype and may contribute to morbidity.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Semicircular canal hypoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypoplasia (or aplasia) of the semicircular canals is a consistent and highly specific radiologic feature of CHARGE syndrome, resulting in vestibular areflexia and balance problems. It is one of the major diagnostic criteria and, at 98% of CHD7 mutation-positive patients, the most highly penetrant feature of the syndrome \\u2014 the finding that makes temporal bone CT the single most informative diagnostic image.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011382\"}}, {\"id\": \"Severe combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A T-B+NK+ severe combined immunodeficiency has been reported in rare individuals with CHD7 pathogenic variants. It is the one immunological presentation of CHARGE syndrome that is fatal without immune reconstitution, which is why it matters clinically out of proportion to its frequency.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0004430\"}}, {\"id\": \"T-cell lymphopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Decreased circulating T-cell counts follow reduced thymic output. Severity ranges from isolated mild T-cell lymphopenia to profound T-cell deficiency. Transient lymphopenia in the first years of life is separately reported and is more common than a persistent identifiable T-cell defect.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_RARE\", \"term_id\": \"HP:0005403\"}}, {\"id\": \"Tracheoesophageal fistula\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Tracheoesophageal and esophageal anomalies, including tracheo-oesophageal fistula, occur in a subset of individuals with CHARGE syndrome, cause feeding difficulty and aspiration in infancy, and are typically corrected surgically.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002575\"}}, {\"id\": \"Vestibular Dysfunction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Vestibular (balance) dysfunction, related to the semicircular canal anomalies characteristic of CHARGE, is part of the expanded CHD7-disorder phenotype and contributes to delayed motor milestones and gait imbalance.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001751\"}}], \"edges\": [{\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Disrupted neural crest cell development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of CHD7 chromatin-remodeling activity disrupts the transcriptional programs of multipotent neural crest cells.\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Inappropriate p53 activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CHD7 normally binds the p53 promoter to repress p53; haploinsufficiency releases this repression and causes inappropriate p53 activation.\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Impaired cranial and otic placode-derived development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced CHD7 dosage impairs the chromatin remodeling required for cranial/otic placode and inner ear development.\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Growth and developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Seizures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Brain anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"External Ear Anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"External Genital Hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Growth Retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Apnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"target\": \"Impaired thymic development and T-cell output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A minority of individuals with CHD7 haploinsufficiency have thymic aplasia or hypoplasia with reduced T-cell output. The thymus is a pharyngeal-pouch derivative patterned by cranial neural crest, which is the usual rationale offered for the overlap with 22q11.2 deletion syndrome, but no study has established that intermediate chain in CHARGE syndrome itself, so this edge is left indirect.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Choanal atresia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Feeding difficulties\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Facial palsy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Cleft lip and/or palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Tracheoesophageal fistula\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted neural crest cell development\", \"target\": \"Renal anomalies\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Inappropriate p53 activation\", \"target\": \"Disrupted neural crest cell development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inappropriate p53 activation contributes to the neural crest-related phenotypes downstream of CHD7 loss; p53 heterozygosity partially rescues Chd7-null phenotypes.\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Semicircular canal hypoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Cranial nerve dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Hypogonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired cranial and otic placode-derived development\", \"target\": \"Vestibular Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired thymic development and T-cell output\", \"target\": \"T-cell lymphopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced thymic tissue lowers thymic T-cell output, giving decreased circulating T-cell counts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired thymic development and T-cell output\", \"target\": \"Severe combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"At the severe end of the spectrum, absent thymic output produces a T-B+NK+ severe combined immunodeficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired thymic development and T-cell output\", \"target\": \"Recurrent infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent sinopulmonary infection is common in CHARGE syndrome, but the cited cohort could not attribute it to a measurable immune defect - airway, palatal and aspiration factors plausibly contribute - so this edge is left indirect rather than typed as immunodeficiency-driven.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"CHD7\", \"target\": \"CHD7 haploinsufficiency and impaired ATP-dependent chromatin remodeling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5687,10 +5769,10 @@ This pathophysiological event involves abnormal Thymus development (GO:0048538).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0005403</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005403" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005403</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is T-cell lymphopenia, annotated with Decreased total T cell count (HP:0005403). HP:0005403 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5797,10 +5879,10 @@ This clinical feature is T-cell lymphopenia, annotated with Decreased total T ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5898,10 +5980,10 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000778" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000778</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000778" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000778</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thymic aplasia or hypoplasia, annotated with Hypoplasia of the thymus (HP:0000778). HP:0000778 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5979,10 +6061,10 @@ This clinical feature is Thymic aplasia or hypoplasia, annotated with Hypoplasia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6053,10 +6135,10 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002575</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002575" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002575</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tracheoesophageal fistula (HP:0002575). HP:0002575 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6163,10 +6245,10 @@ This clinical feature is Tracheoesophageal fistula (HP:0002575). HP:0002575 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Semicircular canal hypoplasia, annotated with Hypoplasia of the semicircular canal (HP:0011382). HP:0011382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6289,10 +6371,10 @@ This clinical feature is Semicircular canal hypoplasia, annotated with Hypoplasi
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6417,10 +6499,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000356</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000356" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000356</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is External ear anomaly, annotated with Abnormality of the outer ear (HP:0000356). HP:0000356 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6541,10 +6623,10 @@ This clinical feature is External ear anomaly, annotated with Abnormality of the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001751</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001751" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001751</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vestibular dysfunction, annotated with Abnormal vestibular function (HP:0001751). HP:0001751 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6622,10 +6704,10 @@ This clinical feature is Vestibular dysfunction, annotated with Abnormal vestibu
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000044</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000044</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6694,10 +6776,10 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6777,10 +6859,10 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6910,10 +6992,10 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000077</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal anomalies, annotated with Abnormality of the kidney (HP:0000077). HP:0000077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6984,10 +7066,10 @@ This clinical feature is Renal anomalies, annotated with Abnormality of the kidn
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0003241</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003241" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003241</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7117,10 +7199,10 @@ This clinical feature is External genital hypoplasia (HP:0003241). HP:0003241 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000453</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000453</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7241,10 +7323,10 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0010628</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010628" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0010628</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Facial nerve palsy, annotated with Facial palsy (HP:0010628). HP:0010628 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7342,10 +7424,10 @@ This clinical feature is Facial nerve palsy, annotated with Facial palsy (HP:001
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000175</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000175</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7450,10 +7532,10 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004430</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004430" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0004430</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe combined immunodeficiency (HP:0004430). HP:0004430 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7549,10 +7631,10 @@ This clinical feature is Severe combined immunodeficiency (HP:0004430). HP:00044
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7655,10 +7737,10 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7738,10 +7820,10 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0006824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7812,10 +7894,10 @@ This clinical feature is Cranial nerve paralysis (HP:0006824). HP:0006824 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7884,10 +7966,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7958,10 +8040,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0012443</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012443" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012443</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brain anomalies, annotated with Abnormal brain morphology (HP:0012443). HP:0012443 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8032,10 +8114,10 @@ This clinical feature is Brain anomalies, annotated with Abnormal brain morpholo
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0040326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0040326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Olfactory bulb hypoplasia, annotated with Hypoplasia of the olfactory bulb (HP:0040326). HP:0040326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8104,10 +8186,10 @@ This clinical feature is Olfactory bulb hypoplasia, annotated with Hypoplasia of
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic-like behavior, annotated with Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8185,10 +8267,10 @@ This clinical feature is Autistic-like behavior, annotated with Autistic behavio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002104</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002104</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8268,10 +8350,10 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001510</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001510</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Growth retardation, annotated with Growth delay (HP:0001510). HP:0001510 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8383,10 +8465,10 @@ This clinical feature is Growth retardation, annotated with Growth delay (HP:000
                         Gene: CHD7
 
 
-    <a href="https://bioregistry.io/hgnc:20626" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:20626</a>
+    <a href="https://bioregistry.io/hgnc:20626" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:20626</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CHD7 (hgnc:20626). hgnc:20626 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -8398,6 +8480,9 @@ This disease-associated gene is CHD7 (hgnc:20626). hgnc:20626 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -8525,7 +8610,7 @@ This disease-associated gene is CHD7 (hgnc:20626). hgnc:20626 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8625,7 +8710,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8725,7 +8810,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">cardiac surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">cardiac surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cardiac surgical procedure, annotated with Cardiac Surgery (NCIT:C157806). NCIT:C157806 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8825,7 +8910,7 @@ This treatment is cardiac surgical procedure, annotated with Cardiac Surgery (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -9853,6 +9938,12 @@ pathophysiology:
     term:
       id: hgnc:20626
       label: CHD7
+  molecular_functions:
+  - preferred_term: ATP-dependent chromatin remodeler activity
+    term:
+      id: GO:0140658
+      label: ATP-dependent chromatin remodeler activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: ATP-dependent chromatin remodeling
     term:
@@ -12139,7 +12230,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CHARGE syndrome", "mondoId": "MONDO:0008965", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CHARGE_syndrome", "yamlRevision": "8195f02e64a9"};
+        const OS_CONFIG = {"diseaseName": "CHARGE syndrome", "mondoId": "MONDO:0008965", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CHARGE_syndrome", "yamlRevision": "9a207999d6ca"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

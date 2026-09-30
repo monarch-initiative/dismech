@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4835,6 +4874,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airflow-limitation" data-dismech-node="Airflow Limitation" data-dismech-type="pathophysiology">
                 <div class="item-name">Airflow Limitation</div>
 
+
                 <div class="item-desc">Obstruction of airflow due to inflammation, mucus build-up, and remodeling of the airways.</div>
 
 
@@ -5074,6 +5114,7 @@ This pathophysiological event occurs in small airway.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-inflammation" data-dismech-node="Chronic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Inflammation</div>
+
 
                 <div class="item-desc">Persistent irritation from inhaled substances like cigarette smoke leads to airway and alveolar inflammation.</div>
 
@@ -5378,6 +5419,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-remodeling" data-dismech-node="Airway Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Remodeling</div>
 
+
                 <div class="item-desc">Structural changes in the airway due to chronic inflammation, including fibrosis and increased airway thickness.</div>
 
 
@@ -5619,6 +5661,7 @@ This pathophysiological event occurs in small airway.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-destruction" data-dismech-node="Alveolar Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Destruction</div>
+
 
                 <div class="item-desc">Breakdown of alveolar walls, leading to reduced surface area for gas exchange and loss of lung elasticity.</div>
 
@@ -5879,6 +5922,7 @@ This pathophysiological event occurs in lung parenchyma (UBERON:0008946). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-mitochondrial-dysfunction" data-dismech-node="Oxidative Stress and Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress and Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Cigarette smoke and pollutants trigger mitochondrial ROS production, impaired mitophagy, and reduced antioxidant defenses, amplifying inflammation.</div>
 
@@ -6169,6 +6213,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucus-hypersecretion" data-dismech-node="Mucus Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucus Hypersecretion</div>
 
+
                 <div class="item-desc">Upregulation of MUC5AC and MUC5B, goblet cell hyperplasia, and impaired mucociliary clearance contribute to mucus plugging.</div>
 
 
@@ -6370,6 +6415,7 @@ This pathophysiological event occurs in small airway.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp3-inflammasome-activation" data-dismech-node="NLRP3 Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 Inflammasome Activation</div>
 
+
                 <div class="item-desc">Mitochondrial ROS and particulate exposures activate NLRP3 inflammasome, leading to caspase-1 activation and IL-1β/IL-18 release.</div>
 
 
@@ -6552,6 +6598,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-copper-dyshomeostasis" data-dismech-node="Pulmonary Copper Dyshomeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Copper Dyshomeostasis</div>
+
 
                 <div class="item-desc">Cigarette smoke disrupts copper handling in the lung, producing a microenvironment in which intracellular copper is no longer held below the threshold that homeostatic mechanisms normally maintain. This is the proposed initiating step of the cuproptosis arm and is a state of the copper-handling machinery, not yet cell death.</div>
 
@@ -6764,6 +6811,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cuproptosis-of-alveolar-structural-cells" data-dismech-node="Cuproptosis of Alveolar Structural Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Cuproptosis of Alveolar Structural Cells</div>
+
 
                 <div class="item-desc">Copper-dependent regulated cell death, mechanistically distinct from other death pathways, in which copper binds lipoylated TCA-cycle components and the resulting protein aggregation and iron-sulfur cluster loss produce proteotoxic stress. Because the pathway depends on mitochondrial respiration, the review proposes that oxidative-phosphorylation-reliant alveolar type II epithelial cells and M2 macrophages are the vulnerable populations in COPD. That cell-type-specific prediction is the review&#39;s hypothesis, not an observation in COPD lung.</div>
 
@@ -7098,6 +7146,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cuproptotic-damp-release" data-dismech-node="Cuproptotic DAMP Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Cuproptotic DAMP Release</div>
 
+
                 <div class="item-desc">Immunogenic damage-associated molecular patterns released by cuproptotic alveolar cells, which engage innate immune pattern recognition and are the proposed link from copper-dependent cell death to the inflammatory arm of COPD.</div>
 
 
@@ -7261,6 +7310,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pro-inflammatory-macrophage-polarization" data-dismech-node="Pro-Inflammatory Macrophage Polarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Pro-Inflammatory Macrophage Polarization</div>
+
 
                 <div class="item-desc">Macrophage activation toward the pro-inflammatory state in response to cuproptosis-derived DAMPs. In the review&#39;s model this is the step that closes the loop: the resulting inflammatory milieu further impairs copper handling in cells that survived, sensitizing them to a subsequent round of cuproptotic death.</div>
 
@@ -7453,6 +7503,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-senescence" data-dismech-node="Cellular Senescence" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Senescence</div>
 
+
                 <div class="item-desc">Senescent epithelial, fibroblast, and immune cells exhibit senescence-associated secretory phenotype (SASP), promoting chronic inflammation and remodeling.</div>
 
 
@@ -7627,6 +7678,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sirt1-mediated-nad-signaling-and-protective-deacetylation" data-dismech-node="SIRT1-Mediated NAD+ Signaling and Protective Deacetylation" data-dismech-type="pathophysiology">
                 <div class="item-name">SIRT1-Mediated NAD+ Signaling and Protective Deacetylation</div>
+
 
                 <div class="item-desc">SIRT1 (Sirtuin 1), an NAD+-dependent deacetylase, exerts protective effects in COPD by inhibiting pro-inflammatory signaling pathways (NF-κB, STAT3) while activating stress-response transcription factors (Nrf2, FOXO3) and suppressing pro-fibrotic TGF-β/Smad signaling. In COPD, SIRT1 reduces neutrophilic inflammation, mitigates alveolar senescence, and helps restore protease/antiprotease balance. SIRT1 also mitigates oxidative stress and mitochondrial dysfunction.</div>
 
@@ -8233,6 +8285,7 @@ This pathophysiological event involves negative regulation of inflammatory respo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protease-antiprotease-imbalance-mmp-2-timp-2-axis" data-dismech-node="Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)" data-dismech-type="pathophysiology">
                 <div class="item-name">Protease-Antiprotease Imbalance (MMP-2/TIMP-2 Axis)</div>
+
 
                 <div class="item-desc">Oxidative stress dysregulates the matrix metalloproteinase-2 (MMP-2) to tissue inhibitor of metalloproteinase-2 (TIMP-2) ratio, tipping the balance toward unopposed proteolysis of the alveolar extracellular matrix. Cigarette smoke and particulate matter exposure activate inflammatory signaling (NF-κB, MAPK, AP-1) that upregulates MMP-2 expression and suppresses TIMP-2 activity, resulting in enhanced degradation of lung elastic fibers and collagen. Genetic polymorphisms in MMP-2 and TIMP-2 influence individual susceptibility and disease severity.</div>
 
@@ -9692,6 +9745,9 @@ This disease-associated gene is SERPINA1 (hgnc:8941). hgnc:8941 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9810,6 +9866,9 @@ This disease-associated gene is MMP12 (hgnc:7158). hgnc:7158 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-nlrp3" data-dismech-node="NLRP3" data-dismech-type="genetic">
@@ -9841,6 +9900,9 @@ This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -9884,6 +9946,9 @@ This disease-associated gene is TNF (hgnc:11892). hgnc:11892 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-il1b" data-dismech-node="IL1B" data-dismech-type="genetic">
@@ -9915,6 +9980,9 @@ This disease-associated gene is IL1B (hgnc:5992). hgnc:5992 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -9958,6 +10026,9 @@ This disease-associated gene is IL6 (hgnc:6018). hgnc:6018 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-nfe2l2" data-dismech-node="NFE2L2" data-dismech-type="genetic">
@@ -9989,6 +10060,9 @@ This disease-associated gene is NFE2L2 (hgnc:7782). hgnc:7782 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -10524,6 +10598,28 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        roflumilast
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_47657" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-102">CHEBI:47657</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-102">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses roflumilast (CHEBI:47657). CHEBI:47657 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
 
 
 
@@ -10639,7 +10735,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-102">Oxygen Therapy<span class="pill-tip" role="tooltip" id="pill-tip-102">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-103">Oxygen Therapy<span class="pill-tip" role="tooltip" id="pill-tip-103">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10782,7 +10878,7 @@ This treatment is Oxygen Therapy (NCIT:C94624). NCIT:C94624 is a clinical interv
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-103">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-103">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-104">physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -10939,7 +11035,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-104">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-104">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11094,7 +11190,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-105">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-105">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">organ transplantation<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11251,7 +11347,7 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-106">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-106">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-107">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-107">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11280,6 +11376,28 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     </div>
 
 
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        acetylcysteine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_22198" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-108">CHEBI:22198</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-108">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses acetylcysteine (CHEBI:22198). CHEBI:22198 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -11315,7 +11433,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-107">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-107">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-109">antibiotic therapy<span class="pill-tip" role="tooltip" id="pill-tip-109">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11345,6 +11463,28 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     </div>
 
 
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        azithromycin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2955" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-110">CHEBI:2955</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-110">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses azithromycin (CHEBI:2955). CHEBI:2955 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
 
 
 
@@ -11380,7 +11520,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-108">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-108">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-111">biologic therapy<span class="pill-tip" role="tooltip" id="pill-tip-111">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -11462,11 +11602,11 @@ This treatment is biologic therapy, annotated with Immunotherapy (NCIT:C15262). 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-109">ECTO:6000029</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_6000029" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-112">ECTO:6000029</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-109">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-112">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is Tobacco smoking exposure, annotated with exposure to tobacco smoking (ECTO:6000029). ECTO:6000029 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -11713,11 +11853,11 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-110">ECTO:8000036</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_8000036" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-113">ECTO:8000036</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-110">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is Air pollution exposure, annotated with exposure to air pollution (ECTO:8000036). ECTO:8000036 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -11914,11 +12054,11 @@ This environmental factor is Air pollution exposure, annotated with exposure to 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_7000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-111">ECTO:7000001</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_7000001" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-114">ECTO:7000001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-111">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is Occupational dust exposure, annotated with exposure to dust (ECTO:7000001). ECTO:7000001 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -12830,11 +12970,11 @@ This environmental factor is Occupational dust exposure, annotated with exposure
                         Pulmonary alveolar type 2 cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-112">CL:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002063" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-115">CL:0002063</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-112">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-115">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses Pulmonary alveolar type 2 cell (CL:0002063). CL:0002063 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -12846,11 +12986,11 @@ This experimental model uses Pulmonary alveolar type 2 cell (CL:0002063). CL:000
                         Pulmonary capillary endothelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4028001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-113">CL:4028001</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4028001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-116">CL:4028001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-113">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-116">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses Pulmonary capillary endothelial cell (CL:4028001). CL:4028001 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -12862,11 +13002,11 @@ This experimental model uses Pulmonary capillary endothelial cell (CL:4028001). 
                         Pericyte
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-114">CL:0000669</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000669" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-117">CL:0000669</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-114">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-117">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses Pericyte (CL:0000669). CL:0000669 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -12885,11 +13025,11 @@ This experimental model uses Pericyte (CL:0000669). CL:0000669 is a cell type fr
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-115">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-118">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-115">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-118">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -12905,11 +13045,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                             alveolus of lung
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-116">UBERON:0002299</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002299" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-119">UBERON:0002299</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-116">Uberon multi-species anatomy ontology (UBERON)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-119">Uberon multi-species anatomy ontology (UBERON)
 Relation: this experimental model uses this anatomical location
 This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
@@ -13235,11 +13375,11 @@ This experimental model uses alveolus of lung (UBERON:0002299). UBERON:0002299 i
                         Bronchial epithelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-117">CL:0002328</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002328" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-120">CL:0002328</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-117">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-120">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses Bronchial epithelial cell (CL:0002328). CL:0002328 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -13251,11 +13391,11 @@ This experimental model uses Bronchial epithelial cell (CL:0002328). CL:0002328 
                         Pulmonary capillary endothelial cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_4028001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-118">CL:4028001</a>
+    <a href="http://purl.obolibrary.org/obo/CL_4028001" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-121">CL:4028001</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-118">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-121">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses Pulmonary capillary endothelial cell (CL:4028001). CL:4028001 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -13274,11 +13414,11 @@ This experimental model uses Pulmonary capillary endothelial cell (CL:4028001). 
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-119">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-122">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-119">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-122">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -13294,11 +13434,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                             epithelium of bronchus
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002031" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-120">UBERON:0002031</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002031" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-123">UBERON:0002031</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-120">Uberon multi-species anatomy ontology (UBERON)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-123">Uberon multi-species anatomy ontology (UBERON)
 Relation: this experimental model uses this anatomical location
 This experimental model uses epithelium of bronchus (UBERON:0002031). UBERON:0002031 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                         </div>
@@ -15113,6 +15253,11 @@ treatments:
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: roflumilast
+      term:
+        id: CHEBI:47657
+        label: roflumilast
 - name: Oxygen Therapy
   description: Long-term oxygen use for patients with severe chronic hypoxemia.
   evidence:
@@ -15231,6 +15376,11 @@ treatments:
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: acetylcysteine
+      term:
+        id: CHEBI:22198
+        label: acetylcysteine
 - name: Macrolide Antibiotics
   description: Long-term macrolide therapy reduces exacerbation frequency but raises antimicrobial resistance concerns.
   notes: Used in chronic bronchitis phenotype; dual anti-inflammatory and antimicrobial effects.
@@ -15239,6 +15389,11 @@ treatments:
     term:
       id: NCIT:C15620
       label: Antibiotic Therapy
+    therapeutic_agent:
+    - preferred_term: azithromycin
+      term:
+        id: CHEBI:2955
+        label: azithromycin
 - name: Biologic Therapies
   description: Precision biologics targeting Type 2 inflammation in eosinophilic COPD subsets.
   notes: Dupilumab (anti-IL-4/IL-13) shows benefit in eosinophilic COPD; anti-IL-33 and anti-TSLP under investigation.
@@ -16050,7 +16205,7 @@ COPD is a heterogeneous chronic inflammatory lung disease characterized by persi
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic_Obstructive_Pulmonary_Disease", "mondoId": "MONDO:0005002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Obstructive_Pulmonary_Disease", "yamlRevision": "1e97059677ea"};
+        const OS_CONFIG = {"diseaseName": "Chronic_Obstructive_Pulmonary_Disease", "mondoId": "MONDO:0005002", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Obstructive_Pulmonary_Disease", "yamlRevision": "7dfc61c1f16c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

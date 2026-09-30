@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 19</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=TNF%20Receptor-Associated%20Periodic%20Syndrome"
@@ -4014,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">19</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4451,6 +4490,7 @@ those with other variants."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnfrsf1a-misfolding-and-er-retention" data-dismech-node="TNFRSF1A Misfolding and ER Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">TNFRSF1A Misfolding and ER Retention</div>
 
+
                 <div class="item-desc">Pathogenic TNFRSF1A variants, especially cysteine-residue substitutions that disrupt conserved extracellular disulfide bonds, cause misfolding of the TNFR1 protein. The mutant receptor forms abnormal disulfide-linked oligomers, fails to bind TNF, and is retained intracellularly in the endoplasmic reticulum rather than trafficking to the cell surface, distinguishing the mechanism from a simple loss of the soluble TNF-decoy receptor.</div>
 
 
@@ -4691,6 +4731,7 @@ intracellularly and colocalized with endoplasmic reticulum (ER) markers."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-innate-cytokine-signaling" data-dismech-node="Enhanced Innate Cytokine Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Innate Cytokine Signaling</div>
+
 
                 <div class="item-desc">Misfolded ER-retained TNFR1 raises mitochondrial reactive oxygen species, which potentiate MAPK signaling and the LPS-driven production of a broad set of pro-inflammatory cytokines (IL-1 beta, IL-6, and TNF) by monocytes and macrophages. This enhanced innate immune responsiveness, rather than loss of TNF decoy function, drives the autoinflammatory state.</div>
 
@@ -5063,6 +5104,7 @@ capacity and mitochondrial ROS generation"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-autoinflammation" data-dismech-node="Systemic Autoinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Autoinflammation</div>
 
+
                 <div class="item-desc">Recurrent, prolonged sterile inflammatory attacks affecting multiple systems: fever, sterile peritonitis, migratory myalgia with overlying rash, periorbital edema, conjunctivitis, arthralgia, and serositis, accompanied by a marked acute-phase response.</div>
 
 
@@ -5226,6 +5268,70 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent Prolonged Fever</span>
+
+	                            <span class="crosslink-desc">The defining feature, and what separates TRAPS from the other periodic fevers: attacks last one to three weeks rather than days.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Migratory Erythematous Rash</span>
+
+	                            <span class="crosslink-desc">A centrifugally migrating erythematous plaque, characteristically moving distally over an underlying myalgic area.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Myalgia</span>
+
+	                            <span class="crosslink-desc">Monocytic fasciitis rather than myositis — the muscle pain migrates with the overlying rash, which is why the two travel together.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Periorbital Edema</span>
+
+	                            <span class="crosslink-desc">Periorbital swelling, often with conjunctivitis, and one of the most specific signs of this syndrome.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Conjunctivitis</span>
+
+	                            <span class="crosslink-desc">Ocular surface inflammation accompanying the periorbital oedema.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Abdominal Pain</span>
+
+	                            <span class="crosslink-desc">Serosal inflammation during attacks, mimicking a surgical abdomen.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Arthralgia</span>
+
+	                            <span class="crosslink-desc">Joint pain during attacks, typically non-erosive.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Lymphadenopathy</span>
+
+	                            <span class="crosslink-desc">Nodal enlargement during attacks.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">AA Amyloidosis</span>
 
 	                            <span class="crosslink-desc">Chronic and subclinical inflammation between attacks sustains elevation of serum amyloid A, leading to deposition of AA amyloid fibrils, predominantly in the kidney, causing proteinuria and progressive renal failure.</span>
@@ -5281,6 +5387,7 @@ amyloidosis."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aa-amyloidosis" data-dismech-node="AA Amyloidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">AA Amyloidosis</div>
 
+
                 <div class="item-desc">Reactive (AA) systemic amyloidosis arising from chronically elevated serum amyloid A, with renal-predominant amyloid fibril deposition leading to proteinuria, nephrotic syndrome, and progressive kidney failure. It is the principal organ-threatening, potentially fatal complication of TRAPS and is largely preventable with sustained suppression of inflammation.</div>
 
 
@@ -5319,6 +5426,21 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Proteinuria</span>
+
+	                            <span class="crosslink-desc">Renal amyloid deposition presents as proteinuria, which is the first sign of the complication that determines long-term prognosis in untreated disease.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
 
 
 
@@ -5386,7 +5508,7 @@ developed in 16 (10%) patients at a median age of 43 years."</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AA Amyloidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011034\"}}, {\"id\": \"Anakinra\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant IL-1 receptor antagonist; a first-line IL-1 inhibitor for TRAPS that rapidly controls attacks and acute-phase inflammation and helps prevent AA amyloidosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Canakinumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-1 beta monoclonal antibody; the only biologic with a pivotal randomized controlled trial and regulatory approval for TRAPS, controlling and preventing flares and helping to prevent AA amyloidosis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"monoclonal antibody\"]}}, {\"id\": \"Enhanced Innate Cytokine Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misfolded ER-retained TNFR1 raises mitochondrial reactive oxygen species, which potentiate MAPK signaling and the LPS-driven production of a broad set of pro-inflammatory cytokines (IL-1 beta, IL-6, and TNF) by monocytes and macrophages. This enhanced innate immune responsiveness, rather than loss of TNF decoy function, drives the autoinflammatory state.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\", \"macrophage\", \"neutrophil\"], \"biological_processes\": [\"reactive oxygen species metabolic process\", \"interleukin-1 beta production\", \"interleukin-6 production\", \"tumor necrosis factor production\", \"inflammatory response\"]}}, {\"id\": \"P46L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common low-penetrance TNFRSF1A variant present in approximately 1% of control chromosomes, enriched in individuals of African ancestry, associated with a milder TRAPS-like phenotype; a reduced-penetrance susceptibility/risk allele.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"R92Q\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common low-penetrance TNFRSF1A variant (legacy nomenclature; c.362G\u003eA) present in approximately 1% of control chromosomes. It behaves like the wild-type receptor in cell-biological assays and is associated with a milder phenotype and rare progression to amyloidosis; it is best regarded as a reduced-penetrance susceptibility/risk allele rather than a fully pathogenic variant.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Systemic Autoinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent, prolonged sterile inflammatory attacks affecting multiple systems: fever, sterile peritonitis, migratory myalgia with overlying rash, periorbital edema, conjunctivitis, arthralgia, and serositis, accompanied by a marked acute-phase response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"monocyte\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"peritoneum\", \"skeletal muscle tissue\"]}}, {\"id\": \"T50M\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"High-penetrance structural TNFRSF1A variant occurring at a CpG hotspot, strongly associated with persistent disease and AA amyloidosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TNFRSF1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}], \"association\": \"Primary causal gene\"}}, {\"id\": \"TNFRSF1A Misfolding and ER Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic TNFRSF1A variants, especially cysteine-residue substitutions that disrupt conserved extracellular disulfide bonds, cause misfolding of the TNFR1 protein. The mutant receptor forms abnormal disulfide-linked oligomers, fails to bind TNF, and is retained intracellularly in the endoplasmic reticulum rather than trafficking to the cell surface, distinguishing the mechanism from a simple loss of the soluble TNF-decoy receptor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"ERAD pathway\"], \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}]}}], \"edges\": [{\"source\": \"TNFRSF1A Misfolding and ER Retention\", \"target\": \"Enhanced Innate Cytokine Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER retention of misfolded TNFR1 drives ER stress and elevated mitochondrial reactive oxygen species, lowering the threshold for innate immune activation and amplifying pro-inflammatory cytokine production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Innate Cytokine Signaling\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amplified IL-1 beta, IL-6, and TNF secretion drives recurrent systemic inflammatory attacks of fever, serositis, myalgia, and rash.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"AA Amyloidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic and subclinical inflammation between attacks sustains elevation of serum amyloid A, leading to deposition of AA amyloid fibrils, predominantly in the kidney, causing proteinuria and progressive renal failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anakinra\", \"target\": \"Enhanced Innate Cytokine Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Canakinumab\", \"target\": \"Enhanced Innate Cytokine Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNFRSF1A\", \"target\": \"TNFRSF1A Misfolding and ER Retention\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"R92Q\", \"target\": \"TNFRSF1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"P46L\", \"target\": \"TNFRSF1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"T50M\", \"target\": \"TNFRSF1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AA Amyloidosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0011034\"}}, {\"id\": \"Abdominal Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002027\"}}, {\"id\": \"Anakinra\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Recombinant IL-1 receptor antagonist; a first-line IL-1 inhibitor for TRAPS that rapidly controls attacks and acute-phase inflammation and helps prevent AA amyloidosis.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002829\"}}, {\"id\": \"Canakinumab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-IL-1 beta monoclonal antibody; the only biologic with a pivotal randomized controlled trial and regulatory approval for TRAPS, controlling and preventing flares and helping to prevent AA amyloidosis.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"monoclonal antibody\"]}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000509\"}}, {\"id\": \"Enhanced Innate Cytokine Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Misfolded ER-retained TNFR1 raises mitochondrial reactive oxygen species, which potentiate MAPK signaling and the LPS-driven production of a broad set of pro-inflammatory cytokines (IL-1 beta, IL-6, and TNF) by monocytes and macrophages. This enhanced innate immune responsiveness, rather than loss of TNF decoy function, drives the autoinflammatory state.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\", \"macrophage\", \"neutrophil\"], \"biological_processes\": [\"reactive oxygen species metabolic process\", \"interleukin-1 beta production\", \"interleukin-6 production\", \"tumor necrosis factor production\", \"inflammatory response\"]}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Migratory Erythematous Rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0033622\"}}, {\"id\": \"Myalgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003326\"}}, {\"id\": \"P46L\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common low-penetrance TNFRSF1A variant present in approximately 1% of control chromosomes, enriched in individuals of African ancestry, associated with a milder TRAPS-like phenotype; a reduced-penetrance susceptibility/risk allele.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Periorbital Edema\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100539\"}}, {\"id\": \"Proteinuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000093\"}}, {\"id\": \"R92Q\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Common low-penetrance TNFRSF1A variant (legacy nomenclature; c.362G\u003eA) present in approximately 1% of control chromosomes. It behaves like the wild-type receptor in cell-biological assays and is associated with a milder phenotype and rare progression to amyloidosis; it is best regarded as a reduced-penetrance susceptibility/risk allele rather than a fully pathogenic variant.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Recurrent Prolonged Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001954\"}}, {\"id\": \"Systemic Autoinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent, prolonged sterile inflammatory attacks affecting multiple systems: fever, sterile peritonitis, migratory myalgia with overlying rash, periorbital edema, conjunctivitis, arthralgia, and serositis, accompanied by a marked acute-phase response.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"monocyte\"], \"biological_processes\": [\"inflammatory response\"], \"locations\": [\"peritoneum\", \"skeletal muscle tissue\"]}}, {\"id\": \"T50M\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"High-penetrance structural TNFRSF1A variant occurring at a CpG hotspot, strongly associated with persistent disease and AA amyloidosis.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"TNFRSF1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\", \"id\": \"hgnc:11916\"}], \"association\": \"Primary causal gene\"}}, {\"id\": \"TNFRSF1A Misfolding and ER Retention\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic TNFRSF1A variants, especially cysteine-residue substitutions that disrupt conserved extracellular disulfide bonds, cause misfolding of the TNFR1 protein. The mutant receptor forms abnormal disulfide-linked oligomers, fails to bind TNF, and is retained intracellularly in the endoplasmic reticulum rather than trafficking to the cell surface, distinguishing the mechanism from a simple loss of the soluble TNF-decoy receptor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"monocyte\"], \"biological_processes\": [\"response to endoplasmic reticulum stress\", \"ERAD pathway\"], \"genes\": [\"TNFRSF1A\"], \"gene_terms\": [{\"label\": \"TNFRSF1A\"}]}}], \"edges\": [{\"source\": \"TNFRSF1A Misfolding and ER Retention\", \"target\": \"Enhanced Innate Cytokine Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ER retention of misfolded TNFR1 drives ER stress and elevated mitochondrial reactive oxygen species, lowering the threshold for innate immune activation and amplifying pro-inflammatory cytokine production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Enhanced Innate Cytokine Signaling\", \"target\": \"Systemic Autoinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Amplified IL-1 beta, IL-6, and TNF secretion drives recurrent systemic inflammatory attacks of fever, serositis, myalgia, and rash.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Recurrent Prolonged Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The defining feature, and what separates TRAPS from the other periodic fevers: attacks last one to three weeks rather than days.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Migratory Erythematous Rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A centrifugally migrating erythematous plaque, characteristically moving distally over an underlying myalgic area.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Myalgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Monocytic fasciitis rather than myositis \\u2014 the muscle pain migrates with the overlying rash, which is why the two travel together.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Periorbital Edema\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Periorbital swelling, often with conjunctivitis, and one of the most specific signs of this syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular surface inflammation accompanying the periorbital oedema.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Abdominal Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Serosal inflammation during attacks, mimicking a surgical abdomen.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Joint pain during attacks, typically non-erosive.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Nodal enlargement during attacks.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Autoinflammation\", \"target\": \"AA Amyloidosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic and subclinical inflammation between attacks sustains elevation of serum amyloid A, leading to deposition of AA amyloid fibrils, predominantly in the kidney, causing proteinuria and progressive renal failure.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"AA Amyloidosis\", \"target\": \"Proteinuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Renal amyloid deposition presents as proteinuria, which is the first sign of the complication that determines long-term prognosis in untreated disease.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anakinra\", \"target\": \"Enhanced Innate Cytokine Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Canakinumab\", \"target\": \"Enhanced Innate Cytokine Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNFRSF1A\", \"target\": \"TNFRSF1A Misfolding and ER Retention\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"R92Q\", \"target\": \"TNFRSF1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"P46L\", \"target\": \"TNFRSF1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"T50M\", \"target\": \"TNFRSF1A\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6374,6 +6496,9 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6492,6 +6617,7 @@ symptoms in individuals with noncysteine mutations."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6507,7 +6633,13 @@ This variant is in TNFRSF1A.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Common low-penetrance TNFRSF1A variant (legacy nomenclature; c.362G&gt;A) present in approximately 1% of control chromosomes. It behaves like the wild-type receptor in cell-biological assays and is associated with a milder phenotype and rare progression to amyloidosis; it is best regarded as a reduced-penetrance susceptibility/risk allele rather than a fully pathogenic variant.</div>
@@ -6571,6 +6703,7 @@ in approximately 1% of control chromosomes."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6586,7 +6719,13 @@ This variant is in TNFRSF1A.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Common low-penetrance TNFRSF1A variant present in approximately 1% of control chromosomes, enriched in individuals of African ancestry, associated with a milder TRAPS-like phenotype; a reduced-penetrance susceptibility/risk allele.</div>
@@ -6650,6 +6789,7 @@ in approximately 1% of control chromosomes."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6665,7 +6805,13 @@ This variant is in TNFRSF1A.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">High-penetrance structural TNFRSF1A variant occurring at a CpG hotspot, strongly associated with persistent disease and AA amyloidosis.</div>
@@ -8473,6 +8619,38 @@ pathophysiology:
     snippet: &#34;which is characterized by attacks of fever, sterile peritonitis, arthralgia, myalgia, \nskin rash, and/or conjunctivitis; some patients also develop systemic \namyloidosis.&#34;
     explanation: TRAPS attacks involve fever, sterile peritonitis, arthralgia, myalgia, skin rash, and conjunctivitis.
   downstream:
+  - target: Recurrent Prolonged Fever
+    causal_link_type: DIRECT
+    description: &gt;-
+      The defining feature, and what separates TRAPS from the other periodic fevers: attacks last one to three weeks rather than days.
+  - target: Migratory Erythematous Rash
+    causal_link_type: DIRECT
+    description: &gt;-
+      A centrifugally migrating erythematous plaque, characteristically moving distally over an underlying myalgic area.
+  - target: Myalgia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Monocytic fasciitis rather than myositis — the muscle pain migrates with the overlying rash, which is why the two travel together.
+  - target: Periorbital Edema
+    causal_link_type: DIRECT
+    description: &gt;-
+      Periorbital swelling, often with conjunctivitis, and one of the most specific signs of this syndrome.
+  - target: Conjunctivitis
+    causal_link_type: DIRECT
+    description: &gt;-
+      Ocular surface inflammation accompanying the periorbital oedema.
+  - target: Abdominal Pain
+    causal_link_type: DIRECT
+    description: &gt;-
+      Serosal inflammation during attacks, mimicking a surgical abdomen.
+  - target: Arthralgia
+    causal_link_type: DIRECT
+    description: &gt;-
+      Joint pain during attacks, typically non-erosive.
+  - target: Lymphadenopathy
+    causal_link_type: DIRECT
+    description: &gt;-
+      Nodal enlargement during attacks.
   - target: AA Amyloidosis
     causal_link_type: DIRECT
     description: &gt;-
@@ -8505,6 +8683,11 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;AA amyloidosis has \ndeveloped in 16 (10%) patients at a median age of 43 years.&#34;
     explanation: AA amyloidosis developed in 10% of the Eurofever/EUROTRAPS registry patients at a median age of 43 years.
+  downstream:
+  - target: Proteinuria
+    causal_link_type: DIRECT
+    description: &gt;-
+      Renal amyloid deposition presents as proteinuria, which is the first sign of the complication that determines long-term prognosis in untreated disease.
 phenotypes:
 - category: Systemic
   name: Recurrent Prolonged Fever
@@ -9505,7 +9688,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "TNF Receptor-Associated Periodic Syndrome", "mondoId": "MONDO:0007727", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TNF_Receptor-Associated_Periodic_Syndrome", "yamlRevision": "fe6b2755eddb"};
+        const OS_CONFIG = {"diseaseName": "TNF Receptor-Associated Periodic Syndrome", "mondoId": "MONDO:0007727", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TNF_Receptor-Associated_Periodic_Syndrome", "yamlRevision": "28f93c20dff8"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

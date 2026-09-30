@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 33</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 36</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Ataxia-telangiectasia"
@@ -4016,7 +4055,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">33</div>
+                <div class="stat-value">36</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4076,6 +4115,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#models">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🧫</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Models</div>
+            </div>
+            </a>
 
 
 
@@ -4877,6 +4924,13 @@ This subtype is caused by variation in ATM (hgnc:795). hgnc:795 is a gene from t
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atm-kinase-deficiency-and-defective-dna-damage-signaling" data-dismech-node="ATM kinase deficiency and defective DNA-damage signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">ATM kinase deficiency and defective DNA-damage signaling</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic pathogenic ATM variants reduce or abolish ATM kinase function. ATM normally coordinates signaling after DNA double-strand breaks and oxidative or genotoxic stress, including checkpoint activation and repair. Its deficiency is the established proximal lesion; downstream tissue selectivity is not explained by the DNA-damage response alone.</div>
 
 
@@ -5081,6 +5135,39 @@ This pathophysiological event involves decreased protein serine/threonine kinase
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Computational models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#computational-model-atm-atr-dna-damage-response-and-drug-repurposing-ode-model">ATM/ATR DNA-damage-response and drug-repurposing ODE model</a>
+
+                            <span class="crosslink-meta">KINETIC</span>
+
+
+                            <span class="crosslink-meta">COPASI 4.44 (Build 295)</span>
+
+
+                            <span class="crosslink-desc">The disease arm directly removes ATM activity and follows the resulting ATR, checkpoint, p53, and repair dynamics, thereby capturing a reduced molecular subset of the proximal A-T mechanism.</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#computational-model-atm-p-ala2386glu-variant-structure-predictions">ATM p.Ala2386Glu variant-structure predictions</a>
+
+                            <span class="crosslink-meta">STRUCTURAL PREDICTION</span>
+
+
+                            <span class="crosslink-meta">Missense3D/PHYRE2; DynaMut; PyMOL</span>
+
+
+                            <span class="crosslink-desc">The models connect one patient allele to altered ATM structure and reduced protein stability, while patient-cell assays anchor the predicted defect to reduced ATM abundance and residual checkpoint signaling.</span>
+
+                        </div>
+
+	                    </div>
+	                </div>
+
 
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
@@ -5204,6 +5291,13 @@ This pathophysiological event involves decreased protein serine/threonine kinase
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genomic-instability-radiosensitivity-and-cancer-predisposition" data-dismech-node="Genomic instability, radiosensitivity, and cancer predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Genomic instability, radiosensitivity, and cancer predisposition</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Defective double-strand-break repair and checkpoint signaling permit spontaneous and induced chromosome breaks and rearrangements. Ionizing radiation and radiomimetic agents therefore cause disproportionate cytotoxicity. Genomic instability also promotes malignancy, especially lymphoid cancers in children; solid tumors comprise a larger share in adults and in variant A-T.</div>
 
@@ -5427,6 +5521,13 @@ This pathophysiological event involves abnormal chromosome organization (GO:0051
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-microglial-neuroinflammation" data-dismech-node="Oxidative stress and microglial neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative stress and microglial neuroinflammation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient cerebellar single-nucleus data show inflammatory microglial states, while patient-derived co-cultures show microglia-associated neuronal cytotoxicity. Oxidative stress and microglial signaling are therefore represented as a provisional contributing pathway, not as the unique or sufficient explanation for A-T neurodegeneration.</div>
 
@@ -5708,6 +5809,13 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebellar-and-peripheral-neurodegeneration" data-dismech-node="Progressive cerebellar and peripheral neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive cerebellar and peripheral neurodegeneration</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Progressive loss and dysfunction of cerebellar Purkinje and granule neurons produce cerebellar atrophy and ataxia. Eye-movement, speech, swallowing, extrapyramidal, and peripheral nerve abnormalities broaden with age. The clinical neurodegenerative process is established, but no single upstream molecular hypothesis fully explains its selectivity.</div>
 
 
@@ -5844,6 +5952,26 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Computational models</div>
+                    <div class="crosslink-list">
+
+                        <div class="crosslink-item">
+                            <a href="#computational-model-normative-diffusion-perfusion-mri-autoencoder">Normative diffusion-perfusion MRI autoencoder</a>
+
+                            <span class="crosslink-meta">MACHINE LEARNING</span>
+
+
+                            <span class="crosslink-meta">Python/PyTorch (versions unpinned); scikit-learn; SHAP</span>
+
+
+                            <span class="crosslink-desc">Reconstruction error measures deviations in cerebellar and subcortical MRI diffusion/perfusion features relative to a healthy normative model; it does not simulate the causal degeneration process.</span>
+
+                        </div>
+
+	                    </div>
+	                </div>
+
 
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
@@ -5962,6 +6090,13 @@ cells [122, 123]."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-immune-development-and-antibody-production-defects" data-dismech-node="Adaptive immune-development and antibody-production defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Adaptive immune-development and antibody-production defects</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Impaired repair of programmed DNA breaks during lymphocyte development reduces lymphocyte number and repertoire diversity and can disrupt immunoglobulin class switching. Immune findings vary from selective antibody deficiency to combined immunodeficiency; variant A-T often has normal immune function.</div>
 
@@ -6224,6 +6359,13 @@ This pathophysiological event involves decreased immunoglobulin isotype switchin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multifactorial-chronic-pulmonary-injury" data-dismech-node="Multifactorial chronic pulmonary injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Multifactorial chronic pulmonary injury</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Pulmonary disease reflects interacting recurrent infection, immunodeficiency, aspiration and weak cough from neurologic disease, interstitial injury, and tissue stress. Patient-derived airway epithelial cells also show oxidative and inflammasome abnormalities, but that cell-intrinsic pathway is not assumed to explain all clinical lung disease.</div>
 
 
@@ -6449,7 +6591,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ATM\"], \"gene_terms\": [{\"label\": \"ATM\", \"id\": \"hgnc:795\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic ATM variants reduce or abolish ATM kinase function. ATM normally coordinates signaling after DNA double-strand breaks and oxidative or genotoxic stress, including checkpoint activation and repair. Its deficiency is the established proximal lesion; downstream tissue selectivity is not explained by the DNA-damage response alone.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\", \"double-strand break repair\", \"cell cycle checkpoint signaling\"], \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"ATM\"], \"gene_terms\": [{\"label\": \"ATM\", \"id\": \"hgnc:795\"}]}}, {\"id\": \"ATM-activity-adapted treatment of hematologic malignancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cancer therapy requires an A-T-experienced oncology team and avoidance of standard radiotherapy. A 2024 international cohort suggests de-escalated leukemia or lymphoma therapy when ATM kinase activity is absent and near-standard regimens when residual activity is present; this is risk-adapted evidence, not a universal protocol.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Abnormal extrapyramidal motor function\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002071\"}}, {\"id\": \"Adaptive immune-development and antibody-production defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired repair of programmed DNA breaks during lymphocyte development reduces lymphocyte number and repertoire diversity and can disrupt immunoglobulin class switching. Immune findings vary from selective antibody deficiency to combined immunodeficiency; variant A-T often has normal immune function.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\", \"T cell\"], \"biological_processes\": [\"V(D)J recombination\", \"immunoglobulin isotype switching\"]}}, {\"id\": \"Airway clearance and pulmonary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pulmonary follow-up addresses secretion retention, infection, weak cough, aspiration, and restrictive or interstitial disease. Manual chest therapy, oscillating devices, or a chest physiotherapy vest can be used when secretions are increased, with cough-assist support when needed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atipeksen for ATM c.7865C\u003eT\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atipeksen is an investigational intrathecal antisense oligonucleotide designed for individuals carrying the recurrent ATM c.7865C\u003eT variant. The first phase 1/2 study is recruiting with an estimated August 2026 start; the intervention is mutation-specific and has no established clinical efficacy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Avoidance of ionizing radiation and radiotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diagnostic x-rays and CT should be limited to medically necessary situations and non-ionizing alternatives used when suitable. Therapeutic radiation is contraindicated in affected individuals because severe radiosensitivity can cause major complications. This restriction does not automatically apply to heterozygous relatives.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002110\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005387\"}}, {\"id\": \"Decreased circulating IgA concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002720\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Elevated circulating alpha-fetoprotein concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Persistent AFP elevation after early childhood is a useful diagnostic clue, but it is not a direct assay of ATM function and can be normal in variant A-T.\"}], \"term_id\": \"HP:0006254\"}}, {\"id\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective double-strand-break repair and checkpoint signaling permit spontaneous and induced chromosome breaks and rearrangements. Ionizing radiation and radiomimetic agents therefore cause disproportionate cytotoxicity. Genomic instability also promotes malignancy, especially lymphoid cancers in children; solid tumors comprise a larger share in adults and in variant A-T.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"double-strand break repair\", \"cell cycle checkpoint signaling\", \"chromosome organization\"]}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT can reconstitute hematopoietic immunity in selected individuals, but experience is limited to single cases and small series, neurologic outcomes are divergent, and transplant conditioning is hazardous in a radiosensitive DNA-repair disorder. It remains investigational rather than standard preventive therapy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vaccination, antimicrobial prophylaxis, and intravenous or subcutaneous immunoglobulin are individualized according to immunoglobulin levels, vaccine responses, lymphocyte status, and infection history. Live rubella vaccine should be avoided in severe immunodeficiency; management should be directed by an immunodeficiency specialist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased sensitivity to ionizing radiation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011133\"}}, {\"id\": \"Intra-erythrocyte dexamethasone sodium phosphate (EryDex)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"EryDex is an investigational erythrocyte-delivered corticosteroid for neurologic symptoms. The published ATTeST phase 3 trial did not meet its primary efficacy endpoint overall, although safety was acceptable and an age-defined subgroup signal was explored. The separate NEAT phase 3 trial (NCT06193200) is completed; no disease-modifying efficacy should be inferred until results are available.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002665\"}}, {\"id\": \"Multidisciplinary rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical, occupational, and speech-language therapy, together with rehabilitation medicine, are supportive care. They aim to preserve safe mobility, communication, participation, and independence but have not been shown to stop neurodegeneration.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multifactorial chronic pulmonary injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary disease reflects interacting recurrent infection, immunodeficiency, aspiration and weak cough from neurologic disease, interstitial injury, and tissue stress. Patient-derived airway epithelial cells also show oxidative and inflammasome abnormalities, but that cell-intrinsic pathway is not assumed to explain all clinical lung disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"respiratory tract epithelial cell\"], \"biological_processes\": [\"innate immune response\", \"response to oxidative stress\"], \"locations\": [\"lung\"]}}, {\"id\": \"Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Oculomotor apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000657\"}}, {\"id\": \"Oxidative stress and microglial neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cerebellar single-nucleus data show inflammatory microglial states, while patient-derived co-cultures show microglia-associated neuronal cytotoxicity. Oxidative stress and microglial signaling are therefore represented as a provisional contributing pathway, not as the unique or sufficient explanation for A-T neurodegeneration.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"response to oxidative stress\", \"cytokine production\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Peripheral axonal neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003477\"}}, {\"id\": \"Progressive cerebellar and peripheral neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss and dysfunction of cerebellar Purkinje and granule neurons produce cerebellar atrophy and ataxia. Eye-movement, speech, swallowing, extrapyramidal, and peripheral nerve abnormalities broaden with age. The clinical neurodegenerative process is established, but no single upstream molecular hypothesis fully explains its selectivity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"cerebellum\"]}}, {\"id\": \"Progressive cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Swallowing and nutritional support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language and nutrition teams adapt food texture, meal support, and caloric intake. Gastrostomy is considered when oral intake cannot sustain growth or weight, aspiration is problematic, or meals are excessively long and stressful.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Telangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001009\"}}, {\"id\": \"Triheptanoin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is investigational anaplerotic therapy studied in a 31-person phase 2a/b dose-escalation trial. Respiratory epithelial-cell death and selected neurologic, speech, and swallowing measures improved, but 38% of participants had gastrointestinal adverse events and dosing was capped. These early outcomes do not establish routine use.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of ATM-dependent double-strand-break signaling impairs repair and checkpoints, permitting chromosomal instability and hypersensitivity to DNA-break-inducing radiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Adaptive immune-development and antibody-production defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATM-dependent repair is required when lymphocyte antigen-receptor and class-switch recombination create programmed DNA breaks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired repair of programmed DNA breaks during V(D)J and class-switch recombination.\"]}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATM deficiency ultimately causes selective progressive neurologic injury, but the necessary molecular intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Oxidative stress and microglial neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATM loss is associated with oxidative stress and an inflammatory microglial state, a plausible contributor to neuronal injury rather than an established sole cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Telangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Telangiectasia belongs to the ATM-deficiency phenotype, but the causal tissue pathway is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Elevated circulating alpha-fetoprotein concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent AFP elevation is strongly associated with A-T after early childhood, although its mechanistic link to ATM loss is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"target\": \"Increased sensitivity to ionizing radiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ionizing radiation produces DNA lesions whose repair is severely impaired without ATM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"target\": \"Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic instability permits malignant transformation across hematologic and solid tissues.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Persistence and clonal selection of cells with oncogenic chromosome damage.\"]}, {\"source\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"target\": \"Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant repair during lymphocyte antigen-receptor rearrangement can generate oncogenic translocations, contributing to the characteristic lymphoma risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oncogenic chromosome rearrangements in developing lymphocytes.\"]}, {\"source\": \"Oxidative stress and microglial neuroinflammation\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurotoxic microglial signaling may contribute to Purkinje and granule neuron injury within the broader, multifactorial neurologic mechanism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neurotoxic cytokine signaling from activated microglia to cerebellar neurons.\"]}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar neuronal dysfunction and loss produce progressive ataxia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive loss of cerebellar neurons produces macroscopic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Oculomotor apraxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurologic dysfunction impairs voluntary saccadic initiation and coordination.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive motor-system dysfunction impairs speech production.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired coordination of bulbar and respiratory speech musculature.\"]}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Abnormal extrapyramidal motor function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia and connected motor-system involvement produces dystonia, tremor, chorea, or parkinsonism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Peripheral axonal neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive peripheral nerve involvement produces an axonal sensorimotor neuropathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive bulbar incoordination compromises safe swallowing.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired coordination of oral and pharyngeal movement.\"]}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Multifactorial chronic pulmonary injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar weakness and dysphagia contribute to aspiration and impaired airway clearance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Aspiration and weak or discoordinated cough.\"]}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variable B- and T-cell abnormalities can produce combined immune deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Decreased circulating IgA concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective B-cell maturation and class switching commonly reduce serum IgA.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired immunoglobulin class-switch recombination and B-cell repertoire formation.\"]}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antibody deficiency and lymphopenia increase susceptibility to recurrent airway infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired mucosal antibody and cellular immune defense.\"]}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Multifactorial chronic pulmonary injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent infection and impaired immune clearance contribute to cumulative lung injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Repeated sinopulmonary infection and inflammation.\"]}, {\"source\": \"Multifactorial chronic pulmonary injury\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired immune defense and airway integrity permit repeated sinopulmonary infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired systemic and epithelial host defense.\"]}, {\"source\": \"Multifactorial chronic pulmonary injury\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated airway infection and injury can produce permanent bronchial dilation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Recurrent infection, inflammation, secretion retention, and airway remodeling.\"]}, {\"source\": \"Multidisciplinary rehabilitation\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"target\": \"Adaptive immune-development and antibody-production defects\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Airway clearance and pulmonary care\", \"target\": \"Multifactorial chronic pulmonary injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway clearance and pulmonary care\", \"target\": \"Bronchiectasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Airway clearance and pulmonary care\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Swallowing and nutritional support\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of ionizing radiation and radiotherapy\", \"target\": \"Increased sensitivity to ionizing radiation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATM-activity-adapted treatment of hematologic malignancy\", \"target\": \"Neoplasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATM-activity-adapted treatment of hematologic malignancy\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intra-erythrocyte dexamethasone sodium phosphate (EryDex)\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intra-erythrocyte dexamethasone sodium phosphate (EryDex)\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Adaptive immune-development and antibody-production defects\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atipeksen for ATM c.7865C\u003eT\", \"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atipeksen for ATM c.7865C\u003eT\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Elevated circulating alpha-fetoprotein concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Persistent AFP elevation after early childhood is a useful diagnostic clue, but it is not a direct assay of ATM function and can be normal in variant A-T.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ATM\", \"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ATM\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"ATM\"], \"gene_terms\": [{\"label\": \"ATM\", \"id\": \"hgnc:795\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic ATM variants reduce or abolish ATM kinase function. ATM normally coordinates signaling after DNA double-strand breaks and oxidative or genotoxic stress, including checkpoint activation and repair. Its deficiency is the established proximal lesion; downstream tissue selectivity is not explained by the DNA-damage response alone.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"DNA damage response\", \"double-strand break repair\", \"cell cycle checkpoint signaling\"], \"molecular_functions\": [\"protein serine/threonine kinase activity\"], \"genes\": [\"ATM\"], \"gene_terms\": [{\"label\": \"ATM\", \"id\": \"hgnc:795\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"computational_models\": [{\"name\": \"ATM/ATR DNA-damage-response and drug-repurposing ODE model\", \"model_type\": \"KINETIC\", \"model_software\": \"COPASI 4.44 (Build 295)\", \"model_format\": \"SBML Level 2 Version 4 (XML)\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The disease arm directly removes ATM activity and follows the resulting ATR, checkpoint, p53, and repair dynamics, thereby capturing a reduced molecular subset of the proximal A-T mechanism.\"}, {\"name\": \"ATM p.Ala2386Glu variant-structure predictions\", \"model_type\": \"STRUCTURAL_PREDICTION\", \"model_software\": \"Missense3D/PHYRE2; DynaMut; PyMOL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"The models connect one patient allele to altered ATM structure and reduced protein stability, while patient-cell assays anchor the predicted defect to reduced ATM abundance and residual checkpoint signaling.\"}]}}, {\"id\": \"ATM p.Ala2386Glu variant-structure predictions\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"Allele-specific structural analyses of homozygous ATM c.7157C\u003eA (p.Ala2386Glu) found in two brothers with variant A-T. Missense3D/PHYRE2 and DynaMut modeled the substitution in the FAT-domain alpha-21 helix against wild-type cryo-EM template PDB 6K9L and produced competing hypotheses: buried-charge structural destabilization or stabilization of the closed, less-active ATM dimer. Patient lymphoblastoid-cell experiments favored the instability branch while showing residual kinase function.\", \"meta\": {\"model_type\": \"STRUCTURAL_PREDICTION\", \"model_software\": \"Missense3D/PHYRE2; DynaMut; PyMOL\", \"publication\": \"PMID:34759960\"}}, {\"id\": \"ATM-activity-adapted treatment of hematologic malignancy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cancer therapy requires an A-T-experienced oncology team and avoidance of standard radiotherapy. A 2024 international cohort suggests de-escalated leukemia or lymphoma therapy when ATM kinase activity is absent and near-standard regimens when residual activity is present; this is risk-adapted evidence, not a universal protocol.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"ATM/ATR DNA-damage-response and drug-repurposing ODE model\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A single-compartment kinetic model of ATM/ATR-p53 signaling, DNA-damage production and repair, HDAC4-PP2A regulation, NRF2-KEAP1 signaling, autophagy, and p53-dependent cell-fate effectors. The deposited SBML contains 31 species and 40 reactions. The paper compares a physiological simulation with an A-T disease arm created by setting ATM to zero and with separate manually configured simulations of HDAC4 inhibition, omaveloxolone, and spermidine.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"KINETIC\", \"model_software\": \"COPASI 4.44 (Build 295)\", \"model_format\": \"SBML Level 2 Version 4 (XML)\", \"publication\": \"PMID:41285916\"}}, {\"id\": \"Abnormal extrapyramidal motor function\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002071\"}}, {\"id\": \"Adaptive immune-development and antibody-production defects\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired repair of programmed DNA breaks during lymphocyte development reduces lymphocyte number and repertoire diversity and can disrupt immunoglobulin class switching. Immune findings vary from selective antibody deficiency to combined immunodeficiency; variant A-T often has normal immune function.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B cell\", \"T cell\"], \"biological_processes\": [\"V(D)J recombination\", \"immunoglobulin isotype switching\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Airway clearance and pulmonary care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pulmonary follow-up addresses secretion retention, infection, weak cough, aspiration, and restrictive or interstitial disease. Manual chest therapy, oscillating devices, or a chest physiotherapy vest can be used when secretions are increased, with cough-assist support when needed.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atipeksen for ATM c.7865C\u003eT\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atipeksen is an investigational intrathecal antisense oligonucleotide designed for individuals carrying the recurrent ATM c.7865C\u003eT variant. The first phase 1/2 study is recruiting with an estimated August 2026 start; the intervention is mutation-specific and has no established clinical efficacy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Avoidance of ionizing radiation and radiotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Diagnostic x-rays and CT should be limited to medically necessary situations and non-ionizing alternatives used when suitable. Therapeutic radiation is contraindicated in affected individuals because severe radiosensitivity can cause major complications. This restriction does not automatically apply to heterozygous relatives.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Bronchiectasis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002110\"}}, {\"id\": \"Cerebellar atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001272\"}}, {\"id\": \"Combined immunodeficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0005387\"}}, {\"id\": \"Decreased circulating IgA concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002720\"}}, {\"id\": \"Dysarthria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001260\"}}, {\"id\": \"Dysphagia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002015\"}}, {\"id\": \"Elevated circulating alpha-fetoprotein concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"reports_on\": [{\"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Persistent AFP elevation after early childhood is a useful diagnostic clue, but it is not a direct assay of ATM function and can be normal in variant A-T.\"}], \"term_id\": \"HP:0006254\"}}, {\"id\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Defective double-strand-break repair and checkpoint signaling permit spontaneous and induced chromosome breaks and rearrangements. Ionizing radiation and radiomimetic agents therefore cause disproportionate cytotoxicity. Genomic instability also promotes malignancy, especially lymphoid cancers in children; solid tumors comprise a larger share in adults and in variant A-T.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"double-strand break repair\", \"cell cycle checkpoint signaling\", \"chromosome organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT can reconstitute hematopoietic immunity in selected individuals, but experience is limited to single cases and small series, neurologic outcomes are divergent, and transplant conditioning is hazardous in a radiosensitive DNA-repair disorder. It remains investigational rather than standard preventive therapy.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Vaccination, antimicrobial prophylaxis, and intravenous or subcutaneous immunoglobulin are individualized according to immunoglobulin levels, vaccine responses, lymphocyte status, and infection history. Live rubella vaccine should be avoided in severe immunodeficiency; management should be directed by an immunodeficiency specialist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Increased sensitivity to ionizing radiation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0011133\"}}, {\"id\": \"Intra-erythrocyte dexamethasone sodium phosphate (EryDex)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"EryDex is an investigational erythrocyte-delivered corticosteroid for neurologic symptoms. The published ATTeST phase 3 trial did not meet its primary efficacy endpoint overall, although safety was acceptable and an age-defined subgroup signal was explored. The separate NEAT phase 3 trial (NCT06193200) is completed; no disease-modifying efficacy should be inferred until results are available.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Lymphoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002665\"}}, {\"id\": \"Multidisciplinary rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Physical, occupational, and speech-language therapy, together with rehabilitation medicine, are supportive care. They aim to preserve safe mobility, communication, participation, and independence but have not been shown to stop neurodegeneration.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multifactorial chronic pulmonary injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pulmonary disease reflects interacting recurrent infection, immunodeficiency, aspiration and weak cough from neurologic disease, interstitial injury, and tissue stress. Patient-derived airway epithelial cells also show oxidative and inflammasome abnormalities, but that cell-intrinsic pathway is not assumed to explain all clinical lung disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"respiratory tract epithelial cell\"], \"biological_processes\": [\"innate immune response\", \"response to oxidative stress\"], \"locations\": [\"lung\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Neoplasm\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002664\"}}, {\"id\": \"Normative diffusion-perfusion MRI autoencoder\", \"node_type\": \"computational_model\", \"color\": \"#ecfccb\", \"is_orphan\": false, \"description\": \"A seven-layer, fully connected PyTorch autoencoder trained only on healthy pediatric MRI features to detect individual deviations in A-T. Twenty inputs (13 regional diffusion/perfusion features plus seven demographic and volume covariates) are compressed and 13 imaging features are reconstructed. The paper reports a four-dimensional latent layer, whereas the released notebook instantiates five latent units. One hundred controls were used for training and validation, 10 controls for held-out testing, and 16 children with A-T for disease evaluation.\", \"meta\": {\"model_type\": \"MACHINE_LEARNING\", \"model_software\": \"Python/PyTorch (versions unpinned); scikit-learn; SHAP\", \"model_format\": \"Jupyter Notebook/CSV\", \"publication\": \"PMID:40880371\"}}, {\"id\": \"Oculomotor apraxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000657\"}}, {\"id\": \"Oxidative stress and microglial neuroinflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient cerebellar single-nucleus data show inflammatory microglial states, while patient-derived co-cultures show microglia-associated neuronal cytotoxicity. Oxidative stress and microglial signaling are therefore represented as a provisional contributing pathway, not as the unique or sufficient explanation for A-T neurodegeneration.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"response to oxidative stress\", \"cytokine production\"], \"locations\": [\"cerebellum\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Peripheral axonal neuropathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003477\"}}, {\"id\": \"Progressive cerebellar and peripheral neurodegeneration\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive loss and dysfunction of cerebellar Purkinje and granule neurons produce cerebellar atrophy and ataxia. Eye-movement, speech, swallowing, extrapyramidal, and peripheral nerve abnormalities broaden with age. The clinical neurodegenerative process is established, but no single upstream molecular hypothesis fully explains its selectivity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Purkinje cell\", \"cerebellar granule cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"locations\": [\"cerebellum\"], \"mechanism_confidence\": \"ESTABLISHED\", \"computational_models\": [{\"name\": \"Normative diffusion-perfusion MRI autoencoder\", \"model_type\": \"MACHINE_LEARNING\", \"model_software\": \"Python/PyTorch (versions unpinned); scikit-learn; SHAP\", \"model_format\": \"Jupyter Notebook/CSV\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Reconstruction error measures deviations in cerebellar and subcortical MRI diffusion/perfusion features relative to a healthy normative model; it does not simulate the causal degeneration process.\"}]}}, {\"id\": \"Progressive cerebellar ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002073\"}}, {\"id\": \"Recurrent respiratory infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002205\"}}, {\"id\": \"Swallowing and nutritional support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Speech-language and nutrition teams adapt food texture, meal support, and caloric intake. Gastrostomy is considered when oral intake cannot sustain growth or weight, aspiration is problematic, or meals are excessively long and stressful.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Telangiectasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001009\"}}, {\"id\": \"Triheptanoin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Triheptanoin is investigational anaplerotic therapy studied in a 31-person phase 2a/b dose-escalation trial. Respiratory epithelial-cell death and selected neurologic, speech, and swallowing measures improved, but 38% of participants had gastrointestinal adverse events and dosing was capped. These early outcomes do not establish routine use.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of ATM-dependent double-strand-break signaling impairs repair and checkpoints, permitting chromosomal instability and hypersensitivity to DNA-break-inducing radiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Adaptive immune-development and antibody-production defects\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATM-dependent repair is required when lymphocyte antigen-receptor and class-switch recombination create programmed DNA breaks.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired repair of programmed DNA breaks during V(D)J and class-switch recombination.\"]}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATM deficiency ultimately causes selective progressive neurologic injury, but the necessary molecular intermediates are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Oxidative stress and microglial neuroinflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"ATM loss is associated with oxidative stress and an inflammatory microglial state, a plausible contributor to neuronal injury rather than an established sole cause.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Telangiectasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Telangiectasia belongs to the ATM-deficiency phenotype, but the causal tissue pathway is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Elevated circulating alpha-fetoprotein concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent AFP elevation is strongly associated with A-T after early childhood, although its mechanistic link to ATM loss is unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"target\": \"Increased sensitivity to ionizing radiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ionizing radiation produces DNA lesions whose repair is severely impaired without ATM.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"target\": \"Neoplasm\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated genomic instability permits malignant transformation across hematologic and solid tissues.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Persistence and clonal selection of cells with oncogenic chromosome damage.\"]}, {\"source\": \"Genomic instability, radiosensitivity, and cancer predisposition\", \"target\": \"Lymphoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant repair during lymphocyte antigen-receptor rearrangement can generate oncogenic translocations, contributing to the characteristic lymphoma risk.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Oncogenic chromosome rearrangements in developing lymphocytes.\"]}, {\"source\": \"Oxidative stress and microglial neuroinflammation\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurotoxic microglial signaling may contribute to Purkinje and granule neuron injury within the broader, multifactorial neurologic mechanism.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Neurotoxic cytokine signaling from activated microglia to cerebellar neurons.\"]}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cerebellar neuronal dysfunction and loss produce progressive ataxia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Cerebellar atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive loss of cerebellar neurons produces macroscopic atrophy.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Oculomotor apraxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive neurologic dysfunction impairs voluntary saccadic initiation and coordination.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Dysarthria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive motor-system dysfunction impairs speech production.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired coordination of bulbar and respiratory speech musculature.\"]}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Abnormal extrapyramidal motor function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Basal-ganglia and connected motor-system involvement produces dystonia, tremor, chorea, or parkinsonism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Peripheral axonal neuropathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive peripheral nerve involvement produces an axonal sensorimotor neuropathy.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Dysphagia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive bulbar incoordination compromises safe swallowing.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired coordination of oral and pharyngeal movement.\"]}, {\"source\": \"Progressive cerebellar and peripheral neurodegeneration\", \"target\": \"Multifactorial chronic pulmonary injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar weakness and dysphagia contribute to aspiration and impaired airway clearance.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Aspiration and weak or discoordinated cough.\"]}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Variable B- and T-cell abnormalities can produce combined immune deficiency.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Decreased circulating IgA concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective B-cell maturation and class switching commonly reduce serum IgA.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired immunoglobulin class-switch recombination and B-cell repertoire formation.\"]}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Antibody deficiency and lymphopenia increase susceptibility to recurrent airway infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired mucosal antibody and cellular immune defense.\"]}, {\"source\": \"Adaptive immune-development and antibody-production defects\", \"target\": \"Multifactorial chronic pulmonary injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Recurrent infection and impaired immune clearance contribute to cumulative lung injury.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Repeated sinopulmonary infection and inflammation.\"]}, {\"source\": \"Multifactorial chronic pulmonary injury\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired immune defense and airway integrity permit repeated sinopulmonary infection.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Impaired systemic and epithelial host defense.\"]}, {\"source\": \"Multifactorial chronic pulmonary injury\", \"target\": \"Bronchiectasis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated airway infection and injury can produce permanent bronchial dilation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Recurrent infection, inflammation, secretion retention, and airway remodeling.\"]}, {\"source\": \"Multidisciplinary rehabilitation\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary rehabilitation\", \"target\": \"Dysarthria\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary rehabilitation\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"target\": \"Adaptive immune-development and antibody-production defects\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Immunology-guided infection prevention and immunoglobulin replacement\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Airway clearance and pulmonary care\", \"target\": \"Multifactorial chronic pulmonary injury\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Airway clearance and pulmonary care\", \"target\": \"Bronchiectasis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Airway clearance and pulmonary care\", \"target\": \"Recurrent respiratory infections\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Swallowing and nutritional support\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Avoidance of ionizing radiation and radiotherapy\", \"target\": \"Increased sensitivity to ionizing radiation\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATM-activity-adapted treatment of hematologic malignancy\", \"target\": \"Neoplasm\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATM-activity-adapted treatment of hematologic malignancy\", \"target\": \"Lymphoma\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Intra-erythrocyte dexamethasone sodium phosphate (EryDex)\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Intra-erythrocyte dexamethasone sodium phosphate (EryDex)\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Triheptanoin\", \"target\": \"Dysphagia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Adaptive immune-development and antibody-production defects\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Hematopoietic stem cell transplantation\", \"target\": \"Combined immunodeficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Atipeksen for ATM c.7865C\u003eT\", \"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atipeksen for ATM c.7865C\u003eT\", \"target\": \"Progressive cerebellar ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"ATM/ATR DNA-damage-response and drug-repurposing ODE model\", \"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The disease arm directly removes ATM activity and follows the resulting ATR, checkpoint, p53, and repair dynamics, thereby capturing a reduced molecular subset of the proximal A-T mechanism.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"ATM loss is an investigator-set zero rather than an allele-explicit or patient-calibrated state. The model does not represent residual ATM kinase activity, protein abundance, variant A-T, genotype-dependent severity, or empirical A-T response data.\"}, {\"source\": \"ATM p.Ala2386Glu variant-structure predictions\", \"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The models connect one patient allele to altered ATM structure and reduced protein stability, while patient-cell assays anchor the predicted defect to reduced ATM abundance and residual checkpoint signaling.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"This is one missense allele from one consanguineous family and does not generalize to truncating alleles or other ATM variants. The two prediction tools disagree mechanistically, and the patient-cell experiments support instability but do not validate the competing closed-dimer hypothesis.\"}, {\"source\": \"Normative diffusion-perfusion MRI autoencoder\", \"target\": \"Progressive cerebellar and peripheral neurodegeneration\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Reconstruction error measures deviations in cerebellar and subcortical MRI diffusion/perfusion features relative to a healthy normative model; it does not simulate the causal degeneration process.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model measures cross-sectional brain-imaging anomalies only. It does not measure peripheral nerves, neuronal loss directly, longitudinal progression, or treatment response, and SHAP associations cannot establish causal inter-regional mechanisms.\"}, {\"source\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"target\": \"Elevated circulating alpha-fetoprotein concentration\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Persistent AFP elevation after early childhood is a useful diagnostic clue, but it is not a direct assay of ATM function and can be normal in variant A-T.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"ATM\", \"target\": \"ATM kinase deficiency and defective DNA-damage signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -8091,6 +8233,9 @@ This disease-associated gene is ATM (hgnc:795). hgnc:795 is a gene from the HUGO
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -11741,6 +11886,1243 @@ This clinical trial targets Progressive cerebellar ataxia (HP:0002073). HP:00020
 
         <!-- Computational Models -->
 
+        <div class="card" id="models">
+            <div class="card-header">
+                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
+                <h2 class="card-title">Computational Models</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box comp-model-box anchor-target" id="computational-model-atm-atr-dna-damage-response-and-drug-repurposing-ode-model" data-dismech-node="ATM/ATR DNA-damage-response and drug-repurposing ODE model" data-dismech-type="computational_model">
+                <div class="item-name">
+                    ATM/ATR DNA-damage-response and drug-repurposing ODE model
+
+                    <span class="tag tag-format">SBML Level 2 Version 4 (XML)</span>
+
+
+                    <span class="tag tag-software">COPASI 4.44 (Build 295)</span>
+
+
+                    <span class="tag tag-model-type">KINETIC</span>
+
+                </div>
+
+                <div class="item-desc">A single-compartment kinetic model of ATM/ATR-p53 signaling, DNA-damage production and repair, HDAC4-PP2A regulation, NRF2-KEAP1 signaling, autophagy, and p53-dependent cell-fate effectors. The deposited SBML contains 31 species and 40 reactions. The paper compares a physiological simulation with an A-T disease arm created by setting ATM to zero and with separate manually configured simulations of HDAC4 inhibition, omaveloxolone, and spermidine.</div>
+
+                <div class="item-meta" style="margin-top: 8px;">
+
+                    <a href="https://github.com/francescopappalardo/ATM-ATR-DDR-DrugRepositioning-Model/tree/b8fe08557e7ba8d32a8168a53641a6c2b1e65bf2" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
+
+
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:41285916">PMID:41285916</a>
+
+
+
+
+                </div>
+
+                <table class="model-variables-table">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Model ID</th>
+                            <th>Unit</th>
+                            <th>Ontology Mappings</th>
+                            <th>Phenotype Thresholds</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Active ATM</div>
+
+                                <div class="model-var-desc">Active ATM kinase state; the A-T disease scenario sets ATM to zero.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">ATM_active</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">DNA-damage burden</div>
+
+                                <div class="model-var-desc">Aggregate damage state produced basally and removed by the modeled ATM, ATR-CHK1, NRF2, and autophagy repair routes.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">DNA_damage</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Active p53</div>
+
+                                <div class="model-var-desc">Activated p53 downstream of ATM, ATR, and checkpoint signaling.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">p53_active</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Active NRF2</div>
+
+                                <div class="model-var-desc">Modeled NRF2 antioxidant-response state.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">NRF2_active</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Active autophagy</div>
+
+                                <div class="model-var-desc">Modeled autophagy state, including spermidine-induced activation.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">Autophagy_active</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-atm-kinase-deficiency-and-defective-dna-damage-signaling">ATM kinase deficiency and defective DNA-damage signaling</a>
+
+                <span class="crosslink-meta">partially recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: low</span>
+
+
+                <span class="crosslink-desc">The disease arm directly removes ATM activity and follows the resulting ATR, checkpoint, p53, and repair dynamics, thereby capturing a reduced molecular subset of the proximal A-T mechanism.</span>
+
+
+                <div class="mapping-notes">Limitations: ATM loss is an investigator-set zero rather than an allele-explicit or patient-calibrated state. The model does not represent residual ATM kinase activity, protein abundance, variant A-T, genotype-dependent severity, or empirical A-T response data.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Active ATM</div>
+
+
+        <div style="margin-top: 6px;">ATM is set to zero in the disease-layer simulation.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Graphs a–c report the pathological response to DNA damage, respectively of ATM/ATR (a), p53 (b), and involved treatment targets (c) dynamics, setting ATM = 0."</div>
+
+
+                <div class="evidence-explanation">The disease-layer simulation explicitly removes ATM.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">DNA-damage burden</div>
+
+
+        <div style="margin-top: 6px;">DNA_damage accumulates and resolves slowly when ATM is absent.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this scenario, DNA damage rate accumulates initially and subsequently shows a slow decrease, highlighting the limited capacity of ATR to fully compensate for ATM loss"</div>
+
+
+                <div class="evidence-explanation">The ATM-deficient simulation retains a larger, slowly resolving damage state.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Active p53</div>
+
+
+        <div style="margin-top: 6px;">p53 activation is attenuated in the ATM-deficient arm.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Activation of p53 is substantially reduced, accompanied by a relatively stronger increase in p21 compared to pro-apoptotic proteins BAX and PUMA"</div>
+
+
+                <div class="evidence-explanation">The simulation reports reduced p53 activation after ATM removal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The model simulates physiological, ATM-deficient, and drug-treated conditions to explore repurposing strategies."</div>
+
+
+                <div class="evidence-explanation">The publication identifies ATM deficiency as the disease perturbation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">In the ATM-deficient arm, ATR becomes the principal pathway regulating the modeled cellular response to DNA damage.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In simulations representing ATM-deficient pathological conditions (Fig. 2), ATR signaling emerges as the principal pathway regulating the cellular response to DNA damage."</div>
+
+
+                <div class="evidence-explanation">The disease-layer time course identifies ATR as the main compensatory branch.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">The spermidine arm predicts increased autophagy and lower DNA_damage, but this is an unvalidated in-silico treatment response rather than evidence of clinical efficacy.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spermidine treatment markedly activated autophagy, driving a decrease in DNA damage levels"</div>
+
+
+                <div class="evidence-explanation">The model predicts activation of its autophagy state and reduction of its damage state.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">The omaveloxolone arm predicts gradual reduction of DNA_damage, again without experimental A-T validation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment with omaveloxolone led to sustained activation of ATR signaling, resulting in a gradual and consistent reduction of DNA damage"</div>
+
+
+                <div class="evidence-explanation">The drug-layer simulation predicts a falling aggregate damage state.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">The primary pinned GitHub source is GPL-3.0 (file SHA-256 33139fc6df3278e3bb8e2bf0878367a51653e2c44021541ee261061278f636d1). BioModels accession MODEL2503190002 revision 2 is NON_CURATED; its OMEX metadata declares CC0 while its record has no license field. Its versioned per-file endpoint provides the semantically equivalent SBML (SHA-256 816d0fb1963f142859218e8473dffb9ac1a0a107a5f2988515541173ce399b56), whereas the bulk archive currently contains a zero-byte SBML member. BioModels adds annotations and reserializes the XML, accounting for the cross-source byte difference. Both files validated without libSBML errors and ran finite time courses in COPASI and libRoadRunner during curator smoke testing on 2026-08-20. The paper reports 32 molecular species and 41 reactions, whereas both deposited artifacts contain 31 species and 40 reactions. Only one base SBML file is deposited: disease and drug scenarios, solver tasks, and expected figure outputs are not packaged as separate configurations. Concentrations are qualitative and not calibrated to patient or cell data; the paper&#39;s nominal 20 mol/L drug settings must not be interpreted as clinical doses. Parameter sensitivity, Lyapunov stability, and enrichment of the manually selected network test internal behavior or consistency, not external predictive validity; moreover, the three reported Lyapunov exponents sum to -0.06784821 rather than the stated -12.4979. The proposed spermidine-plus-HDAC4 synergy is inferred from separate intervention simulations rather than a deposited combination run and still requires experimental testing. Although the artifact title and notes sometimes say ATM/ATR-deficient A-T, the disease simulation removes ATM while retaining ATR as the compensatory pathway.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41285916" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41285916" target="_blank">PMID:41285916</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We developed a computational model of ATM-mediated signaling using ordinary differential equations in COPASI, capturing key processes including DNA damage sensing, cell cycle regulation, autophagy, and oxidative stress response."</div>
+
+
+                <div class="evidence-explanation">The primary paper defines the model type and represented processes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box comp-model-box anchor-target" id="computational-model-atm-p-ala2386glu-variant-structure-predictions" data-dismech-node="ATM p.Ala2386Glu variant-structure predictions" data-dismech-type="computational_model">
+                <div class="item-name">
+                    ATM p.Ala2386Glu variant-structure predictions
+
+
+                    <span class="tag tag-software">Missense3D/PHYRE2; DynaMut; PyMOL</span>
+
+
+                    <span class="tag tag-model-type">STRUCTURAL_PREDICTION</span>
+
+                </div>
+
+                <div class="item-desc">Allele-specific structural analyses of homozygous ATM c.7157C&gt;A (p.Ala2386Glu) found in two brothers with variant A-T. Missense3D/PHYRE2 and DynaMut modeled the substitution in the FAT-domain alpha-21 helix against wild-type cryo-EM template PDB 6K9L and produced competing hypotheses: buried-charge structural destabilization or stabilization of the closed, less-active ATM dimer. Patient lymphoblastoid-cell experiments favored the instability branch while showing residual kinase function.</div>
+
+                <div class="item-meta" style="margin-top: 8px;">
+
+
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/34759960" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:34759960">PMID:34759960</a>
+
+
+
+
+                </div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-atm-kinase-deficiency-and-defective-dna-damage-signaling">ATM kinase deficiency and defective DNA-damage signaling</a>
+
+                <span class="crosslink-meta">partially recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">The models connect one patient allele to altered ATM structure and reduced protein stability, while patient-cell assays anchor the predicted defect to reduced ATM abundance and residual checkpoint signaling.</span>
+
+
+                <div class="mapping-notes">Limitations: This is one missense allele from one consanguineous family and does not generalize to truncating alleles or other ATM variants. The two prediction tools disagree mechanistically, and the patient-cell experiments support instability but do not validate the competing closed-dimer hypothesis.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Predicted ATM conformation and stability</div>
+
+
+        <div style="margin-top: 6px;">Variant models predict either a stabilized inactive conformation or buried-charge structural damage; the direction is therefore non-monotonic.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: ALTERED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34759960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34759960" target="_blank">PMID:34759960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"3D structural analyses suggested that the variant might be pathogenic due to either loss of activity or to a structural damage affecting protein stability."</div>
+
+
+                <div class="evidence-explanation">The structural tools generated two distinct pathogenicity hypotheses.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">ATM-A2386E protein abundance</div>
+
+
+        <div style="margin-top: 6px;">Patient lymphoblastoid cells contained approximately 23% and 33% of wild-type ATM abundance.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34759960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34759960" target="_blank">PMID:34759960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ATM-A2386E protein expression is significantly lower than the WT-ATM protein (23 and 33% in the AT 1–54,000 and 1–54,001, respectively)"</div>
+
+
+                <div class="evidence-explanation">Patient-derived cells validate reduced mutant-protein abundance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">CHK2 activation</div>
+
+
+        <div style="margin-top: 6px;">Camptothecin-induced CHK2 activation remained below wild type but was retained at approximately 40% and 60% in the two patient cell lines.</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: DECREASED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34759960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34759960" target="_blank">PMID:34759960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the percentage of activation in AT1-54000 and AT1-54001 LCLs is significantly lower than the WT control (about 40 and 60%, respectively)"</div>
+
+
+                <div class="evidence-explanation">A checkpoint readout confirms residual but reduced signaling in patient cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34759960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34759960" target="_blank">PMID:34759960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Structural analysis of ATM p. Ala2386Glu mutant protein was performed by two different web services: Missense3D, which exploits PHYRE2 Protein Fold Recognition Server, and DynaMut."</div>
+
+
+                <div class="evidence-explanation">The methods identify the allele-specific structural prediction workflow.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">Thermal-stability experiments favored Missense3D&#39;s protein-instability prediction over DynaMut&#39;s closed-dimer loss-of-activity hypothesis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34759960" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34759960" target="_blank">PMID:34759960</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, these results agree with the Missense3D prediction of loss of stability due to the introduction of a Glu residue"</div>
+
+
+                <div class="evidence-explanation">Patient-cell thermal testing corroborated only the instability branch.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">No mutant coordinates, prediction outputs, code, or reusable model archive were deposited; PDB 6K9L is the wild-type experimental template, not the p.Ala2386Glu model. The template resolution is 4.27 angstrom. The structural analysis is useful because it is allele-explicit and experimentally checked, but it remains a one-family result and does not model the full A-T spectrum.</div>
+
+
+
+
+            </div>
+
+            <div class="item-box comp-model-box anchor-target" id="computational-model-normative-diffusion-perfusion-mri-autoencoder" data-dismech-node="Normative diffusion-perfusion MRI autoencoder" data-dismech-type="computational_model">
+                <div class="item-name">
+                    Normative diffusion-perfusion MRI autoencoder
+
+                    <span class="tag tag-format">Jupyter Notebook/CSV</span>
+
+
+                    <span class="tag tag-software">Python/PyTorch (versions unpinned); scikit-learn; SHAP</span>
+
+
+                    <span class="tag tag-model-type">MACHINE_LEARNING</span>
+
+                </div>
+
+                <div class="item-desc">A seven-layer, fully connected PyTorch autoencoder trained only on healthy pediatric MRI features to detect individual deviations in A-T. Twenty inputs (13 regional diffusion/perfusion features plus seven demographic and volume covariates) are compressed and 13 imaging features are reconstructed. The paper reports a four-dimensional latent layer, whereas the released notebook instantiates five latent units. One hundred controls were used for training and validation, 10 controls for held-out testing, and 16 children with A-T for disease evaluation.</div>
+
+                <div class="item-meta" style="margin-top: 8px;">
+
+                    <a href="https://github.com/stefanpsz/A-T_Autoencoder/commit/d14295ced27c4cbee3e22db966daed38c40f831e" target="_blank" style="color: var(--secondary); font-size: 0.85rem; margin-right: 16px;">Repository ↗</a>
+
+
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/40880371" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:40880371">PMID:40880371</a>
+
+
+
+
+                </div>
+
+                <table class="model-variables-table">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Model ID</th>
+                            <th>Unit</th>
+                            <th>Ontology Mappings</th>
+                            <th>Phenotype Thresholds</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Total MRI-feature reconstruction error</div>
+
+                                <div class="model-var-desc">Per-subject mean-squared error across the 13 reconstructed imaging features; group summaries report the median.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">total reconstruction error</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Cerebellar gray-matter diffusion reconstruction error</div>
+
+                                <div class="model-var-desc">Individual deviation in cerebellar gray-matter apparent diffusion coefficient.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">CGM diffusion reconstruction error</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                        <tr>
+                            <td>
+                                <div class="model-var-name">Cerebellar white-matter diffusion reconstruction error</div>
+
+                                <div class="model-var-desc">Individual deviation in cerebellar white-matter apparent diffusion coefficient.</div>
+
+                            </td>
+                            <td>
+
+                                <code class="model-var-id">CWM diffusion reconstruction error</code>
+
+                            </td>
+                            <td></td>
+                            <td>
+
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
+
+                    </tbody>
+                </table>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-progressive-cerebellar-and-peripheral-neurodegeneration">Progressive cerebellar and peripheral neurodegeneration</a>
+
+                <span class="crosslink-meta">measures</span>
+
+
+                <span class="crosslink-meta">fidelity: moderate</span>
+
+
+                <span class="crosslink-desc">Reconstruction error measures deviations in cerebellar and subcortical MRI diffusion/perfusion features relative to a healthy normative model; it does not simulate the causal degeneration process.</span>
+
+
+                <div class="mapping-notes">Limitations: The model measures cross-sectional brain-imaging anomalies only. It does not measure peripheral nerves, neuronal loss directly, longitudinal progression, or treatment response, and SHAP associations cannot establish causal inter-regional mechanisms.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Readouts</div>
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Total MRI-feature reconstruction error</div>
+
+
+        <div style="margin-top: 6px;">Median reconstruction error was 4.5 x 10^-3 in 16 A-T participants and 4.0 x 10^-4 in 10 held-out controls (P=1.5 x 10^-6).</div>
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40880371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40880371" target="_blank">PMID:40880371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Overall, A-T participants had a median reconstruction error of 4.5 × 10 ⁻ ³ (range: 1.5 × 10 ⁻ ³, 1.2 × 10 ⁻ ²), compared to controls (4.0 × 10 ⁻ ⁴, range: 2.4 × 10 ⁻ ⁴, 1.9 × 10 ⁻ ³), P = 1.5 × 10 ⁻ ⁶, Wilcoxon test (Fig 2C)."</div>
+
+
+                <div class="evidence-explanation">The full-text result supplies the exact disease and held-out-control comparison.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40880371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40880371" target="_blank">PMID:40880371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A normative deep autoencoder that reconstructs these features was trained on healthy subjects."</div>
+
+
+                <div class="evidence-explanation">The primary paper defines the healthy-trained normative model.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+    <div class="findings-section">
+        <div class="findings-title">Findings</div>
+
+        <div class="finding-item">
+
+            <div class="finding-statement">A-T participants showed substantially higher total reconstruction error than held-out controls, with the clearest anomalies in pallidal and caudate perfusion and cerebellar gray- and white-matter diffusion.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40880371" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40880371" target="_blank">PMID:40880371</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Data was correctly reconstructed in controls but not in participants with A-T, who generally showed significantly higher errors. This was especially true for pallidum and caudate perfusion, as well as for CWM and CGM diffusion (Fig 3)."</div>
+
+
+                <div class="evidence-explanation">The autoencoder distinguished A-T imaging features from its healthy norm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">The MIT-licensed repository is pinned at commit d14295ced27c4cbee3e22db966daed38c40f831e and includes the training/test/A-T combined-feature CSV files plus the analysis notebook; the feature data have no separate data-license file. It does not include trained weights, a dependency manifest, or an environment lock. The notebook expects nine absent split CSV files, saves and loads weights through an author&#39;s private Google Drive path, and omits code that constructs several later analysis objects. Its formulas instantiate a five-unit latent layer rather than the four-unit architecture stated in the paper. The committed artifact is therefore not a self-contained replay of the published analysis. The 16-person A-T cohort is small and has no external validation cohort; training controls are younger on average, and exploratory clinical associations were not corrected for multiple testing. This is an individualized anomaly detector, not a longitudinal patient digital twin.</div>
+
+
+
+
+            </div>
+
+        </div>
+
 
         <!-- Reports -->
 
@@ -14023,6 +15405,389 @@ differential_diagnoses:
       the early absence of tendon reflexes, a normal AFP , the frequent presence
       of scoliosis, and abnormal features on the EKG.
     explanation: The review provides direct distinguishing features for Friedreich ataxia.
+computational_models:
+- name: ATM/ATR DNA-damage-response and drug-repurposing ODE model
+  description: &gt;-
+    A single-compartment kinetic model of ATM/ATR-p53 signaling, DNA-damage
+    production and repair, HDAC4-PP2A regulation, NRF2-KEAP1 signaling,
+    autophagy, and p53-dependent cell-fate effectors. The deposited SBML contains
+    31 species and 40 reactions. The paper compares a physiological simulation
+    with an A-T disease arm created by setting ATM to zero and with separate
+    manually configured simulations of HDAC4 inhibition, omaveloxolone, and
+    spermidine.
+  model_type: KINETIC
+  repository_url: https://github.com/francescopappalardo/ATM-ATR-DDR-DrugRepositioning-Model/tree/b8fe08557e7ba8d32a8168a53641a6c2b1e65bf2
+  model_id: AT_ATM_ATR_forDR_v1.xml
+  model_format: SBML Level 2 Version 4 (XML)
+  model_software: COPASI 4.44 (Build 295)
+  publication: PMID:41285916
+  perturbations:
+  - preferred_term: ATM
+    term:
+      id: hgnc:795
+      label: ATM
+  variables:
+  - name: Active ATM
+    dataset_identifier: ATM_active
+    description: Active ATM kinase state; the A-T disease scenario sets ATM to zero.
+  - name: DNA-damage burden
+    dataset_identifier: DNA_damage
+    description: &gt;-
+      Aggregate damage state produced basally and removed by the modeled ATM,
+      ATR-CHK1, NRF2, and autophagy repair routes.
+  - name: Active p53
+    dataset_identifier: p53_active
+    description: Activated p53 downstream of ATM, ATR, and checkpoint signaling.
+  - name: Active NRF2
+    dataset_identifier: NRF2_active
+    description: Modeled NRF2 antioxidant-response state.
+  - name: Active autophagy
+    dataset_identifier: Autophagy_active
+    description: Modeled autophagy state, including spermidine-induced activation.
+  modeled_mechanisms:
+  - target: ATM kinase deficiency and defective DNA-damage signaling
+    relationship: PARTIALLY_RECAPITULATES
+    description: &gt;-
+      The disease arm directly removes ATM activity and follows the resulting
+      ATR, checkpoint, p53, and repair dynamics, thereby capturing a reduced
+      molecular subset of the proximal A-T mechanism.
+    fidelity: LOW
+    limitations: &gt;-
+      ATM loss is an investigator-set zero rather than an allele-explicit or
+      patient-calibrated state. The model does not represent residual ATM kinase
+      activity, protein abundance, variant A-T, genotype-dependent severity, or
+      empirical A-T response data.
+    readouts:
+    - name: Active ATM
+      target: ATM kinase deficiency and defective DNA-damage signaling
+      description: ATM is set to zero in the disease-layer simulation.
+      direction: DECREASED
+      evidence:
+      - reference: PMID:41285916
+        reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+        supports: SUPPORT
+        evidence_source: COMPUTATIONAL
+        snippet: &gt;-
+          Graphs a–c report the pathological response to DNA damage, respectively
+          of ATM/ATR (a), p53 (b), and involved treatment targets (c) dynamics,
+          setting ATM = 0.
+        explanation: The disease-layer simulation explicitly removes ATM.
+    - name: DNA-damage burden
+      target: ATM kinase deficiency and defective DNA-damage signaling
+      description: DNA_damage accumulates and resolves slowly when ATM is absent.
+      direction: INCREASED
+      evidence:
+      - reference: PMID:41285916
+        reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+        supports: SUPPORT
+        evidence_source: COMPUTATIONAL
+        snippet: &gt;-
+          In this scenario, DNA damage rate accumulates initially and
+          subsequently shows a slow decrease, highlighting the limited capacity
+          of ATR to fully compensate for ATM loss
+        explanation: The ATM-deficient simulation retains a larger, slowly resolving damage state.
+    - name: Active p53
+      target: ATM kinase deficiency and defective DNA-damage signaling
+      description: p53 activation is attenuated in the ATM-deficient arm.
+      direction: DECREASED
+      evidence:
+      - reference: PMID:41285916
+        reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+        supports: SUPPORT
+        evidence_source: COMPUTATIONAL
+        snippet: &gt;-
+          Activation of p53 is substantially reduced, accompanied by a relatively
+          stronger increase in p21 compared to pro-apoptotic proteins BAX and PUMA
+        explanation: The simulation reports reduced p53 activation after ATM removal.
+    evidence:
+    - reference: PMID:41285916
+      reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        The model simulates physiological, ATM-deficient, and drug-treated
+        conditions to explore repurposing strategies.
+      explanation: The publication identifies ATM deficiency as the disease perturbation.
+  evidence:
+  - reference: PMID:41285916
+    reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+    supports: SUPPORT
+    evidence_source: COMPUTATIONAL
+    snippet: &gt;-
+      We developed a computational model of ATM-mediated signaling using
+      ordinary differential equations in COPASI, capturing key processes
+      including DNA damage sensing, cell cycle regulation, autophagy, and
+      oxidative stress response.
+    explanation: The primary paper defines the model type and represented processes.
+  findings:
+  - statement: &gt;-
+      In the ATM-deficient arm, ATR becomes the principal pathway regulating
+      the modeled cellular response to DNA damage.
+    evidence:
+    - reference: PMID:41285916
+      reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        In simulations representing ATM-deficient pathological conditions (Fig.
+        2), ATR signaling emerges as the principal pathway regulating the
+        cellular response to DNA damage.
+      explanation: The disease-layer time course identifies ATR as the main compensatory branch.
+  - statement: &gt;-
+      The spermidine arm predicts increased autophagy and lower DNA_damage, but
+      this is an unvalidated in-silico treatment response rather than evidence of
+      clinical efficacy.
+    evidence:
+    - reference: PMID:41285916
+      reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        Spermidine treatment markedly activated autophagy, driving a decrease in
+        DNA damage levels
+      explanation: The model predicts activation of its autophagy state and reduction of its damage state.
+  - statement: &gt;-
+      The omaveloxolone arm predicts gradual reduction of DNA_damage, again
+      without experimental A-T validation.
+    evidence:
+    - reference: PMID:41285916
+      reference_title: &#34;Computational modeling of ATM signaling: a predictive framework for drug repurposing in ataxia-telangiectasia.&#34;
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        Treatment with omaveloxolone led to sustained activation of ATR
+        signaling, resulting in a gradual and consistent reduction of DNA damage
+      explanation: The drug-layer simulation predicts a falling aggregate damage state.
+  notes: &gt;-
+    The primary pinned GitHub source is GPL-3.0 (file SHA-256
+    33139fc6df3278e3bb8e2bf0878367a51653e2c44021541ee261061278f636d1).
+    BioModels accession MODEL2503190002 revision 2 is NON_CURATED; its OMEX
+    metadata declares CC0 while its record has no license field. Its versioned
+    per-file endpoint provides the semantically equivalent SBML (SHA-256
+    816d0fb1963f142859218e8473dffb9ac1a0a107a5f2988515541173ce399b56),
+    whereas the bulk archive currently contains a zero-byte SBML member.
+    BioModels adds annotations and reserializes the XML, accounting for the
+    cross-source byte difference. Both files validated without libSBML errors
+    and ran finite time courses in COPASI and libRoadRunner during curator smoke
+    testing on 2026-08-20.
+    The paper reports 32 molecular species and 41 reactions, whereas both
+    deposited artifacts contain 31 species and 40 reactions. Only one base SBML
+    file is deposited: disease and drug scenarios, solver tasks, and expected
+    figure outputs are not packaged as separate configurations. Concentrations
+    are qualitative and not calibrated to patient or cell data; the paper&#39;s
+    nominal 20 mol/L drug settings must not be interpreted as clinical doses.
+    Parameter sensitivity, Lyapunov stability, and enrichment of the manually
+    selected network test internal behavior or consistency, not external
+    predictive validity; moreover, the three reported Lyapunov exponents sum to
+    -0.06784821 rather than the stated -12.4979. The proposed
+    spermidine-plus-HDAC4 synergy is inferred from separate intervention
+    simulations rather than a deposited combination run and still requires
+    experimental testing. Although the artifact title and notes sometimes say
+    ATM/ATR-deficient A-T, the disease simulation removes ATM while retaining
+    ATR as the compensatory pathway.
+- name: ATM p.Ala2386Glu variant-structure predictions
+  description: &gt;-
+    Allele-specific structural analyses of homozygous ATM c.7157C&gt;A
+    (p.Ala2386Glu) found in two brothers with variant A-T. Missense3D/PHYRE2 and
+    DynaMut modeled the substitution in the FAT-domain alpha-21 helix against
+    wild-type cryo-EM template PDB 6K9L and produced competing hypotheses:
+    buried-charge structural destabilization or stabilization of the closed,
+    less-active ATM dimer. Patient lymphoblastoid-cell experiments favored the
+    instability branch while showing residual kinase function.
+  model_type: STRUCTURAL_PREDICTION
+  model_software: Missense3D/PHYRE2; DynaMut; PyMOL
+  publication: PMID:34759960
+  perturbations:
+  - preferred_term: ATM
+    term:
+      id: hgnc:795
+      label: ATM
+  modeled_mechanisms:
+  - target: ATM kinase deficiency and defective DNA-damage signaling
+    relationship: PARTIALLY_RECAPITULATES
+    description: &gt;-
+      The models connect one patient allele to altered ATM structure and reduced
+      protein stability, while patient-cell assays anchor the predicted defect
+      to reduced ATM abundance and residual checkpoint signaling.
+    fidelity: MODERATE
+    limitations: &gt;-
+      This is one missense allele from one consanguineous family and does not
+      generalize to truncating alleles or other ATM variants. The two prediction
+      tools disagree mechanistically, and the patient-cell experiments support
+      instability but do not validate the competing closed-dimer hypothesis.
+    readouts:
+    - name: Predicted ATM conformation and stability
+      target: ATM kinase deficiency and defective DNA-damage signaling
+      description: &gt;-
+        Variant models predict either a stabilized inactive conformation or
+        buried-charge structural damage; the direction is therefore non-monotonic.
+      direction: ALTERED
+      evidence:
+      - reference: PMID:34759960
+        reference_title: Functional Classification of the ATM Variant c.7157C&gt;A and In Vitro Effects of Dexamethasone.
+        supports: SUPPORT
+        evidence_source: COMPUTATIONAL
+        snippet: &gt;-
+          3D structural analyses suggested that the variant might be pathogenic
+          due to either loss of activity or to a structural damage affecting
+          protein stability.
+        explanation: The structural tools generated two distinct pathogenicity hypotheses.
+    - name: ATM-A2386E protein abundance
+      target: ATM kinase deficiency and defective DNA-damage signaling
+      description: Patient lymphoblastoid cells contained approximately 23% and 33% of wild-type ATM abundance.
+      direction: DECREASED
+      evidence:
+      - reference: PMID:34759960
+        reference_title: Functional Classification of the ATM Variant c.7157C&gt;A and In Vitro Effects of Dexamethasone.
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: &gt;-
+          ATM-A2386E protein expression is significantly lower than the WT-ATM
+          protein (23 and 33% in the AT 1–54,000 and 1–54,001, respectively)
+        explanation: Patient-derived cells validate reduced mutant-protein abundance.
+    - name: CHK2 activation
+      target: ATM kinase deficiency and defective DNA-damage signaling
+      description: &gt;-
+        Camptothecin-induced CHK2 activation remained below wild type but was
+        retained at approximately 40% and 60% in the two patient cell lines.
+      direction: DECREASED
+      evidence:
+      - reference: PMID:34759960
+        reference_title: Functional Classification of the ATM Variant c.7157C&gt;A and In Vitro Effects of Dexamethasone.
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: &gt;-
+          the percentage of activation in AT1-54000 and AT1-54001 LCLs is
+          significantly lower than the WT control (about 40 and 60%, respectively)
+        explanation: A checkpoint readout confirms residual but reduced signaling in patient cells.
+    evidence:
+    - reference: PMID:34759960
+      reference_title: Functional Classification of the ATM Variant c.7157C&gt;A and In Vitro Effects of Dexamethasone.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        Structural analysis of ATM p. Ala2386Glu mutant protein was performed by
+        two different web services: Missense3D, which exploits PHYRE2 Protein
+        Fold Recognition Server, and DynaMut.
+      explanation: The methods identify the allele-specific structural prediction workflow.
+  findings:
+  - statement: &gt;-
+      Thermal-stability experiments favored Missense3D&#39;s protein-instability
+      prediction over DynaMut&#39;s closed-dimer loss-of-activity hypothesis.
+    evidence:
+    - reference: PMID:34759960
+      reference_title: Functional Classification of the ATM Variant c.7157C&gt;A and In Vitro Effects of Dexamethasone.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Overall, these results agree with the Missense3D prediction of loss of
+        stability due to the introduction of a Glu residue
+      explanation: Patient-cell thermal testing corroborated only the instability branch.
+  notes: &gt;-
+    No mutant coordinates, prediction outputs, code, or reusable model archive
+    were deposited; PDB 6K9L is the wild-type experimental template, not the
+    p.Ala2386Glu model. The template resolution is 4.27 angstrom. The structural
+    analysis is useful because it is allele-explicit and experimentally checked,
+    but it remains a one-family result and does not model the full A-T spectrum.
+- name: Normative diffusion-perfusion MRI autoencoder
+  description: &gt;-
+    A seven-layer, fully connected PyTorch autoencoder trained only on healthy
+    pediatric MRI features to detect individual deviations in A-T. Twenty inputs
+    (13 regional diffusion/perfusion features plus seven demographic and volume
+    covariates) are compressed and 13 imaging features are reconstructed. The
+    paper reports a four-dimensional latent layer, whereas the released notebook
+    instantiates five latent units. One hundred controls were used for training
+    and validation, 10 controls for held-out testing, and 16 children with A-T
+    for disease evaluation.
+  model_type: MACHINE_LEARNING
+  repository_url: https://github.com/stefanpsz/A-T_Autoencoder/commit/d14295ced27c4cbee3e22db966daed38c40f831e
+  model_id: Notebook/main.ipynb
+  model_format: Jupyter Notebook/CSV
+  model_software: Python/PyTorch (versions unpinned); scikit-learn; SHAP
+  publication: PMID:40880371
+  variables:
+  - name: Total MRI-feature reconstruction error
+    dataset_identifier: total reconstruction error
+    description: &gt;-
+      Per-subject mean-squared error across the 13 reconstructed imaging
+      features; group summaries report the median.
+  - name: Cerebellar gray-matter diffusion reconstruction error
+    dataset_identifier: CGM diffusion reconstruction error
+    description: Individual deviation in cerebellar gray-matter apparent diffusion coefficient.
+  - name: Cerebellar white-matter diffusion reconstruction error
+    dataset_identifier: CWM diffusion reconstruction error
+    description: Individual deviation in cerebellar white-matter apparent diffusion coefficient.
+  modeled_mechanisms:
+  - target: Progressive cerebellar and peripheral neurodegeneration
+    relationship: MEASURES
+    description: &gt;-
+      Reconstruction error measures deviations in cerebellar and subcortical
+      MRI diffusion/perfusion features relative to a healthy normative model; it
+      does not simulate the causal degeneration process.
+    fidelity: MODERATE
+    limitations: &gt;-
+      The model measures cross-sectional brain-imaging anomalies only. It does
+      not measure peripheral nerves, neuronal loss directly, longitudinal
+      progression, or treatment response, and SHAP associations cannot establish
+      causal inter-regional mechanisms.
+    readouts:
+    - name: Total MRI-feature reconstruction error
+      target: Progressive cerebellar and peripheral neurodegeneration
+      description: &gt;-
+        Median reconstruction error was 4.5 x 10^-3 in 16 A-T participants and
+        4.0 x 10^-4 in 10 held-out controls (P=1.5 x 10^-6).
+      direction: INCREASED
+      evidence:
+      - reference: PMID:40880371
+        reference_title: Personalized MRI-based characterization of subcortical anomalies in Ataxia-Telangiectasia using deep-learning.
+        supports: SUPPORT
+        evidence_source: COMPUTATIONAL
+        snippet: &gt;-
+          Overall, A-T participants had a median reconstruction error of 4.5 ×
+          10 ⁻ ³ (range: 1.5 × 10 ⁻ ³, 1.2 × 10 ⁻ ²), compared to controls (4.0
+          × 10 ⁻ ⁴, range: 2.4 × 10 ⁻ ⁴, 1.9 × 10 ⁻ ³), P = 1.5 × 10 ⁻ ⁶,
+          Wilcoxon test (Fig 2C).
+        explanation: The full-text result supplies the exact disease and held-out-control comparison.
+    evidence:
+    - reference: PMID:40880371
+      reference_title: Personalized MRI-based characterization of subcortical anomalies in Ataxia-Telangiectasia using deep-learning.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        A normative deep autoencoder that reconstructs these features was trained
+        on healthy subjects.
+      explanation: The primary paper defines the healthy-trained normative model.
+  findings:
+  - statement: &gt;-
+      A-T participants showed substantially higher total reconstruction error
+      than held-out controls, with the clearest anomalies in pallidal and caudate
+      perfusion and cerebellar gray- and white-matter diffusion.
+    evidence:
+    - reference: PMID:40880371
+      reference_title: Personalized MRI-based characterization of subcortical anomalies in Ataxia-Telangiectasia using deep-learning.
+      supports: SUPPORT
+      evidence_source: COMPUTATIONAL
+      snippet: &gt;-
+        Data was correctly reconstructed in controls but not in participants
+        with A-T, who generally showed significantly higher errors. This was
+        especially true for pallidum and caudate perfusion, as well as for CWM
+        and CGM diffusion (Fig 3).
+      explanation: The autoencoder distinguished A-T imaging features from its healthy norm.
+  notes: &gt;-
+    The MIT-licensed repository is pinned at commit
+    d14295ced27c4cbee3e22db966daed38c40f831e and includes the training/test/A-T
+    combined-feature CSV files plus the analysis notebook; the feature data have
+    no separate data-license file. It does not include trained weights, a
+    dependency manifest, or an environment lock. The notebook expects nine
+    absent split CSV files, saves and loads weights through an author&#39;s private
+    Google Drive path, and omits code that constructs several later analysis
+    objects. Its formulas instantiate a five-unit latent layer rather than the
+    four-unit architecture stated in the paper. The committed artifact is
+    therefore not a self-contained replay of the published analysis. The
+    16-person A-T cohort is small and has no external validation cohort; training
+    controls are younger on average, and exploratory clinical associations were
+    not corrected for multiple testing. This is an individualized anomaly
+    detector, not a longitudinal patient digital twin.
 discussions:
 - discussion_id: gap_at_selective_neurodegeneration
   kind: KNOWLEDGE_GAP
@@ -15997,7 +17762,7 @@ Predisposition Dysfunction    Pulmonary Disease
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Ataxia-telangiectasia", "mondoId": "MONDO:0008840", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ataxia-telangiectasia", "yamlRevision": "3422960a8a53"};
+        const OS_CONFIG = {"diseaseName": "Ataxia-telangiectasia", "mondoId": "MONDO:0008840", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Ataxia-telangiectasia", "yamlRevision": "d4c25d318779"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

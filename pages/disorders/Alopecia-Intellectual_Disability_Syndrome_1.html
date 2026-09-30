@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4891,6 +4930,13 @@ AHSG encodes fetuin-A. The reported variant segregates with the phenotype and is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ahsg-missense-variant" data-dismech-node="Biallelic AHSG Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic AHSG Missense Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Homozygous AHSG c.950G&gt;A (p.Arg317His) was reported in seven affected members of one consanguineous Iranian family. AHSG lies within the independently mapped APMR1 interval. The clinical association is supported by segregation, positional evidence and altered protein migration, but the direction of protein dysfunction and tissue mechanisms are unresolved.</div>
 
 
@@ -5075,6 +5121,13 @@ This pathophysiological event involves AHSG (hgnc:349). hgnc:349 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fetuin-a-tgf-beta-antagonism" data-dismech-node="Reduced Fetuin-A TGF-beta Antagonism" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Fetuin-A TGF-beta Antagonism</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
+
                 <div class="item-desc">Reduced antagonism of TGF-beta ligands is a proposed consequence of the APMR1 allele. Normal fetuin binds TGF-beta/BMP ligands in vitro, but deficient binding or neutralization has not been demonstrated for p.Arg317His. This node is conditional on the stated hypothesis.</div>
 
 
@@ -5212,6 +5265,13 @@ This pathophysiological event involves decreased negative regulation of transfor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-hair-follicle-catagen-entry" data-dismech-node="Premature Hair Follicle Catagen Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Hair Follicle Catagen Entry</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Premature follicular regression is a candidate explanation for hair loss based on human hair-cycle experiments. TGF-beta2 suppressed elongation, whereas fetuin and neutralizing antibody promoted elongation in organ culture. These experiments did not study an AHSG-variant follicle or demonstrate premature catagen in APMR1 skin.</div>
 
@@ -5386,7 +5446,7 @@ This pathophysiological event involves hair follicle cell (CL:0002559). CL:00025
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AHSG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AHSG\"], \"gene_terms\": [{\"label\": \"AHSG\", \"id\": \"hgnc:349\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Alopecia of Scalp\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total or partial scalp alopecia is the defining hair finding. Complete absence from birth was documented in the original Pakistani linkage family; the AHSG report describes total or partial hair loss without an onset statement in its accessible abstract.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002293\"}}, {\"id\": \"Biallelic AHSG Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous AHSG c.950G\u003eA (p.Arg317His) was reported in seven affected members of one consanguineous Iranian family. AHSG lies within the independently mapped APMR1 interval. The clinical association is supported by segregation, positional evidence and altered protein migration, but the direction of protein dysfunction and tissue mechanisms are unresolved.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AHSG\"], \"gene_terms\": [{\"label\": \"AHSG\", \"id\": \"hgnc:349\"}], \"role\": \"trigger\"}}, {\"id\": \"Human hair follicle organ culture with TGF-beta2 and fetuin\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"TGF-beta2 suppressed hair elongation, while neutralizing antibody and fetuin promoted elongation in organ culture. This experiments with a candidate hair-cycle pathway but does not reproduce the APMR1 allele or congenital follicle development.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"publication\": \"PMID:12060393\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability was described as severe in the original Pakistani linkage family. The AHSG-associated family had variable intellectual disability; the 2021 review summarizes IQ values of 40\\u201354 for its seven relatives. These ascertained families do not establish population frequencies or a uniform severity, and molecular equivalence of the linkage family remains unproven.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0001249\"}}, {\"id\": \"NM_001622.4:c.950G\u003eA (p.Arg317His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant reported with APMR1. The original report called it predicted pathogenic. The LIKELY_PATHOGENIC value here records the ClinVar RCV000578120.9 aggregate classification, last evaluated March 24, 2026, rather than a new curator ACMG classification. The record has two submissions but criteria from one submitter; this is not evidence of two independently phenotyped APMR1 families. Protein migration is altered, while the functional direction remains unresolved.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AHSG\"], \"gene_terms\": [{\"label\": \"AHSG\", \"id\": \"hgnc:349\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Premature Hair Follicle Catagen Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature follicular regression is a candidate explanation for hair loss based on human hair-cycle experiments. TGF-beta2 suppressed elongation, whereas fetuin and neutralizing antibody promoted elongation in organ culture. These experiments did not study an AHSG-variant follicle or demonstrate premature catagen in APMR1 skin.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hair follicle cell\"], \"experimental_models\": [{\"name\": \"Human hair follicle organ culture with TGF-beta2 and fetuin\", \"model_type\": \"OTHER\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Manipulates a ligand implicated in normal human catagen and measures hair elongation.\"}]}}, {\"id\": \"Reduced Fetuin-A TGF-beta Antagonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced antagonism of TGF-beta ligands is a proposed consequence of the APMR1 allele. Normal fetuin binds TGF-beta/BMP ligands in vitro, but deficient binding or neutralization has not been demonstrated for p.Arg317His. This node is conditional on the stated hypothesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of transforming growth factor beta receptor signaling pathway\"]}}], \"edges\": [{\"source\": \"Biallelic AHSG Missense Variant\", \"target\": \"Alopecia of Scalp\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reported AHSG association provides an unresolved route to this clinical finding. The intervening developmental and cellular mechanisms are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AHSG Missense Variant\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reported AHSG association provides an unresolved route to this clinical finding. The intervening developmental and cellular mechanisms are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AHSG Missense Variant\", \"target\": \"Reduced Fetuin-A TGF-beta Antagonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The model postulates reduced ligand antagonism by variant fetuin-A. The altered electrophoretic migration does not establish this direction of functional change.\", \"hypothesis_groups\": [\"fetuin_tgfb_antagonism_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Fetuin-A TGF-beta Antagonism\", \"target\": \"Premature Hair Follicle Catagen Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced restraint of the experimentally catagen-promoting TGF-beta2 signal could favor premature catagen. Both the loss of restraint and the resulting timing defect remain untested in APMR1.\", \"hypothesis_groups\": [\"fetuin_tgfb_antagonism_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Premature Hair Follicle Catagen Entry\", \"target\": \"Alopecia of Scalp\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature regression could contribute to hair loss if the candidate mechanism operates in APMR1. The congenital phenotype could instead involve follicle formation or another fetuin-A function.\", \"hypothesis_groups\": [\"fetuin_tgfb_antagonism_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human hair follicle organ culture with TGF-beta2 and fetuin\", \"target\": \"Premature Hair Follicle Catagen Entry\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Manipulates a ligand implicated in normal human catagen and measures hair elongation.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"The measured elongation response is not demonstration of premature catagen in APMR1 or rescue of a mutant follicle.\"}, {\"source\": \"AHSG\", \"target\": \"Biallelic AHSG Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_001622.4:c.950G\u003eA (p.Arg317His)\", \"target\": \"AHSG\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AHSG\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AHSG\"], \"gene_terms\": [{\"label\": \"AHSG\", \"id\": \"hgnc:349\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 1}}, {\"id\": \"Alopecia of Scalp\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Total or partial scalp alopecia is the defining hair finding. Complete absence from birth was documented in the original Pakistani linkage family; the AHSG report describes total or partial hair loss without an onset statement in its accessible abstract.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002293\"}}, {\"id\": \"Biallelic AHSG Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Homozygous AHSG c.950G\u003eA (p.Arg317His) was reported in seven affected members of one consanguineous Iranian family. AHSG lies within the independently mapped APMR1 interval. The clinical association is supported by segregation, positional evidence and altered protein migration, but the direction of protein dysfunction and tissue mechanisms are unresolved.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AHSG\"], \"gene_terms\": [{\"label\": \"AHSG\", \"id\": \"hgnc:349\"}], \"role\": \"trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Human hair follicle organ culture with TGF-beta2 and fetuin\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"TGF-beta2 suppressed hair elongation, while neutralizing antibody and fetuin promoted elongation in organ culture. This experiments with a candidate hair-cycle pathway but does not reproduce the APMR1 allele or congenital follicle development.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"OTHER\", \"publication\": \"PMID:12060393\"}}, {\"id\": \"Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intellectual disability was described as severe in the original Pakistani linkage family. The AHSG-associated family had variable intellectual disability; the 2021 review summarizes IQ values of 40\\u201354 for its seven relatives. These ascertained families do not establish population frequencies or a uniform severity, and molecular equivalence of the linkage family remains unproven.\", \"meta\": {\"evidence_count\": 5, \"term_id\": \"HP:0001249\"}}, {\"id\": \"NM_001622.4:c.950G\u003eA (p.Arg317His)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense variant reported with APMR1. The original report called it predicted pathogenic. The LIKELY_PATHOGENIC value here records the ClinVar RCV000578120.9 aggregate classification, last evaluated March 24, 2026, rather than a new curator ACMG classification. The record has two submissions but criteria from one submitter; this is not evidence of two independently phenotyped APMR1 families. Protein migration is altered, while the functional direction remains unresolved.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"AHSG\"], \"gene_terms\": [{\"label\": \"AHSG\", \"id\": \"hgnc:349\"}], \"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Premature Hair Follicle Catagen Entry\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Premature follicular regression is a candidate explanation for hair loss based on human hair-cycle experiments. TGF-beta2 suppressed elongation, whereas fetuin and neutralizing antibody promoted elongation in organ culture. These experiments did not study an AHSG-variant follicle or demonstrate premature catagen in APMR1 skin.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"hair follicle cell\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"experimental_models\": [{\"name\": \"Human hair follicle organ culture with TGF-beta2 and fetuin\", \"model_type\": \"OTHER\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Manipulates a ligand implicated in normal human catagen and measures hair elongation.\"}]}}, {\"id\": \"Reduced Fetuin-A TGF-beta Antagonism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced antagonism of TGF-beta ligands is a proposed consequence of the APMR1 allele. Normal fetuin binds TGF-beta/BMP ligands in vitro, but deficient binding or neutralization has not been demonstrated for p.Arg317His. This node is conditional on the stated hypothesis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of transforming growth factor beta receptor signaling pathway\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}], \"edges\": [{\"source\": \"Biallelic AHSG Missense Variant\", \"target\": \"Alopecia of Scalp\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reported AHSG association provides an unresolved route to this clinical finding. The intervening developmental and cellular mechanisms are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AHSG Missense Variant\", \"target\": \"Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The reported AHSG association provides an unresolved route to this clinical finding. The intervening developmental and cellular mechanisms are not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Biallelic AHSG Missense Variant\", \"target\": \"Reduced Fetuin-A TGF-beta Antagonism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The model postulates reduced ligand antagonism by variant fetuin-A. The altered electrophoretic migration does not establish this direction of functional change.\", \"hypothesis_groups\": [\"fetuin_tgfb_antagonism_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Fetuin-A TGF-beta Antagonism\", \"target\": \"Premature Hair Follicle Catagen Entry\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced restraint of the experimentally catagen-promoting TGF-beta2 signal could favor premature catagen. Both the loss of restraint and the resulting timing defect remain untested in APMR1.\", \"hypothesis_groups\": [\"fetuin_tgfb_antagonism_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Premature Hair Follicle Catagen Entry\", \"target\": \"Alopecia of Scalp\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature regression could contribute to hair loss if the candidate mechanism operates in APMR1. The congenital phenotype could instead involve follicle formation or another fetuin-A function.\", \"hypothesis_groups\": [\"fetuin_tgfb_antagonism_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Human hair follicle organ culture with TGF-beta2 and fetuin\", \"target\": \"Premature Hair Follicle Catagen Entry\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Manipulates a ligand implicated in normal human catagen and measures hair elongation.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"The measured elongation response is not demonstration of premature catagen in APMR1 or rescue of a mutant follicle.\"}, {\"source\": \"AHSG\", \"target\": \"Biallelic AHSG Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_001622.4:c.950G\u003eA (p.Arg317His)\", \"target\": \"AHSG\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6031,6 +6091,9 @@ This disease-associated gene is AHSG (hgnc:349). hgnc:349 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6110,6 +6173,7 @@ This disease-associated gene is AHSG (hgnc:349). hgnc:349 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6129,11 +6193,17 @@ This variant is in AHSG (hgnc:349). hgnc:349 is a gene from the HUGO Gene Nomenc
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense variant reported with APMR1. The original report called it predicted pathogenic. The LIKELY_PATHOGENIC value here records the ClinVar RCV000578120.9 aggregate classification, last evaluated March 24, 2026, rather than a new curator ACMG classification. The record has two submissions but criteria from one submitter; this is not evidence of two independently phenotyped APMR1 families. Protein migration is altered, while the functional direction remains unresolved.</div>
