@@ -48325,14 +48325,18 @@ window.searchData = [
     "creation_date": "2026-08-23T22:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "The milder allelic dystrophinopathy. Becker and Duchenne muscular dystrophy are lesions of the same gene, and what separates them is not where the mutation falls but whether it preserves the translational reading frame. An in-frame deletion removes internal codons and yields a shorter dystrophin that still has its N-terminal actin-binding and C-terminal complex-binding ends; an out-of-frame deletion shifts the frame, truncates the protein, and leaves nothing that can anchor the sarcolemma.\nCurating Becker separately from Duchenne is not a taxonomic nicety. The two entries differ in the molecular lesion class, in the protein outcome, in natural history, and - most consequentially for dismech - in the direction of therapy. Exon-skipping antisense therapy in Duchenne is an attempt to restore the reading frame, which is to say an attempt to convert a Duchenne lesion into a Becker one. Becker is the target state of a Duchenne treatment, and an entry that folded it into Duchenne would have no way to say so.\nThe clinical picture matches the molecular one. Most patients walk into middle age or beyond; in the largest series the median age at loss of ambulation was estimated at 69 years and over half of diagnoses were prompted by an incidental raised creatine kinase rather than by weakness. Cardiac involvement is the disproportionate complication - around 30% have left ventricular impairment, against 2.7% with respiratory involvement - so the organ that limits prognosis is not the one the patient complains about.",
+    "description": "Becker muscular dystrophy is an X-linked dystrophinopathy caused by pathogenic DMD variants that permit production of partly functional dystrophin. Protein quantity, structure, and clinical severity vary. In-frame variants predominate, but the reading-frame rule is predictive rather than diagnostic: out-of-frame, nonsense, splice, and other variants can also produce a Becker phenotype. Progressive proximal weakness, calf hypertrophy, exercise-related symptoms, or incidental hyperCKaemia may lead to diagnosis. Cardiomyopathy can be severe despite relatively mild skeletal muscle involvement. Age at loss of ambulation and respiratory impairment vary substantially between patients and genotypes.",
     "pathophysiology": [
-      "In-Frame DMD Lesion",
-      "Internally Deleted but Semifunctional Dystrophin",
-      "Attenuated Sarcolemmal Fragility in Skeletal Muscle",
+      "DMD Pathogenic Variant",
+      "Reduced or Abnormal Partly Functional Dystrophin",
+      "Contraction-Induced Skeletal Muscle Injury",
       "Slowly Progressive Proximal Myopathy",
       "Dystrophin-Deficient Cardiomyocyte Injury",
-      "Left Ventricular Impairment and Dilated Cardiomyopathy"
+      "Left Ventricular Impairment and Dilated Cardiomyopathy",
+      "Cardiac Intercalated Disc Disorganization",
+      "Loss of Sarcolemmal nNOS Localization",
+      "Impaired Exercise-Induced Vasomodulation",
+      "RyR1-Calstabin Complex Destabilization"
     ],
     "cell_types": [
       "skeletal muscle fibre",
@@ -48342,24 +48346,51 @@ window.searchData = [
       "CL:0008002",
       "CL:0000746"
     ],
-    "biological_processes": [],
+    "biological_processes": [
+      "nitric oxide-cGMP-mediated signaling"
+    ],
     "phenotypes": [
       "Elevated Creatine Kinase",
       "Progressive Proximal Muscle Weakness",
       "Loss of Ambulation",
       "Left Ventricular Impairment",
-      "Respiratory Involvement",
+      "Dilated Cardiomyopathy",
+      "Reduced Forced Vital Capacity",
       "Very Late-Onset Ambulant Phenotype",
-      "Dilated Cardiomyopathy in Heterozygous Females"
+      "Dilated Cardiomyopathy in Heterozygous Females",
+      "Calf muscle hypertrophy",
+      "Exercise-induced muscle cramps",
+      "Waddling gait",
+      "Lumbar hyperlordosis",
+      "Elbow flexion contracture",
+      "Scoliosis",
+      "Macroglossia",
+      "Dysphagia",
+      "Constipation",
+      "Gastroparesis",
+      "Urinary incontinence",
+      "Elevated circulating hepatic transaminase concentration",
+      "Increased muscle fatiguability",
+      "Attention deficit hyperactivity disorder",
+      "Autism"
     ],
     "phenotype_categories": [
       "Laboratory",
       "Musculoskeletal",
       "Cardiovascular",
-      "Respiratory"
+      "Respiratory",
+      "Head and Neck",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Neurodevelopmental"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System",
@@ -48369,14 +48400,26 @@ window.searchData = [
       "HP:0003236",
       "HP:0009073",
       "HP:0002505",
-      "HP:0001638",
+      "HP:0025169",
+      "HP:0001644",
       "HP:0032341",
-      "HP:0001644"
+      "HP:0008981",
+      "HP:0003710",
+      "HP:0002515",
+      "HP:0002938",
+      "HP:0002987",
+      "HP:0002650",
+      "HP:0000158",
+      "HP:0002015",
+      "HP:0002019",
+      "HP:0002578",
+      "HP:0000020",
+      "HP:0002910",
+      "HP:0003750",
+      "HP:0007018",
+      "HP:0000717"
     ],
-    "frequencies": [
-      "OCCASIONAL",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "DMD"
     ],
@@ -48385,18 +48428,40 @@ window.searchData = [
       "Corticosteroid Therapy",
       "Cardiac Transplantation",
       "Cardiac Surveillance",
-      "Anaesthetic Avoidance"
+      "Perioperative Assessment and Anaesthetic Precautions",
+      "Investigational Givinostat",
+      "Investigational Sevasemten",
+      "Investigational Vamorolone",
+      "Physical Therapy and Adapted Exercise",
+      "Orthoses and Mobility Support",
+      "Orthopedic Surgery for Function-Limiting Deformity",
+      "Neuropsychological and Mental Health Care",
+      "Respiratory Surveillance",
+      "Noninvasive Ventilation for Hypoventilation",
+      "Cough Assistance",
+      "Swallowing and Nutritional Support",
+      "Gastrostomy for Inadequate or Unsafe Oral Intake",
+      "Gastrointestinal Symptom Management",
+      "Urological Assessment and Care",
+      "Bone Health and Pain Management",
+      "Respiratory Vaccination",
+      "Genetic Counseling and Family Evaluation",
+      "Pregnancy Planning for Heterozygous Females",
+      "Advanced Heart Failure Medication and Device Care",
+      "Investigational Tadalafil",
+      "Investigational Sodium Nitrate",
+      "Sildenafil Trial with No Demonstrated Clinical Benefit"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Becker_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Becker_Muscular_Dystrophy.html",
-    "num_phenotypes": 7,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 23,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 27,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Beckwith-Wiedemann Syndrome",
@@ -66986,6 +67051,72 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Campylobacter fetus Infectious Disease",
+    "disease_id": "MONDO:0040728",
+    "category": "Infectious Disease",
+    "parents": [
+      "Campylobacteriosis"
+    ],
+    "creation_date": "2026-09-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A zoonotic Campylobacteriosis subtype caused by Campylobacter fetus, notable for serum-resistant bloodstream infection and secondary vascular, central nervous system, soft-tissue, osteoarticular, and perinatal localizations.",
+    "pathophysiology": [
+      "Animal-reservoir exposure to Campylobacter fetus",
+      "Fibronectin-enhanced mucosal adhesion",
+      "Transcellular epithelial translocation",
+      "S-layer-mediated serum resistance",
+      "Sustained Campylobacter fetus bacteremia",
+      "Secondary vascular, CNS, skin, osteoarticular, and perinatal seeding"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Bacteremia",
+      "Endocarditis",
+      "Meningitis",
+      "Cellulitis",
+      "Aortic aneurysm",
+      "Septic arthritis",
+      "Neonatal sepsis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0031864",
+      "HP:0100584",
+      "HP:0001287",
+      "HP:0100658",
+      "HP:0004942",
+      "HP:0003095",
+      "HP:0040187"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Ampicillin-gentamicin therapy",
+      "Carbapenem therapy for severe invasive infection",
+      "Resistance-guided antimicrobial selection"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Campylobacter_Fetus_Infectious_Disease.yaml",
+    "page_url": "../pages/disorders/Campylobacter_fetus_Infectious_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Campylobacteriosis",
     "disease_id": "MONDO:0005688",
     "category": "Infectious Disease",
@@ -66995,7 +67126,9 @@ window.searchData = [
     ],
     "creation_date": "2026-02-26T22:44:59Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Campylobacter fetus infectious disease"
+    ],
     "description": "A foodborne bacterial enteric infection, most commonly caused by Campylobacter jejuni and Campylobacter coli, characterized by acute inflammatory diarrhea and potential post-infectious sequelae.",
     "pathophysiology": [
       "Exposure to contaminated food or water",
@@ -76591,6 +76724,113 @@ window.searchData = [
     "num_treatments": 1,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Childhood-Onset Striatonigral Degeneration",
+    "disease_id": "MONDO:0014889",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodegenerative Disease",
+      "Movement Disorder"
+    ],
+    "creation_date": "2026-09-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Childhood-onset striatonigral degeneration (SNDC; OMIM 617054) is an ultra-rare autosomal recessive neurodegenerative disorder caused by biallelic germline variants in VAC14, the scaffold protein that holds the lipid kinase PIKFYVE and the phosphatase FIG4 together in the complex that makes the endolysosomal signalling lipid PI(3,5)P2. After a period of normal early development, affected children develop an abrupt or subacute neurological regression with dystonia, loss of walking and speech, and striatal abnormalities on MRI, with involvement of the substantia nigra and, in some reports, the brainstem. Neuropathology in two siblings showed vacuolation of lysosomal structures in degenerating neurons of the caudate, putamen and globus pallidus, matching the enlarged endolysosomal vacuoles seen in patient fibroblasts and in Vac14-deficient mice. Later-onset patients with slower dystonia-parkinsonism and pallidonigral iron deposition have also been reported, and the condition is discussed as a form of neurodegeneration with brain iron accumulation. Biallelic VAC14 variants can alternatively cause Yunis-Varon syndrome, which is curated as a separate entry. The published evidence rests on case reports and small sibships.",
+    "pathophysiology": [
+      "Biallelic VAC14 Variants",
+      "Impaired PI(3,5)P2 Synthesis",
+      "Endolysosomal Vacuolation",
+      "Defective Endosome-to-TGN Retrograde Trafficking",
+      "Early Neuroinflammation",
+      "Basal Ganglia Neuronal Degeneration"
+    ],
+    "cell_types": [
+      "skin fibroblast",
+      "neuron",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002620",
+      "CL:0000540",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "PI(3,5)P2 biosynthesis",
+      "vacuole organization",
+      "lysosome organization",
+      "retrograde transport, endosome to Golgi",
+      "neuroinflammatory response"
+    ],
+    "phenotypes": [
+      "Dystonia",
+      "Developmental Regression",
+      "Loss of Ambulation",
+      "Loss of Speech",
+      "Anarthria",
+      "Parkinsonism",
+      "Spasticity",
+      "Dysphagia",
+      "Striatal Abnormalities on MRI",
+      "Substantia Nigra Abnormality",
+      "Striatal Degeneration",
+      "Brainstem Involvement",
+      "Pallidonigral Iron Accumulation",
+      "Sensorineural Hearing Impairment",
+      "Retinitis Pigmentosa"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Radiologic",
+      "Pathological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001332",
+      "HP:0002376",
+      "HP:0002505",
+      "HP:0002371",
+      "HP:0002425",
+      "HP:0001300",
+      "HP:0001257",
+      "HP:0002015",
+      "HP:0012751",
+      "HP:0045007",
+      "HP:0040140",
+      "HP:0012747",
+      "HP:0012675",
+      "HP:0000407",
+      "HP:0000510"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "VAC14"
+    ],
+    "treatments": [
+      "Pallidal Deep Brain Stimulation",
+      "Symptomatic Oral Pharmacotherapy",
+      "Deferiprone Iron Chelation",
+      "Gastrostomy Feeding"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Childhood-Onset_Striatonigral_Degeneration.yaml",
+    "page_url": "../pages/disorders/Childhood-Onset_Striatonigral_Degeneration.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Childhood Absence Epilepsy",
@@ -139729,7 +139969,7 @@ window.searchData = [
   },
   {
     "name": "GPR101-related pituitary adenoma 2",
-    "disease_id": null,
+    "disease_id": "MONDO:0010492",
     "category": "Genetic",
     "parents": [
       "pituitary gland adenoma"
@@ -182896,6 +183136,66 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Intellectual Disability, Autosomal Dominant 11",
+    "disease_id": "MONDO:0013658",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "intellectual disability"
+    ],
+    "creation_date": "2026-09-28T17:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual disability, autosomal dominant 11 (MRD11) is a provisional gene-disease association resting on a single patient: a boy with severe nonsyndromic intellectual disability who carries a de novo heterozygous missense variant, p.Pro854Ser, in EPB41L1. EPB41L1 encodes protein 4.1N, a neuron-enriched FERM-domain adaptor that links membrane receptors to the spectrin-actin cytoskeleton and binds the AMPA receptor subunit GluA1 (GluR1) through its C-terminal domain. In cultured cells the variant halves 4.1N binding to GluA1 and lowers surface GluA1 in neurons, and acute 4.1N knockdown in mouse hippocampus impairs the maintenance of long-term potentiation without changing basal transmission. The rodent evidence is not consistent, however: 3-week-old mice with 4.1N reduced to about a fifth of normal (and no 4.1G) have normal glutamatergic transmission and long-term potentiation, and in rat dentate gyrus granule neurons the C-terminal domain carrying the patient's variant was dispensable for 4.1N's synaptic role, whereas the FERM domain was needed for synaptic AMPA receptors. No second patient has been published, so both the gene-disease link and the mechanism remain unconfirmed.",
+    "pathophysiology": [
+      "De Novo EPB41L1 p.Pro854Ser Variant",
+      "Reduced 4.1N Binding to GluA1",
+      "Reduced Surface GluA1 AMPA Receptors",
+      "Impaired Glutamatergic Synapse Function and Plasticity"
+    ],
+    "cell_types": [
+      "hippocampal neuron",
+      "glutamatergic neuron",
+      "dentate gyrus granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002608",
+      "CL:0000679",
+      "CL:2000089"
+    ],
+    "biological_processes": [
+      "GluA1 AMPA receptor transport to the neuronal surface",
+      "long-term synaptic potentiation"
+    ],
+    "phenotypes": [
+      "Severe Intellectual Disability"
+    ],
+    "phenotype_categories": [
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010864"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EPB41L1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_Autosomal_Dominant_11.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability,_Autosomal_Dominant_11.html",
+    "num_phenotypes": 1,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Intellectual Disability, Autosomal Dominant 30",
     "disease_id": "MONDO:0014486",
     "category": "Mendelian",
@@ -186325,6 +186625,113 @@ window.searchData = [
     "num_treatments": 7,
     "causal_graph_edges": "49",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Israeli Tick Typhus",
+    "disease_id": "MONDO:0000230",
+    "category": "Infectious Disease",
+    "parents": [
+      "Spotted fever rickettsiosis"
+    ],
+    "creation_date": "2026-09-28T06:28:43Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Israeli tick typhus is an acute tick-borne spotted-fever-group rickettsiosis caused by the obligately intracellular bacterium Rickettsia conorii subsp. israelensis. Rhipicephalus sanguineus ticks transmit the ISF strain into skin, after which Sca-family rickettsial invasion factors seed endothelial infection, disseminated small-vessel vasculitis, thromboxane-dependent platelet activation, fever, rash, eschar-poor presentations, and potentially fulminant neurologic, renal, and shock complications.",
+    "pathophysiology": [
+      "Brown Dog Tick ISF Inoculation",
+      "Sca2-Dependent Endothelial Invasion and Actin Motility",
+      "Rickettsial Endothelial Infection",
+      "Rickettsial Vasculitis",
+      "Platelet Activation and Microthrombus Formation",
+      "Rickettsial Ribosomal Translation"
+    ],
+    "cell_types": [
+      "endothelial cell of vascular tree",
+      "platelet"
+    ],
+    "cell_type_ids": [
+      "CL:0002139",
+      "CL:0000233"
+    ],
+    "biological_processes": [
+      "inflammatory response",
+      "symbiont entry into host",
+      "actin filament polymerization",
+      "biological process involved in interaction with host",
+      "positive regulation of vascular permeability",
+      "platelet activation",
+      "blood coagulation",
+      "Translation"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Skin Rash",
+      "Inoculation Eschar",
+      "Myalgia",
+      "Vomiting",
+      "Thrombocytopenia",
+      "Hyponatremia",
+      "Encephalopathy",
+      "Acute Kidney Injury",
+      "Shock",
+      "Abnormal Bleeding"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Digestive System",
+      "Hematologic",
+      "Endocrine",
+      "Neurologic",
+      "Genitourinary",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0000988",
+      "HP:6000793",
+      "HP:0003326",
+      "HP:0002013",
+      "HP:0001873",
+      "HP:0002902",
+      "HP:0001298",
+      "HP:0001919",
+      "HP:0031273",
+      "HP:0001892"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [],
+    "treatments": [
+      "Doxycycline",
+      "Clarithromycin",
+      "Josamycin"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Israeli_Tick_Typhus.yaml",
+    "page_url": "../pages/disorders/Israeli_Tick_Typhus.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Jackson-Weiss Syndrome",
@@ -343243,6 +343650,142 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "X-linked Reticulate Pigmentary Disorder",
+    "disease_id": "MONDO:0010523",
+    "category": "Mendelian",
+    "parents": [
+      "Type I interferonopathy",
+      "Genodermatosis",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-09-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "X-linked reticulate pigmentary disorder (XLPDR, OMIM 301220) is a very rare genodermatosis and primary immunodeficiency with autoinflammatory features. Hemizygous males develop diffuse reticulate hyperpigmentation with mottled hypopigmentation, hypohidrosis, dry skin, a characteristic facies with an upswept frontal hairline and flared eyebrows, and a systemic disease of infancy onward: colitis and chronic diarrhoea with failure to thrive, recurrent pneumonia progressing to bronchiectasis, corneal disease with photophobia, and urethral stricture. Heterozygous females usually show only linear hyperpigmentation along the lines of Blaschko, resembling stage III incontinentia pigmenti, without systemic involvement.\nEvery genetically confirmed case carries the same recurrent intronic variant in POLA1, the catalytic subunit of DNA polymerase-alpha, which causes missplicing and reduced POLA1 expression. Complete POLA1 loss is thought to be lethal in males, so the variant acts as a hypomorph. Reduced POLA1 impairs the synthesis of cytosolic RNA:DNA hybrids that restrain the type I interferon response, so patients carry a constitutive interferon signature and sterile multiorgan inflammation; this places XLPDR among the type I interferonopathies, although, unlike most of them, it is not accompanied by autoantibodies. A separate arm of the mechanism depletes MCM4 and impairs NK-cell maturation and cytotoxicity, which is the proposed explanation for the recurrent infections. The cause of the pigmentary and ectodermal features is not established. Treatment is supportive; a single patient with interferon-driven colitis responded to the JAK inhibitor tofacitinib.",
+    "pathophysiology": [
+      "POLA1 Intronic Splice Variant and Reduced POLA1 Expression",
+      "Impaired Cytosolic RNA:DNA Hybrid Synthesis",
+      "Constitutive Type I Interferon Activation",
+      "Sterile Multiorgan Inflammation",
+      "MCM4 Depletion",
+      "Impaired NK Cell Maturation and Cytotoxicity",
+      "Basal Keratinocyte Injury",
+      "Functional X Mosaicism in Heterozygous Females"
+    ],
+    "cell_types": [
+      "natural killer cell",
+      "CD56dim natural killer cell",
+      "keratinocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000623",
+      "CL:0000939",
+      "CL:0000312"
+    ],
+    "biological_processes": [
+      "type I interferon production",
+      "type I interferon-mediated signaling pathway",
+      "inflammatory response",
+      "natural killer cell mediated cytotoxicity",
+      "natural killer cell differentiation"
+    ],
+    "phenotypes": [
+      "Progressive reticulate hyperpigmentation",
+      "Hypomelanotic macules",
+      "Pigment incontinence",
+      "Cutaneous amyloidosis",
+      "Hypohidrosis",
+      "Dry skin",
+      "Linear hyperpigmentation along Blaschko's lines",
+      "Frontal upsweep of hair",
+      "Coarse hair",
+      "Recurrent pneumonia",
+      "Bronchiectasis",
+      "Pulmonary fibrosis",
+      "Clubbing",
+      "Colitis",
+      "Chronic diarrhea",
+      "Failure to thrive",
+      "Corneal dystrophy",
+      "Photophobia",
+      "Urethral stricture",
+      "Reduced total natural killer cell count",
+      "Abnormal distribution of CD56 bright/dim natural killer cells",
+      "Decreased natural killer cell-induced killing of target cells"
+    ],
+    "phenotype_categories": [
+      "Integumentary",
+      "Craniofacial",
+      "Respiratory",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Growth",
+      "Ophthalmological",
+      "Genitourinary",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0007456",
+      "HP:0009719",
+      "HP:0034572",
+      "HP:0012309",
+      "HP:0000966",
+      "HP:0000958",
+      "HP:6000010",
+      "HP:0002236",
+      "HP:0002208",
+      "HP:0006532",
+      "HP:0002110",
+      "HP:0002206",
+      "HP:0001217",
+      "HP:0002583",
+      "HP:0002028",
+      "HP:0001508",
+      "HP:0001131",
+      "HP:0000613",
+      "HP:0012227",
+      "HP:0040218",
+      "HP:0031410",
+      "HP:0025808"
+    ],
+    "frequencies": [],
+    "genes": [
+      "POLA1",
+      "FLG"
+    ],
+    "treatments": [
+      "Tofacitinib",
+      "Mesalamine and Systemic Corticosteroids for Enterocolitis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Interferon-stimulated gene expression signature in blood"
+    ],
+    "source_file": "X-linked_Reticulate_Pigmentary_Disorder.yaml",
+    "page_url": "../pages/disorders/X-linked_Reticulate_Pigmentary_Disorder.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "X-linked Retinoschisis",
     "disease_id": "MONDO:0010725",
     "category": "Mendelian",
@@ -346558,17 +347101,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3256,
-  "total_subtypes": 4488,
-  "total_disorders_and_subtypes": 7744,
-  "total_unique_evidence_sources": 47852,
-  "total_unique_publications": 44857,
+  "total_disorder_pages": 3261,
+  "total_subtypes": 4489,
+  "total_disorders_and_subtypes": 7750,
+  "total_unique_evidence_sources": 47950,
+  "total_unique_publications": 44934,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3252,
-  "total_unique_pathological_events": 20865,
+  "total_pathographs": 3257,
+  "total_unique_pathological_events": 20893,
   "total_modules": 180,
-  "total_research_reports": 3372,
+  "total_research_reports": 3377,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
