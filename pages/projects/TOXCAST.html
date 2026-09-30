@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ToxCast Assay Coverage of the Pathograph - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>ToxCast Assay Coverage of the Pathograph</h1>
+            <div class="hero-meta">
+                <span class="badge status-IN_PROGRESS">In progress</span>
+                <span class="tag">NAM</span><span class="tag">ENVIRONMENTAL_EXPOSURE</span><span class="tag">PATHOPHYSIOLOGY</span><span class="tag">FEASIBILITY_ANALYSIS</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>ToxCast Assay Coverage of the Pathograph</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                <div class="panel">
+                    <h2>Scope</h2>
+                    <p style="font-size:0.85rem;color:var(--gray-500);">
+                        This project has no entity frontmatter yet. Add <code>diseases</code>,
+                        <code>modules</code>, <code>drugs</code>, or <code>phenotypes</code> keys
+                        to link entities.
+                    </p>
+                </div>
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/TOXCAST.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="toxcast-assay-coverage-of-the-pathograph">ToxCast Assay Coverage of the Pathograph</h1>
+<p>ToxCast and Tox21 are the US EPA's high-throughput screening programs. Each
+<strong>assay endpoint</strong> in them is one measurement: a named readout, in a named
+system, aimed at a named molecular target. EPA publishes a structured
+description of every endpoint, saying which gene it targets, what kind of
+target that is, which process it reads, which species and tissue it ran in,
+what method it used, and which way a hit reads.</p>
+<p>That description is what could let an assay be tied to a dismech
+pathophysiology node without reference to any chemical. This project measures
+how far it reaches into the pathograph as it stands, and tests whether dismech
+can represent such a tie at all, before any is committed.</p>
+<p>It is tracked in issue #12858. The parent is #12682, which owns everything
+about chemical results: which chemicals were active in which assay, at what
+potency. None of that is in scope here, and nothing on this page depends on a
+chemical having been tested.</p>
+<h2 id="what-coverage-means-on-this-page">What "coverage" means on this page</h2>
+<p>An endpoint is a <strong>candidate</strong> for a node when both name the same gene. The
+counts below are counts of candidates.</p>
+<p>They are not counts of mappings, and the difference is the reason for the
+word. Issue #12858 sets out three ways an endpoint and a node can share a gene
+and still not correspond: the node names a lesion where the assay reads a
+state, the two run in opposite directions, or they measure different
+quantities of the same gene product. None of those is visible to a join on
+gene. So every figure here is an upper bound on what could be mapped, and the
+share of candidates that survive a closer reading is not yet known.</p>
+<p>The join itself:</p>
+<ul>
+<li>On the dismech side, a node names a gene through <code>genes[]</code>, the singular
+  <code>gene</code>, or the gene of its <code>genetic_context</code>. Those are the slots the
+  pathograph builder links a gene to a mechanism on. Only HGNC-bound
+  descriptors count; a gene written as free text is not a binding.</li>
+<li>On the ToxCast side, the key is the gene symbol the endpoint declares,
+  upper-cased. An endpoint can declare several genes and is a candidate if any
+  of them is on a node.</li>
+<li>A gene in ToxCast has its own species, separate from the system the assay
+  ran in. A receptor from zebrafish expressed in a human cell line is a
+  zebrafish gene in a human assay. A target counts as <strong>human</strong> when at least
+  one endpoint names the human gene, and as <strong>ortholog-only</strong> when the panel
+  names it solely through another species. An ortholog joins to dismech only
+  where its upper-cased symbol is also a human gene's symbol, and is reported
+  apart wherever it matters.</li>
+</ul>
+<h2 id="the-snapshot">The snapshot</h2>
+<p>Assay annotations retrieved from the EPA CTX API on 2026-09-30; <code>kb/disorders/</code>
+as of commit <code>0aedd3ce8e</code>. Both move: the panel with each EPA release, the
+pathograph with every curation pull request. The complete tables are in
+<a href="../../elements/reports/toxcast-pathograph-coverage-2026-09-30/">the coverage report</a>,
+and <code>just toxcast-coverage</code> regenerates them, so treat the numbers below as
+dated and the recipe as current.</p>
+<h3 id="a-pathograph-node-coverage">a) Pathograph node coverage</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th style="text-align: right;">Count</th>
+<th style="text-align: right;">Share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Assay endpoints in the panel</td>
+<td style="text-align: right;">1,570</td>
+<td style="text-align: right;"></td>
+</tr>
+<tr>
+<td>Endpoints declaring a gene target</td>
+<td style="text-align: right;">1,108</td>
+<td style="text-align: right;">70.6% of the panel</td>
+</tr>
+<tr>
+<td><strong>Candidate endpoints</strong></td>
+<td style="text-align: right;"><strong>552</strong></td>
+<td style="text-align: right;"><strong>35.2% of the panel</strong></td>
+</tr>
+<tr>
+<td>Pathophysiology nodes in <code>kb/disorders/</code></td>
+<td style="text-align: right;">22,403</td>
+<td style="text-align: right;"></td>
+</tr>
+<tr>
+<td>Nodes naming an HGNC-bound gene</td>
+<td style="text-align: right;">4,021</td>
+<td style="text-align: right;">17.9% of nodes</td>
+</tr>
+<tr>
+<td><strong>Candidate nodes</strong></td>
+<td style="text-align: right;"><strong>452</strong></td>
+<td style="text-align: right;"><strong>2.0% of nodes</strong></td>
+</tr>
+<tr>
+<td>Candidate endpoint-node pairs</td>
+<td style="text-align: right;">2,080</td>
+<td style="text-align: right;"></td>
+</tr>
+</tbody>
+</table>
+<p>Half of the endpoints that declare a gene are candidates, and they converge on
+a small part of the pathograph: 452 nodes, or 11.2% of the nodes that name any
+gene. The 2,080 pairs are the size of the job if every candidate were read.</p>
+<p>Three things about where the candidates fall:</p>
+<ul>
+<li><strong>They are overwhelmingly molecular.</strong> Of the candidate nodes that carry a
+  <code>biological_scale</code>, 186 are <code>MOLECULAR</code>, 37 <code>CELLULAR</code>, 5 <code>TISSUE</code> and 2
+  <code>ORGANISM</code>. Another 222 carry no scale tag. That is the expected shape: a
+  node names a gene mostly where its claim is about that gene's product.</li>
+<li><strong>The assay-heavy families are not the node-heavy ones.</strong> Nuclear receptors
+  are the largest family in the panel, at 255 endpoints, and 164 of those are
+  candidates, yet between them they reach 56 nodes in 45 entries. The 42
+  candidate endpoints in the DNA-binding family reach 104 nodes in 84 entries,
+  and the 55 kinase candidates reach 92 nodes in 79 entries.</li>
+<li><strong>64 candidate nodes record a variant</strong>, in the sense of carrying a
+  <code>genetic_context</code>. Those are the nodes most likely to name a lesion where an
+  assay reads a state. The other 388 are not cleared by that: a node can name
+  a lesion in its prose without using the slot.</li>
+</ul>
+<h3 id="b-gene-coverage">b) Gene coverage</h3>
+<p>The panel names 496 distinct gene targets: 433 human and 63 ortholog-only.</p>
+<table>
+<thead>
+<tr>
+<th>Where the target sits in <code>kb/disorders/</code></th>
+<th style="text-align: right;">Human</th>
+<th style="text-align: right;">Ortholog-only</th>
+<th style="text-align: right;">All</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>On a pathophysiology node</td>
+<td style="text-align: right;">180</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">194</td>
+</tr>
+<tr>
+<td>Bound in a <code>genetic:</code> record, on no node</td>
+<td style="text-align: right;">31</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">35</td>
+</tr>
+<tr>
+<td>Bound elsewhere in an entry only</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>Bound nowhere</td>
+<td style="text-align: right;">222</td>
+<td style="text-align: right;">45</td>
+<td style="text-align: right;">267</td>
+</tr>
+</tbody>
+</table>
+<p>So 39% of the panel's targets are on the pathograph, 7% are known to dismech
+without being on it, and 54% are not bound in any disease entry.</p>
+<p>The panel is very uneven, and so is the pathograph, in different places. 247
+targets appear in exactly one endpoint and twelve appear in ten or more. Of
+those twelve, nine are on a node: ESR1, AR, PPARG, NR3C1, ESR2, THRA, THRB,
+NR1H4 and TP53. PGR (14 endpoints) and NR3C2 (10) are bound nowhere, and CXCL8
+(10) only in <code>genetic:</code> records. Going the other way, the targets that reach
+the most entries are cancer drivers with few assays behind them: TP53 is on 38
+nodes in 36 entries from 10 endpoints, STAT3 on 21 nodes from 2, and PIK3CA on
+18 nodes from a single endpoint. ESR1 has 40 endpoints and 8 nodes.</p>
+<p>ESR1 is worth a note of its own. When #12858 was written it was the most
+heavily assayed target in the panel and no node named it. The 8 nodes in 7
+entries it has now are the work of the estrogen signalling project
+(<code>projects/ESTROGEN_SIGNALLING.md</code>), which was opened to close that gap.</p>
+<h3 id="c-disease-coverage">c) Disease coverage</h3>
+<table>
+<thead>
+<tr>
+<th>Entries in <code>kb/disorders/</code></th>
+<th style="text-align: right;">Count</th>
+<th style="text-align: right;">Share</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All entries</td>
+<td style="text-align: right;">3,256</td>
+<td style="text-align: right;"></td>
+</tr>
+<tr>
+<td><strong>Carry at least one candidate node</strong></td>
+<td style="text-align: right;"><strong>317</strong></td>
+<td style="text-align: right;"><strong>9.7%</strong></td>
+</tr>
+<tr>
+<td>Bind a target somewhere, on no node</td>
+<td style="text-align: right;">189</td>
+<td style="text-align: right;">5.8%</td>
+</tr>
+<tr>
+<td>Bind no target</td>
+<td style="text-align: right;">2,750</td>
+<td style="text-align: right;">84.5%</td>
+</tr>
+</tbody>
+</table>
+<p>317 entries carry a node a ToxCast endpoint could be considered for. In 230 of
+them it is a single node; 77 have two or three, and 10 have four or more.</p>
+<p>The 189 entries in the middle row already bind a panel target, typically in
+<code>genetic:</code>, without any node naming it. Whether the gene belongs on a node is
+a curation question for each entry and not a backfill, because a gene on a
+node asserts that it drives that mechanism in that disease.</p>
+<h2 id="what-the-counts-leave-out">What the counts leave out</h2>
+<ul>
+<li><strong>Endpoints with no gene target.</strong> 462 endpoints, 29.4% of the panel, cannot
+  be found by a gene join at all. 110 are flagged as cell-viability
+  counter-screens. The rest include the raw channels of reporter assays, where
+  only the ratio endpoint carries the gene, background controls, and
+  whole-system readouts such as the neurodevelopment and zebrafish development
+  assays. Having no gene is not the
+  same as having no node to speak to: a viability endpoint may bear on a
+  cell-death node. Reaching those needs a different key, and #12858 asks
+  whether the annotation's biological-process field could be one.</li>
+<li><strong>Nodes with no gene.</strong> 82.1% of pathophysiology nodes name no HGNC-bound
+  gene, and are invisible to this join for the same reason.</li>
+<li><strong>Orthologs.</strong> 71 of the 552 candidate endpoints reach a node only through
+  another species' gene, such as a rat receptor matched to a node that names
+  the human one. They are candidates for the gene, and an extra step removed
+  from a claim about the human protein.</li>
+<li><strong>Symbol drift.</strong> The join rewrites three symbols ToxCast still carries that
+  HGNC has replaced (<code>H2AFX</code>, <code>H3F3A</code>, <code>PPP2R4</code>) and splits one composite gene
+  object (<code>FOS|JUN</code>). <code>just toxcast-coverage --check-symbols</code> lists any human
+  target symbol that is no longer an HGNC approved symbol.</li>
+<li><strong>Modules.</strong> Mechanism modules are counted apart from diseases: 12 of the
+  898 module nodes name a panel target, across 9 modules.</li>
+</ul>
+<h2 id="how-this-compares-with-the-figures-in-12858">How this compares with the figures in #12858</h2>
+<p>The issue reported 170 targets on 368 nodes at commit <code>fc510ecca0</code>. This page
+reports 194 on 452. The two are not comparable figure for figure: the issue
+read <code>genes[]</code> alone, this count also reads <code>gene</code> and <code>genetic_context</code>, and
+the pathograph has been curated in between. The endpoint totals agree, at
+1,570 endpoints and 1,108 with a usable gene target. The issue's 497 distinct
+targets are 496 here because <code>FOS|JUN</code> is split into two genes that the panel
+already names separately.</p>
+<h2 id="regenerating">Regenerating</h2>
+<pre><code class="language-bash">just toxcast-refresh                                 # cache the annotations; needs CTX_API_KEY
+just toxcast-coverage                                # the full report, to stdout
+just toxcast-coverage --json                         # the headline figures
+just toxcast-coverage --format tsv --table targets   # one row per gene target
+just toxcast-coverage --format tsv --table nodes     # one row per candidate node
+just toxcast-coverage --format tsv --table endpoints # one row per assay endpoint
+just toxcast-coverage --format tsv --table diseases  # one row per entry with a candidate node
+just toxcast-coverage --out docs/reports/toxcast-pathograph-coverage-&lt;date&gt;.md
+</code></pre>
+<p>The annotations are cached under <code>data/toxcast/</code> and gitignored;
+<code>data/toxcast/MANIFEST.yaml</code> records when they were retrieved. The coverage
+recipe is offline once they are cached, reports only, and exits 0. The
+<code>epa-ctx-api</code> skill covers the API itself and the ways the gene field
+misleads.</p>
+<h2 id="still-to-come-on-this-page">Still to come on this page</h2>
+<p>Issue #12858 asks for more than the measurement above. Each of these is its
+own piece of work and none is started here:</p>
+<ul>
+<li>one worked example of fitting an assay into the schema's existing
+  model-to-mechanism vocabulary;</li>
+<li>an evaluation of whether assay-to-node mappings should be added to dismech
+  at all;</li>
+<li>an evaluation of the AOP-Wiki Key Event links the API itself publishes for
+  some endpoints;</li>
+<li>the open questions the issue raises about endpoints without a gene target,
+  non-cell-based assay formats, and the biological-process field.</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>
