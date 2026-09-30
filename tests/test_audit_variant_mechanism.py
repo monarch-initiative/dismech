@@ -6,7 +6,6 @@ import importlib.util
 import textwrap
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "audit_variant_mechanism.py"
 _spec = importlib.util.spec_from_file_location("audit_variant_mechanism", SCRIPT_PATH)

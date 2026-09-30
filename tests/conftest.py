@@ -187,10 +187,10 @@ def preserve_kb_cache_environment():
     sets the variable through ``monkeypatch`` has ``monkeypatch`` restore the
     polluted ``0``. That ordering is just the order pytest happens to set up
     same-level autouse fixtures in, so it is not something to lean on; the
-    setup reset means
-    every test starts clean whatever ran last. ``tests/test_kb_cache.py``
-    documented the ``monkeypatch`` trap before this fixture existed, and
-    ``tests/test_kb_cache_env_isolation.py`` pins both leaks.
+    setup reset means every test starts clean whatever ran last.
+    ``tests/test_kb_cache.py`` documented the ``monkeypatch`` trap before this
+    fixture existed, and ``tests/test_kb_cache_env_isolation.py`` pins both
+    leaks.
 
     The name is kept from when this was an opt-in, module-scoped fixture, so a
     test file that still lists it in ``usefixtures`` keeps working.
