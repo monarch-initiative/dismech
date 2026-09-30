@@ -13,43 +13,19 @@ from dismech import kb_cache
 ROOT = Path(__file__).resolve().parents[1]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def _kb_cache_env():
-    """Whatever DISMECH_KB_CACHE was before this module ran, restored after.
-
-    Module scope so it finalizes after every function-scoped fixture, including
-    `monkeypatch` -- nothing this file does can escape into another worker.
-    """
-    before = os.environ.get("DISMECH_KB_CACHE")
-    yield before
-    if before is None:
-        os.environ.pop("DISMECH_KB_CACHE", None)
-    else:
-        os.environ["DISMECH_KB_CACHE"] = before
-
-
 @pytest.fixture(autouse=True)
-def _fresh_cache(_kb_cache_env):
-    """Reset the cache and the env knob before each test in this file.
+def _fresh_cache():
+    """Start and finish each test in this file with an empty cache.
 
-    The reset is at **setup**, not teardown, and that is the whole point.
-    `kb_cache.default_off()` writes `os.environ` directly, so monkeypatch never
-    records an undo for it; and `monkeypatch.delenv(..., raising=False)` on an
-    unset variable records nothing either, so a later `setenv` snapshots the
-    already-modified value and teardown faithfully restores the wrong one. A
-    teardown-based restore here does not fix that, because monkeypatch's
-    finalizer can run after this fixture's -- verified, it does. Establishing a
-    known state before each test is immune to finalizer ordering.
-
-    Without this the file poisons itself: `default_off()` leaves
-    `DISMECH_KB_CACHE=0` set, every later `load_document` returns a fresh parse,
-    and `test_shared_index_walk_stores_no_live_reference_into_the_document`
-    passes vacuously because disjoint identities are then guaranteed.
+    The ``DISMECH_KB_CACHE`` side is handled for every test in the suite by
+    ``preserve_kb_cache_environment`` in ``tests/conftest.py``, which resets it
+    at setup as well as teardown. That setup-time reset is what this file used
+    to do for itself, for the reason that fixture's docstring gives:
+    ``default_off()`` bypasses ``monkeypatch``, so a teardown-only restore can be
+    undone by ``monkeypatch``'s own finalizer. Without it
+    ``test_shared_index_walk_stores_no_live_reference_into_the_document`` passes
+    vacuously, because disjoint identities are then guaranteed.
     """
-    if _kb_cache_env is None:
-        os.environ.pop("DISMECH_KB_CACHE", None)
-    else:
-        os.environ["DISMECH_KB_CACHE"] = _kb_cache_env
     kb_cache.clear_cache()
     yield
     kb_cache.clear_cache()

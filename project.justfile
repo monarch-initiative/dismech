@@ -1566,6 +1566,18 @@ list-qualifier-terms *files:
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
 
+# #10179. unsourced / backfill / other_disease / unplaced / overstated / uncached are
+# reported; exit 1 only when a recorded ClinGen tier contradicts its CGGV: record.
+# Compare Genetic.gene_disease_validity with the ClinGen CGGV: assertions it cites.
+[group('QC')]
+check-gene-validity *files:
+    uv run python scripts/check_gene_validity.py "$@"
+
+# Census of the same, exit 0. `--format tsv --kind backfill` is the worklist.
+[group('QC')]
+list-gene-validity *args:
+    uv run python scripts/check_gene_validity.py --report "$@"
+
 # Report gene bindings whose HGNC label is not the gene the entry names (#10948).
 # `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
 # against nothing else, so a self-consistent binding to the WRONG gene passes --
@@ -3254,6 +3266,21 @@ ictrp-list limit="20":
 [group('Research')]
 toxcast-refresh *args="":
     uv run python -m dismech.toxcast_assays {{args}}
+
+# How far ToxCast assay endpoints reach into the pathograph: endpoints whose
+# declared gene target is named by a pathophysiology node, counted by node, by
+# gene and by disease (issue #12858, projects/TOXCAST.md). A shared gene is a
+# candidate, never a mapping. Offline and report-only once `just toxcast-refresh`
+# has cached the annotations; exits 2 naming that recipe when it has not.
+#
+#   just toxcast-coverage
+#   just toxcast-coverage --format tsv --table targets   # or nodes, endpoints, diseases
+#   just toxcast-coverage --json
+#   just toxcast-coverage --check-symbols                # needs the local HGNC build
+#   just toxcast-coverage --out docs/reports/toxcast-pathograph-coverage-<date>.md
+[group('Research')]
+toxcast-coverage *args="":
+    uv run python scripts/toxcast_pathograph_coverage.py "$@"
 
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
