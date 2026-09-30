@@ -189,7 +189,10 @@ against 20.5 s / 522 MB with it, while the two-walk
 call in `main()`, never at import: pytest imports these scripts' `scan_repo`
 functions directly and runs several of them in one process, which is exactly
 the case the cache exists for. `default_off()` uses `setdefault`, so an
-explicit `DISMECH_KB_CACHE` still wins.
+explicit `DISMECH_KB_CACHE` still wins. A test that calls such a `main()` in-process
+needs no guard of its own: the autouse `preserve_kb_cache_environment` fixture in
+`tests/conftest.py` resets the variable around every test, so the `0` it writes
+cannot reach `tests/test_kb_cache.py` (issue #11942).
 
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`

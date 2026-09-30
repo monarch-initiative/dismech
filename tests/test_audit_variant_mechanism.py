@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
-import os
 import textwrap
 from pathlib import Path
 
-import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT_PATH = ROOT / "scripts" / "audit_variant_mechanism.py"
@@ -15,25 +13,6 @@ _spec = importlib.util.spec_from_file_location("audit_variant_mechanism", SCRIPT
 audit = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(audit)
 
-
-@pytest.fixture(autouse=True)
-def _restore_kb_cache_env():
-    """Keep ``main()``'s ``kb_cache.default_off()`` inside this test.
-
-    ``default_off()`` belongs in ``main()`` (CLAUDE.md), but it sets a
-    process-wide environment variable. Calling ``main()`` from a test would
-    otherwise disable the parsed-KB cache for every test that runs after it in
-    the same pytest process -- which silently failed ``tests/test_kb_cache.py``.
-    """
-    sentinel = object()
-    before = os.environ.get("DISMECH_KB_CACHE", sentinel)
-    try:
-        yield
-    finally:
-        if before is sentinel:
-            os.environ.pop("DISMECH_KB_CACHE", None)
-        else:
-            os.environ["DISMECH_KB_CACHE"] = before
 
 BASE = """\
 name: Test Disorder
