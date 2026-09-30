@@ -118806,6 +118806,111 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Early-onset Generalized Limb-onset Dystonia",
+    "disease_id": "MONDO:0007492",
+    "category": "Mendelian",
+    "parents": [
+      "dystonic disorder",
+      "movement disorder",
+      "autosomal dominant disease"
+    ],
+    "creation_date": "2026-09-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The most common inherited early-onset generalized dystonia, caused by a single recurrent in-frame three-base-pair deletion in TOR1A that removes one glutamate from a conserved region of torsinA, an AAA+ ATPase of the endoplasmic reticulum lumen and perinuclear space. More than 98% of affected individuals carry the identical c.907_909delGAG allele, so unlike most Mendelian diseases this entry describes essentially one variant rather than a spectrum.\nClinically it is an isolated dystonia in the Albanese sense: dystonia is the only motor feature. Onset is in childhood, typically in a limb, usually as an action-specific disturbance of gait or as writer's cramp; over months to years the movements lose their action specificity and spread to other limbs and the trunk. Cervical and bulbar segments are relatively spared, which distinguishes it from DYT6/THAP1 dystonia. Cognition is not affected, life span is not known to be shortened, and there is no overt neuropathological signature - this is a disorder of how a structurally intact motor system functions and matures, not a degeneration. The entry is built around that distinction.\nTwo features dominate the genetics. Penetrance is approximately 30%, so roughly seven in ten carriers never develop dystonia, and an unaffected parent cannot be assumed to be a non-carrier. And in the Ashkenazi Jewish population the great majority of cases descend from a single founder mutation roughly 350 years old, which is why carrier frequency there is far higher than the disease is common.\nThe mechanistic chain is unusually well characterised at its molecular end and openly incomplete at its clinical end, and this entry is written to show that asymmetry rather than to smooth it over. TorsinA's ATPase activity requires the cofactors LAP1 and LULL1; the deletion impairs that cycle, and torsin-deficient neurons develop abnormal nuclear envelopes and impaired nucleocytoplasmic transport. Downstream, dorsal striatal cholinergic interneurons are selectively vulnerable in conditional mouse mutants, striatal dopamine release is reduced in knock-in mice, and human imaging shows reduced striatal D2 availability together with an abnormal cerebellothalamocortical pathway. What is not established is the step from any of these to the dystonic movement itself.\nThe nuclear-envelope arm carries a specific and instructive species caveat, recorded here structurally rather than as prose. Perinuclear \"blebs\" are the signature lesion in torsinA-null and knock-in mice, but patient-derived cholinergic motor neurons carrying the same heterozygous deletion do not show them - they show a thickened nuclear lamina, LMNB1 dysregulation and impaired transport instead. Heterozygous animals also fail to develop pathology at all. Those are logged as a HUMAN_MODEL_MISMATCH discussion and as fidelity-qualified model links, not as a footnote.\nTreatment is symptomatic and effective. Bilateral deep brain stimulation of the internal globus pallidus is the defining intervention, is supported by a sham-controlled randomized trial in generalized and segmental dystonia, and produces large sustained improvements in DYT1 specifically; shorter disease duration predicts better outcome, which is the argument for early referral. Oral trihexyphenidyl is the preferred small-molecule agent and is dose-limited by antimuscarinic side effects.\nRelationship to neighbouring entries: Torsion_Dystonia_6 is the THAP1 disease whose transcription factor represses the TOR1A promoter, so the two entries meet at that gene from opposite directions; Cervical_Dystonia covers common adult-onset sporadic focal disease and deliberately binds no causal gene; KMT2B-Related_Dystonia is the other major childhood-onset generalized monogenic dystonia but is a complex rather than isolated dystonia. No pathophysiology node declares conforms_to: kb/modules/ was searched and no module covers nuclear envelope dysfunction or basal ganglia motor circuit dysfunction.",
+    "pathophysiology": [
+      "Heterozygous TOR1A GAG Deletion",
+      "Impaired TorsinA AAA+ ATPase Function",
+      "Neuronal Nuclear Envelope Disruption",
+      "Impaired Nucleocytoplasmic Transport",
+      "Maturation-Dependent Disruption of Neuronal Development",
+      "Striatal Cholinergic Interneuron Dysfunction",
+      "Reduced Striatal Dopamine Release",
+      "Basal Ganglia and Cerebellothalamocortical Network Dysfunction"
+    ],
+    "cell_types": [
+      "neuron",
+      "patient-derived cholinergic motor neuron",
+      "developing neuron",
+      "dorsal striatal large cholinergic interneuron",
+      "nigrostriatal dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000100",
+      "CL:0020007",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "nuclear envelope organization",
+      "nucleocytoplasmic transport",
+      "protein import into the nucleus in DYT1 motor neurons",
+      "mRNA export from the nucleus in DYT1 motor neurons",
+      "neuron projection development",
+      "striatal cholinergic synaptic transmission",
+      "striatal dopamine secretion"
+    ],
+    "phenotypes": [
+      "Limb-onset dystonia",
+      "Generalized dystonia",
+      "Writer's cramp",
+      "Persistent focal dystonia",
+      "Gait disturbance",
+      "Largely preserved cognition with isolated executive dysfunction",
+      "Status dystonicus",
+      "Joint contracture",
+      "Kyphoscoliosis",
+      "Hip dislocation"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Neurocognitive",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002451",
+      "HP:0007325",
+      "HP:0002356",
+      "HP:0004373",
+      "HP:0001288",
+      "HP:0033051",
+      "HP:0034392",
+      "HP:0002751",
+      "HP:0002827"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "TOR1A",
+      "TOR1A p.D216H"
+    ],
+    "treatments": [
+      "Bilateral pallidal deep brain stimulation",
+      "Trihexyphenidyl",
+      "Botulinum toxin chemodenervation",
+      "Physiatry and physical therapy",
+      "Occupational therapy"
+    ],
+    "environmental": [
+      "Immobilization of a dystonic body part by bracing or casting"
+    ],
+    "biochemical": [],
+    "source_file": "Early-onset_Generalized_Limb-onset_Dystonia.yaml",
+    "page_url": "../pages/disorders/Early-onset_Generalized_Limb-onset_Dystonia.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 5,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "11"
+  },
+  {
     "name": "Ebola Virus Disease (EVD)",
     "disease_id": "MONDO:0005737",
     "category": "",
@@ -164513,6 +164618,97 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Hyperkalemic Periodic Paralysis",
+    "disease_id": "MONDO:0008224",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "channelopathy",
+      "familial periodic paralysis"
+    ],
+    "creation_date": "2026-09-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hyperkalemic periodic paralysis is an autosomal dominant skeletal-muscle channelopathy caused by gain-of-function missense variants in SCN4A, which encodes the skeletal-muscle voltage-gated sodium channel Nav1.4. The variants impair channel inactivation, leaving a small persistent inward sodium current that holds the sarcolemma depolarized. Because that sustained depolarization drives the remaining sodium channels into their inactivated state, the fibre becomes inexcitable, so the weakness arises from depolarization-induced inexcitability rather than from reduced excitatory drive. Modest elevation of extracellular potassium is what reveals the inactivation defect, which is why attacks follow potassium-rich meals, rest after exercise, cold, and fasting. The same channel defect produces myotonia at lesser degrees of depolarization, so most patients have both stiffness and episodic paralysis.",
+    "pathophysiology": [
+      "SCN4A Gain-of-Function Missense Variant",
+      "Impaired Nav1.4 Inactivation and Persistent Sodium Current",
+      "Sustained Sarcolemmal Depolarization",
+      "Skeletal Muscle Membrane Hyperexcitability and Myotonic Discharges",
+      "Potassium Efflux and Extracellular Potassium Accumulation",
+      "Depolarization-Induced Sodium Channel Inactivation and Fibre Inexcitability",
+      "Resting Intracellular Sodium Overload",
+      "Chronic Progressive Myopathy with Fatty Muscle Infiltration"
+    ],
+    "cell_types": [
+      "skeletal muscle fibre"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "sodium ion transmembrane transport",
+      "membrane depolarization",
+      "regulation of membrane potential",
+      "potassium ion transmembrane transport",
+      "skeletal muscle contraction"
+    ],
+    "phenotypes": [
+      "Episodic Flaccid Weakness",
+      "Hyperkalemia During Attacks",
+      "Myotonia",
+      "Paramyotonia",
+      "Permanent Proximal Muscle Weakness",
+      "Weakness of Ocular, Bulbar, Respiratory and Trunk Muscles"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Laboratory",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Metabolism",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003752",
+      "HP:6000833",
+      "HP:0002486",
+      "HP:0011809",
+      "HP:0009073",
+      "HP:0004889"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SCN4A"
+    ],
+    "treatments": [
+      "Trigger Avoidance and Frequent Carbohydrate-Rich Meals",
+      "Mild Exercise at Attack Onset",
+      "Inhaled Salbutamol for Acute Attacks",
+      "Dichlorphenamide Preventive Pharmacotherapy",
+      "Acetazolamide Preventive Pharmacotherapy",
+      "Thiazide Diuretic Preventive Pharmacotherapy",
+      "Mexiletine for Myotonic Stiffness"
+    ],
+    "environmental": [
+      "Ingestion of potassium-rich food or potassium-containing medication",
+      "Rest after strenuous exercise",
+      "Cold exposure",
+      "Fasting"
+    ],
+    "biochemical": [],
+    "source_file": "Hyperkalemic_Periodic_Paralysis.yaml",
+    "page_url": "../pages/disorders/Hyperkalemic_Periodic_Paralysis.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hyperlipidemia",
     "disease_id": "MONDO:0021187",
     "category": "Complex",
@@ -205486,7 +205682,7 @@ window.searchData = [
   },
   {
     "name": "MCM9-related gametogenic failure",
-    "disease_id": null,
+    "disease_id": "MONDO:1060226",
     "category": "Mendelian",
     "parents": [
       "Disorder of sex development",
@@ -223669,6 +223865,148 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Mitochondrial DNA Depletion Syndrome, Myopathic Form",
+    "disease_id": "MONDO:0012301",
+    "category": "Mendelian",
+    "parents": [
+      "mitochondrial DNA depletion syndrome",
+      "inborn disorder of pyrimidine metabolism",
+      "mitochondrial DNA maintenance defect"
+    ],
+    "creation_date": "2026-09-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Infantile-onset",
+      "Childhood-onset",
+      "Late-onset"
+    ],
+    "description": "Autosomal recessive mitochondrial DNA (mtDNA) maintenance disorder caused by biallelic loss-of-function variants in TK2, which encodes thymidine kinase 2, the mitochondrial matrix enzyme that performs the first and rate-limiting phosphorylation of the pyrimidine deoxyribonucleosides deoxythymidine and deoxycytidine. Post-mitotic cells have no de novo deoxynucleotide synthesis inside mitochondria and cannot draw on the cell-cycle-regulated cytosolic kinases, so mtDNA replication there depends on this salvage step. Its loss leaves the mitochondrial deoxynucleoside triphosphate pool unbalanced and depleted of pyrimidines, and mtDNA copy number falls, most severely in skeletal muscle; older patients accumulate multiple mtDNA deletions instead of, or as well as, depletion. The consequence is a combined deficiency of the respiratory-chain complexes that contain mtDNA-encoded subunits, and a progressive myopathy. Presentation is a continuum usually divided into three forms: an infantile-onset myopathy with hypotonia, motor regression, frequent neurological involvement and death within about a year of onset; a childhood-onset limb myopathy progressing to loss of ambulation and ventilator dependence; and a late-/adult-onset myopathy with facial and limb weakness, ptosis and ophthalmoparesis that resembles facioscapulohumeral dystrophy and progresses slowly. Creatine kinase is almost always raised, and muscle biopsy shows ragged-red and cytochrome c oxidase-negative fibres on a dystrophic background. Respiratory muscle failure is the usual cause of death. Oral substitution with the TK2 products' precursors deoxycytidine and deoxythymidine (dC/dT) is the first treatment to alter the course, established in the Tk2 H126N knock-in mouse and then in an expanded-access cohort, and now under formal trial.",
+    "pathophysiology": [
+      "TK2 Loss of Function",
+      "Mitochondrial Pyrimidine Deoxynucleoside Salvage Failure",
+      "Imbalanced Mitochondrial dNTP Pool",
+      "Post-Mitotic Dependence on Mitochondrial Salvage",
+      "Skeletal Muscle mtDNA Depletion and Multiple Deletions",
+      "Combined Respiratory Chain Deficiency",
+      "Progressive Skeletal Muscle Fibre Degeneration",
+      "Respiratory Muscle Failure",
+      "Central Nervous System Involvement"
+    ],
+    "cell_types": [
+      "skeletal muscle fibre"
+    ],
+    "cell_type_ids": [
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "pyrimidine deoxyribonucleoside salvage",
+      "deoxyribonucleoside triphosphate biosynthetic process",
+      "mitochondrial DNA replication",
+      "mitochondrial DNA metabolic process",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Proximal muscle weakness",
+      "Hypotonia",
+      "Elevated creatine kinase",
+      "Loss of ambulation",
+      "Respiratory insufficiency",
+      "Ptosis",
+      "Progressive external ophthalmoparesis",
+      "Facial weakness",
+      "Scapular winging",
+      "Dysphagia",
+      "Failure to thrive",
+      "Dysarthria",
+      "Seizures",
+      "Encephalopathy",
+      "Sensorineural hearing loss",
+      "Depletion of mitochondrial DNA in muscle",
+      "Multiple mitochondrial DNA deletions",
+      "Ragged-red muscle fibres",
+      "Cytochrome c oxidase-negative muscle fibres",
+      "Elevated blood lactate",
+      "Decreased activity of mitochondrial complex IV",
+      "Motor regression"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Laboratory",
+      "Respiratory",
+      "Ophthalmologic",
+      "Neurologic",
+      "Gastrointestinal",
+      "Growth",
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003701",
+      "HP:0001252",
+      "HP:0003236",
+      "HP:0002505",
+      "HP:0002093",
+      "HP:0000508",
+      "HP:0000597",
+      "HP:0001349",
+      "HP:0003691",
+      "HP:0002015",
+      "HP:0001508",
+      "HP:0001260",
+      "HP:0001250",
+      "HP:0001298",
+      "HP:0000407",
+      "HP:0009141",
+      "HP:0003689",
+      "HP:0003200",
+      "HP:0003688",
+      "HP:0002151",
+      "HP:0008347",
+      "HP:0002376"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "RARE"
+    ],
+    "genes": [
+      "TK2"
+    ],
+    "treatments": [
+      "Deoxycytidine and Deoxythymidine Substitution",
+      "Deoxycytidine and Deoxythymidine Monophosphate Bypass",
+      "AAV-Mediated TK2 Gene Therapy",
+      "Respiratory Support and Ventilation",
+      "Gastrostomy Feeding",
+      "Physical Therapy and Rehabilitation",
+      "Genetic Counseling",
+      "Multidisciplinary Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_DNA_Depletion_Syndrome_Myopathic_Form.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_DNA_Depletion_Syndrome,_Myopathic_Form.html",
+    "num_phenotypes": 22,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Mitochondrial Neurogastrointestinal Encephalomyopathy",
     "disease_id": "MONDO:0017575",
     "category": "Mendelian",
@@ -234543,6 +234881,148 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Necrotizing Enterocolitis",
+    "disease_id": "MONDO:0005313",
+    "category": "Complex",
+    "parents": [
+      "Gastrointestinal Disease",
+      "Disorder of prematurity"
+    ],
+    "creation_date": "2026-09-29T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Necrotizing enterocolitis is the most common gastrointestinal emergency of preterm neonates: an acute, patchy inflammatory necrosis of the small bowel and colon that can progress within hours to transmural necrosis, perforation, peritonitis and septic shock. It is multifactorial rather than Mendelian. The dominant risk factor is prematurity itself, which leaves the intestine with an immature epithelial barrier, an immature innate immune set-point, and immature microvascular autoregulation. On that substrate, abnormal microbial colonization of the preterm gut supplies the luminal microbial ligands that the immature epithelium over-reads, chiefly through the lipopolysaccharide receptor TLR4, which is expressed at higher levels in the premature than the full-term gut. TLR4 signalling in the epithelium drives enterocyte apoptosis and blocks mucosal restitution, while TLR4 signalling in the intestinal endothelium lowers endothelial nitric oxide synthase output and reduces mesenteric perfusion. The result is a self-amplifying loop of barrier failure, bacterial and lipopolysaccharide translocation, mucosal cytokine release and microcirculatory ischemia that produces the coagulative necrosis and intramural gas (pneumatosis intestinalis) by which the disease is recognized radiographically. Human milk is the best-established protective exposure and formula feeding the best-established feeding risk. Survivors carry a durable burden of intestinal stricture, short bowel syndrome and neurodevelopmental impairment, the latter linked to the same systemic inflammatory response that injures the gut. Severity is graded with the Bell staging system.",
+    "pathophysiology": [
+      "Intestinal Immaturity of Prematurity",
+      "Elevated Intestinal Epithelial TLR4 Expression",
+      "Abnormal Microbial Colonization of the Preterm Gut",
+      "Gammaproteobacterial Bloom and Increased Luminal Lipopolysaccharide Load",
+      "Epithelial TLR4 Hyperactivation by Luminal Lipopolysaccharide",
+      "Enterocyte Apoptosis and Failed Mucosal Restitution",
+      "Impaired Intestinal Microcirculatory Autoregulation",
+      "Endothelial TLR4 Activation and Loss of eNOS-Dependent Vasodilation",
+      "Intestinal Microcirculatory Hypoperfusion and Mucosal Ischemia",
+      "Intestinal Epithelial Barrier Failure and Bacterial Translocation",
+      "Mucosal Proinflammatory Cytokine Amplification",
+      "Coagulative Mucosal Necrosis and Intramural Gas Formation",
+      "Transmural Necrosis and Intestinal Perforation",
+      "Systemic Inflammatory Response and Sepsis",
+      "Cerebral White Matter Injury"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "intestinal epithelial cell",
+      "endothelial cell",
+      "endothelial cell of vascular tree",
+      "macrophage",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0002563",
+      "CL:0000115",
+      "CL:0002139",
+      "CL:0000235",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "intestinal epithelial cell development",
+      "toll-like receptor 4 signaling pathway",
+      "cellular response to lipopolysaccharide",
+      "apoptotic process",
+      "epithelial cell migration",
+      "epithelial cell proliferation",
+      "nitric oxide biosynthetic process",
+      "endothelial nitric oxide synthase-dependent nitric oxide production",
+      "response to hypoxia",
+      "tight junction organization",
+      "inflammatory response",
+      "tumor necrosis factor production"
+    ],
+    "phenotypes": [
+      "Feeding difficulties",
+      "Abdominal distention",
+      "Hematochezia",
+      "Intramural intestinal gas",
+      "Portal venous gas",
+      "Pneumoperitoneum",
+      "Intestinal perforation",
+      "Neonatal sepsis",
+      "Thrombocytopenia",
+      "Metabolic acidosis",
+      "Post-NEC intestinal stricture",
+      "Short bowel syndrome",
+      "Cholestasis",
+      "Failure to thrive",
+      "Periventricular leukomalacia",
+      "Neurodevelopmental delay"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Radiographic",
+      "Laboratory",
+      "Gastrointestinal",
+      "Growth",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011968",
+      "HP:0003270",
+      "HP:0002573",
+      "HP:6000377",
+      "HP:0031368",
+      "HP:0040187",
+      "HP:0001873",
+      "HP:0001942",
+      "HP:0012851",
+      "HP:0001396",
+      "HP:0001508",
+      "HP:0006970",
+      "HP:0012758"
+    ],
+    "frequencies": [
+      "COMMON"
+    ],
+    "genes": [
+      "SIGIRR"
+    ],
+    "treatments": [
+      "Human Milk Feeding",
+      "Probiotic Supplementation",
+      "Standardized Feeding Regimen",
+      "Bowel Rest, Gastric Decompression and Broad-Spectrum Antibiotics",
+      "Parenteral Nutrition",
+      "Laparotomy with Resection of Necrotic Bowel",
+      "Primary Peritoneal Drainage",
+      "Enterostomy"
+    ],
+    "environmental": [
+      "Preterm formula feeding in the absence of human milk",
+      "Early broad-spectrum antibiotic exposure",
+      "Packed red blood cell transfusion in the anemic preterm infant",
+      "Proton pump inhibitor exposure",
+      "Histamine H2 receptor antagonist exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Necrotizing_Enterocolitis.yaml",
+    "page_url": "../pages/disorders/Necrotizing_Enterocolitis.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 15,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Nemaline Myopathy",
@@ -286593,6 +287073,151 @@ window.searchData = [
     "num_treatments": 8,
     "causal_graph_edges": "8",
     "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Riley-Day Syndrome",
+    "disease_id": "MONDO:0009131",
+    "category": "Mendelian",
+    "parents": [
+      "Hereditary Sensory and Autonomic Neuropathy",
+      "Peripheral Neuropathy",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-09-21T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Riley-Day syndrome, more usually called familial dysautonomia (FD), is hereditary sensory and autonomic neuropathy type III: an autosomal recessive disorder in which sensory, sympathetic, and parasympathetic neurons fail to develop in normal numbers and then degenerate progressively through life. It is caused almost entirely by one Ashkenazi Jewish founder allele, a T-to-C transition at position +6 of the ELP1 (formerly IKBKAP) intron 20 donor splice site. The change weakens rather than abolishes the splice site, so exon 20 is skipped only partially and the resulting ELP1 deficit is tissue-specific, deepest in the central and peripheral nervous system and mildest in non-neuronal tissue. ELP1 is the scaffolding subunit of the six-subunit Elongator complex, which acts in transcriptional elongation, alpha-tubulin acetylation, and tRNA wobble-uridine modification, and which neurons need for development, target innervation, and survival.\nThe clinical picture follows from which neuronal populations are lost. Absent fungiform papillae, alacrima, and blunted pain and temperature sensation are present from birth and reflect a developmental failure of nociceptive and autonomic neurons. Loss of the afferent limb of the baroreflex and chemoreflex produces the disorder's two most dangerous features: hyperadrenergic \"dysautonomic crises\" of hypertension, tachycardia, and intractable vomiting, and an absent ventilatory response to hypoxia that underlies sudden unexpected death during sleep. Other features are progressive rather than congenital \u2014 proprioceptive neurons and retinal ganglion cells are born normally and die postnatally, producing gait ataxia, kyphoscoliosis, and an optic neuropathy that often reaches legal blindness in the third decade. Neurogenic dysphagia causes recurrent aspiration and chronic lung disease.\nThat the founder allele is leaky is also what makes the disease druggable: raising the fraction of correctly spliced ELP1 should help, and does. Kinetin shifts splicing in patients' leukocytes and rescues proprioceptive and spinal phenotypes in the humanized TgFD9 mouse; optimized, brain-penetrant kinetin derivatives rescue gait ataxia and retinal degeneration in the same model. No disease-modifying therapy is yet established in humans, so current care remains symptomatic and preventive.",
+    "pathophysiology": [
+      "ELP1 Intron 20 Donor Splice Site Weakening",
+      "Tissue-Specific Skipping of ELP1 Exon 20",
+      "Neuronal Elongator Complex Deficiency",
+      "Failed Development and Innervation of Sensory and Autonomic Neurons",
+      "Progressive Sensory and Autonomic Neuron Depletion",
+      "Afferent Baroreflex and Chemoreflex Failure",
+      "Postnatal Proprioceptive Neuron Loss",
+      "Retinal Ganglion Cell Degeneration",
+      "Enteric Nervous System Dysfunction",
+      "Neurogenic Dysphagia and Recurrent Aspiration"
+    ],
+    "cell_types": [
+      "Sensory neuron",
+      "Autonomic neuron",
+      "Dorsal root ganglion sensory neuron",
+      "Proprioceptive dorsal root ganglion neuron",
+      "Retinal ganglion cell",
+      "Autonomic (enteric) neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000101",
+      "CL:0000107",
+      "CL:1001451",
+      "CL:0000740"
+    ],
+    "biological_processes": [
+      "mRNA 5'-splice site recognition at ELP1 exon 20",
+      "tRNA wobble uridine modification",
+      "peripheral nervous system neuron development",
+      "neuron death"
+    ],
+    "phenotypes": [
+      "Absence of Fungiform Papillae",
+      "Alacrima",
+      "Impaired Pain and Temperature Sensation",
+      "Neuropathic Joints and Thermal Injuries",
+      "Dysautonomic Crises",
+      "Cyclic Vomiting",
+      "Blood Pressure Instability",
+      "Chronic Kidney Disease",
+      "Sleep-Disordered Breathing",
+      "Sudden Unexpected Death During Sleep",
+      "Gait Ataxia",
+      "Areflexia",
+      "Kyphoscoliosis",
+      "Progressive Optic Neuropathy",
+      "Corneal Opacity and Neurotrophic Keratopathy",
+      "Gastrointestinal Dysmotility",
+      "Recurrent Aspiration Pneumonia and Chronic Lung Disease",
+      "Hypotonia with Delayed Motor Milestones",
+      "Developmental Delay and Intellectual Disability"
+    ],
+    "phenotype_categories": [
+      "Oral",
+      "Ophthalmologic",
+      "Neurologic",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Gastrointestinal",
+      "Renal",
+      "Respiratory",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0030809",
+      "HP:0000522",
+      "HP:0007328",
+      "HP:0002821",
+      "HP:0000875",
+      "HP:0002572",
+      "HP:0004926",
+      "HP:0012622",
+      "HP:0010535",
+      "HP:0001699",
+      "HP:0010871",
+      "HP:0001284",
+      "HP:0002751",
+      "HP:0000648",
+      "HP:0007957",
+      "HP:0002579",
+      "HP:0002100",
+      "HP:0001252",
+      "HP:0001249"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ELP1"
+    ],
+    "treatments": [
+      "Dysautonomic Crisis Management with Benzodiazepines and Clonidine",
+      "Dexmedetomidine for Refractory Dysautonomic Crisis",
+      "Carbidopa",
+      "Midodrine for Orthostatic Hypotension",
+      "Nocturnal Non-Invasive Ventilation",
+      "Feeding and Airway Management for Neurogenic Dysphagia",
+      "Percutaneous Endoscopic Gastrostomy",
+      "Fundoplication",
+      "Ocular Surface Lubrication",
+      "Splice-Modulating Therapy (Kinetin and Derivatives)",
+      "Phosphatidylserine",
+      "Genetic Counseling and Carrier Screening"
+    ],
+    "environmental": [
+      "Hot or humid weather",
+      "Full bladder"
+    ],
+    "biochemical": [],
+    "source_file": "Riley-Day_Syndrome.yaml",
+    "page_url": "../pages/disorders/Riley-Day_Syndrome.html",
+    "num_phenotypes": 19,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 12,
+    "causal_graph_edges": "49",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Ring Chromosome 14 Syndrome",
@@ -345933,17 +346558,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3251,
-  "total_subtypes": 4485,
-  "total_disorders_and_subtypes": 7736,
-  "total_unique_evidence_sources": 47757,
-  "total_unique_publications": 44767,
+  "total_disorder_pages": 3256,
+  "total_subtypes": 4488,
+  "total_disorders_and_subtypes": 7744,
+  "total_unique_evidence_sources": 47852,
+  "total_unique_publications": 44857,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3247,
-  "total_unique_pathological_events": 20820,
+  "total_pathographs": 3252,
+  "total_unique_pathological_events": 20865,
   "total_modules": 180,
-  "total_research_reports": 3367,
+  "total_research_reports": 3372,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
