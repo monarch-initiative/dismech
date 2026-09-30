@@ -91,12 +91,10 @@ def test_one_doi_written_two_ways_is_one_reference():
 
 
 def test_no_extracted_identifier_contains_link_syntax():
-    text = "\n".join(
-        [
-            "DOI [10.1007/s00439-016-1756-5](https://doi.org/10.1007/s00439-016-1756-5)",
-            "[x, doi:10.3390/ijms27104455)](https://www.mdpi.com/1422-0067/27/10/4455)",
-            "([PMID: 23712021](https://pubmed.ncbi.nlm.nih.gov/23712021/))",
-        ]
+    text = (
+        "DOI [10.1007/s00439-016-1756-5](https://doi.org/10.1007/s00439-016-1756-5)\n"
+        "[x, doi:10.3390/ijms27104455)](https://www.mdpi.com/1422-0067/27/10/4455)\n"
+        "([PMID: 23712021](https://pubmed.ncbi.nlm.nih.gov/23712021/))"
     )
     for identifier in _ids(text):
         assert not any(ch in identifier for ch in "[]") and "://" not in identifier
