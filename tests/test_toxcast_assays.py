@@ -78,6 +78,15 @@ def test_gene_symbol_is_species_specific():
     assert not e.is_human
 
 
+def test_gene_species_is_the_genes_own_not_the_assay_systems():
+    """A gene object carries its own species. The endpoint's ``organism`` names
+    the system the assay ran in, and the two need not agree."""
+    assert parse_annotation(_raw(1816)).genes[0].is_human
+    mouse = parse_annotation(_raw(725)).genes[0]
+    assert mouse.organism_id == 2
+    assert not mouse.is_human
+
+
 def test_absent_gene_target_is_empty_not_invented():
     """Roughly a third of endpoints declare no intended gene target."""
     e = parse_annotation(_raw(783))
