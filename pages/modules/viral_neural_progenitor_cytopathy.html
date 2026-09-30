@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,6 +1626,19 @@
         <header class="page-header">
             <h1>Viral Neural Progenitor Cytopathy Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Host-pathogen mechanism and antimicrobial therapy: pathogen entry, replication, persistence and immune evasion, together with the antibacterial, antifungal, and antiviral drug-target modules."
+                      style="background: hsl(68, 68%, 96%); border-color: hsl(68, 52%, 78%); color: hsl(68, 62%, 26%);">Infectious disease</span>
+                
+                <span class="badge badge-study-area"
+                      title="Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance."
+                      style="background: hsl(343, 68%, 96%); border-color: hsl(343, 52%, 78%); color: hsl(343, 62%, 26%);">Neuroscience</span>
+                
+                <span class="badge badge-study-area"
+                      title="Morphogenesis and embryonic patterning — signalling gradients, segmentation, cell-fate specification, and migration defects whose lesion acts during development rather than in mature tissue."
+                      style="background: hsl(120, 68%, 96%); border-color: hsl(120, 52%, 78%); color: hsl(120, 62%, 26%);">Developmental biology</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">viral_neural_progenitor_cytopathy</span>
                 <span class="badge badge-count">1 disorder</span>
@@ -2215,6 +2288,8 @@ This mechanism module involves abnormal cerebral cortex development (GO:0021987)
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2232,7 +2307,7 @@ This mechanism module involves abnormal cerebral cortex development (GO:0021987)
                         
                         
                         
-                        Maternal-Fetal Transmission and Neurotropic Viral Entry → Fetal Brain Viral Exposure and Progenitor Infection
+                        Neurotropic Entry into Fetal Neural Progenitors → Fetal Brain Viral Exposure and Progenitor Infection
                         
                         
                         , 
@@ -2281,7 +2356,7 @@ This mechanism module involves abnormal cerebral cortex development (GO:0021987)
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiviral Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infection activates innate immune pathways in neural progenitor systems. In the ZIKV prototype, cerebral organoid studies support a TLR3- linked branch in which antiviral signaling intersects with neurogenesis, axon guidance, and apoptosis pathways. This node should be specialized in disease entries for the relevant pattern-recognition receptor, interferon pathway, viral immune-evasion factor, or host restriction mechanism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"innate immune response\", \"defense response to virus\", \"toll-like receptor signaling pathway\", \"type I interferon-mediated signaling pathway\"], \"genes\": [\"TLR3\", \"TBK1\"], \"gene_terms\": [{\"label\": \"TLR3\", \"id\": \"hgnc:11849\"}, {\"label\": \"TBK1\", \"id\": \"hgnc:11584\"}], \"role\": \"amplifier\"}}, {\"id\": \"Fetal Brain Viral Exposure and Progenitor Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A prenatal neurotropic virus crosses maternal-fetal or fetal-brain barriers and infects neural stem cells, neural progenitors, radial glia, or related fetal neuroepithelial cells. ZIKV data support this node through human iPSC-derived neural progenitor infection, human cortical progenitor and organoid infection, and fetal tissue/radial-glial susceptibility evidence. Virus-specific receptor and placental entry details belong in conforming disease entries.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural stem cell\", \"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"viral entry into host cell\", \"viral genome replication\"], \"genes\": [\"AXL\"], \"gene_terms\": [{\"label\": \"AXL\", \"id\": \"hgnc:905\"}], \"role\": \"trigger\"}}, {\"id\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced progenitor survival, premature progenitor differentiation, disrupted ventricular-zone organization, and impaired neurogenesis produce congenital cortical malformations. ZIKV prototype outcomes include cortical thinning, microcephaly, simplified gyration or agyria-like malformation, and disrupted cortical layers; virus-specific imaging findings and extracortical/systemic congenital features belong in conforming disease entries.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurogenesis\", \"cerebral cortex development\"], \"role\": \"outcome\"}}, {\"id\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral replication, innate immune activation, and mitotic stress converge on increased apoptosis, cell death, premature differentiation, or reduced viability of neural progenitors and radial glia. The resulting depletion or distortion of the progenitor pool reduces cortical neuron output and disrupts the ventricular-zone scaffold.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural stem cell\", \"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\", \"neurogenesis\"], \"role\": \"effector\"}}, {\"id\": \"Viral Mitotic and Centrosome Cytopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infection perturbs cell-cycle progression, mitosis, centrosome integrity, spindle geometry, or centrosome-associated antiviral signaling in infected neural stem/progenitor cells and radial glia. This node is the point of convergence with the neural progenitor centrosome/spindle dysfunction module.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"cell cycle\", \"mitotic cell cycle\", \"mitotic spindle organization\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Fetal Brain Viral Exposure and Progenitor Infection\", \"target\": \"Antiviral Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection exposes viral RNA or replication intermediates that activate pattern-recognition and interferon-related pathways in neural progenitor systems.\"}, {\"source\": \"Fetal Brain Viral Exposure and Progenitor Infection\", \"target\": \"Viral Mitotic and Centrosome Cytopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral infection can directly perturb mitosis, centrosomes, and radial glial cell-cycle machinery.\"}, {\"source\": \"Antiviral Innate Immune Activation\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune signaling and viral stress can promote apoptosis, premature differentiation, or survival loss in the progenitor pool.\"}, {\"source\": \"Viral Mitotic and Centrosome Cytopathy\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell-cycle, mitotic, and centrosome disruption promotes apoptosis, premature differentiation, or loss of the neural progenitor pool.\"}, {\"source\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"target\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progenitor loss and premature differentiation reduce cortical neuron output and disrupt early cortical architecture.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiviral Innate Immune Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infection activates innate immune pathways in neural progenitor systems. In the ZIKV prototype, cerebral organoid studies support a TLR3-linked branch in which antiviral signaling intersects with neurogenesis, axon guidance, and apoptosis pathways. This node should be specialized in disease entries for the relevant pattern-recognition receptor, interferon pathway, viral immune-evasion factor, or host restriction mechanism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"innate immune response\", \"defense response to virus\", \"toll-like receptor signaling pathway\", \"type I interferon-mediated signaling pathway\"], \"genes\": [\"TLR3\", \"TBK1\"], \"gene_terms\": [{\"label\": \"TLR3\", \"id\": \"hgnc:11849\"}, {\"label\": \"TBK1\", \"id\": \"hgnc:11584\"}], \"role\": \"amplifier\"}}, {\"id\": \"Fetal Brain Viral Exposure and Progenitor Infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A prenatal neurotropic virus crosses maternal-fetal or fetal-brain barriers and infects neural stem cells, neural progenitors, radial glia, or related fetal neuroepithelial cells. ZIKV data support this node through human iPSC-derived neural progenitor infection, human cortical progenitor and organoid infection, and fetal tissue/radial-glial susceptibility evidence. Virus-specific receptor and placental entry details belong in conforming disease entries.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural stem cell\", \"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"viral entry into host cell\", \"viral genome replication\"], \"genes\": [\"AXL\"], \"gene_terms\": [{\"label\": \"AXL\", \"id\": \"hgnc:905\"}], \"role\": \"trigger\"}}, {\"id\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced progenitor survival, premature progenitor differentiation, disrupted ventricular-zone organization, and impaired neurogenesis produce congenital cortical malformations. ZIKV prototype outcomes include cortical thinning, microcephaly, simplified gyration or agyria-like malformation, and disrupted cortical layers; virus-specific imaging findings and extracortical/systemic congenital features belong in conforming disease entries.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neuron\"], \"biological_processes\": [\"neurogenesis\", \"cerebral cortex development\"], \"role\": \"outcome\"}}, {\"id\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral replication, innate immune activation, and mitotic stress converge on increased apoptosis, cell death, premature differentiation, or reduced viability of neural progenitors and radial glia. The resulting depletion or distortion of the progenitor pool reduces cortical neuron output and disrupts the ventricular-zone scaffold.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural stem cell\", \"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\", \"neurogenesis\"], \"role\": \"effector\"}}, {\"id\": \"Viral Mitotic and Centrosome Cytopathy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infection perturbs cell-cycle progression, mitosis, centrosome integrity, spindle geometry, or centrosome-associated antiviral signaling in infected neural stem/progenitor cells and radial glia. This node is the point of convergence with the neural progenitor centrosome/spindle dysfunction module.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"neural progenitor cell\", \"radial glial cell\"], \"biological_processes\": [\"cell cycle\", \"mitotic cell cycle\", \"mitotic spindle organization\"], \"role\": \"central_effector\"}}], \"edges\": [{\"source\": \"Fetal Brain Viral Exposure and Progenitor Infection\", \"target\": \"Antiviral Innate Immune Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Infection exposes viral RNA or replication intermediates that activate pattern-recognition and interferon-related pathways in neural progenitor systems.\"}, {\"source\": \"Fetal Brain Viral Exposure and Progenitor Infection\", \"target\": \"Viral Mitotic and Centrosome Cytopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral infection can directly perturb mitosis, centrosomes, and radial glial cell-cycle machinery.\"}, {\"source\": \"Antiviral Innate Immune Activation\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Innate immune signaling and viral stress can promote apoptosis, premature differentiation, or survival loss in the progenitor pool.\"}, {\"source\": \"Viral Mitotic and Centrosome Cytopathy\", \"target\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cell-cycle, mitotic, and centrosome disruption promotes apoptosis, premature differentiation, or loss of the neural progenitor pool.\"}, {\"source\": \"Neural Progenitor Apoptosis and Pool Depletion\", \"target\": \"Impaired Neurogenesis and Congenital Cortical Malformation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progenitor loss and premature differentiation reduce cortical neuron output and disrupt early cortical architecture.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -2298,11 +2373,13 @@ This mechanism module involves abnormal cerebral cortex development (GO:0021987)
             
             <div class="item-box anchor-target" id="module-pathophysiology-fetal-brain-viral-exposure-and-progenitor-infection" data-dismech-node="Fetal Brain Viral Exposure and Progenitor Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Brain Viral Exposure and Progenitor Infection</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A prenatal neurotropic virus crosses maternal-fetal or fetal-brain barriers and infects neural stem cells, neural progenitors, radial glia, or related fetal neuroepithelial cells. ZIKV data support this node through human iPSC-derived neural progenitor infection, human cortical progenitor and organoid infection, and fetal tissue/radial-glial susceptibility evidence. Virus-specific receptor and placental entry details belong in conforming disease entries.</div>
                 
@@ -2463,7 +2540,7 @@ This pathophysiological event involves increased viral genome replication (GO:00
                         <div class="crosslink-item">
                             <a href="../disorders/Congenital_Zika_Syndrome.html">Congenital Zika Syndrome</a>
                             
-                            <span class="crosslink-desc">as Maternal-Fetal Transmission and Neurotropic Viral Entry</span>
+                            <span class="crosslink-desc">as Neurotropic Entry into Fetal Neural Progenitors</span>
                             
                         </div>
                         
@@ -2497,13 +2574,15 @@ This pathophysiological event involves increased viral genome replication (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-antiviral-innate-immune-activation" data-dismech-node="Antiviral Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Antiviral Innate Immune Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
                 
-                <div class="item-desc">Viral infection activates innate immune pathways in neural progenitor systems. In the ZIKV prototype, cerebral organoid studies support a TLR3- linked branch in which antiviral signaling intersects with neurogenesis, axon guidance, and apoptosis pathways. This node should be specialized in disease entries for the relevant pattern-recognition receptor, interferon pathway, viral immune-evasion factor, or host restriction mechanism.</div>
+                
+                <div class="item-desc">Viral infection activates innate immune pathways in neural progenitor systems. In the ZIKV prototype, cerebral organoid studies support a TLR3-linked branch in which antiviral signaling intersects with neurogenesis, axon guidance, and apoptosis pathways. This node should be specialized in disease entries for the relevant pattern-recognition receptor, interferon pathway, viral immune-evasion factor, or host restriction mechanism.</div>
                 
 
                 
@@ -2717,11 +2796,13 @@ This pathophysiological event involves dysregulated type I interferon-mediated s
             
             <div class="item-box anchor-target" id="module-pathophysiology-viral-mitotic-and-centrosome-cytopathy" data-dismech-node="Viral Mitotic and Centrosome Cytopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Mitotic and Centrosome Cytopathy</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Viral infection perturbs cell-cycle progression, mitosis, centrosome integrity, spindle geometry, or centrosome-associated antiviral signaling in infected neural stem/progenitor cells and radial glia. This node is the point of convergence with the neural progenitor centrosome/spindle dysfunction module.</div>
                 
@@ -2909,11 +2990,13 @@ This pathophysiological event involves dysregulated mitotic spindle organization
             
             <div class="item-box anchor-target" id="module-pathophysiology-neural-progenitor-apoptosis-and-pool-depletion" data-dismech-node="Neural Progenitor Apoptosis and Pool Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Progenitor Apoptosis and Pool Depletion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Viral replication, innate immune activation, and mitotic stress converge on increased apoptosis, cell death, premature differentiation, or reduced viability of neural progenitors and radial glia. The resulting depletion or distortion of the progenitor pool reduces cortical neuron output and disrupts the ventricular-zone scaffold.</div>
                 
@@ -3127,11 +3210,13 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-neurogenesis-and-congenital-cortical-malformation" data-dismech-node="Impaired Neurogenesis and Congenital Cortical Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurogenesis and Congenital Cortical Malformation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">outcome</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Reduced progenitor survival, premature progenitor differentiation, disrupted ventricular-zone organization, and impaired neurogenesis produce congenital cortical malformations. ZIKV prototype outcomes include cortical thinning, microcephaly, simplified gyration or agyria-like malformation, and disrupted cortical layers; virus-specific imaging findings and extracortical/systemic congenital features belong in conforming disease entries.</div>
                 
@@ -3250,6 +3335,9 @@ This pathophysiological event involves abnormal cerebral cortex development (GO:
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

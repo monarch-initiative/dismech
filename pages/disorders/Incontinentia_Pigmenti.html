@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4255,6 +4348,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4278,6 +4373,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4299,6 +4396,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4402,6 +4501,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4482,6 +4583,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4503,6 +4606,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4539,6 +4644,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ikbkg-nemo-loss-of-function" data-dismech-node="IKBKG (NEMO) Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">IKBKG (NEMO) Loss of Function</div>
+
 
                 <div class="item-desc">Loss-of-function variants in IKBKG abolish or cripple NEMO/IKK-gamma, the regulatory subunit of the IKK complex. The predominant lesion is the recurrent exon 4-10 deletion, a complete null allele; other point and splice variants also occur. Without functional NEMO the IKK complex cannot be activated.</div>
 
@@ -4634,6 +4740,8 @@ This pathophysiological event involves IKBKG (hgnc:5961). hgnc:5961 is a gene fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4656,6 +4764,7 @@ This pathophysiological event involves IKBKG (hgnc:5961). hgnc:5961 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-canonical-nf-kb-activation" data-dismech-node="Impaired Canonical NF-kB Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Canonical NF-kB Activation</div>
+
 
                 <div class="item-desc">NEMO is required for IKK-mediated activation of canonical NF-kB signaling; its loss prevents NF-kB (RelA/p65) nuclear translocation and transcription of NF-kB target genes, including the anti-apoptotic and inflammatory program. A dysregulated NF-kB pathway is the proximate molecular basis of IP.</div>
 
@@ -4746,6 +4855,8 @@ This pathophysiological event involves decreased canonical NF-kappaB signal tran
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4768,6 +4879,7 @@ This pathophysiological event involves decreased canonical NF-kappaB signal tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heightened-susceptibility-to-tnf-induced-apoptosis" data-dismech-node="Heightened Susceptibility to TNF-Induced Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Heightened Susceptibility to TNF-Induced Apoptosis</div>
+
 
                 <div class="item-desc">Because NF-kB normally induces anti-apoptotic genes, NEMO-deficient cells (keratinocytes, vascular endothelium, neurons) lose this cytoprotection and become hypersensitive to TNF-induced apoptosis and necrosis — a stimulus that is pro-survival in normal cells becomes lethal. This apoptotic vulnerability is the shared cellular mechanism behind the skin, ocular, and CNS lesions and behind the selective elimination of mutant-X cells.</div>
 
@@ -4954,6 +5066,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4975,6 +5089,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4999,6 +5115,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-male-lethality-of-null-alleles" data-dismech-node="Male Lethality of Null Alleles" data-dismech-type="pathophysiology">
                 <div class="item-name">Male Lethality of Null Alleles</div>
+
 
                 <div class="item-desc">Selective apoptotic elimination of cells expressing the mutant IKBKG allele has divergent organism-level outcomes by sex. In affected females the surviving cells preferentially express the wild-type X, producing the mosaic Blaschko-linear distribution and permitting survival. Hemizygous male conceptuses carrying a null allele have no wild-type cells to select for and miscarry; the rare surviving affected males have a 47,XXY karyotype or somatic mosaicism.</div>
 
@@ -5036,6 +5153,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5057,6 +5176,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5082,6 +5203,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5104,6 +5227,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bystander-nf-kb-competent-eotaxin-secretion-and-eosinophil-recruitment" data-dismech-node="Bystander NF-kB-Competent Eotaxin Secretion and Eosinophil Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Bystander NF-kB-Competent Eotaxin Secretion and Eosinophil Recruitment</div>
+
 
                 <div class="item-desc">In the mosaic epidermis the surviving NEMO-competent cells (those with the wild-type X active) respond to inflammatory stimuli by activating NF-kB and secreting the eosinophil-selective, NF-kB-activated chemokine eotaxin. This drives the massive epidermal eosinophil infiltration and peripheral eosinophilia that characterize the first (vesiculobullous) stage — the florid inflammation of IP thus arises from the NF-kB that the mutant cells have lost, produced instead by their normal neighbors.</div>
 
@@ -5228,6 +5352,8 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5249,6 +5375,8 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5273,6 +5401,7 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stage-i-vesiculobullous-eruption" data-dismech-node="Stage I Vesiculobullous Eruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Stage I Vesiculobullous Eruption</div>
+
 
                 <div class="item-desc">Keratinocyte apoptosis/necrosis with eosinophilic spongiosis produces the first Blaschko-linear cutaneous stage: an inflammatory vesiculobullous eruption from birth to about age four months.</div>
 
@@ -5359,6 +5488,8 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5381,6 +5512,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stage-ii-verrucous-hyperkeratosis" data-dismech-node="Stage II Verrucous Hyperkeratosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Stage II Verrucous Hyperkeratosis</div>
+
 
                 <div class="item-desc">The second stage is a linear, warty, hyperkeratotic (verrucous) eruption with acanthosis and papillomatosis, evolving over several months.</div>
 
@@ -5467,6 +5599,8 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5489,6 +5623,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stage-iii-dermal-melanophage-pigment-incontinence" data-dismech-node="Stage III Dermal Melanophage Pigment Incontinence" data-dismech-type="pathophysiology">
                 <div class="item-name">Stage III Dermal Melanophage Pigment Incontinence</div>
+
 
                 <div class="item-desc">The third stage is the eponymous lesion: melanin is &#39;incontinent&#39; at the dermal-epidermal junction, dropping from injured basal keratinocytes and melanocytes into dermal macrophages (melanophages), producing swirled, marbled grey-brown hyperpigmentation along Blaschko lines — the finding for which the disease is named.</div>
 
@@ -5605,6 +5740,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5626,6 +5763,8 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5650,6 +5789,7 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stage-iv-atrophic-hypopigmentation" data-dismech-node="Stage IV Atrophic Hypopigmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Stage IV Atrophic Hypopigmentation</div>
+
 
                 <div class="item-desc">The fourth, adult stage is atrophic linear hypopigmentation — pale, hairless, often atrophic streaks (frequently on the lower legs) along Blaschko lines.</div>
 
@@ -5721,6 +5861,8 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5743,6 +5885,7 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-vascular-dysgenesis-and-neovascularization" data-dismech-node="Retinal Vascular Dysgenesis and Neovascularization" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Vascular Dysgenesis and Neovascularization</div>
+
 
                 <div class="item-desc">Apoptosis of retinal vascular endothelium produces peripheral retinal non-perfusion/avascularity; the resulting ischemia drives pathologic neovascularization that predisposes to tractional retinal detachment, the principal cause of vision loss in IP. Foveal/inner-retinal structural abnormalities also occur.</div>
 
@@ -5814,6 +5957,8 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5836,6 +5981,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-vaso-occlusive-and-neuronal-injury" data-dismech-node="Cerebral Vaso-Occlusive and Neuronal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Vaso-Occlusive and Neuronal Injury</div>
+
 
                 <div class="item-desc">The CNS manifestations of IP — seizures, intellectual disability, and developmental delay — are believed to arise from cerebral vaso-occlusive events (consistent with the shared endothelial vulnerability of NEMO-null vessels) with secondary neuronal injury. They are among the most prognostically important extracutaneous features, and the underlying mechanism remains incompletely defined.</div>
 
@@ -5937,6 +6083,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5958,6 +6106,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6018,6 +6168,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6039,6 +6191,8 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6104,15 +6258,15 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6155,6 +6309,9 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6169,6 +6326,8 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6199,6 +6358,114 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-retinal-neovascularization" data-dismech-node="Peripheral retinal neovascularization" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Peripheral retinal neovascularization
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0030667</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Peripheral retinal neovascularization (HP:0030667). HP:0030667 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neovascularization of the retina, present in some individuals, predisposes to retinal detachment."</div>
+
+
+                <div class="evidence-explanation">Retinal neovascularization is the sight-threatening ocular manifestation of IP.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33655605" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33655605" target="_blank">PMID:33655605</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ocular manifestations (28%), neurological abnormalities (28%),"</div>
+
+
+                <div class="evidence-explanation">Quantifies ocular involvement at ~28% of patients, supporting the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
                     <span class="cat-count">1</span>
                 </summary>
@@ -6217,15 +6484,18 @@ This clinical feature is Increased total eosinophil count (HP:0001880). HP:00018
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000541</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000541" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000541</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6245,6 +6515,8 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6272,11 +6544,11 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dental-anomalies-hypodontia" data-dismech-node="Dental anomalies (hypodontia)" data-dismech-type="phenotype">
@@ -6295,15 +6567,18 @@ This clinical feature is Retinal detachment (HP:0000541). HP:0000541 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000668</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6323,6 +6598,8 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6348,6 +6625,8 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6371,13 +6650,87 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-conical-teeth" data-dismech-node="Conical teeth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Conical teeth
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Conical tooth</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000698" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000698</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Conical tooth (HP:0000698). HP:0000698 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Alopecia, hypodontia, abnormal tooth shape, and dystrophic nails are observed."</div>
+
+
+                <div class="evidence-explanation">Abnormal (conical) tooth shape is a recognized dental feature of IP.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-stage-i-vesiculobullous-eruption" data-dismech-node="Stage I vesiculobullous eruption" data-dismech-type="phenotype">
@@ -6398,10 +6751,10 @@ This clinical feature is Hypodontia (HP:0000668). HP:0000668 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0008066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified as neonatal onset. HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6441,6 +6794,9 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6455,6 +6811,8 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6478,6 +6836,8 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6519,15 +6879,18 @@ This clinical feature is Abnormal blistering of the skin (HP:0008066), qualified
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Verrucous papule (HP:0012500). HP:0012500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6549,6 +6912,8 @@ This clinical feature is Verrucous papule (HP:0012500). HP:0012500 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6557,6 +6922,154 @@ This clinical feature is Verrucous papule (HP:0012500). HP:0012500 is a phenotyp
 
 
                 <div class="evidence-explanation">The verrucous (wart-like) plaques constitute the second cutaneous stage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stage-iii-swirled-hyperpigmentation" data-dismech-node="Stage III swirled hyperpigmentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stage III swirled hyperpigmentation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Linear hyperpigmentation</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007546</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperpigmentation along Blaschko lines, annotated with Linear hyperpigmentation (HP:0007546). HP:0007546 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"III.. Swirling macular hyperpigmentation (age ~6 months into adulthood)."</div>
+
+
+                <div class="evidence-explanation">The swirled Blaschko-linear hyperpigmentation is the third and most recognizable cutaneous stage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-stage-iv-linear-hypopigmentation" data-dismech-node="Stage IV linear hypopigmentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Stage IV linear hypopigmentation
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypopigmented streaks</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007535</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopigmented streaks (HP:0007535). HP:0007535 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"IV.. Linear hypopigmentation."</div>
+
+
+                <div class="evidence-explanation">Atrophic linear hypopigmentation is the fourth, adult-stage cutaneous manifestation.</div>
 
 
 
@@ -6586,15 +7099,18 @@ This clinical feature is Verrucous papule (HP:0012500). HP:0012500 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001596</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001596" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001596</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6614,6 +7130,8 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6653,15 +7171,18 @@ This clinical feature is Alopecia (HP:0001596). HP:0001596 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6681,6 +7202,8 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6708,7 +7231,7 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6731,15 +7254,18 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6759,6 +7285,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6782,6 +7310,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6823,15 +7353,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6851,6 +7384,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6894,10 +7429,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6908,6 +7443,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6922,6 +7460,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6932,314 +7472,6 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                 <div class="evidence-explanation">Developmental delay is an occasional CNS manifestation of IP.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stage-iii-swirled-hyperpigmentation" data-dismech-node="Stage III swirled hyperpigmentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stage III swirled hyperpigmentation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Linear hyperpigmentation</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0007546</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperpigmentation along Blaschko lines, annotated with Linear hyperpigmentation (HP:0007546). HP:0007546 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"III.. Swirling macular hyperpigmentation (age ~6 months into adulthood)."</div>
-
-
-                <div class="evidence-explanation">The swirled Blaschko-linear hyperpigmentation is the third and most recognizable cutaneous stage.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-stage-iv-linear-hypopigmentation" data-dismech-node="Stage IV linear hypopigmentation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Stage IV linear hypopigmentation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypopigmented streaks</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0007535</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypopigmented streaks (HP:0007535). HP:0007535 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"IV.. Linear hypopigmentation."</div>
-
-
-                <div class="evidence-explanation">Atrophic linear hypopigmentation is the fourth, adult-stage cutaneous manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-conical-teeth" data-dismech-node="Conical teeth" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Conical teeth
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Conical tooth</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000698" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000698</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Conical tooth (HP:0000698). HP:0000698 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Alopecia, hypodontia, abnormal tooth shape, and dystrophic nails are observed."</div>
-
-
-                <div class="evidence-explanation">Abnormal (conical) tooth shape is a recognized dental feature of IP.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-retinal-neovascularization" data-dismech-node="Peripheral retinal neovascularization" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral retinal neovascularization
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030667" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030667</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral retinal neovascularization (HP:0030667). HP:0030667 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Neovascularization of the retina, present in some individuals, predisposes to retinal detachment."</div>
-
-
-                <div class="evidence-explanation">Retinal neovascularization is the sight-threatening ocular manifestation of IP.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33655605" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33655605" target="_blank">PMID:33655605</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ocular manifestations (28%), neurological abnormalities (28%),"</div>
-
-
-                <div class="evidence-explanation">Quantifies ocular involvement at ~28% of patients, supporting the OCCASIONAL band.</div>
 
 
 
@@ -7327,6 +7559,9 @@ This disease-associated gene is IKBKG (hgnc:5961). hgnc:5961 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7341,6 +7576,8 @@ This disease-associated gene is IKBKG (hgnc:5961). hgnc:5961 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7423,6 +7660,31 @@ This treatment is laser ablation therapy, annotated with Laser Ablation (NCIT:C1
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ablative laser photocoagulation (and cryotherapy) of peripheral avascular retina and retinal neovascularization is the mainstay sight-preserving intervention, reducing the risk of tractional retinal detachment. Anti-VEGF injection is a second-line adjunct without formal consensus.</div>
 
 
@@ -7466,6 +7728,8 @@ This treatment targets Peripheral retinal neovascularization (HP:0030667). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7529,6 +7793,31 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because retinopathy can progress rapidly in infancy, frequent eye examinations are recommended — monthly to age four months, then every three months to age one year, every six months to age three years, and annually thereafter.</div>
 
 
@@ -7550,6 +7839,8 @@ This treatment is eye examination (NCIT:C38060). NCIT:C38060 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7613,6 +7904,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Stage-I blisters and any secondary skin infections are managed with standard wound care and infection-control measures; the eruption is otherwise self-limited as it evolves through the later stages.</div>
 
 
@@ -7634,6 +7950,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7697,6 +8015,31 @@ This treatment is dental implantation, annotated with Dental Procedure (NCIT:C38
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because IP causes hypodontia and abnormal tooth shape, management includes dental care by a pedodontist and dental implants in childhood as needed, with speech/nutrition support when dental abnormalities impair chewing or speech.</div>
 
 
@@ -7740,6 +8083,8 @@ This treatment targets Hypodontia (HP:0000668). HP:0000668 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7803,6 +8148,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizures, spasticity, and focal deficits are managed by referral to a pediatric neurologist, with brain MRI for functional neurologic abnormalities and developmental/special-education programs as needed.</div>
 
 
@@ -7848,6 +8218,8 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7875,6 +8247,224 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-diagnosis-and-ikbkg-molecular-testing">
+                <div class="item-name">
+                    Clinical Diagnosis and IKBKG Molecular Testing
+
+                </div>
+
+                <div class="item-desc">Diagnosis is established by a characteristic skin lesion (major criterion), supported by identification of a heterozygous IKBKG pathogenic variant in a female (or hemizygous in a male). Molecular testing targets the recurrent exon 4-10 deletion first (long-range PCR / MLPA) followed by sequencing. A truncated IKBKG pseudogene copy (IKBKGP/deltaNEMO) at the same locus complicates sequence analysis and necessitates deletion-specific assays.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-39">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301645" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301645" target="_blank">PMID:20301645</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of IP is established in a proband with at least one major criterion (characteristic skin lesion). Identification of a heterozygous IKBKG pathogenic variant in a female proband or a hemizygous IKBKG pathogenic variant in a male proband confirms the diagnosis if clinical features are..."</div>
+
+
+                <div class="evidence-explanation">States the clinical major criterion plus IKBKG molecular confirmation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19603533" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19603533" target="_blank">PMID:19603533</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"its truncated pseudogene copy, IKBKGP/deltaNEMO"</div>
+
+
+                <div class="evidence-explanation">The IKBKG pseudogene at the IP locus complicates molecular diagnosis and requires deletion-specific testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-denmark">
+                <div class="item-name">Denmark</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        2.37 per 100,000
+                        (1.74&ndash;3.25)
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Nationwide Danish population-based birth prevalence, 1995-2023, roughly twice earlier estimates and likely reflecting improved ascertainment; ~94.7% of patients were female.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39623400" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39623400" target="_blank">PMID:39623400</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We estimated a birth prevalence of 2.37 (95% CI: 1.74-3.25) per 100,000 or 1 in 42,194."</div>
+
+
+                <div class="evidence-explanation">Provides the most robust (nationwide Danish) birth-prevalence estimate for IP.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8860,6 +9450,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Incontinentia Pigmenti (IKBKG/NEMO, X-linked dominant)</strong> · 2026-07-30T04:11:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Incontinentia_Pigmenti/2026-07-30T041125Z-claude-code-6e7aab.yaml">View source</a></p>
+                        <p class="research-review-text">New de-novo entry for incontinentia pigmenti (Bloch-Sulzberger syndrome; MONDO:0010631), the X-linked dominant, male-lethal IKBKG/NEMO ectodermal disorder. Deep research via the claude_code provider (research/Incontinentia_Pigmenti-deep-research-claude_code.md); GeneReviews chapter (PMID:20301645) fetched, tagged, and mined as the phenotype/management baseline. Eight atomic (unbundled) pathophysiology nodes model IKBKG/NEMO loss of function -&gt; impaired canonical NF-kB activation, branching into (a) heightened susceptibility to TNF-induced apoptosis -&gt; skewed X-inactivation/male lethality + vesiculobullous Blaschko-linear skin disease + retinal vascular dysgenesis/neovascularization + cerebral microvascular/neuronal injury, and (b) a bystander NF-kB-competent eotaxin/eosinophil-recruitment arm (the surviving wild-type-X cells drive the stage-I eosinophilic inflammation). 13 phenotypes (four staged skin lesions, dental, hair, nail, ocular, neurologic, eosinophilia), IKBKG genetics with the recurrent exon 4-10 deletion (PMID:19603533), X-linked dominant male-lethal inheritance, eosinophilic-spongiosis histopathology, clinical+molecular diagnosis, treatments (retinal laser photocoagulation, ophthalmologic surveillance schedule, supportive skin care), Danish nationwide birth prevalence 2.37/100,000 (PMID:39623400), GENETICS_ENVIRONMENT_DISEASE + DERMATOLOGY classification, and a discussions section (KNOWLEDGE_GAP on genotype-phenotype variability; INTERPRETATION resolving the NF-kB-loss-vs-NF-kB-driven-inflammation paradox via the mosaic bystander mechanism). Distinct from the allelic sibling entry IKBKG_Ectodermal_Dysplasia_with_Immunodeficiency (IKBKG-hypomorphic male EDA-ID). An internal red-team review (dismech-pr-review) was run before PR and its findings folded in: corrected the peripheral-eosinophilia evidence (blood vs tissue snippet), re-evidenced and rescoped the cerebral node to the vaso-occlusive mechanism (PMID:26043102), re-routed the bystander-eotaxin edge to originate from the keratinocyte-necrosis node, rescoped the X-inactivation/male-lethality node to the evidenced organism-level male lethality (avoiding an unquotable skewed-XCI node), added a developmental-delay phenotype, added the IKBKG pseudogene diagnostic caveat (PMID:19603533), and added an allelic-disorder cross-reference to the EDA-ID sibling entry. Automated PR review (#7124) then requested further changes, all folded in: split the bundled skin node into a four-stage downstream chain (Stage I vesiculobullous -&gt; II verrucous -&gt; III dermal-melanophage pigment incontinence [the eponymous node, with melanocyte + macrophage cell types] -&gt; IV atrophic hypopigmentation); added the bidirectional amplification-loop feedback edge (bystander -&gt; TNF-apoptosis); added MODEL_ORGANISM evidence from the NEMO-knockout mice (PMID:16399796 Nenci TNF-dependence; PMID:10911992 Rudolph male lethality + keratinocyte clearing) and an IN_VITRO keratinocyte-eotaxin item, replacing the eotaxin study-aim snippet with the IHC finding; added quantitative frequency evidence (teeth 58.7%, skin 93.3%, neurological 28% from PMIDs 39623400/33655605); added GeneReviews genetic-counseling figures (65% de novo, 33/33/33 transmission) and dental/neurologic management treatments. Validated: schema, term validation (--labels), 52/52 snippets exact, folded-hyphen, pathograph fully connected (11 nodes), reference-validator title check, compliance ~91%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -2,13 +2,14 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-08-17T21:10:22.919000'
-end_time: '2026-08-17T21:18:40.900844'
-duration_seconds: 497.98
+start_time: '2026-09-06T14:39:37.841079'
+end_time: '2026-09-06T14:51:45.841987'
+duration_seconds: 728.0
 template_file: templates/disease_pathophysiology_research.md
+template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
 template_variables:
   disease_name: Jervell and Lange-Nielsen Syndrome 2
-  mondo_id: ''
+  mondo_id: MONDO:0012871
   category: Mendelian
 provider_config:
   timeout: null
@@ -17,16 +18,40 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 18
+citation_count: 23
 reference_validation:
-  total_references: 4
-  verified: 4
+  total_references: 7
+  verified: 7
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  relevance_assessed: 4
-  on_topic: 1
+  quotes_checked: 0
+  quotes_valid: 0
+  quotes_not_checkable: 1
+  relevance_assessed: 7
+  on_topic: 5
   validator_version: 0.2.1
+term_validation:
+  total_terms: 33
+  verified: 31
+  not_found: 0
+  obsolete: 0
+  unverifiable: 2
+  confabulation_rate: 0.0
+  labels_checked: 2
+  labels_matching: 0
+  labels_mismatched: 1
+  mislabelled_terms:
+  - term_id: MONDO:0012871
+    reported_labels:
+    - if available
+    ontology_label: Jervell and Lange-Nielsen syndrome 2
+  labels_variant: 1
+  unresolvable_prefixes:
+  - OMIM
+  needs_review: true
+  adapter: 'ols:'
+  validator_version: 0.4.5
 artifact_count: 1
 artifact_sources:
   edison_answer_artifacts: 1
@@ -45,7 +70,7 @@ artifacts:
 
 ## Target Disease
 - **Disease Name:** Jervell and Lange-Nielsen Syndrome 2
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0012871 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -130,6 +155,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -506,7 +541,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 
 ## Target Disease
 - **Disease Name:** Jervell and Lange-Nielsen Syndrome 2
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0012871 (if available)
 - **Category:** Mendelian
 
 ## Research Objectives
@@ -591,6 +626,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -949,291 +994,220 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Jervell and Lange-Nielsen syndrome 2: disease-characteristics report
+# Jervell and Lange-Nielsen Syndrome 2 (JLNS2): Disease Characteristics Report
 
-## Executive summary and evidence scope
+## Executive summary
 
-Jervell and Lange-Nielsen syndrome 2 (JLNS2) is an exceptionally rare, severe, autosomal-recessive cardio-auditory channelopathy caused by **biallelic pathogenic loss-of-function variants in *KCNE1***. Its defining combination is **congenital, usually profound bilateral sensorineural hearing loss** and **long-QT syndrome (LQTS)**, which predisposes to torsades de pointes, ventricular fibrillation, syncope, seizure-like episodes, cardiac arrest, and sudden death. It must be distinguished from **JLNS1**, caused by biallelic *KCNQ1* variants, and from autosomal-dominant *KCNE1*-related Romano-Ward syndrome/LQT5, which lacks congenital deafness. The strongest JLNS2-specific clinical evidence remains small family series rather than large cohorts; therefore, numerical prognosis and most treatment recommendations necessarily derive from JLNS overall or congenital LQTS guidance and are labeled accordingly. (faridi2019mutationalandphenotypic pages 9-11, faridi2019mutationalandphenotypic pages 8-9, faridi2019mutationalandphenotypic pages 1-3)
+Jervell and Lange-Nielsen syndrome type 2 (JLNS2) is an exceptionally rare, autosomal-recessive cardio-auditory channelopathy caused by **biallelic pathogenic loss-of-function variants in KCNE1**. Its defining manifestations are congenital, usually profound bilateral sensorineural hearing loss and delayed ventricular repolarization, manifested by QT prolongation and susceptibility to torsades de pointes, syncope, cardiac arrest, and sudden cardiac death. JLNS2 must be distinguished from **KCNQ1-related JLNS1** and from heterozygous KCNE1-associated long-QT syndrome type 5 (LQT5/Romano-Ward syndrome). Available evidence suggests that the cardiac phenotype of JLNS2 is, on average, milder than JLNS1, but individual patients can still have life-threatening arrhythmias. The largest clearly subtype-separated cohort identified contained only 19 JLNS2 patients, illustrating the limited evidence base. (roberts2020aninternationalmulticenter pages 1-5, faridi2019mutationalandphenotypic pages 1-3)
 
-| Domain | Database-ready summary | Key ontology / identifiers | Evidence type | Key citations |
-|---|---|---|---|---|
-| Identity | Jervell and Lange-Nielsen syndrome 2 (JLNS2) is a rare cardio-auditory channelopathy defined by congenital profound bilateral sensorineural hearing loss plus long-QT syndrome with risk of ventricular arrhythmia and sudden death; it is distinct from JLNS1, which is caused by biallelic KCNQ1 variants. | OMIM: 612347; MONDO: disease-level JLNS available as MONDO_0002441; HPO candidates: congenital sensorineural hearing impairment, long QT interval | Human clinical families; disease-gene curation | (faridi2019mutationalandphenotypic pages 1-3, OpenTargets Search: Jervell and Lange-Nielsen syndrome-KCNE1) |
-| Causal gene / inheritance | Cause: biallelic loss-of-function variants in KCNE1, encoding the potassium voltage-gated channel subfamily E regulatory subunit 1, an accessory subunit for KCNQ1/Kv7.1. Inheritance is autosomal recessive; heterozygous loss-of-function carriers may have normal hearing and normal QT, while some heterozygous missense alleles can cause Romano-Ward syndrome via dominant-negative effects. | Gene: KCNE1; HGNC-approved symbol: KCNE1; HPO candidate: autosomal recessive inheritance | Human clinical genetics; mechanistic interpretation | (faridi2019mutationalandphenotypic pages 1-3, faridi2019mutationalandphenotypic pages 8-9, faridi2019mutationalandphenotypic pages 9-11) |
-| Cardinal phenotypes | Core phenotype is congenital, severe-to-profound, bilateral sensorineural deafness with prolonged QTc. Reported JLNS2 families had QTcF about 487-495 ms and QTcB about 503-518 ms; syncopal events may be absent in some genetically confirmed cases, so hearing-loss-first presentation is possible. | HPO candidates: profound sensorineural hearing impairment; bilateral hearing impairment; long QT interval; syncope; sudden cardiac death | Human clinical families | (faridi2019mutationalandphenotypic pages 8-9, faridi2019mutationalandphenotypic pages 1-3) |
-| Mechanism / pathophysiology | Upstream defect: KCNE1 deficiency impairs the IKs channel complex with KCNQ1. In heart, reduced repolarizing current delays ventricular repolarization, prolonging QT and increasing torsades/ventricular arrhythmia risk. In inner ear stria vascularis, KCNE1/KCNQ1 dysfunction disrupts K+ secretion into endolymph and collapses the endocochlear potential required for hair-cell depolarization, causing deafness; paralog compensation appears insufficient in inner ear. | GO candidates: potassium ion transmembrane transport; regulation of cardiac action potential repolarization; sensory perception of sound; CL candidate: strial marginal cell; UBERON candidate: stria vascularis, cochlea, heart ventricle | Human molecular genetics; animal model; auditory cell biology | (faridi2019mutationalandphenotypic pages 9-11, faridi2019mutationalandphenotypic pages 3-4) |
-| Diagnostic anchors | Diagnostic confirmation rests on syndromic phenotype plus ECG and molecular testing. Contemporary congenital LQTS anchors: QTc ≥480 ms, or modified Schwartz score >3; in symptomatic patients, QTc ≥460 ms can suffice. Because a proportion of gene-confirmed LQTS can have normal-range resting QTc, KCNE1-inclusive NGS panels/exome testing are important in deaf children or families with cardio-auditory findings. | HPO candidates: abnormal electrocardiogram, long QT interval; test concepts: ECG, molecular genetic testing | Human clinical guidelines/review; human genetic diagnosis | (balestra2024congenitallongqt pages 4-5, balestra2024congenitallongqt pages 5-8, qiu2020jervellandlangenielsen pages 1-2) |
-| Standard management | Management is largely extrapolated from congenital LQTS/JLNS practice: nonselective beta-blockers (nadolol or propranolol) are first-line; avoidance of QT-prolonging drugs and trigger management are standard. ICD is recommended after cardiac arrest and considered for persistent symptoms despite beta-blockers; left cardiac sympathetic denervation is used when events recur or ICD is unsuitable. Cochlear implantation can improve hearing, but peri-anesthetic arrhythmia risk requires careful planning and monitoring. | NCIT candidates: Beta Adrenergic Receptor Blocking Agent Therapy; Implantable Cardioverter Defibrillator; Sympathectomy; Cochlear Implantation | Guidelines/review; case report real-world implementation | (balestra2024congenitallongqt pages 5-8, balestra2024congenitallongqt pages 8-9, qiu2020jervellandlangenielsen pages 5-7) |
-| Emerging research / latest developments | Recent work emphasizes precision medicine in congenital LQTS using patient-specific iPSC-derived cardiomyocytes, CRISPR-enabled variant validation, and high-throughput drug testing. A completed 2024 phase 4 JLNS trial tested acute IV diltiazem effects on QT interval in 1 genetically confirmed adult participant; results were submitted for publication after trial completion. | Research concepts: iPSC disease modeling; CRISPR genome editing; ClinicalTrials.gov NCT06534671 | In vitro precision-medicine review; clinical trial | (yu2023precisionmedicinefor pages 1-2, yu2023precisionmedicinefor pages 7-8, NCT06534671 chunk 1) |
-| Major evidence gaps | JLNS2-specific epidemiology, penetrance, carrier frequency, founder-variant frequencies, longitudinal survival, quality-of-life metrics, and genotype-specific treatment outcomes remain sparse because published evidence is limited to few families/case-based data. No confident JLNS2-specific epigenomic, transcriptomic, proteomic, metabolomic, or large natural-history datasets were identified in the retrieved evidence. | No supported disease-specific ontology additions beyond above | Evidence-gap synthesis | (faridi2019mutationalandphenotypic pages 1-3, faridi2019mutationalandphenotypic pages 8-9, NCT06534671 chunk 1) |
+| Domain | JLNS2-specific finding | Key quantitative data | Evidence type/source |
+|---|---|---|---|
+| Identity | Jervell and Lange-Nielsen syndrome type 2 is the recessive, cardio-auditory **KCNE1** channelopathy; identifiers include **MONDO:0012871** and **OMIM:612347**. It is distinct from KCNQ1-related JLNS1 and heterozygous KCNE1-associated LQT5/Romano-Ward syndrome. | Open Targets associates MONDO:0012871 most strongly with KCNE1 (association score 0.769). | Aggregated disease/target resources and human genetic literature (OpenTargets Search: Jervell and Lange-Nielsen syndrome 2-KCNE1, faridi2019mutationalandphenotypic pages 1-3) |
+| Cause and inheritance | **Biallelic germline loss-of-function KCNE1 variants**—homozygous or compound heterozygous—cause autosomal-recessive JLNS2. Heterozygous loss-of-function carriers may have a normal QT interval; some heterozygous missense variants instead cause incompletely penetrant LQT5, sometimes through dominant-negative effects. | Recurrence risk for two carrier parents: 25% affected, 50% carrier, and 25% unaffected/non-carrier per pregnancy. Heterozygous KCNE1-family-member ECG penetrance in a multicenter LQT5 study was 20.7% (29/140), but this is not JLNS2 penetrance. | Human pedigrees, functional interpretation, and international cohort (roberts2020aninternationalmulticenter pages 1-5, faridi2019mutationalandphenotypic pages 1-3, faridi2019mutationalandphenotypic pages 6-8) |
+| Core phenotype | Defining manifestations are **congenital bilateral profound sensorineural hearing loss** and QT prolongation caused by delayed ventricular repolarization. Possible episodic consequences include exertion- or emotion-triggered torsades de pointes, syncope, seizure-like events, ventricular fibrillation, cardiac arrest, and sudden death. | The defining hearing phenotype is congenital and generally profound; robust JLNS2-specific percentages for individual manifestations are unavailable. | Human families and clinical cohorts (roberts2020aninternationalmulticenter pages 1-5, faridi2019mutationalandphenotypic pages 1-3, theodore2024icdimplantin pages 1-3) |
+| Relative frequency | JLNS2 is much less common than KCNQ1-related JLNS1. Historical summaries estimate KCNE1 in approximately 10% of JLNS, but contemporary cohorts suggest a smaller fraction. | Approximate historical distribution: JLNS1 90%, JLNS2 10%. KCNE1 accounted for 1/52 sequenced patients (1.9%) in a 2025 Egyptian preprint and approximately 5% in a cited earlier cohort. | Aggregated historical evidence and cohort/preprint; estimates vary with ascertainment and ancestry (vojdani2019mutationscreeningof pages 7-10, hataba2025themutationalspectrum pages 14-17, rieraUnknownyearjervellandlangenielsen pages 1-3) |
+| Relative severity | Available evidence indicates **KCNE1-related JLNS2 is generally milder cardiologically than KCNQ1-related JLNS1**, although life-threatening arrhythmia remains possible and small samples limit precision. | International cohort: definite arrhythmic events in 2/19 JLNS2 patients (10.5%); versus the overall heterozygous KCNE1 cohort, HR 1.7 (95% CI 0.3–10.8; p=0.590). One report cites approximately sixfold higher arrhythmic-event risk in KCNQ1-related JLNS than KCNE1-related disease. | International multicenter human cohort and secondary comparison (roberts2020aninternationalmulticenter pages 1-5, qiu2020jervellandlangenielsen pages 5-7) |
+| Pathogenic variants | Reported JLNS2 alleles include nonsense/null and missense variants. Well-documented homozygous nonsense alleles include **KCNE1 c.50G>A (p.Trp17\*)**, **c.51G>A (p.Trp17\*)**, and **c.138C>A (p.Tyr46\*)**. Variant interpretation must distinguish pathogenic biallelic loss from common polymorphisms such as p.Ser38Gly. | A 2019 review noted only four previously associated JLNS variants before adding three homozygous nonsense alleles; the catalog is therefore sparse. No universal disease allele frequency is established. | Human pedigrees, segregation, and variant review (faridi2019mutationalandphenotypic pages 1-3, faridi2019mutationalandphenotypic pages 6-8, vojdani2019mutationscreeningof pages 4-7) |
+| Cardiac mechanism | KCNE1/minK is the regulatory β-subunit of the KCNQ1/Kv7.1 complex generating the slowly activating delayed-rectifier potassium current **I-Ks**. Biallelic loss reduces repolarizing K⁺ current, prolongs cardiomyocyte action-potential duration, produces QT prolongation, and increases early-afterdepolarization/torsades susceptibility, especially under adrenergic stress. | KCNE1 is a 130-amino-acid, single-pass transmembrane protein. KCNE1-associated current reductions are often more modest than severe KCNQ1 defects, consistent with the milder average JLNS2 cardiac phenotype. | Human genetics plus electrophysiologic/channel-biology evidence (roberts2020aninternationalmulticenter pages 1-5, vojdani2019mutationscreeningof pages 7-10, rieraUnknownyearjervellandlangenielsen pages 12-15) |
+| Cochlear mechanism | Apical KCNQ1–KCNE1 channels in **stria vascularis marginal cells** secrete K⁺ into scala-media endolymph. KCNE1 deficiency disrupts K⁺ homeostasis and the positive endocochlear potential needed to drive hair-cell mechanotransduction, resulting in congenital sensorineural deafness; secondary strial and sensory-cell degeneration may contribute. | No reliable human JLNS2-specific endocochlear-potential measurements or cell-loss percentages are available. | Mechanistic review and mouse-based inner-ear evidence; human phenotype supplies clinical concordance (rieraUnknownyearjervellandlangenielsen pages 12-15, faridi2019mutationalandphenotypic pages 12-14) |
+| Diagnosis | Suspect JLNS2 in any child with congenital profound bilateral hearing loss plus QTc prolongation, unexplained exertional/emotional syncope, seizure-like events, or family history of sudden death. Evaluate serial 12-lead ECG/QTc, T-wave morphology, Holter/exercise response, electrolytes and acquired causes, formal audiology, and molecular confirmation of **two pathogenic/likely pathogenic KCNE1 alleles in trans**. | JLNS overall usually has QTc >500 ms; this threshold is supportive, not independently diagnostic and not JLNS2-specific. | Clinical diagnostic literature and disease reviews (rieraUnknownyearjervellandlangenielsen pages 6-9, rieraUnknownyearjervellandlangenielsen pages 1-3, theodore2024icdimplantin pages 3-4) |
+| Genetic testing | Use a validated LQTS/cardio-auditory or comprehensive hearing-loss panel containing **KCNE1 and KCNQ1**, with sequencing plus deletion/duplication analysis. If negative despite a convincing phenotype, consider CNV-sensitive exome/genome analysis and reanalysis; test parents for phase and cascade-test relatives. | CNVs can be missed by sequence-only assays. In 2024 literature plus an internal channelopathy cohort, CNVs were reported across 140 patients, supporting dedicated CNV detection, although this was not a JLNS2-specific yield estimate. | Diagnostic reviews and aggregated channelopathy studies (rieraUnknownyearjervellandlangenielsen pages 3-6) |
+| Management | Treat the cardiac phenotype according to congenital-LQTS guidance: nonselective β-blockade—typically nadolol or propranolol—plus strict avoidance of QT-prolonging drugs, prompt correction of hypokalemia/hypomagnesemia, fever/dehydration management, individualized exercise precautions, and an emergency plan. Consider **LCSD** for events despite adequate β-blockade or β-blocker intolerance and an **ICD** after cardiac arrest or for persistent high-risk disease. | JLNS2-specific drug-response rates are unavailable. Historical poor outcomes on β-blocker monotherapy largely derive from mixed, predominantly KCNQ1-related JLNS and should not be assigned directly to JLNS2. | LQTS guidelines/reviews extrapolated to JLNS2, supplemented by JLNS cases (rieraUnknownyearjervellandlangenielsen pages 6-9, theodore2024icdimplantin pages 1-3, theodore2024icdimplantin pages 3-4) |
+| Hearing intervention | Early audiologic rehabilitation and **cochlear implantation** can restore useful auditory access when hearing aids are inadequate. Implantation requires multidisciplinary cardiology–anesthesia planning, continuation of protective therapy when feasible, electrolyte control, avoidance of QT-prolonging anesthetic combinations, continuous monitoring, and immediate defibrillation capability. | Good auditory outcomes are reported, but subtype-specific response percentages are lacking. Life-threatening perioperative arrhythmia has been reported in JLNS, especially around anesthesia/emergence. | Human case series/reports; most do not genotype-separate JLNS2 from JLNS1 (qiu2020jervellandlangenielsen pages 5-7, theodore2024icdimplantin pages 1-3) |
+| Prognosis | Hearing loss is lifelong but functionally treatable; cardiac risk is lifelong and episodic. JLNS2 appears less malignant on average than JLNS1, but sudden cardiac arrest remains possible, so genotype alone must not justify withholding clinical surveillance or treatment when QT prolongation is present. | Best subtype-specific cohort: 10.5% definite arrhythmic events (2/19), with wide uncertainty. JLNS-wide estimates such as 50% experiencing events before age three or high childhood mortality mainly reflect mixed/predominantly JLNS1 cohorts. | International JLNS2 cohort plus historical mixed-JLNS natural history (roberts2020aninternationalmulticenter pages 1-5, rieraUnknownyearjervellandlangenielsen pages 3-6, rieraUnknownyearjervellandlangenielsen pages 1-3) |
+| Models | **Kcne1-null mice** reproduce bilateral deafness/endocochlear dysfunction and provide mechanistic evidence, but their cardiac phenotype is relatively mild because murine ventricular repolarization differs from humans. Patient-specific JLNS iPSC-cardiomyocyte studies demonstrate reduced I-Ks, prolonged action potentials, adrenergic/drug sensitivity, and pharmacologic rescue, but the landmark model used **KCNQ1**, not KCNE1, and therefore models JLNS1 rather than JLNS2 directly. | No well-validated KCNE1-JLNS2 patient-derived iPSC, organoid, or single-cell disease model was identified in the reviewed evidence. | Knockout mouse and KCNQ1-JLNS iPSC experimental studies; indirect for human JLNS2 cardiac severity (zhang2014recessivecardiacphenotypes pages 1-2, faridi2019mutationalandphenotypic pages 12-14) |
+| Evidence gaps | JLNS2 evidence is constrained by very small cohorts, historical mixing of JLNS1 and JLNS2, changing KCNE1 variant classification, and limited functional testing. Disease-specific incidence, penetrance, sex effects, founder alleles, modifier genes, quality-of-life measures, treatment-effect estimates, epigenomic/omics signatures, and approved gene/RNA therapies remain undetermined. | Largest clearly subtype-separated clinical cohort identified: **19 JLNS2 patients**. No JLNS2-specific interventional clinical trial was established in the reviewed evidence. | Evidence synthesis and international cohort (roberts2020aninternationalmulticenter pages 1-5, faridi2019mutationalandphenotypic pages 6-8, zhang2014recessivecardiacphenotypes pages 1-2) |
 
 
-*Table: This table summarizes the most actionable database-ready facts for Jervell and Lange-Nielsen syndrome 2, including identity, gene, mechanism, diagnosis, management, recent research, and explicit evidence gaps. It is designed to support structured knowledge-base entry creation while avoiding unsupported identifiers.*
+*Table: Compact evidence matrix separating biallelic KCNE1-related JLNS2 from KCNQ1-related JLNS1 and heterozygous LQT5. It highlights quantitative findings, clinical implications, model limitations, and major knowledge gaps.*
 
 ## 1. Disease information
 
-### Definition and identifiers
+**Definition.** JLNS2 is a Mendelian disorder in which biallelic KCNE1 deficiency impairs the KCNQ1–KCNE1 slowly activating delayed-rectifier potassium channel, affecting both ventricular repolarization and cochlear potassium homeostasis. Faridi et al. describe the syndrome as a “cardio-auditory syndrome characterized by congenital profound sensorineural deafness and a prolonged QT interval that can cause ventricular arrhythmias and sudden cardiac death.” [Human genetic/review evidence; published December 2019; PMID **30461122**; DOI/URL: https://doi.org/10.1002/humu.23689]. (faridi2019mutationalandphenotypic pages 1-3)
 
-* **Preferred name:** Jervell and Lange-Nielsen syndrome 2
-* **Synonyms:** JLNS2; Jervell and Lange-Nielsen syndrome type 2; *KCNE1*-related Jervell–Lange-Nielsen syndrome; autosomal-recessive long-QT syndrome with deafness caused by *KCNE1*.
-* **OMIM:** **612347**.
-* **MONDO:** The retrieved disease-level record is **MONDO:0002441, Jervell and Lange-Nielsen syndrome**. A securely verified subtype-specific MONDO identifier for JLNS2 was not recovered; the knowledge base should not substitute the JLNS1 record MONDO:0024540.
-* **Orphanet:** JLNS is represented as a rare syndromic long-QT disorder, but a securely verified type-2-specific ORPHA identifier was not recovered in this search.
-* **ICD-10/ICD-11:** No dedicated JLNS2 code was identified. Coding generally combines congenital long-QT syndrome/cardiac arrhythmia and sensorineural hearing-loss concepts.
-* **MeSH:** No securely verified JLNS2-specific descriptor was identified; “Long QT Syndrome” and “Hearing Loss, Sensorineural” are appropriate indexing concepts.
+**Identifiers and names.** 
 
-Open Targets identifies *KCNE1* (ENSG00000180509) as the principal evidence-supported target for the general JLNS record, with an association score of 0.804 and supporting literature including PMID **30461122**. Low-scoring neighboring-gene associations in that resource should not be interpreted as additional causal JLNS2 genes. (OpenTargets Search: Jervell and Lange-Nielsen syndrome-KCNE1)
+- MONDO: **MONDO:0012871**.
+- OMIM phenotype: **612347**.
+- Causal gene: **KCNE1**, HGNC:6240; NCBI Gene: 3753; Ensembl: ENSG00000180509.
+- Synonyms: *Jervell and Lange-Nielsen syndrome type 2*, *JLNS2*, *Jervell-Lange Nielsen syndrome 2*, *KCNE1-related Jervell and Lange-Nielsen syndrome*, and *recessive KCNE1-associated cardio-auditory syndrome*.
+- Parent disease concepts include Jervell and Lange-Nielsen syndrome (MONDO:0002441) and familial long-QT syndrome. Open Targets ranks KCNE1 as the principal supported target for MONDO:0012871; low-scoring neighboring-gene associations should not be interpreted as additional causal genes. (OpenTargets Search: Jervell and Lange-Nielsen syndrome 2-KCNE1)
+- No dedicated, universally used JLNS2-specific ICD-10 or MeSH code was identified. Coding ordinarily uses broader congenital long-QT syndrome and sensorineural hearing-loss categories. ICD-11 similarly does not reliably separate the molecular subtype in routine records.
 
-The information here is **aggregated disease-level evidence** from literature, disease resources, and trial registries. Individual-patient evidence appears only in published family/case reports and is not derived from an accessible EHR cohort.
+This report synthesizes **aggregated disease-level resources, published families, registries, and experimental models**. It is not based on an individual EHR. Case reports are identified where used.
 
-## 2. Etiology, risk, and protective factors
+## 2. Etiology, risk, protective factors, and gene–environment interaction
 
 ### Primary cause
 
-JLNS2 results from **germline biallelic *KCNE1* pathogenic variants**, usually homozygous in consanguineous families or compound heterozygous. *KCNE1* encodes the minK regulatory β-subunit of the KCNQ1/Kv7.1 potassium channel complex. Biallelic loss reduces the slow delayed-rectifier potassium current, **I(Ks)**. (faridi2019mutationalandphenotypic pages 9-11, faridi2019mutationalandphenotypic pages 1-3)
+The necessary initiating lesion is generally two germline pathogenic or likely pathogenic **KCNE1** alleles in trans—homozygous or compound heterozygous. KCNE1 encodes minK, a 130-amino-acid single-pass membrane regulatory subunit of the KCNQ1/Kv7.1 channel complex. Biallelic null or severe loss-of-function alleles cause JLNS2; some heterozygous missense alleles can instead produce incompletely penetrant LQT5 through dominant-negative or other functional effects. Heterozygous null carriers may have a normal QT interval. (roberts2020aninternationalmulticenter pages 1-5, faridi2019mutationalandphenotypic pages 1-3, faridi2019mutationalandphenotypic pages 6-8)
 
-The key publication states directly: “**Both KCNE1 and KCNQ1 are necessary for normal hearing and cardiac ventricular repolarization**” and that “**biallelic null alleles are associated with JLNS2**.” This is human clinical-genetic evidence from Faridi et al., *Human Mutation*, published December 2019, PMID **30461122**, DOI: https://doi.org/10.1002/humu.23689. (faridi2019mutationalandphenotypic pages 1-3)
+### Risk factors
 
-### Genetic risk factors
+- **Genetic:** biallelic pathogenic KCNE1 variants, parental carrier status, consanguinity, and family history of congenital deafness, unexplained syncope, or sudden death. Consanguinity increases the probability that a rare allele is inherited identically by descent but is not itself mechanistic. (vojdani2019mutationscreeningof pages 7-10, hataba2025themutationalspectrum pages 14-17)
+- **Arrhythmia triggers/modifiers:** exertion, acute emotion/adrenergic activation, electrolyte depletion—especially hypokalemia or hypomagnesemia—and QT-prolonging medications can expose reduced repolarization reserve. Anesthesia, emergence, postoperative stress, and interacting medicines are particularly relevant during cochlear implantation. These factors trigger cardiac events; they do not cause the inherited syndrome. (qiu2020jervellandlangenielsen pages 5-7, theodore2024icdimplantin pages 1-3, theodore2024icdimplantin pages 3-4)
+- **Age/sex:** severe events may begin in early childhood. No robust JLNS2-specific sex effect is established. A recent mixed-JLNS Egyptian cohort found no sex-related QTc difference, but only one KCNE1-positive patient precluded subtype analysis. (hataba2025themutationalspectrum pages 14-17)
 
-* Two pathogenic/likely pathogenic alleles in trans are the defining risk factor.
-* Published homozygous nonsense alleles include **NM_000219:c.50G>A (p.Trp17Ter), c.51G>A (p.Trp17Ter), and c.138C>A (p.Tyr46Ter)**. These are predicted null alleles producing severe N-terminal truncation. (faridi2019mutationalandphenotypic pages 8-9, faridi2019mutationalandphenotypic pages 1-3)
-* Missense, splice, frameshift, and other truncating variants can be disease-causing, but each should be classified under current ACMG/AMP and ClinGen specifications rather than assumed pathogenic solely because it occurs in *KCNE1*.
-* Heterozygous relatives carrying a null allele may have normal hearing and normal QT. Conversely, some heterozygous missense variants produce autosomal-dominant LQTS/Romano-Ward syndrome through a dominant-negative effect. Thus, dosage, variant mechanism, and functional evidence matter. (faridi2019mutationalandphenotypic pages 8-9, faridi2019mutationalandphenotypic pages 1-3)
-* The common *KCNE1* p.Asp85Asn allele can modify repolarization in broader LQTS populations, but it is not by itself an established cause of recessive JLNS2 in the evidence reviewed.
+### Protective factors
 
-Population allele frequencies must be retrieved variant-by-variant from the current gnomAD release. A single JLNS2-wide carrier frequency cannot be assigned from the available evidence. Causal alleles are expected to be individually rare; variants too common for a severe recessive cardio-auditory disorder require reassessment.
+No protective KCNE1 allele has been validated for JLNS2. Clinically protective measures include effective nonselective beta-blockade, avoidance of QT-prolonging drugs, maintenance of potassium and magnesium, prompt treatment of vomiting/dehydration, and escalation to left cardiac sympathetic denervation (LCSD) or an implantable cardioverter-defibrillator (ICD) when indicated. These reduce event risk rather than reverse the genotype. (rieraUnknownyearjervellandlangenielsen pages 6-9, theodore2024icdimplantin pages 1-3)
 
-### Modifiers, environment, and protection
-
-No JLNS2-specific modifier gene has been validated. Variability among individuals with *KCNE1* deficiency implies additional genetic, physiologic, treatment, or exposure modifiers, but the evidence is insufficient for a curated modifier annotation. The apparent capacity of other KCNE paralogs to compensate partially in heart—but not in inner ear—is a mechanistic hypothesis, not a clinically validated protective genotype. (faridi2019mutationalandphenotypic pages 8-9, faridi2019mutationalandphenotypic pages 3-4)
-
-Environmental factors do **not cause** JLNS2, but can expose its arrhythmia substrate. Relevant triggers include exertion, swimming, emotional stress, sudden auditory stimuli, fever, electrolyte depletion, anesthesia, and QT-prolonging medication. Maintaining normal potassium and magnesium, avoiding QT-prolonging drugs, adherence to β-blockade, and trigger-specific precautions reduce event risk but do not prevent congenital deafness or remove the genotype. (balestra2024congenitallongqt pages 5-8, balestra2024congenitallongqt pages 4-5, qiu2020jervellandlangenielsen pages 5-7)
-
-Smoking, diet, alcohol, infection, pollution, radiation, and occupational exposure have no established etiologic role. Infection matters only indirectly through fever, dehydration, electrolyte disturbance, or exposure to QT-prolonging antimicrobials.
+No disease-specific effects of diet, smoking, alcohol, occupational exposure, infection, radiation, or toxins are established. There is no infectious cause and no vaccine prevention strategy.
 
 ## 3. Phenotypes
 
-### Cardinal manifestations
+| Phenotype | Type, onset, course, and frequency | Suggested HPO term |
+|---|---|---|
+| Bilateral profound sensorineural hearing loss | Clinical sign; congenital/prelingual, usually severe-to-profound and permanent; defining phenotype, although rigorous JLNS2 frequency estimates are unavailable | Bilateral sensorineural hearing impairment, **HP:0008619**; congenital sensorineural hearing impairment, **HP:0008527**; profound hearing impairment, **HP:0012715** |
+| Prolonged QTc | ECG abnormality; congenital, persistent but quantitatively variable; defining cardiac manifestation. JLNS generally often has QTc >500 ms, but this is not an absolute JLNS2 criterion | Prolonged QT interval, **HP:0001657** |
+| Torsades/polymorphic ventricular tachycardia | Episodic clinical/electrophysiologic event, often adrenergically triggered; frequency is unknown specifically for JLNS2 | Ventricular tachycardia, **HP:0004756** |
+| Syncope | Episodic symptom, often during exercise or emotion; may begin in early childhood | Syncope, **HP:0001279**; exercise-induced syncope, **HP:0012665** |
+| Seizure-like episodes | Behavioral/neurologic appearance caused by cerebral hypoperfusion rather than primary epilepsy in many cases | Seizure, **HP:0001250**, annotated cautiously; cerebral hypoperfusion is the mechanism |
+| Ventricular fibrillation/cardiac arrest/sudden death | Severe episodic complication | Ventricular fibrillation, **HP:0001663**; cardiac arrest, **HP:0001695**; sudden cardiac death, **HP:0001645** |
+| T-wave abnormalities/alternans | ECG sign indicating electrical instability | Abnormal T-wave, **HP:0005135**; T-wave alternans where supported |
+| Fetal/neonatal bradycardia | Occasional presenting sign in JLNS, not quantified for JLNS2 | Bradycardia, **HP:0001662** |
 
-| Phenotype | Type and course | Frequency/evidence | Suggested HPO term |
-|---|---|---|---|
-| Congenital bilateral sensorineural deafness | Physical/functional; present at birth, severe-to-profound and generally permanent | Defining feature in reported JLNS2; homozygous null families had severe-to-profound deafness | Congenital sensorineural hearing impairment; profound sensorineural hearing impairment; bilateral hearing impairment |
-| Long QT interval | ECG abnormality; congenital substrate, magnitude can vary over time and with rate/exposure | Defining cardiac feature; reported QTcF 487–495 ms and QTcB 503–518 ms | **HP:0001657 Long QT interval** |
-| Ventricular tachyarrhythmia/torsades | Episodic, potentially fatal | Recognized disease risk; sparse JLNS2-specific frequency data | Ventricular tachycardia; torsade de pointes |
-| Syncope | Episodic, often triggered; may begin in childhood | Variable; absent in some molecularly confirmed null-allele individuals | **HP:0001279 Syncope** |
-| Seizure-like episodes | Symptom, usually cerebral hypoperfusion rather than primary epilepsy | Reported in JLNS and frequently causes diagnostic delay | Seizure; episodic loss of consciousness |
-| Cardiac arrest/sudden cardiac death | Acute complication | Major untreated risk, but no reliable JLNS2-only percentage | Cardiac arrest; sudden cardiac death |
-| Vestibular dysfunction | Clinical sign; variable | Supported in JLNS and Kcne1-null animals, but JLNS2 human frequency is unknown | Vestibular dysfunction |
+In an international study, definite arrhythmic events occurred in **2/19 JLNS2 patients (10.5%)**. The hazard ratio versus the overall heterozygous KCNE1 cohort was 1.7 (95% CI 0.3–10.8; p=0.590), emphasizing both a comparatively mild average phenotype and very wide uncertainty. [Human multicenter cohort; February 2020; PMID **31983240**; DOI: https://doi.org/10.1161/CIRCULATIONAHA.119.043114]. (roberts2020aninternationalmulticenter pages 1-5)
 
-The Faridi families show why symptoms cannot be used to exclude disease: individuals with profound deafness and QTcB **503–518 ms** reported no syncope. (faridi2019mutationalandphenotypic pages 8-9)
-
-### Quality of life
-
-Profound prelingual deafness affects language acquisition, education, communication, social participation, and caregiver burden. Cardiac risk imposes medication, exercise, medication-screening, emergency-planning, and procedural-anesthesia burdens. ICD shocks and activity restriction may add psychological morbidity. No JLNS2-specific EQ-5D, SF-36, PROMIS, or disease-specific quality-of-life dataset was found.
+Hearing loss compromises speech, language development, education, communication, and social participation. Cardiac uncertainty, exercise restrictions, recurrent syncope, ICD shocks, and fear of sudden death can affect daily functioning. No JLNS2-specific EQ-5D, SF-36, PROMIS, or disease-specific quality-of-life dataset was identified.
 
 ## 4. Genetic and molecular information
 
-* **Gene:** *KCNE1*; approved name potassium voltage-gated channel subfamily E regulatory subunit 1; Ensembl **ENSG00000180509**.
-* **Disease locus:** chromosome 21q22 region.
-* **Origin:** germline; somatic variation is not a recognized cause.
-* **Inheritance:** autosomal recessive.
-* **Functional class:** predominantly loss of function; null alleles produce absence or severe deficiency of functional KCNE1. Some heterozygous missense alleles have a distinct dominant-negative mechanism and should be annotated as Romano-Ward/LQT5 rather than JLNS2 unless a second pathogenic allele is present. (faridi2019mutationalandphenotypic pages 9-11, faridi2019mutationalandphenotypic pages 8-9)
-* **Chromosomal abnormalities:** no recurrent aneuploidy, translocation, inversion, or copy-number syndrome was established as a typical cause. Exon-level deletion/duplication analysis remains relevant when sequence analysis finds one or no allele.
-* **Epigenetics:** no reproducible JLNS2-specific DNA methylation, histone, or chromatin signature was found.
-* **Anticipation:** not expected and not reported.
-* **Mosaicism:** no characteristic germline-mosaic pattern is established; low residual recurrence from parental germline mosaicism is theoretically possible in apparently de novo cases.
+**Causal gene.** KCNE1 is the only established causal gene for the type-2 entity. KCNQ1 causes JLNS1, not JLNS2. Open Targets cites supporting literature including PMIDs **9354802**, **10400998**, **16414944**, **30461122**, and **31983240**. (OpenTargets Search: Jervell and Lange-Nielsen syndrome 2-KCNE1)
 
-Penetrance for congenital deafness appears high with biallelic null variants, whereas cardiac severity and events show variable expressivity. Precise age-dependent penetrance estimates are unavailable.
+**Reported pathogenic variants.** Well-supported homozygous nonsense alleles include **NM_000219.5:c.50G>A (p.Trp17Ter)**, **c.51G>A (p.Trp17Ter)**, and **c.138C>A (p.Tyr46Ter)**. These predict early truncation/nonsense-mediated loss or absence of functional minK and segregated with JLNS2 in families initially ascertained for apparently nonsyndromic deafness. The abstract states: “heterozygotes for loss-of-function variants of KCNE1 may have normal QT intervals while biallelic null alleles are associated with JLNS2.” (faridi2019mutationalandphenotypic pages 1-3)
 
-## 5. Environmental and lifestyle information
+Reported classes include nonsense, missense, splice-altering, frameshift, and potentially exon-level deletion/duplication variants. Classification must be variant-specific under ACMG/AMP criteria and should integrate allele frequency, segregation, phase, phenotype, and functional data. Common polymorphisms—such as **p.Ser38Gly/rs1805127**—must not be labeled causal merely because they occur in a JLNS patient. (faridi2019mutationalandphenotypic pages 6-8, vojdani2019mutationscreeningof pages 4-7)
 
-JLNS2 is not infectious, toxic, nutritional, occupational, or lifestyle-caused. Clinically important interactions are mainly **arrhythmia triggers**:
+Pathogenic JLNS2 variants are germline, not somatic. They are expected to be absent or extremely rare in population databases, but no single JLNS2-wide allele frequency is meaningful. A 2020 study found rare KCNE1 variants collectively much more common in gnomAD than expected for monogenic LQT5, demonstrating that rarity alone is insufficient evidence of pathogenicity. (roberts2020aninternationalmulticenter pages 1-5)
 
-1. adrenergic surges from vigorous exercise or emotional stress;
-2. swimming, especially unsupervised;
-3. fever, vomiting, diarrhea, fasting, or other causes of electrolyte disturbance;
-4. medications listed as QT-prolonging or torsadogenic;
-5. perioperative stress and anesthetic drugs/interactions.
+**Modifiers.** Reduced repolarization reserve and adrenergic state modify expression. No modifier gene is definitively validated specifically for JLNS2. Candidate LQTS modifiers and channel-interacting proteins should not yet be entered as causal genes. No reproducible disease-specific methylation, histone, chromatin, or other epigenetic signature is known. Large chromosomal rearrangements are not characteristic, although intragenic KCNE1 CNVs are diagnostically possible.
 
-A published cochlear-implant case with biallelic *KCNQ1*—therefore **JLNS1, not JLNS2**—developed life-threatening arrhythmia around anesthesia. It demonstrates a clinically plausible JLNS-wide procedural hazard but cannot establish a JLNS2-specific event rate. Defibrillation capability, continuous monitoring, electrolyte optimization, continuation/planning of cardiac medication, and coordination among electrophysiology, anesthesia, and otology teams are prudent. (qiu2020jervellandlangenielsen pages 5-7, qiu2020jervellandlangenielsen pages 1-2)
+## 5. Environmental information
+
+JLNS2 is not environmentally caused. Non-genetic factors affect **event probability**: QT-prolonging medicines, drug interactions, electrolyte disturbance, starvation/vomiting, dehydration, intense exertion, sudden emotional stress, and perioperative sympathetic surges can aggravate delayed repolarization. No infectious agent, pollution exposure, occupational toxin, smoking pattern, diet, or alcohol exposure has a proven etiologic role. (qiu2020jervellandlangenielsen pages 5-7, theodore2024icdimplantin pages 1-3)
+
+Relevant chemical ontology annotations include potassium ion (**CHEBI:29103**) and magnesium ion (**CHEBI:18420**). Drug annotations should use the exact chemical entity and CredibleMeds risk category rather than treating “QT-prolonging drug” as one compound.
 
 ## 6. Mechanism and pathophysiology
 
-### Causal chain in heart
+### Ordered causal chain
 
-**Biallelic *KCNE1* loss → deficient KCNE1–KCNQ1 channel complex → reduced/altered I(Ks) → impaired phase-3 ventricular repolarization and reduced repolarization reserve → prolonged action potential and QTc → early afterdepolarizations and spatial dispersion → torsades de pointes/ventricular fibrillation → syncope, hypoxic convulsion, cardiac arrest, or sudden death.**
+1. **Biallelic KCNE1 loss-of-function variants lead to** absent, truncated, mistrafficked, or dysfunctional minK subunits.
+2. **Defective minK leads to** impaired assembly, membrane expression, gating, or regulation of KCNQ1–KCNE1 channels and reduced **I-Ks** current.
+3. **Cardiac branch:** reduced I-Ks in ventricular cardiomyocytes **leads to** slower phase-3 repolarization and prolonged action-potential duration.
+4. Prolonged action potentials **result in** QTc prolongation and reduced repolarization reserve.
+5. Adrenergic stress, QT-prolonging drugs, or electrolyte depletion **can then lead to** early afterdepolarizations and spatial/temporal dispersion of repolarization; this step is strongly supported by general LQTS electrophysiology but is partly inferred for individual JLNS2 variants.
+6. Triggered activity and re-entry **lead to** torsades de pointes/polymorphic ventricular tachycardia, syncope, ventricular fibrillation, cardiac arrest, or sudden death.
+7. **Cochlear branch:** defective KCNQ1–KCNE1 channels on the apical membrane of stria-vascularis marginal cells **lead to** impaired K⁺ secretion into scala-media endolymph.
+8. Impaired K⁺ homeostasis **results in** failure of the positive endocochlear potential required for hair-cell mechanotransduction.
+9. Reduced electrochemical drive, with secondary strial or sensory-cell degeneration demonstrated mainly in models, **leads to** congenital profound sensorineural deafness. (roberts2020aninternationalmulticenter pages 1-5, rieraUnknownyearjervellandlangenielsen pages 12-15, faridi2019mutationalandphenotypic pages 12-14)
 
-Relevant cells are ventricular cardiomyocytes. Suggested terms include **CL:0000746 cardiac muscle cell/cardiomyocyte**, GO “potassium ion transmembrane transport,” “regulation of cardiac muscle cell action potential,” “cardiac muscle cell action potential involved in contraction,” and “membrane repolarization during cardiac action potential.” The relevant subcellular compartment is the **plasma membrane** and voltage-gated potassium-channel complex.
+This is an ion-channel/homeostatic disorder, not primarily an inflammatory, immune, neoplastic, fibrotic, or metabolic disease. Suggested GO annotations include voltage-gated potassium-channel activity (**GO:0005249**), potassium-ion transmembrane transport (**GO:0071805**), regulation of membrane potential (**GO:0042391**), ventricular cardiac-muscle-cell action-potential repolarization (**GO:0099622**), and sensory perception of sound (**GO:0007605**). Cellular-component terms include plasma membrane (**GO:0005886**) and voltage-gated potassium-channel complex (**GO:0008076**).
 
-### Causal chain in inner ear
-
-**Biallelic *KCNE1* loss → defective apical KCNQ1/KCNE1 current in strial marginal cells → impaired potassium secretion into scala-media endolymph → loss of the positive endocochlear potential and potassium homeostasis → failure of hair-cell depolarization plus secondary Reissner-membrane collapse/hair-cell degeneration → congenital profound sensorineural deafness.** KCNE paralogs apparently do not compensate adequately in the inner ear. (faridi2019mutationalandphenotypic pages 9-11, faridi2019mutationalandphenotypic pages 3-4)
-
-Suggested annotations are GO “potassium ion transport,” “sensory perception of sound,” and “inner ear development”; CL “strial marginal cell,” “inner hair cell,” and “outer hair cell”; and UBERON “cochlea,” “stria vascularis,” “scala media,” “endolymph,” “organ of Corti,” and “Reissner membrane.”
-
-There is no established primary immune, inflammatory, fibrotic, neoplastic, or metabolic mechanism. Tissue injury in the cochlea is downstream of ionic failure rather than autoimmunity or infection.
-
-### Molecular profiling and advanced technologies
-
-No disease-defining JLNS2 transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, or multi-omic signature was identified. Current LQTS precision research uses patient-specific induced pluripotent stem cell-derived cardiomyocytes, whole-genome sequencing, CRISPR correction/engineering, machine learning, and high-throughput drug testing. These platforms can test causality and variant-specific responses, but they are research tools rather than validated JLNS2 diagnostics or treatments. The 2023 review’s abstract states that “**Deep phenotyping and high-throughput drug testing using LQTS patient-specific cardiomyocytes herald the upcoming precision medicine in LQTS**.” Publication: January 2023; DOI: https://doi.org/10.1017/erm.2022.43. (yu2023precisionmedicinefor pages 1-2, yu2023precisionmedicinefor pages 7-8)
+Relevant cell types are ventricular cardiomyocytes (**CL:0000746**), cochlear hair cells, and stria-vascularis marginal epithelial cells; the latter lacks consistently used high-granularity CL coverage and may require an ontology extension. No JLNS2-specific transcriptomic, proteomic, metabolomic, lipidomic, spatial-transcriptomic, single-cell, or multi-omic disease signature was identified.
 
 ## 7. Anatomical structures affected
 
-* **Primary organ systems:** cardiovascular and auditory/vestibular systems.
-* **Heart:** ventricular myocardium/electrical conduction at the cardiomyocyte-membrane level; the heart is generally structurally normal.
-* **Inner ear:** bilateral cochleae, especially stria vascularis and scala-media ionic environment; secondary organ-of-Corti hair-cell degeneration may occur.
-* **Vestibular labyrinth:** possible involvement through analogous potassium-secreting dark cells.
-* **Secondary brain effects:** transient cerebral hypoperfusion during arrhythmia can cause syncope or convulsive movements; primary epilepsy is not intrinsic to JLNS2.
-* **Lateralization:** auditory involvement is typically bilateral, not unilateral or asymmetric.
-
-Suggested UBERON terms: heart, cardiac ventricle, ventricular myocardium, inner ear, cochlea, cochlear duct, stria vascularis, organ of Corti, and vestibular labyrinth. Suggested GO cellular components: plasma membrane, voltage-gated potassium-channel complex, and KCNQ1–KCNE1 complex where supported.
+The primary organs are the **heart** and **inner ear**. The heart is usually structurally normal; dysfunction is electrical, centered on ventricular myocardium and cardiomyocyte sarcolemma. Suggested anatomy terms include heart (**UBERON:0000948**), cardiac ventricle (**UBERON:0002082**), myocardium (**UBERON:0002349**), inner ear (**UBERON:0001846**), cochlea (**UBERON:0001844**), cochlear duct/scala media, stria vascularis, and organ of Corti. Hearing loss is ordinarily bilateral without lateralization. Secondary nervous-system manifestations—collapse/syncope or convulsive movements—result from transient cerebral hypoperfusion rather than primary brain pathology. (faridi2019mutationalandphenotypic pages 1-3, rieraUnknownyearjervellandlangenielsen pages 12-15)
 
 ## 8. Temporal development
 
-The molecular defect is present from conception. Hearing loss is congenital and lifelong. QT prolongation is congenital or detectable in infancy/childhood, although resting QTc and clinical expression can fluctuate. Arrhythmic events are episodic and trigger-dependent rather than steadily progressive. The disorder itself is lifelong; there is no spontaneous remission of the genotype or deafness.
+Hearing loss is congenital, bilateral, and lifelong. QT prolongation is congenital, but arrhythmic manifestations are intermittent and may first appear in infancy or childhood. A mixed, predominantly JLNS1 historical cohort had mean QTc **557±65 ms**, with 50% experiencing a cardiac event before age three; more than half of untreated children were reported to die before age 15. These severe figures must **not** be assigned directly to JLNS2, which appears less malignant. (rieraUnknownyearjervellandlangenielsen pages 3-6, rieraUnknownyearjervellandlangenielsen pages 1-3)
 
-Critical windows are:
-
-* newborn/early-childhood hearing assessment, before language delay;
-* the first ECG after detection of congenital profound deafness;
-* initiation and adherence to β-blockade before a sentinel arrhythmia;
-* illness, electrolyte disturbance, swimming/exertion, and perioperative periods;
-* cascade testing after identification of a proband.
-
-QTc above **500 ms** is generally high risk and above **600 ms** extremely high risk in congenital LQTS. Syncope before age seven predicts recurrent events despite β-blockade in broader LQTS data. (balestra2024congenitallongqt pages 4-5)
+There is no remission of the genotype or deafness. Cardiac event risk can be markedly reduced by sustained treatment, while cochlear implantation can improve auditory function without repairing the molecular defect. Childhood is a critical period for ECG recognition, speech/language intervention, family screening, and protection during anesthesia.
 
 ## 9. Inheritance and population
 
-JLNS2 is autosomal recessive: for two carrier parents, each pregnancy has a 25% probability of an affected child, 50% probability of a heterozygous child, and 25% probability of inheriting neither familial allele. Both sexes should be affected equally.
+Inheritance is **autosomal recessive**. For two heterozygous carrier parents, each pregnancy has a 25% probability of an affected child, 50% probability of a carrier, and 25% probability of a child inheriting neither familial allele. Genetic anticipation is not expected. Germline mosaicism has not emerged as a characteristic mechanism. Expressivity is variable, particularly for QTc and arrhythmic events; penetrance of congenital profound deafness appears high for severe biallelic loss, but an exact JLNS2 estimate is unavailable. (roberts2020aninternationalmulticenter pages 1-5, faridi2019mutationalandphenotypic pages 1-3)
 
-JLNS overall has been estimated at roughly **1 per 200,000 to 1 per 1,000,000**, but this range is not JLNS2-specific and likely varies with consanguinity and founder effects. Approximately 90% of JLNS in some series is attributed to *KCNQ1*, making *KCNE1*-related JLNS2 the minority subtype. (faridi2019mutationalandphenotypic pages 1-3, qiu2020jervellandlangenielsen pages 1-2)
+JLNS overall has been estimated at approximately **1 per 200,000 to 1 per 1,000,000**, with higher prevalence in founder or consanguineous populations. JLNS2 is only a fraction of this total. Historical summaries assigned about 10% of JLNS to KCNE1, whereas contemporary subtype data include 19 international patients and only 1 KCNE1 case among 52 sequenced Egyptian patients; therefore, precise prevalence and incidence cannot be calculated. Both sexes are affected. (roberts2020aninternationalmulticenter pages 1-5, vojdani2019mutationscreeningof pages 7-10, hataba2025themutationalspectrum pages 14-17)
 
-Consanguinity increases the probability that two relatives carry the same rare allele; the reported p.Trp17Ter and p.Tyr46Ter homozygotes were found in consanguineous Pakistani families. This is ascertainment evidence, not proof of restriction to any ancestry. (faridi2019mutationalandphenotypic pages 8-9)
-
-No robust JLNS2-specific incidence, prevalence, sex ratio, carrier frequency, geographic distribution, or founder-allele frequency was identified. Such fields should be recorded as **unknown**, not populated using all-JLNS or all-LQTS estimates.
+No universally established JLNS2 founder variant, sex ratio, annual incidence, or carrier frequency was identified. Consanguinity enriches homozygosity: a 2025 Egyptian JLNS preprint reported consanguinity in 76.2% of families with complete information, but 51/52 sequenced patients had KCNQ1 disease, limiting relevance to JLNS2. (hataba2025themutationalspectrum pages 14-17)
 
 ## 10. Diagnostics
 
-### Clinical work-up
+**Clinical workflow.** Every child with congenital severe/profound bilateral sensorineural hearing loss should have a 12-lead ECG with manually verified QTc. Conversely, a child with QT prolongation and syncope/seizure-like events should undergo formal audiology. Assessment should include T-wave morphology, resting and serial ECGs, Holter monitoring and exercise/recovery testing where appropriate, electrolytes, medication review, three-generation pedigree, and evaluation for acquired QT prolongation. A QTc commonly exceeding 500 ms is highly supportive in the classic syndrome, but diagnosis must integrate phenotype and genotype. (rieraUnknownyearjervellandlangenielsen pages 6-9, rieraUnknownyearjervellandlangenielsen pages 1-3, theodore2024icdimplantin pages 3-4)
 
-1. **History:** congenital deafness, exertional/emotional/sudden-noise syncope, apparent seizures, resuscitated arrest, unexplained drowning, sudden death, medication exposure, and three-generation pedigree.
-2. **ECG:** manual QT measurement and heart-rate correction, preferably serial studies. Contemporary congenital LQTS criteria include QTc **≥480 ms** or modified Schwartz score **>3**; QTc **≥460 ms** can support diagnosis in a patient with arrhythmic syncope or cardiac arrest. (balestra2024congenitallongqt pages 4-5)
-3. **Additional electrophysiology:** Holter/event monitoring and exercise/recovery ECG can reveal dynamic abnormalities. Echocardiography helps exclude structural disease but is usually not diagnostic.
-4. **Audiology:** newborn auditory brainstem response, otoacoustic emissions, pure-tone audiometry when developmentally appropriate, speech/language assessment, and cochlear-implant evaluation.
-5. **Laboratory testing:** potassium, magnesium, calcium, renal function, and thyroid studies identify acquired contributors; there is no diagnostic serum biomarker or enzyme assay.
+**Molecular confirmation.** Use a validated congenital-LQTS/cardio-auditory or comprehensive hearing-loss panel containing at least **KCNE1 and KCNQ1**, with sequencing and deletion/duplication analysis. Confirm two pathogenic/likely pathogenic KCNE1 variants in trans by parental testing. CNV-sensitive analysis is important because sequence-only assays can miss exon-level deletions or duplications. WES/WGS is useful when panel testing is negative, for noncoding/structural variants and phenocopies, but does not replace careful KCNE1 interpretation. CMA, karyotype, FISH, mitochondrial, and repeat-expansion testing are not routine unless another phenotype indicates them. (rieraUnknownyearjervellandlangenielsen pages 3-6)
 
-A normal resting QTc does not exclude inherited LQTS: recent reviews estimate **20–25%**, and in some selected genetically confirmed series up to approximately **40%**, may have normal-range resting QTc. These differing figures reflect study populations and should not be treated as a JLNS2-specific frequency. (balestra2024congenitallongqt pages 5-8, yu2023precisionmedicinefor pages 1-2, yu2023precisionmedicinefor pages 2-2)
+**Differential diagnosis:** JLNS1 (biallelic KCNQ1); heterozygous LQT5/Romano-Ward syndrome without congenital profound deafness; nonsyndromic genetic deafness such as GJB2-related DFNB1; Pendred, Usher, Waardenburg, and branchio-oto-renal syndromes; acquired drug/electrolyte-related long QT; catecholaminergic polymorphic ventricular tachycardia; epilepsy; and coincidental deafness plus another LQTS genotype. (rieraUnknownyearjervellandlangenielsen pages 6-9)
 
-### Genetic testing
-
-The preferred approach is a validated hereditary arrhythmia or combined hearing-loss/cardio-auditory panel including at minimum ***KCNE1* and *KCNQ1***, with deletion/duplication analysis. A broad hearing-loss panel that omits arrhythmia genes can miss the life-threatening diagnosis. If panel testing is negative or the phenotype is atypical, exome or genome sequencing with copy-number and splice-aware analysis is appropriate. Sanger sequencing is useful for confirmation and segregation.
-
-CMA, karyotype, FISH, mitochondrial sequencing, and repeat-expansion testing are not first-line unless other clinical findings suggest an alternative disorder. RNA analysis may clarify suspected splice variants but is not routine. Variant interpretation must incorporate allele frequency, segregation, phenotype, functional data, and ACMG/AMP criteria; a VUS does not independently confirm JLNS2.
-
-### Differential diagnosis
-
-* **JLNS1:** identical cardinal phenotype, but biallelic *KCNQ1* variants.
-* **Romano-Ward/LQT5:** heterozygous *KCNE1* variant, long QT without congenital profound deafness.
-* Other congenital LQTS subtypes plus unrelated genetic deafness.
-* Acquired QT prolongation from medication, hypokalemia, hypomagnesemia, hypocalcemia, or bradycardia.
-* Nonsyndromic hearing loss, including *GJB2*, *STRC*, or other causes, without intrinsic long QT.
-* Pendred syndrome, Usher syndrome, mitochondrial deafness, and congenital infection.
-* Epilepsy when convulsive syncope is the true mechanism.
-
-### Screening
-
-All infants with severe/profound congenital hearing loss should receive an ECG or prompt cardiac assessment where JLNS is plausible. Once familial variants are known, targeted cascade testing is more efficient than repeated broad sequencing. At-risk relatives need ECG assessment even when hearing is normal because heterozygous missense effects and incomplete cardiac expression can complicate segregation. Prenatal diagnosis and preimplantation genetic testing are technically possible for known familial pathogenic variants.
+There is no routine biochemical, biopsy, imaging, liquid-biopsy, proteomic, or metabolomic diagnostic test. Echocardiography is useful to exclude structural disease rather than confirm JLNS2.
 
 ## 11. Outcome and prognosis
 
-Untreated JLNS is one of the highest-risk congenital LQTS presentations, but **JLNS2-only survival and mortality curves are unavailable**. Profound deafness does not spontaneously recover. Arrhythmia risk is lifelong but can be substantially reduced by early recognition, trigger avoidance, nonselective β-blockade, and escalation to device or surgical therapy when indicated.
+Untreated JLNS as a whole has historically carried high childhood mortality, but JLNS2-specific outcome estimates are substantially less severe and much less precise. The best subtype-separated multicenter evidence found definite arrhythmic events in 10.5% (2/19). The authors concluded that low penetrance of KCNE1-associated QT prolongation aligns with the relatively mild phenotype observed in JLNS2. This must not be interpreted as benignity: sudden cardiac arrest remains possible, and treatment decisions should follow the measured phenotype and event history. (roberts2020aninternationalmulticenter pages 1-5)
 
-In broader symptomatic congenital LQTS, β-blockers reportedly reduced annual mortality from approximately **60% to below 2% over the ten years after an arrhythmic event**; this historical statistic is not a JLNS2-specific response rate. (balestra2024congenitallongqt pages 5-8)
+Poor prognostic indicators in mixed JLNS include very prolonged QTc, early syncope, prior cardiac arrest, T-wave alternans, events despite adherent beta-blockade, and exposure to avoidable triggers. No validated JLNS2-specific prognostic biomarker or survival calculator exists. Hearing disability is permanent but auditory and communication outcomes can improve substantially with early cochlear implantation and rehabilitation. No reliable JLNS2-specific 5- or 10-year survival statistic is available.
 
-Adverse prognostic features include prior cardiac arrest, recurrent syncope on therapy, very prolonged QTc, early-childhood events, poor adherence, electrolyte disturbance, QT-prolonging medication, and potentially a second arrhythmia-associated variant. Absence of previous syncope is not reassuring enough to omit treatment because molecularly confirmed JLNS2 can be asymptomatic despite QTc above 500 ms. (faridi2019mutationalandphenotypic pages 8-9, balestra2024congenitallongqt pages 4-5)
+## 12. Treatment and real-world implementation
 
-## 12. Treatment and current implementation
+1. **Nonselective beta-blocker therapy**—usually nadolol or propranolol—is first-line for clinically manifest congenital LQTS, with weight-adjusted specialist dosing and adherence monitoring. This recommendation is extrapolated from congenital-LQTS guidance because no JLNS2 randomized trial exists. Suggested NCIt concept: beta-adrenergic blocking agent (**NCIT:C29576**). (rieraUnknownyearjervellandlangenielsen pages 6-9, theodore2024icdimplantin pages 1-3)
+2. **Trigger control:** remove QT-prolonging medicines, correct potassium/magnesium deficiency, manage vomiting/dehydration promptly, individualize exercise restrictions, provide a medical-alert plan, and train family members in CPR/AED use. (rieraUnknownyearjervellandlangenielsen pages 1-3, theodore2024icdimplantin pages 3-4)
+3. **LCSD:** consider for recurrent syncope/arrhythmia despite adequate beta-blockade or when beta-blockers are not tolerated; it is not a cure and therapy generally continues. Suggested NCIt annotation: sympathetic denervation procedure.
+4. **ICD:** indicated after resuscitated cardiac arrest and considered for recurrent events or persistently extreme risk despite optimal therapy. Device complications and inappropriate shocks are important in small children; implantation must be individualized. A 2024 case described a six-year-old with QTc 600 ms and recurrent exercise/emotion-triggered syncope despite beta-blockade who received an ICD, with LCSD planned if events recurred. This case was not molecularly separated as JLNS2. (theodore2024icdimplantin pages 1-3, theodore2024icdimplantin pages 3-4)
+5. **Hearing treatment:** hearing aids may be insufficient for profound loss; early cochlear implantation plus speech-language and audiologic rehabilitation is the principal functional intervention. Cardiology, electrophysiology, anesthesia, and otology teams should coordinate perioperative care, continue protective therapy where feasible, avoid QT-prolonging combinations, maintain electrolytes, monitor continuously, and have external defibrillation immediately available. Life-threatening postoperative arrhythmia has been documented in JLNS after cochlear implantation. (qiu2020jervellandlangenielsen pages 5-7)
 
-### Cardiac treatment
-
-* **Nonselective β-blockers:** first-line, usually **nadolol** or **propranolol**. A recent pediatric LQTS review gives propranolol **2–3 mg/kg/day** or nadolol **1–1.5 mg/kg/day**, divided according to regimen. Dosing is individualized by electrophysiology specialists. β1-selective agents are generally less favored for congenital LQTS. Suggested NCIt concept: beta-adrenergic receptor blocking-agent therapy. (balestra2024congenitallongqt pages 5-8)
-* **ICD:** recommended after resuscitated cardiac arrest and considered for recurrent arrhythmic syncope or ventricular arrhythmia despite optimized therapy. In small children, device complications and inappropriate shocks require careful balancing. NCIt: implantable cardioverter-defibrillator procedure/device. (balestra2024congenitallongqt pages 8-9)
-* **Left cardiac sympathetic denervation:** appropriate when events recur despite medication, when an ICD is contraindicated/not feasible, or to reduce recurrent shocks. NCIt: sympathectomy/left cardiac sympathetic denervation. (balestra2024congenitallongqt pages 8-9, yu2023precisionmedicinefor pages 7-8)
-* **Pacing:** may be considered in selected patients with severe bradycardia, pause-dependent events, or as part of an individualized high-risk strategy; it is not universal JLNS2 therapy.
-* **Electrolytes:** promptly correct potassium and magnesium depletion. Routine potassium supplementation requires clinical supervision.
-* **Avoidance:** use a current QT-risk resource when prescribing; avoid unsupervised swimming and individualize exercise participation through specialist shared decision-making.
-
-Mexiletine is genotype-directed mainly for sodium-channel LQTS3 and is not established targeted treatment for *KCNE1*-JLNS2. No validated pharmacogenomic dosing rule specific to *KCNE1* was found.
-
-### Hearing and supportive care
-
-Hearing aids may provide limited benefit when loss is profound. **Cochlear implantation** can provide useful auditory access, coupled with early speech-language therapy, educational support, and Deaf-community/family-centered communication planning. Surgery requires a JLNS-aware anesthesia protocol and continuous postoperative monitoring. The strongest retrieved procedural case was *KCNQ1*-related JLNS1, so efficacy and anesthesia precautions are extrapolated to JLNS2 on syndrome-wide grounds. (qiu2020jervellandlangenielsen pages 5-7)
-
-### Experimental treatment and 2023–2024 developments
-
-No approved gene, RNA, cell, or CRISPR therapy corrects JLNS2. Patient-specific iPSC cardiomyocytes and CRISPR-based isogenic controls are being developed for functional variant adjudication and individualized drug testing, but remain preclinical. (yu2023precisionmedicinefor pages 1-2, yu2023precisionmedicinefor pages 7-8)
-
-**NCT06534671, “Diltiazem in Jervell and Lange-Nielsen Syndrome,”** was a completed Phase 4 Vanderbilt study in 2024. One genetically confirmed adult received IV diltiazem 0.25 mg/kg, with a possible 0.35 mg/kg second dose, and ECG/telemetry assessment for acute QT shortening. Enrollment was **one**, completion was October 23, 2024, and no efficacy conclusion should be drawn without posted peer-reviewed results. Diltiazem is therefore experimental, not standard JLNS2 treatment. (NCT06534671 chunk 1)
+No approved KCNE1 gene replacement, CRISPR therapy, antisense oligonucleotide, siRNA, mRNA, cell therapy, or JLNS2-specific targeted drug exists. A search of active ClinicalTrials.gov records found broader LQTS monitoring, registry, and cascade-screening studies, but no clearly JLNS2-specific interventional trial. The 2023 precision-medicine literature emphasizes patient-specific iPSC cardiomyocytes, genome editing, and high-throughput drug testing as future approaches rather than current care. (zhang2014recessivecardiacphenotypes pages 1-2)
 
 ## 13. Prevention
 
-Primary prevention of the genotype is possible only through informed reproductive choices: carrier testing in at-risk relatives, genetic counseling, prenatal diagnosis, donor gametes, or preimplantation genetic testing. There is no vaccine or environmental primary prevention.
+Primary prevention of a de novo inherited phenotype through lifestyle is not possible. **Reproductive prevention/options** include carrier testing, genetic counseling, partner testing in at-risk communities, prenatal diagnosis by chorionic-villus sampling or amniocentesis after familial variants are known, and preimplantation genetic testing for monogenic disease. (rieraUnknownyearjervellandlangenielsen pages 12-15)
 
-Secondary prevention consists of newborn hearing screening followed by ECG/genetic evaluation, cascade testing, early β-blockade, and identification of concealed disease. Tertiary prevention includes medication adherence, QT-drug avoidance, electrolyte management, emergency action plans, supervised exercise decisions, ICD/LCSD where indicated, and safe anesthesia planning.
-
-Families should be counseled about autosomal-recessive recurrence, variable cardiac expression, CPR/AED access, recognition of arrhythmic syncope, and informing schools, dentists, surgeons, and anesthesiologists. Public-health sanitation or infectious-disease control is not relevant.
+Secondary prevention consists of ECG screening in congenital deafness, cascade testing of relatives, newborn hearing screening linked to cardiology referral when syndromic disease is suspected, and presymptomatic treatment of genetically/phenotypically affected relatives. Tertiary prevention comprises beta-blockade, avoidance measures, LCSD/ICD when indicated, and emergency preparedness. Population newborn DNA screening for JLNS2 is not standard. Immunization and infectious prophylaxis are not applicable.
 
 ## 14. Other species and natural disease
 
-No well-established naturally occurring veterinary syndrome equivalent to human JLNS2 was identified. There is no zoonotic potential or cross-species transmission because this is an inherited channelopathy.
+No well-established naturally occurring veterinary counterpart or zoonotic transmission was identified. The mechanism is evolutionarily conserved in mammals through orthologous **Kcne1/Kcnq1** channel complexes. Relevant taxa include human (*Homo sapiens*, NCBI Taxonomy **9606**) and laboratory mouse (*Mus musculus*, **10090**). There is no infectious transmission, cross-species contagion, or breed-specific VBO annotation.
 
-Orthologous *Kcne1* is conserved in laboratory mouse, **Mus musculus, NCBI Taxonomy 10090**. The relevant comparative biology is experimental rather than a common spontaneous veterinary disease. A spontaneous mouse nonsense allele, *Kcne1*^pkr (“punk rocker,” p.Arg67Ter), produces an auditory/vestibular phenotype. (faridi2019mutationalandphenotypic pages 9-11)
+## 15. Model organisms and advanced research
 
-## 15. Model organisms
+**Kcne1-null mouse.** This is the principal direct genetic model. Homozygous disruption reproduces bilateral sensorineural deafness, strial/endolymphatic abnormalities, and impaired endocochlear physiology. It is useful for cochlear potassium transport and tissue pathology. Its cardiac phenotype is comparatively mild, limiting translation because murine ventricular repolarization differs materially from human repolarization. (faridi2019mutationalandphenotypic pages 12-14)
 
-Three *Kcne1*-null mouse alleles are reported: two engineered coding-exon deletions and the spontaneous p.Arg67Ter punk-rocker allele. Homozygous animals are deaf; heterozygotes have normal hearing. Cochlear findings include collapsed Reissner membrane and hair-cell degeneration, and punk-rocker mice display head tossing consistent with vestibular dysfunction. These findings strongly recapitulate the recessive inner-ear component of human JLNS2. (faridi2019mutationalandphenotypic pages 9-11)
+**Cell systems.** Heterologous expression in Xenopus oocytes or mammalian cells measures KCNE1 effects on KCNQ1 current, gating, trafficking, and dominant-negative behavior. Such assays are essential because computational prediction alone is unreliable and there is no simple clinical biochemical test of KCNE1 function. (faridi2019mutationalandphenotypic pages 6-8)
 
-Cardiac recapitulation is inconsistent: one line showed longer QT at slow rates and shorter QT at fast rates, another increased inducible arrhythmia, and another no ECG difference. A major limitation is the mouse resting heart rate of approximately **500–700 beats/minute**, which complicates QT measurement and makes the model less faithful for human ventricular repolarization. Mouse inner-ear architecture is much more suitable for studying the auditory mechanism. (faridi2019mutationalandphenotypic pages 9-11)
+**iPSC models.** Landmark JLNS iPSC-cardiomyocyte research demonstrated absent/reduced I-Ks, prolonged action and field potentials, abnormal adrenergic responses, proarrhythmic drug sensitivity, and pharmacologic rescue. However, that study modeled **KCNQ1-related JLNS1**, not KCNE1-related JLNS2, so it provides proof of platform rather than direct subtype evidence. [Experimental human iPSC evidence; December 2014; DOI: https://doi.org/10.1073/pnas.1419553111]. (zhang2014recessivecardiacphenotypes pages 1-2)
 
-Suggested model annotations include mammalian genetic knockout, homozygous null, nonsense knock-in/spontaneous mutant, auditory brainstem response, ECG/telemetry, cochlear histopathology, strial marginal cell, hair cell, and vestibular dark cell. Patient-derived iPSC cardiomyocytes are the leading human cellular model for variant causality and drug testing, although a large JLNS2-specific iPSC dataset was not identified. (yu2023precisionmedicinefor pages 1-2)
+No validated JLNS2-specific organoid, patient-derived iPSC series, CRISPR screen, spatial-transcriptomic dataset, or multi-omic signature was found through 2024. Recent 2023–2024 developments are therefore chiefly improvements in broad LQTS precision modeling, pediatric management, CNV detection, and cochlear cell biology rather than a new JLNS2 therapy. The central research priorities are international genotype-confirmed registries, systematic functional classification of KCNE1 variants, direct KCNE1 patient-iPSC models, subtype-specific treatment outcomes, and safe dual-organ gene-delivery strategies.
 
-## Evidence limitations and curation cautions
+## Evidence limitations
 
-1. JLNS2 is much rarer than *KCNQ1*-related JLNS1; disease-wide JLNS numbers must not be assigned automatically to JLNS2.
-2. Much treatment evidence comes from congenital LQTS or JLNS overall rather than randomized JLNS2 trials.
-3. Individual variants require current ClinVar/gnomAD review; literature-level pathogenicity should not replace laboratory reclassification.
-4. No reliable JLNS2-specific incidence, carrier frequency, survival curve, quality-of-life scale, molecular-omics signature, protective allele, or approved precision therapy was found.
-5. A retrieved 2020 cochlear-implant report is **JLNS1 because its patient carried biallelic *KCNQ1***; it supports syndrome-wide procedural practice but must not be mislabeled as genotype-confirmed JLNS2. (qiu2020jervellandlangenielsen pages 5-7, qiu2020jervellandlangenielsen pages 1-2)
+JLNS2 is frequently pooled with JLNS1, older reports predate modern variant-classification standards, and severe historical outcome estimates largely reflect KCNQ1-predominant cohorts. The 19-patient international JLNS2 series remains the strongest subtype-separated clinical evidence identified. Consequently, incidence, penetrance, variant-specific risk, sex effects, quality of life, treatment response, and survival cannot presently be estimated with high precision. Statements derived from mixed JLNS, generic congenital LQTS, KCNQ1 models, or mouse experiments have been explicitly labeled rather than presented as direct JLNS2 evidence.
 
 References
 
-1. (faridi2019mutationalandphenotypic pages 9-11): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
+1. (roberts2020aninternationalmulticenter pages 1-5): Jason D. Roberts, S. Yukiko Asaki, Andrea Mazzanti, J. Martijn Bos, Izabela Tuleta, Alison R. Muir, Lia Crotti, Andrew D. Krahn, Valentina Kutyifa, M. Benjamin Shoemaker, Christopher L. Johnsrude, Takeshi Aiba, Luciana Marcondes, Anwar Baban, Sharmila Udupa, Brynn Dechert, Peter Fischbach, Linda M. Knight, Eric Vittinghoff, Deni Kukavica, Birgit Stallmeyer, John R. Giudicessi, Carla Spazzolini, Keiko Shimamoto, Rafik Tadros, Julia Cadrin-Tourigny, Henry J. Duff, Christopher S. Simpson, Thomas M. Roston, Yanushi D. Wijeyeratne, Imane El Hajjaji, Maisoon D. Yousif, Lorne J. Gula, Peter Leong-Sit, Nikhil Chavali, Andrew P. Landstrom, Gregory M. Marcus, Sven Dittmann, Arthur A. M. Wilde, Elijah R. Behr, Jacob Tfelt-Hansen, Melvin M. Scheinman, Marco V. Perez, Juan Pablo Kaski, Robert M. Gow, Fabrizio Drago, Peter F. Aziz, Dominic J. Abrams, Michael H. Gollob, Jonathan R. Skinner, Wataru Shimizu, Elizabeth S. Kaufman, Dan M. Roden, Wojciech Zareba, Peter J. Schwartz, Eric Schulze-Bahr, Susan P. Etheridge, Silvia G. Priori, and Michael J. Ackerman. An international multicenter evaluation of type 5 long qt syndrome. Feb 2020. URL: https://doi.org/10.1161/circulationaha.119.043114, doi:10.1161/circulationaha.119.043114. This article has 64 citations and is from a highest quality peer-reviewed journal.
 
-2. (faridi2019mutationalandphenotypic pages 8-9): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
+2. (faridi2019mutationalandphenotypic pages 1-3): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
 
-3. (faridi2019mutationalandphenotypic pages 1-3): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
+3. (OpenTargets Search: Jervell and Lange-Nielsen syndrome 2-KCNE1): Open Targets Query (Jervell and Lange-Nielsen syndrome 2-KCNE1, 29 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
-4. (OpenTargets Search: Jervell and Lange-Nielsen syndrome-KCNE1): Open Targets Query (Jervell and Lange-Nielsen syndrome-KCNE1, 8 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+4. (faridi2019mutationalandphenotypic pages 6-8): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
 
-5. (faridi2019mutationalandphenotypic pages 3-4): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
+5. (theodore2024icdimplantin pages 1-3): TJ Theodore and PGKM Dhilipan. Icd implant in 6-year-old with jervell and lange-nielsen (jln) syndrome. Unknown journal, 2024.
 
-6. (balestra2024congenitallongqt pages 4-5): Elia Balestra, Marco Bobbo, Marco Cittar, Daniela Chicco, Biancamaria D’Agata Mottolese, Egidio Barbi, and Thomas Caiffa. Congenital long qt syndrome in children and adolescents: a general overview. Children, 11:582, May 2024. URL: https://doi.org/10.3390/children11050582, doi:10.3390/children11050582. This article has 20 citations.
+6. (vojdani2019mutationscreeningof pages 7-10): Samaneh Vojdani, Susan Amirsalari, Saman Milanizadeh, Fatemeh Molaei, Mohammad Ajalloueyane, Arezoo Khosravi, Leila Hamzehzadeh, Mohammad Mehdi Ghasemi, Mohammad Reza Talee, and Mohammad Reza Abbaszadegan. Mutation screening of kcnq1 and kcne1 genes in iranian patients with jervell and lange-nielsen syndrome. Fetal and Pediatric Pathology, 38:273-281, Apr 2019. URL: https://doi.org/10.1080/15513815.2019.1585500, doi:10.1080/15513815.2019.1585500. This article has 15 citations and is from a peer-reviewed journal.
 
-7. (balestra2024congenitallongqt pages 5-8): Elia Balestra, Marco Bobbo, Marco Cittar, Daniela Chicco, Biancamaria D’Agata Mottolese, Egidio Barbi, and Thomas Caiffa. Congenital long qt syndrome in children and adolescents: a general overview. Children, 11:582, May 2024. URL: https://doi.org/10.3390/children11050582, doi:10.3390/children11050582. This article has 20 citations.
+7. (hataba2025themutationalspectrum pages 14-17): Aya Hataba, M. Allouba, Mariam Fathy, A. Afify, E. Ahmed, M. Riad, Mohamed Elmaghawry, Youssef M. El Bayoumy, Amany Elleithy, A. Mahfouz, Jodie Ingles, A. Galal, Sohila Rabie, M. Allam, S. Halawa, Nour Elsadek, B. Samy, H. Kassem, O. Kamel, Yasmine Aguib, Magdi H. Yacoub, Magdi Kamel, Yasmine Yacoub, and Aguib. The mutational spectrum of jervell and lange-nielsen syndrome: insights from highly consanguineous families. MedRxiv, Oct 2025. URL: https://doi.org/10.1101/2025.10.22.25336867, doi:10.1101/2025.10.22.25336867. This article has 0 citations.
 
-8. (qiu2020jervellandlangenielsen pages 1-2): Yue Qiu, Sen Chen, Xia Wu, Wen-Juan Zhang, Wen Xie, Yuan Jin, Le Xie, Kai Xu, Xue Bai, Hui-Min Zhang, Xiao-Zhou Liu, Xiao-Hui Wang, Yu Sun, and Wei-Jia Kong. Jervell and lange-nielsen syndrome due to a novel compound heterozygous kcnq1 mutation in a chinese family. Neural Plasticity, 2020:1-8, May 2020. URL: https://doi.org/10.1155/2020/3569359, doi:10.1155/2020/3569359. This article has 14 citations and is from a peer-reviewed journal.
+8. (rieraUnknownyearjervellandlangenielsen pages 1-3): ARP Riera. Jervell and lange-nielsen syndrome (jlns)-2010. Unknown journal, Unknown year.
 
-9. (balestra2024congenitallongqt pages 8-9): Elia Balestra, Marco Bobbo, Marco Cittar, Daniela Chicco, Biancamaria D’Agata Mottolese, Egidio Barbi, and Thomas Caiffa. Congenital long qt syndrome in children and adolescents: a general overview. Children, 11:582, May 2024. URL: https://doi.org/10.3390/children11050582, doi:10.3390/children11050582. This article has 20 citations.
+9. (qiu2020jervellandlangenielsen pages 5-7): Yue Qiu, Sen Chen, Xia Wu, Wen-Juan Zhang, Wen Xie, Yuan Jin, Le Xie, Kai Xu, Xue Bai, Hui-Min Zhang, Xiao-Zhou Liu, Xiao-Hui Wang, Yu Sun, and Wei-Jia Kong. Jervell and lange-nielsen syndrome due to a novel compound heterozygous kcnq1 mutation in a chinese family. Neural Plasticity, 2020:1-8, May 2020. URL: https://doi.org/10.1155/2020/3569359, doi:10.1155/2020/3569359. This article has 14 citations and is from a peer-reviewed journal.
 
-10. (qiu2020jervellandlangenielsen pages 5-7): Yue Qiu, Sen Chen, Xia Wu, Wen-Juan Zhang, Wen Xie, Yuan Jin, Le Xie, Kai Xu, Xue Bai, Hui-Min Zhang, Xiao-Zhou Liu, Xiao-Hui Wang, Yu Sun, and Wei-Jia Kong. Jervell and lange-nielsen syndrome due to a novel compound heterozygous kcnq1 mutation in a chinese family. Neural Plasticity, 2020:1-8, May 2020. URL: https://doi.org/10.1155/2020/3569359, doi:10.1155/2020/3569359. This article has 14 citations and is from a peer-reviewed journal.
+10. (vojdani2019mutationscreeningof pages 4-7): Samaneh Vojdani, Susan Amirsalari, Saman Milanizadeh, Fatemeh Molaei, Mohammad Ajalloueyane, Arezoo Khosravi, Leila Hamzehzadeh, Mohammad Mehdi Ghasemi, Mohammad Reza Talee, and Mohammad Reza Abbaszadegan. Mutation screening of kcnq1 and kcne1 genes in iranian patients with jervell and lange-nielsen syndrome. Fetal and Pediatric Pathology, 38:273-281, Apr 2019. URL: https://doi.org/10.1080/15513815.2019.1585500, doi:10.1080/15513815.2019.1585500. This article has 15 citations and is from a peer-reviewed journal.
 
-11. (yu2023precisionmedicinefor pages 1-2): Yang Yu, Isabelle Deschenes, and Ming-Tao Zhao. Precision medicine for long qt syndrome: patient-specific ipscs take the lead. Expert Reviews in Molecular Medicine, Jan 2023. URL: https://doi.org/10.1017/erm.2022.43, doi:10.1017/erm.2022.43. This article has 23 citations and is from a peer-reviewed journal.
+11. (rieraUnknownyearjervellandlangenielsen pages 12-15): ARP Riera. Jervell and lange-nielsen syndrome (jlns)-2010. Unknown journal, Unknown year.
 
-12. (yu2023precisionmedicinefor pages 7-8): Yang Yu, Isabelle Deschenes, and Ming-Tao Zhao. Precision medicine for long qt syndrome: patient-specific ipscs take the lead. Expert Reviews in Molecular Medicine, Jan 2023. URL: https://doi.org/10.1017/erm.2022.43, doi:10.1017/erm.2022.43. This article has 23 citations and is from a peer-reviewed journal.
+12. (faridi2019mutationalandphenotypic pages 12-14): Rabia Faridi, Risa Tona, Alessandra Brofferio, Michael Hoa, Rafal Olszewski, Isabelle Schrauwen, Muhammad Z.K. Assir, Akhtar A. Bandesha, Asma A. Khan, Atteeq U. Rehman, Carmen Brewer, Wasim Ahmed, Suzanne M. Leal, Sheikh Riazuddin, Steven E. Boyden, and Thomas B. Friedman. Mutational and phenotypic spectra of kcne1 deficiency in jervell and lange‐nielsen syndrome and romano‐ward syndrome. Human Mutation, 40:162-176, Dec 2019. URL: https://doi.org/10.1002/humu.23689, doi:10.1002/humu.23689. This article has 47 citations and is from a domain leading peer-reviewed journal.
 
-13. (NCT06534671 chunk 1): Prince Joseph Kannankeril. Diltiazem in Jervell and Lange-Nielsen Syndrome. Vanderbilt University Medical Center. 2024. ClinicalTrials.gov Identifier: NCT06534671
+13. (rieraUnknownyearjervellandlangenielsen pages 6-9): ARP Riera. Jervell and lange-nielsen syndrome (jlns)-2010. Unknown journal, Unknown year.
 
-14. (yu2023precisionmedicinefor pages 2-2): Yang Yu, Isabelle Deschenes, and Ming-Tao Zhao. Precision medicine for long qt syndrome: patient-specific ipscs take the lead. Expert Reviews in Molecular Medicine, Jan 2023. URL: https://doi.org/10.1017/erm.2022.43, doi:10.1017/erm.2022.43. This article has 23 citations and is from a peer-reviewed journal.
+14. (theodore2024icdimplantin pages 3-4): TJ Theodore and PGKM Dhilipan. Icd implant in 6-year-old with jervell and lange-nielsen (jln) syndrome. Unknown journal, 2024.
+
+15. (rieraUnknownyearjervellandlangenielsen pages 3-6): ARP Riera. Jervell and lange-nielsen syndrome (jlns)-2010. Unknown journal, Unknown year.
+
+16. (zhang2014recessivecardiacphenotypes pages 1-2): Miao Zhang, Cristina D’Aniello, Arie O. Verkerk, Eva Wrobel, Stefan Frank, Dorien Ward-van Oostwaard, Ilaria Piccini, Christian Freund, Jyoti Rao, Guiscard Seebohm, Douwe E. Atsma, Eric Schulze-Bahr, Christine L. Mummery, Boris Greber, and Milena Bellin. Recessive cardiac phenotypes in induced pluripotent stem cell models of jervell and lange-nielsen syndrome: disease mechanisms and pharmacological rescue. Proceedings of the National Academy of Sciences, 111:E5383-E5392, Dec 2014. URL: https://doi.org/10.1073/pnas.1419553111, doi:10.1073/pnas.1419553111. This article has 230 citations and is from a highest quality peer-reviewed journal.
 
 ## Artifacts
 
@@ -1245,12 +1219,55 @@ Checked with `linkml-reference-validator` 0.2.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 4 |
-| Resolved | 4 |
+| References checked | 7 |
+| Resolved | 7 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 4 |
-| On topic | 1 |
+| Quoted claims checked | 0 |
+| Quoted claims found in source | 0 |
+| Quoted claims **not** found in source | 0 |
+| Quoted claims with nothing to check against | 1 |
+| References weighed for topical relevance | 7 |
+| On topic | 5 |
 | Off topic | 0 |
 
+### Quotes that could not be checked
+
+There was no text to compare these against, so they are neither confirmed nor contradicted:
+
+- `DOI:10.1002/humu.23689`: "cardio-auditory syndrome characterized by congenital profound sensorineural deafness and a prolonged QT interval that can cause ventricular arrhythmias and sudden cardiac death."
+  - Reference resolved but exposes no abstract or full text to search
+
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 33 |
+| Resolved | 31 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 2 |
+| Terms whose name was checked | 2 |
+| Terms named correctly | 0 |
+| Terms named as a **different** term | 1 |
+| Terms whose name is worth a second look | 1 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0012871` (5 mentions) - the report calls it "if available"; MONDO calls it **Jervell and Lange-Nielsen syndrome 2**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `MONDO:0002441` (1 mention) - the report calls it "Parent disease concepts include Jervell and Lange-Nielsen syndrome"; MONDO calls it **Jervell and Lange-Nielsen syndrome**
+
+### Prefixes with no resolver
+
+Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: `OMIM`.

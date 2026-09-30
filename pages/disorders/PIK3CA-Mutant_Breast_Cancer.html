@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3780,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 6</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=PIK3CA-Mutant%20Breast%20Cancer"
@@ -3911,7 +4004,19 @@
 
 
 
+
+
+
+
         <div class="stats-bar">
+
+            <a class="stat-link" href="#mappings">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔗</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Mappings</div>
+            </div>
+            </a>
 
 
 
@@ -3948,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">5</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4120,6 +4225,61 @@
 
         <!-- Mappings -->
 
+        <div class="card" id="mappings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔗</div>
+                <h2 class="card-title">Mappings</h2>
+            </div>
+
+            <div class="mapping-section">
+                <div class="classification-category">MONDO</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0004989" target="_blank">MONDO:0004989</a>
+
+
+                        <span class="mapping-label">breast carcinoma</span>
+
+
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">PIK3CA-mutant breast cancer is a molecularly defined stratum of MONDO&#39;s breast carcinoma class, not the class itself: MONDO has no term for the PIK3CA hotspot mutation stratum, so `disease_term` anchors to the parent term while this narrowMatch records that the entry is narrower than it. Required by design decisions section 3a for a promoted L4 biomarker stratum, which must never present bare parent-term reuse as an exact match; the parent term itself is claimed as an exactMatch by Breast_Carcinoma. Filing a MONDO NTR for this stratum is a tracked follow-up.</div>
+
+                </div>
+
+            </div>
+
+
+
+
+
+        </div>
+
 
         <!-- Definitions -->
 
@@ -4150,6 +4310,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pik3ca-oncogenic-mutations" data-dismech-node="PIK3CA Oncogenic Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">PIK3CA Oncogenic Mutations</div>
+
 
                 <div class="item-desc">Activating PIK3CA mutations occur as somatic events in breast cancer cells. Hotspot mutations cluster in the helical domain (E542K, E545K) and kinase domain (H1047R). These mutations cause constitutive PI3K activity independent of upstream receptor tyrosine kinase signaling.</div>
 
@@ -4191,6 +4352,78 @@ This pathophysiological event involves luminal epithelial cell of mammary gland 
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PIK3CA
+
+
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8975</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">allele_type: missense</span>
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
 
 
 
@@ -4206,11 +4439,11 @@ This pathophysiological event involves luminal epithelial cell of mammary gland 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0043491</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased phosphatidylinositol 3-kinase signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4234,6 +4467,44 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        constitutive p110α phosphatidylinositol-4,5-bisphosphate 3-kinase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0046934" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0046934</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves constitutive p110α phosphatidylinositol-4,5-bisphosphate 3-kinase activity, annotated with 1-phosphatidylinositol-4,5-bisphosphate 3-kinase activity (GO:0046934), qualified as gain of function. GO:0046934 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇑ GAIN OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -4260,7 +4531,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4272,6 +4543,8 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4287,6 +4560,31 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:15647370" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15647370" target="_blank">PMID:15647370</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Expressed in chicken embryo fibroblasts, all three mutants induce oncogenic transformation with high efficiency. This transforming ability is correlated with elevated catalytic activity in in vitro kinase assays."</div>
+
+
+                <div class="evidence-explanation">Grounds the gene and molecular-function bindings on this node. The three hotspot mutants the description names (E542K, E545K, H1047R) raise the catalytic activity of the PIK3CA-encoded enzyme itself in kinase assays, which is the gain-of-function claim, as distinct from the downstream pathway readouts cited on the nodes below.</div>
+
+
+
+            </div>
+
 
         </div>
     </details>
@@ -4296,6 +4594,7 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-pi3k-akt-pathway-activation" data-dismech-node="Constitutive PI3K-AKT Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive PI3K-AKT Pathway Activation</div>
+
 
                 <div class="item-desc">Mutant PI3K generates phosphatidylinositol (3,4,5)-trisphosphate (PIP3), recruiting and activating AKT (protein kinase B). Activated AKT phosphorylates numerous substrates promoting cell survival, proliferation, metabolism, and resistance to apoptosis.</div>
 
@@ -4318,11 +4617,11 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0048015</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048015" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0048015</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased phosphatidylinositol-mediated signaling (GO:0048015). GO:0048015 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4352,11 +4651,11 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0043491</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043491" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0043491</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased protein kinase B signaling, annotated with phosphatidylinositol 3-kinase/protein kinase B signal transduction (GO:0043491). GO:0043491 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4428,6 +4727,8 @@ This pathophysiological event involves increased protein kinase B signaling, ann
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4451,6 +4752,7 @@ This pathophysiological event involves increased protein kinase B signaling, ann
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtor-pathway-activation" data-dismech-node="mTOR Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">mTOR Pathway Activation</div>
 
+
                 <div class="item-desc">AKT activates mTORC1 by inhibiting the TSC1/TSC2 complex, relieving suppression of the small GTPase Rheb. Active mTORC1 promotes protein synthesis, cell growth, and metabolic reprogramming through S6K1 and 4E-BP1 phosphorylation.</div>
 
 
@@ -4472,11 +4774,11 @@ This pathophysiological event involves increased protein kinase B signaling, ann
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0031929</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4540,6 +4842,8 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4563,6 +4867,7 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-survival-and-proliferation" data-dismech-node="Cell Survival and Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Survival and Proliferation</div>
 
+
                 <div class="item-desc">PI3K-AKT signaling promotes cell survival through phosphorylation and inactivation of pro-apoptotic proteins (BAD, FOXO transcription factors) and cell proliferation through multiple mechanisms including cyclin D1 stabilization.</div>
 
 
@@ -4584,11 +4889,11 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0043066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0043066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased negative regulation of apoptotic process (GO:0043066). GO:0043066 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4618,11 +4923,11 @@ This pathophysiological event involves increased negative regulation of apoptoti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0008283</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0008283</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell population proliferation (GO:0008283). GO:0008283 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4671,6 +4976,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4694,6 +5001,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocrine-resistance" data-dismech-node="Endocrine Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocrine Resistance</div>
 
+
                 <div class="item-desc">In ER+ breast cancer, PIK3CA mutations confer partial resistance to endocrine therapy through crosstalk between PI3K and ER signaling. PI3K pathway activation can maintain tumor growth despite estrogen deprivation.</div>
 
 
@@ -4715,11 +5023,11 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030520</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030520" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0030520</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal intracellular estrogen receptor signaling pathway, annotated with estrogen receptor signaling pathway (GO:0030520). GO:0030520 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4766,6 +5074,8 @@ This pathophysiological event involves abnormal intracellular estrogen receptor 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4828,6 +5138,8 @@ This pathophysiological event involves abnormal intracellular estrogen receptor 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Invasive ductal carcinoma (IDC) is the most common type of breast cancer,"</div>
@@ -4878,7 +5190,7 @@ This pathophysiological event involves abnormal intracellular estrogen receptor 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cell Survival and Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K-AKT signaling promotes cell survival through phosphorylation and inactivation of pro-apoptotic proteins (BAD, FOXO transcription factors) and cell proliferation through multiple mechanisms including cyclin D1 stabilization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of apoptotic process\", \"cell population proliferation\"]}}, {\"id\": \"Constitutive PI3K-AKT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant PI3K generates phosphatidylinositol (3,4,5)-trisphosphate (PIP3), recruiting and activating AKT (protein kinase B). Activated AKT phosphorylates numerous substrates promoting cell survival, proliferation, metabolism, and resistance to apoptosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol-mediated signaling\", \"protein kinase B signaling\"]}}, {\"id\": \"Enhanced Protein Synthesis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"PIK3CA Oncogenic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating PIK3CA mutations occur as somatic events in breast cancer cells. Hotspot mutations cluster in the helical domain (E542K, E545K) and kinase domain (H1047R). These mutations cause constitutive PI3K activity independent of upstream receptor tyrosine kinase signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"luminal epithelial cell of mammary gland\"], \"biological_processes\": [\"phosphatidylinositol 3-kinase signaling\"]}}, {\"id\": \"mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AKT activates mTORC1 by inhibiting the TSC1/TSC2 complex, relieving suppression of the small GTPase Rheb. Active mTORC1 promotes protein synthesis, cell growth, and metabolic reprogramming through S6K1 and 4E-BP1 phosphorylation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"PIK3CA Oncogenic Mutations\", \"target\": \"Constitutive PI3K-AKT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant p110\\u03b1 drives pathway signaling\"}, {\"source\": \"Constitutive PI3K-AKT Pathway Activation\", \"target\": \"mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AKT activates mTORC1 signaling\"}, {\"source\": \"Constitutive PI3K-AKT Pathway Activation\", \"target\": \"Cell Survival and Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AKT substrates promote tumor growth\"}, {\"source\": \"mTOR Pathway Activation\", \"target\": \"Enhanced Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"mTOR drives cap-dependent translation\"}], \"orphan_targets\": [\"Enhanced Protein Synthesis\"]}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cell Survival and Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PI3K-AKT signaling promotes cell survival through phosphorylation and inactivation of pro-apoptotic proteins (BAD, FOXO transcription factors) and cell proliferation through multiple mechanisms including cyclin D1 stabilization.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"negative regulation of apoptotic process\", \"cell population proliferation\"]}}, {\"id\": \"Constitutive PI3K-AKT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant PI3K generates phosphatidylinositol (3,4,5)-trisphosphate (PIP3), recruiting and activating AKT (protein kinase B). Activated AKT phosphorylates numerous substrates promoting cell survival, proliferation, metabolism, and resistance to apoptosis.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol-mediated signaling\", \"protein kinase B signaling\"]}}, {\"id\": \"Enhanced Protein Synthesis\", \"node_type\": \"orphan\", \"color\": \"#fee2e2\", \"is_orphan\": true}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Somatic Activating Mutations\"}}, {\"id\": \"PIK3CA Oncogenic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating PIK3CA mutations occur as somatic events in breast cancer cells. Hotspot mutations cluster in the helical domain (E542K, E545K) and kinase domain (H1047R). These mutations cause constitutive PI3K activity independent of upstream receptor tyrosine kinase signaling.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"luminal epithelial cell of mammary gland\"], \"biological_processes\": [\"phosphatidylinositol 3-kinase signaling\"], \"molecular_functions\": [\"constitutive p110\\u03b1 phosphatidylinositol-4,5-bisphosphate 3-kinase activity\"], \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"genetic_context\": {\"allele_type\": \"missense\", \"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\"}}}, {\"id\": \"mTOR Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"AKT activates mTORC1 by inhibiting the TSC1/TSC2 complex, relieving suppression of the small GTPase Rheb. Active mTORC1 promotes protein synthesis, cell growth, and metabolic reprogramming through S6K1 and 4E-BP1 phosphorylation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"TOR signaling\"]}}], \"edges\": [{\"source\": \"PIK3CA Oncogenic Mutations\", \"target\": \"Constitutive PI3K-AKT Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant p110\\u03b1 drives pathway signaling\"}, {\"source\": \"Constitutive PI3K-AKT Pathway Activation\", \"target\": \"mTOR Pathway Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AKT activates mTORC1 signaling\"}, {\"source\": \"Constitutive PI3K-AKT Pathway Activation\", \"target\": \"Cell Survival and Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AKT substrates promote tumor growth\"}, {\"source\": \"mTOR Pathway Activation\", \"target\": \"Enhanced Protein Synthesis\", \"predicate\": \"causes\", \"is_orphan\": true, \"description\": \"mTOR drives cap-dependent translation\"}, {\"source\": \"PIK3CA\", \"target\": \"PIK3CA Oncogenic Mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": [\"Enhanced Protein Synthesis\"]}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4928,15 +5240,18 @@ This pathophysiological event involves abnormal intracellular estrogen receptor 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0003002</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003002" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0003002</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4956,6 +5271,8 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5008,15 +5325,18 @@ This clinical feature is Breast carcinoma (HP:0003002). HP:0003002 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002664</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002664</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5036,6 +5356,8 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5118,10 +5440,10 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
                         Gene: PIK3CA
 
 
-    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:8975</a>
+    <a href="https://bioregistry.io/hgnc:8975" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:8975</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5129,6 +5451,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -5153,6 +5478,8 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5202,7 +5529,7 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-12">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-12">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5244,16 +5571,30 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_231324" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-13">CHEBI:231324</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231324" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-15">CHEBI:231324</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses alpelisib (CHEBI:231324). CHEBI:231324 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5278,6 +5619,8 @@ This treatment uses alpelisib (CHEBI:231324). CHEBI:231324 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5306,7 +5649,7 @@ This treatment uses alpelisib (CHEBI:231324). CHEBI:231324 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-14">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5347,11 +5690,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C132166" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C132166</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C132166" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-17">NCIT:C132166</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses inavolisib (NCIT:C132166). NCIT:C132166 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
@@ -5364,11 +5707,11 @@ This treatment uses inavolisib (NCIT:C132166). NCIT:C132166 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-16">CHEBI:85993</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_85993" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:85993</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -5381,16 +5724,30 @@ This treatment uses palbociclib (CHEBI:85993). CHEBI:85993 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31638" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:31638</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31638" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:31638</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses fulvestrant (CHEBI:31638). CHEBI:31638 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5415,6 +5772,8 @@ This treatment uses fulvestrant (CHEBI:31638). CHEBI:31638 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5445,7 +5804,7 @@ This treatment uses fulvestrant (CHEBI:31638). CHEBI:31638 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-18">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">targeted therapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5478,6 +5837,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line treatment for metastatic ER+/HER2- disease typically combines aromatase inhibitors with CDK4/6 inhibitors, regardless of PIK3CA status. Alpelisib is used after progression on this regimen.</div>
 
 
@@ -5496,7 +5869,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5537,16 +5910,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_229222" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:229222</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_229222" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:229222</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses capivasertib (CHEBI:229222). CHEBI:229222 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5571,6 +5958,8 @@ This treatment uses capivasertib (CHEBI:229222). CHEBI:229222 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5634,6 +6023,8 @@ This treatment uses capivasertib (CHEBI:229222). CHEBI:229222 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5655,6 +6046,33 @@ This treatment uses capivasertib (CHEBI:229222). CHEBI:229222 is a therapeutic a
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5705,6 +6123,11 @@ parents:
 - breast carcinoma
 pathophysiology:
 - name: PIK3CA Oncogenic Mutations
+  biological_scale: MOLECULAR
+  genetic_context:
+    variant_origin: SOMATIC
+    allele_type: missense
+    functional_impact_category: GAIN_OF_FUNCTION
   description: &gt;-
     Activating PIK3CA mutations occur as somatic events in breast cancer cells.
     Hotspot mutations cluster in the helical domain (E542K, E545K) and kinase
@@ -5717,6 +6140,37 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: PIK3CA (PI3Kα) is a lipid kinase commonly mutated in cancer, including ∼40% of hormone receptor–positive breast cancer. The most frequently observed mutants occur in the kinase and helical domains.
     explanation: Establishes hotspot helical and kinase domain PIK3CA mutations as the recurrent activating lesions in HR+ breast cancer.
+  - reference: PMID:15647370
+    reference_title: &#34;Phosphatidylinositol 3-kinase mutations identified in human cancer are oncogenic.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;Expressed in chicken embryo fibroblasts, all three mutants induce oncogenic transformation with high efficiency. This transforming ability is correlated with elevated catalytic activity in in vitro kinase assays.&#34;
+    explanation: &gt;-
+      Grounds the gene and molecular-function bindings on this node. The three
+      hotspot mutants the description names (E542K, E545K, H1047R) raise the
+      catalytic activity of the PIK3CA-encoded enzyme itself in kinase assays,
+      which is the gain-of-function claim, as distinct from the downstream
+      pathway readouts cited on the nodes below.
+  genes:
+  - preferred_term: PIK3CA
+    description: &gt;-
+      The mutated gene this node is named for; the hotspot substitutions lie in
+      the helical and kinase domains of the p110α catalytic subunit it encodes.
+    term:
+      id: hgnc:8975
+      label: PIK3CA
+  molecular_functions:
+  - preferred_term: constitutive p110α phosphatidylinositol-4,5-bisphosphate 3-kinase activity
+    modifier: GAIN_OF_FUNCTION
+    description: &gt;-
+      The E542K, E545K and H1047R mutants show elevated catalytic activity in
+      kinase assays and drive constitutive phosphorylation of AKT, p70 S6
+      kinase and 4E-BP1 without upstream receptor input, so the activity leaves
+      regulatory control rather than merely running higher, which is why the
+      qualitative modifier is used instead of INCREASED.
+    term:
+      id: GO:0046934
+      label: 1-phosphatidylinositol-4,5-bisphosphate 3-kinase activity
   cell_types:
   - preferred_term: luminal epithelial cell of mammary gland
     term:
@@ -5823,6 +6277,14 @@ pathophysiology:
     term:
       id: GO:0030520
       label: estrogen receptor signaling pathway
+  notes: &gt;-
+    Endocrine resistance in this entry arises from PIK3CA-driven PI3K-ER
+    crosstalk, so the estrogen receptor is the pathway the mutant kinase acts on
+    rather than the altered gene, and no receptor gene is bound on this node.
+    That is the opposite arrangement from the ESR1 Mutation-Driven Endocrine
+    Resistance node in ER_Positive_Breast_Cancer, where ligand-binding-domain
+    mutations in ESR1 itself produce ligand-independent receptor activity and
+    drive the resistance.
 histopathology:
 - name: Invasive Ductal Carcinoma
   finding_term:
@@ -6019,6 +6481,23 @@ disease_term:
   term:
     id: MONDO:0004989
     label: breast carcinoma
+mappings:
+  mondo_mappings:
+  - term:
+      id: MONDO:0004989
+      label: breast carcinoma
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      PIK3CA-mutant breast cancer is a molecularly defined stratum of MONDO&#39;s breast carcinoma
+      class, not the class itself: MONDO has no term for the
+      PIK3CA hotspot mutation stratum, so `disease_term` anchors to the parent
+      term while this narrowMatch records that the entry is narrower than it.
+      Required by design decisions section 3a for a promoted L4 biomarker
+      stratum, which must never present bare parent-term reuse as an exact
+      match; the parent term itself is claimed as an exactMatch by
+      Breast_Carcinoma. Filing a MONDO NTR for this stratum is a tracked
+      follow-up.
 
 classifications:
   icdo_morphology:
@@ -6192,6 +6671,65 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Wire PIK3CA into its eponymous pathophysiology node</strong> · 2026-09-29T04:28:43Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/PIK3CA_Mutant_Breast_Cancer/2026-09-29T042843Z-claude-code-4ca06e.yaml">View source</a></p>
+                        <p class="research-review-text">Issue #13130 reports this entry wiring none of its causal genes into the
+pathograph (0/1). The gene was PIK3CA, and the node it belongs on was the
+entry&#39;s own first node, PIK3CA Oncogenic Mutations, which already carried a
+somatic genetic_context and the luminal cell type but named no gene.
+
+The node now carries a genes: descriptor bound to hgnc:8975 (PIK3CA), read
+from cache/hgnc/terms.csv, and a molecular_functions: descriptor bound to
+GO:0046934 1-phosphatidylinositol-4,5-bisphosphate 3-kinase activity, the
+p110-alpha catalytic activity that produces PIP3. GO:0016303
+1-phosphatidylinositol-3-kinase activity was considered and rejected: it is
+a sibling under GO:0052742 with a different substrate (PI to PI3P), not the
+PI(4,5)P2 to PIP3 reaction p110-alpha catalyses. The modifier is GAIN_OF_FUNCTION rather than INCREASED
+because the node&#39;s own claim is constitutive activity independent of upstream
+receptor tyrosine kinase input, which is the qualitative case the CLAUDE.md
+decision tree reserves the unbound modifier for. The genetic_context gained
+functional_impact_category: GAIN_OF_FUNCTION and allele_type: missense
+alongside its existing variant_origin, so the block carries its own allele
+detail rather than existing only to hold the category; the node gained
+biological_scale: MOLECULAR. The molecular-function description is limited
+to what PMID:15647370 reports (elevated catalytic activity and constitutive
+AKT, S6K and 4E-BP1 phosphorylation) rather than the p85-release and
+membrane-affinity structural mechanisms, which are stated in the genetic:
+record&#39;s notes but cited nowhere in the entry.
+
+The molecular-function claim needed its own source: the existing evidence on
+the node is a clinical-trial abstract about mutation frequency. PMID:15647370
+(Kang, Bader and Vogt 2005) was fetched and cached; its abstract reports that
+the three hotspot mutants raise catalytic activity in in vitro kinase assays,
+graded IN_VITRO, and that sentence is quoted as the evidence for the binding.
+
+The gene-activity-grounding ratchet requires a newly wired gene to land on a
+node naming a molecular function, which is why the term was bound alongside
+the gene rather than afterwards. After the change the entry reports 1/1 causal
+genes wired. PR #13128 adds notes to this entry&#39;s Endocrine Resistance node;
+this change touches a different node so the two do not overlap.
+
+Checks: just validate passed; count-verified-snippets 46/46 across both
+files in the PR; validate-terms passed; list-gene-term-mismatches examined
+two bindings, both naming the gene they bind; check-entity-refs,
+check-causal-targets, check-duplicate-keys, check-enum-values,
+check-qualifier-terms and the whole-KB snippet, title, grading, hyphen and
+coarse-phenotype gates all passed with no new findings;
+check-gene-activity-grounding against origin/main reported no new finding;
+check-cancer-origin still derives the luminal epithelial cell of mammary
+gland as the cell of origin. No deep-research provider was run: this is a
+gene-wiring edit on an existing entry, and the one new reference was found by
+a direct PubMed lookup.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -6435,7 +6973,7 @@ PIK3CA‑mutant breast cancer is driven by mutation‑specific activation of PI3
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PIK3CA-Mutant Breast Cancer", "mondoId": "MONDO:0004989", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PIK3CA-Mutant_Breast_Cancer", "yamlRevision": "5579c44938fd"};
+        const OS_CONFIG = {"diseaseName": "PIK3CA-Mutant Breast Cancer", "mondoId": "MONDO:0004989", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PIK3CA-Mutant_Breast_Cancer", "yamlRevision": "d86945711bea"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

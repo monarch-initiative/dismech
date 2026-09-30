@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4458,6 +4551,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-driver-alterations-in-thyroid-follicular-cells" data-dismech-node="Driver Alterations in Thyroid Follicular Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Driver Alterations in Thyroid Follicular Cells</div>
 
+
                 <div class="item-desc">Early oncogenic alterations in papillary thyroid carcinoma commonly include BRAF V600E, RET/PTC rearrangements, and RAS-family mutations. These driver events arise in thyroid follicular cells and establish the genotype-phenotype patterns that distinguish conventional papillary tumors from more follicular-patterned neoplasms.</div>
 
 
@@ -4495,6 +4589,31 @@ This pathophysiological event involves thyroid follicular cell (CL:0002258). CL:
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -4564,6 +4683,8 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4585,6 +4706,8 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4609,6 +4732,7 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-pathway-hyperactivation" data-dismech-node="MAPK Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK Pathway Hyperactivation</div>
+
 
                 <div class="item-desc">Driver alterations converge on chronic MAPK signaling, which promotes thyroid follicular cell proliferation and malignant transformation. BRAF-like tumors especially depend on this pathway and often show loss of thyroid differentiation programs relevant to iodine handling.</div>
 
@@ -4699,6 +4823,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4720,6 +4846,8 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4744,6 +4872,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aggressive-progression-and-reduced-differentiation" data-dismech-node="Aggressive Progression and Reduced Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aggressive Progression and Reduced Differentiation</div>
+
 
                 <div class="item-desc">A subset of papillary thyroid carcinomas acquires additional alterations such as TERT promoter mutation, TP53 disruption, and aberrant PI3K-PTEN-AKT signaling. These changes are associated with progression toward more aggressive, less-differentiated, and radioiodine-refractory disease.</div>
 
@@ -4853,6 +4982,8 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4913,6 +5044,8 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4961,6 +5094,8 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5007,6 +5142,8 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5049,7 +5186,7 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Progression and Reduced Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of papillary thyroid carcinomas acquires additional alterations such as TERT promoter mutation, TP53 disruption, and aberrant PI3K-PTEN-AKT signaling. These changes are associated with progression toward more aggressive, less-differentiated, and radioiodine-refractory disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase/protein kinase B signal transduction\", \"cell differentiation\"]}}, {\"id\": \"Driver Alterations in Thyroid Follicular Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early oncogenic alterations in papillary thyroid carcinoma commonly include BRAF V600E, RET/PTC rearrangements, and RAS-family mutations. These driver events arise in thyroid follicular cells and establish the genotype-phenotype patterns that distinguish conventional papillary tumors from more follicular-patterned neoplasms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Ionizing Radiation Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MAPK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Driver alterations converge on chronic MAPK signaling, which promotes thyroid follicular cell proliferation and malignant transformation. BRAF-like tumors especially depend on this pathway and often show loss of thyroid differentiation programs relevant to iodine handling.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\"]}}], \"edges\": [{\"source\": \"Driver Alterations in Thyroid Follicular Cells\", \"target\": \"MAPK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Driver mutations and fusions converge on persistent mitogenic signaling\"}, {\"source\": \"MAPK Pathway Hyperactivation\", \"target\": \"Aggressive Progression and Reduced Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional oncogenic hits superimposed on driver signaling promote dedifferentiation and treatment resistance\"}, {\"source\": \"Ionizing Radiation Exposure\", \"target\": \"Driver Alterations in Thyroid Follicular Cells\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Radiation reaching the thyroid causes double-strand breaks whose mis-joining produces the rearrangement-type drivers characteristic of radiation-associated disease, so the exposure reaches this node through a known repair-error step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aggressive Progression and Reduced Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of papillary thyroid carcinomas acquires additional alterations such as TERT promoter mutation, TP53 disruption, and aberrant PI3K-PTEN-AKT signaling. These changes are associated with progression toward more aggressive, less-differentiated, and radioiodine-refractory disease.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"phosphatidylinositol 3-kinase/protein kinase B signal transduction\", \"cell differentiation\"]}}, {\"id\": \"Driver Alterations in Thyroid Follicular Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Early oncogenic alterations in papillary thyroid carcinoma commonly include BRAF V600E, RET/PTC rearrangements, and RAS-family mutations. These driver events arise in thyroid follicular cells and establish the genotype-phenotype patterns that distinguish conventional papillary tumors from more follicular-patterned neoplasms.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"thyroid follicular cell\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}, \"locations\": [\"thyroid gland\"]}}, {\"id\": \"Ionizing Radiation Exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1}}, {\"id\": \"MAPK Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Driver alterations converge on chronic MAPK signaling, which promotes thyroid follicular cell proliferation and malignant transformation. BRAF-like tumors especially depend on this pathway and often show loss of thyroid differentiation programs relevant to iodine handling.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"MAPK cascade\"]}}], \"edges\": [{\"source\": \"Driver Alterations in Thyroid Follicular Cells\", \"target\": \"MAPK Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Driver mutations and fusions converge on persistent mitogenic signaling\"}, {\"source\": \"MAPK Pathway Hyperactivation\", \"target\": \"Aggressive Progression and Reduced Differentiation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Additional oncogenic hits superimposed on driver signaling promote dedifferentiation and treatment resistance\"}, {\"source\": \"Ionizing Radiation Exposure\", \"target\": \"Driver Alterations in Thyroid Follicular Cells\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Radiation reaching the thyroid causes double-strand breaks whose mis-joining produces the rearrangement-type drivers characteristic of radiation-associated disease, so the exposure reaches this node through a known repair-error step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5070,7 +5207,7 @@ This pathophysiological event involves decreased cell differentiation (GO:003015
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5111,6 +5248,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5125,6 +5265,8 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5155,7 +5297,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Endocrine
                     <span class="cat-count">1</span>
                 </summary>
 
@@ -5187,6 +5329,9 @@ This clinical feature is Thyroid nodule (HP:0025388). HP:0025388 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5201,6 +5346,8 @@ This clinical feature is Thyroid nodule (HP:0025388). HP:0025388 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5298,6 +5445,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5312,6 +5462,8 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5337,6 +5489,8 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5350,14 +5504,16 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41419184" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41419184" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41419184" target="_blank">PMID:41419184</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5414,6 +5570,9 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5428,6 +5587,8 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5462,6 +5623,9 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5476,6 +5640,8 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5499,6 +5665,8 @@ This disease-associated gene is RET (hgnc:9967). hgnc:9967 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5555,6 +5723,9 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5569,6 +5740,8 @@ This disease-associated gene is TERT (hgnc:11730). hgnc:11730 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5650,6 +5823,20 @@ This treatment is Thyroidectomy (NCIT:C51648). NCIT:C51648 is a clinical interve
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical resection is the mainstay of treatment for localized papillary thyroid carcinoma.</div>
 
 
@@ -5695,6 +5882,20 @@ This treatment is Radioactive Iodine Therapy (NCIT:C157968). NCIT:C157968 is a c
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -5751,7 +5952,21 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
-                <div class="item-desc">Advanced papillary thyroid carcinoma with actionable driver alterations may be treated with genotype-matched targeted therapy, including RET inhibitors for RET fusion-positive disease and BRAF-directed regimens in BRAF V600E- driven refractory tumors.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Advanced papillary thyroid carcinoma with actionable driver alterations may be treated with genotype-matched targeted therapy, including RET inhibitors for RET fusion-positive disease and BRAF-directed regimens in BRAF V600E-driven refractory tumors.</div>
 
 
 
@@ -5841,6 +6056,20 @@ This treatment uses sorafenib (CHEBI:50924). CHEBI:50924 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multi-kinase inhibitors are standard systemic options for progressive radioiodine-refractory differentiated thyroid cancer when surgery and radioiodine are no longer sufficient.</div>
 
 
@@ -5914,6 +6143,31 @@ This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cabozantinib is a multi-kinase inhibitor (VEGFR2, MET, AXL, RET) used in the second-line setting for radioiodine-refractory differentiated thyroid cancer that has progressed during or after lenvatinib or sorafenib. This VEGFR-TKI-refractory population previously had no standard of care; the randomised placebo-controlled COSMIC-311 trial met its progression-free survival endpoint at interim analysis, at the cost of substantially more grade 3-4 toxicity (palmar-plantar erythrodysaesthesia, hypertension, fatigue).</div>
 
 
@@ -5935,6 +6189,8 @@ This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5960,6 +6216,8 @@ This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic age
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5981,6 +6239,8 @@ This treatment uses cabozantinib (CHEBI:72317). CHEBI:72317 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6069,6 +6329,8 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6117,6 +6379,8 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6181,6 +6445,8 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6202,6 +6468,8 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6250,6 +6518,8 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6271,6 +6541,121 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag">Common</span>
+
+                </div>
+
+                <div class="item-notes">Papillary thyroid carcinoma is the most common thyroid malignancy, constituting more than 70% of all thyroid cancers. Global incidence has been rising substantially over recent decades, driven in part by increased use of thyroid ultrasound and detection of small, clinically occult tumors. Incidence varies markedly by region, with higher rates in countries with widespread thyroid imaging programs (e.g., the United States, South Korea) and lower rates in lower-resource settings. Note: this entry shares MONDO:0005075 with the BRAF_Mutant_Thyroid_Cancer and RET_Fusion_Thyroid_Cancer molecular-subtype sibling entries; these subtypes collectively represent a large proportion of the overall PTC incidence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21221869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21221869" target="_blank">PMID:21221869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Papillary thyroid carcinomas are the most common thyroid cancers and constitute more than 70% of thyroid malignancies."</div>
+
+
+                <div class="evidence-explanation">Establishes PTC as the dominant thyroid cancer histotype comprising over 70% of all thyroid malignancies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26462967" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26462967" target="_blank">PMID:26462967</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"differentiated thyroid cancer is becoming increasingly prevalent"</div>
+
+
+                <div class="evidence-explanation">ATA 2015 guidelines acknowledge the rising incidence of differentiated thyroid cancer (predominantly PTC).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6434,6 +6819,8 @@ This environmental factor is exposure to ionizing radiation (ECTO:7000047). ECTO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6511,6 +6898,8 @@ has_subtypes:
     extension, and recurrence risk.
 pathophysiology:
 - name: Driver Alterations in Thyroid Follicular Cells
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     Early oncogenic alterations in papillary thyroid carcinoma commonly include
     BRAF V600E, RET/PTC rearrangements, and RAS-family mutations. These driver
@@ -6712,7 +7101,7 @@ biochemical:
     snippet: &#34;Immunohistochemical staining with TTF-1 and thyroglobulin is very useful in confirming the diagnosis of papillary thyroid carcinoma especially in metastatic sites.&#34;
     explanation: Supports the diagnostic utility of thyroglobulin immunostaining in papillary thyroid carcinoma at metastatic sites.
   - reference: PMID:26462967
-    reference_title: &#34;2015 American Thyroid Association Management Guidelines for Adult Patients with Thyroid Nodules and Differentiated Thyroid Cancer.&#34;
+    reference_title: &#34;2015 American Thyroid Association Management Guidelines for Adult Patients with Thyroid Nodules and Differentiated Thyroid Cancer: The American Thyroid Association Guidelines Task Force on Thyroid Nodules and Differentiated Thyroid Cancer.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;surveillance for recurrent disease using imaging and serum thyroglobulin&#34;
@@ -6759,7 +7148,7 @@ genetic:
     explanation: Supports the clinical association between BRAF V600E and adverse recurrence-related features.
   - reference: PMID:41419184
     reference_title: &#34;Prognostic Value of BRAF V600E Mutation in Papillary Thyroid Carcinoma: A Meta-Analysis of Nodal Involvement, Distant Metastases, Recurrence, and Mortality.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;However, its lack of impact on distant metastases and disease-specific mortality limits its role as an independent prognostic marker in clinical decision-making.&#34;
     explanation: The same meta-analysis found no significant association with distant metastases or disease-specific mortality, qualifying BRAF V600E as an incomplete independent prognostic marker.
@@ -6875,8 +7264,8 @@ treatments:
   description: &gt;-
     Advanced papillary thyroid carcinoma with actionable driver alterations may
     be treated with genotype-matched targeted therapy, including RET inhibitors
-    for RET fusion-positive disease and BRAF-directed regimens in BRAF V600E-
-    driven refractory tumors.
+    for RET fusion-positive disease and BRAF-directed regimens in BRAF V600E-driven
+    refractory tumors.
   treatment_term:
     preferred_term: targeted therapy
     term:
@@ -6999,7 +7388,7 @@ prevalence:
     snippet: &#34;Papillary thyroid carcinomas are the most common thyroid cancers and constitute more than 70% of thyroid malignancies.&#34;
     explanation: Establishes PTC as the dominant thyroid cancer histotype comprising over 70% of all thyroid malignancies.
   - reference: PMID:26462967
-    reference_title: &#34;2015 American Thyroid Association Management Guidelines for Adult Patients with Thyroid Nodules and Differentiated Thyroid Cancer.&#34;
+    reference_title: &#34;2015 American Thyroid Association Management Guidelines for Adult Patients with Thyroid Nodules and Differentiated Thyroid Cancer: The American Thyroid Association Guidelines Task Force on Thyroid Nodules and Differentiated Thyroid Cancer.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;differentiated thyroid cancer is becoming increasingly prevalent&#34;
@@ -7076,6 +7465,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7481,7 +7872,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Papillary Thyroid Carcinoma", "mondoId": "MONDO:0005075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Papillary_Thyroid_Carcinoma", "yamlRevision": "78600d8cf072"};
+        const OS_CONFIG = {"diseaseName": "Papillary Thyroid Carcinoma", "mondoId": "MONDO:0005075", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Papillary_Thyroid_Carcinoma", "yamlRevision": "f406ac34d432"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

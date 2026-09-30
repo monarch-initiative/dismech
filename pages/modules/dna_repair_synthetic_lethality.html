@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,9 +1626,18 @@
         <header class="page-header">
             <h1>DNA Repair Synthetic Lethality Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern."
+                      style="background: hsl(153, 68%, 96%); border-color: hsl(153, 52%, 78%); color: hsl(153, 62%, 26%);">Pharmacology</span>
+                
+                <span class="badge badge-study-area"
+                      title="Tumor biology and cancer therapeutics — the hallmark-of-cancer capability modules, tumor-microenvironment mechanisms, and cancer-specific therapeutic vulnerabilities and resistance patterns."
+                      style="background: hsl(290, 68%, 96%); border-color: hsl(290, 52%, 78%); color: hsl(290, 62%, 26%);">Oncology</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">dna_repair_synthetic_lethality</span>
-                <span class="badge badge-count">4 disorders</span>
+                <span class="badge badge-count">3 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1829,29 +1898,16 @@ This mechanism module involves increased double-strand break repair via homologo
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">3</span>
             </div>
             
             <div class="crosslink-list">
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Ewing_Sarcoma.html">Ewing Sarcoma</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Replication Stress and Impaired Homologous Recombination → PARP and Platinum Synthetic Lethality
-                        
-                        
-                    </span>
-                    
-                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Fallopian_Tube_Cancer.html">Fallopian Tube Cancer</a>
@@ -1952,11 +2008,13 @@ This mechanism module involves increased double-strand break repair via homologo
             
             <div class="item-box anchor-target" id="module-pathophysiology-hrr-or-fa-brca-repair-deficiency" data-dismech-node="HRR or FA/BRCA Repair Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">HRR or FA/BRCA Repair Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Loss of BRCA1, BRCA2, PALB2, RAD51 paralogs, or other FA/BRCA pathway components impairs high-fidelity homologous recombination repair. This creates the initiating repair-deficient state that drives genomic instability and makes the tumor dependent on backup DNA repair processes.</div>
                 
@@ -2076,11 +2134,13 @@ This pathophysiological event involves decreased interstrand cross-link repair (
             
             <div class="item-box anchor-target" id="module-pathophysiology-replication-associated-dna-damage-accumulation" data-dismech-node="Replication-Associated DNA Damage Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication-Associated DNA Damage Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">PARP-dependent single-strand break repair, interstrand-crosslink repair, and RAD51-mediated homologous recombination converge at stressed replication forks. When HRR or FA/BRCA repair is deficient, single-strand breaks, interstrand crosslinks, and stalled forks generate persistent DNA damage and replication-fork collapse.</div>
                 
@@ -2193,11 +2253,13 @@ This pathophysiological event involves replication fork (GO:0005657). GO:0005657
             
             <div class="item-box anchor-target" id="module-pathophysiology-parp-and-platinum-synthetic-lethality" data-dismech-node="PARP and Platinum Synthetic Lethality" data-dismech-type="pathophysiology">
                 <div class="item-name">PARP and Platinum Synthetic Lethality</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In HRR-deficient tumor cells, PARP inhibition blocks single-strand break repair and can convert unresolved lesions into double-strand breaks that cannot be repaired faithfully. Platinum agents add crosslinking lesions that similarly stress HRR and FA/BRCA repair. The combined logic is synthetic lethality: a tumor-specific repair defect converts otherwise tolerable DNA damage into selective tumor-cell death.</div>
                 
@@ -2274,13 +2336,6 @@ This pathophysiological event involves decreased double-strand break repair via 
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Ewing_Sarcoma.html">Ewing Sarcoma</a>
-                            
-                            <span class="crosslink-desc">as Replication Stress and Impaired Homologous Recombination</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Ovarian_High-Grade_Serous_Carcinoma.html">Ovarian High-Grade Serous Carcinoma</a>
                             
                         </div>
@@ -2315,11 +2370,13 @@ This pathophysiological event involves decreased double-strand break repair via 
             
             <div class="item-box anchor-target" id="module-pathophysiology-error-prone-end-joining-and-polq-mediated-repair" data-dismech-node="Error-Prone End Joining and POLQ-Mediated Repair" data-dismech-type="pathophysiology">
                 <div class="item-name">Error-Prone End Joining and POLQ-Mediated Repair</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">When canonical HRR or FA/BRCA repair is impaired, tumor cells can rely on alternative end-joining and microhomology-mediated repair. POLQ-associated repair can generate frameshift deletion-mediated reversion events under PARP-inhibitor or platinum pressure, creating a route toward acquired resistance.</div>
                 
@@ -2397,11 +2454,13 @@ This pathophysiological event involves increased alternative end joining, annota
             
             <div class="item-box anchor-target" id="module-pathophysiology-restored-hrr-and-acquired-resistance" data-dismech-node="Restored HRR and Acquired Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Restored HRR and Acquired Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Resistant tumor subclones can acquire BRCA1, BRCA2, or PALB2 reversion mutations that restore open reading frames or otherwise restore HRR function. Once HRR is restored, PARP inhibitor or platinum sensitivity is reduced and the original synthetic-lethal relationship is weakened.</div>
                 
@@ -2464,6 +2523,9 @@ This pathophysiological event involves increased double-strand break repair via 
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

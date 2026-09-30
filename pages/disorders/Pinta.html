@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 2</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Pinta"
@@ -3815,7 +3908,8 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Pinta is a non-venereal treponematosis caused by Treponema carateum.
+                Pinta is a chronic, non-venereal treponematosis caused by Treponema carateum and transmitted by direct skin-to-skin contact in warm, humid rural areas of Latin America. Alone among the four human treponematoses it is confined to the skin: it produces no bone, cartilage, cardiovascular or neurological disease. Infection begins as an itchy, scaly papule or plaque at the inoculation site, disseminates within the skin as long-lived secondary lesions (&#34;pintids&#34;), and ends in the dyschromic and achromic patches that give the disease its name. A single intramuscular injection of penicillin cures every stage, but the late pigmentary change is largely irreversible, so the disability pinta leaves behind is cosmetic and social rather than systemic.
+Two features make pinta the outlier of its group. Its agent is the only one of the four not classified as a Treponema pallidum subspecies - not because it is known to be more distant, but because T. carateum has never been cultivated or sequenced, so the genomic comparison that settled the other three has never been possible. And because the treponemes are serologically indistinguishable, a pinta diagnosis rests on lesion morphology plus residence in a historically endemic area; the serology alone cannot separate it from syphilis.
             </p>
 
         </header>
@@ -3923,17 +4017,25 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
 
 
+            <a class="stat-link" href="#histopathology">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">✶</div>
+                <div class="stat-value">3</div>
+                <div class="stat-label">Histopath.</div>
+            </div>
+            </a>
+
 
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -3944,7 +4046,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3962,6 +4064,14 @@
 
 
 
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">4</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
 
 
 
@@ -3970,7 +4080,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4017,11 +4127,580 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">5</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-cutaneous-treponemal-inoculation" data-dismech-node="Cutaneous Treponemal Inoculation" data-dismech-type="pathophysiology">
+                <div class="item-name">Cutaneous Treponemal Inoculation</div>
+
+
+                <div class="item-desc">Direct contact with an infectious lesion introduces Treponema carateum into the skin, where it replicates locally and produces the primary scaly papule or plaque. The inoculation site is typically an exposed extremity.</div>
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        symbiont entry into host
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0044409" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0044409</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves symbiont entry into host (GO:0044409). GO:0044409 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        skin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-2">UBERON:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Intradermal Treponemal Dissemination</span>
+
+	                            <span class="crosslink-desc">Untreated primary infection spreads within the skin to produce secondary lesions.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skin plaque</span>
+
+	                            <span class="crosslink-desc">Local replication produces an expanding scaly plaque at the inoculation site.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yaws and pinta are found in warm, moist climates, mainly in forested tropical regions, and are transmitted by direct skin-to-skin contact."</div>
+
+
+                <div class="evidence-explanation">Establishes skin contact as the route by which the organism reaches the inoculation site.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-intradermal-treponemal-dissemination" data-dismech-node="Intradermal Treponemal Dissemination" data-dismech-type="pathophysiology">
+                <div class="item-name">Intradermal Treponemal Dissemination</div>
+
+
+                <div class="item-desc">The organism spreads within the skin to produce disseminated secondary lesions that remain viable and transmissible for years. Dissemination is confined to the dermis and epidermis: pinta produces none of the bone, cartilage, cardiovascular or neurological involvement seen in the other treponematoses, and this skin-limited tropism is the single feature that most distinguishes it from yaws, bejel and syphilis.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        skin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-3">UBERON:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Melanocyte Injury and Basal Melanin Loss</span>
+
+	                            <span class="crosslink-desc">Persistent intradermal infection drives the pigmentary lesion of pinta.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Skin rash</span>
+
+	                            <span class="crosslink-desc">Dissemination within the skin produces the generalized secondary eruption.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pinta is a noninvasive condition causing only local dermal lesions."</div>
+
+
+                <div class="evidence-explanation">Supports the skin-limited tropism this node asserts, in contrast with the moderately invasive course of yaws and bejel.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanocyte-injury-and-basal-melanin-loss" data-dismech-node="Melanocyte Injury and Basal Melanin Loss" data-dismech-type="pathophysiology">
+                <div class="item-name">Melanocyte Injury and Basal Melanin Loss</div>
+
+
+                <div class="item-desc">In early lesions the basal layer loses melanin and undergoes liquefaction degeneration, the cellular event that converts a treponemal skin infection into a pigmentary disease. This is what makes pinta unique among the treponematoses: the organism&#39;s lasting damage is to the pigmentary apparatus of the epidermis rather than to tissue architecture.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        melanocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000148</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        melanin biosynthetic process
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0042438" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0042438</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased melanin biosynthetic process (GO:0042438). GO:0042438 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypopigmentation of the skin</span>
+
+	                            <span class="crosslink-desc">Loss of basal-layer melanin produces the hypochromic and achromic lesions.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Dermal Melanophage Accumulation and Epidermal Atrophy</span>
+
+	                            <span class="crosslink-desc">Melanin released from injured basal cells is taken up by dermal macrophages.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration."</div>
+
+
+                <div class="evidence-explanation">The histological description of the early lesion, which is the direct evidence for melanocyte-level injury.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-melanophage-accumulation-and-epidermal-atrophy" data-dismech-node="Dermal Melanophage Accumulation and Epidermal Atrophy" data-dismech-type="pathophysiology">
+                <div class="item-name">Dermal Melanophage Accumulation and Epidermal Atrophy</div>
+
+
+                <div class="item-desc">Late lesions show epidermal atrophy and numerous melanin-laden macrophages in the dermis. Because the pigment has been relocated from the epidermis into dermal melanophages rather than merely lost, the dyschromia is structural, which is why depigmentation persists after the infection is cured and treatment restores infectivity status but not appearance.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        melanophage
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000235</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves melanophage, annotated with macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-location">
+                        skin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-7">UBERON:0002097</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Uberon multi-species anatomy ontology (UBERON)
+Relation: this pathophysiological event occurs in this anatomical location
+This pathophysiological event occurs in skin, annotated with skin of body (UBERON:0002097). UBERON:0002097 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Diffuse skin atrophy</span>
+
+	                            <span class="crosslink-desc">Late lesions thin the epidermis.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Hypopigmented skin patches</span>
+
+	                            <span class="crosslink-desc">Pigment relocation into the dermis leaves persistent achromic patches.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidermal atrophy and the presence of many melanophages in the dermis are typical findings of late-stage pinta"</div>
+
+
+                <div class="evidence-explanation">The histological definition of the late-stage lesion this node represents.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although early pinta lesions heal within several months after penicillin administration, this treatment cannot reverse the skin changes of late pinta that can stigmatize those who were infected."</div>
+
+
+                <div class="evidence-explanation">Supports this node&#39;s central claim that the late pigmentary lesion is structural rather than active infection: curing the organism does not undo it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-treponemal-peptidoglycan-cross-linking-beta-lactam-target" data-dismech-node="Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)</div>
+
 
                 <div class="item-desc">Treponema carateum maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This essential, bacteria-specific reaction is the target of the penicillin used to treat pinta: beta-lactam acylation of the PBP active site halts cross-linking and is treponemicidal, which is why a single penicillin injection cures all stages.</div>
 
@@ -4044,11 +4723,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0009273" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-1">GO:0009273</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0009273" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0009273</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis (GO:0009273). GO:0009273 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4093,6 +4772,8 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4118,6 +4799,159 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
 
         <!-- Histopathology -->
 
+        <div class="card" id="histopathology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffedd5; color: #c2410c;">✶</div>
+                <h2 class="card-title">Histopathology</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box histopathology-box anchor-target" id="histopathology-basal-cell-melanin-loss-with-liquefaction-degeneration">
+                <div class="item-name">
+                    Basal-cell melanin loss with liquefaction degeneration
+
+                </div>
+
+                <div class="item-desc">The early lesion shows loss of melanin from basal keratinocytes together with liquefaction degeneration of the basal layer.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration."</div>
+
+
+                <div class="evidence-explanation">The histological description of the early pinta lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box histopathology-box anchor-target" id="histopathology-epidermal-atrophy-with-dermal-melanophages">
+                <div class="item-name">
+                    Epidermal atrophy with dermal melanophages
+
+                </div>
+
+                <div class="item-desc">The late lesion shows a thinned epidermis and abundant melanin-laden macrophages in the dermis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidermal atrophy and the presence of many melanophages in the dermis are typical findings of late-stage pinta"</div>
+
+
+                <div class="evidence-explanation">The histological description of the late pinta lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box histopathology-box anchor-target" id="histopathology-absence-of-ulceration">
+                <div class="item-name">
+                    Absence of ulceration
+
+                </div>
+
+                <div class="item-desc">Unlike yaws, pinta lesions do not ulcerate. This is a negative finding that distinguishes the two on biopsy as well as clinically.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In pinta, there is no ulcer formation comparable to that in yaws"</div>
+
+
+                <div class="evidence-explanation">States the absence of ulceration that separates pinta from yaws histologically.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Causal Graph (Pathograph) -->
 
@@ -4138,7 +4972,7 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Penicillin injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Single-dose intramuscular penicillin treats all stages of pinta.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"benzylpenicillin\"]}}, {\"id\": \"Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Treponema carateum maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This essential, bacteria-specific reaction is the target of the penicillin used to treat pinta: beta-lactam acylation of the PBP active site halts cross-linking and is treponemicidal, which is why a single penicillin injection cures all stages.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Peptidoglycan-Based Cell Wall Biogenesis\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Penicillin injection\", \"target\": \"Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cutaneous Treponemal Inoculation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Direct contact with an infectious lesion introduces Treponema carateum into the skin, where it replicates locally and produces the primary scaly papule or plaque. The inoculation site is typically an exposed extremity.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"symbiont entry into host\"], \"locations\": [\"skin\"]}}, {\"id\": \"Dermal Melanophage Accumulation and Epidermal Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Late lesions show epidermal atrophy and numerous melanin-laden macrophages in the dermis. Because the pigment has been relocated from the epidermis into dermal melanophages rather than merely lost, the dyschromia is structural, which is why depigmentation persists after the infection is cured and treatment restores infectivity status but not appearance.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"melanophage\"], \"locations\": [\"skin\"]}}, {\"id\": \"Diffuse skin atrophy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Late lesions show epidermal atrophy accompanying the pigment loss.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0007488\"}}, {\"id\": \"Hypopigmentation of the skin\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Extensive depigmentation develops as lesions age.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Hypopigmented skin patches\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Late disease is defined by achromic patches that persist after cure and account for pinta\u0027s lasting disfigurement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001053\"}}, {\"id\": \"Intradermal Treponemal Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism spreads within the skin to produce disseminated secondary lesions that remain viable and transmissible for years. Dissemination is confined to the dermis and epidermis: pinta produces none of the bone, cartilage, cardiovascular or neurological involvement seen in the other treponematoses, and this skin-limited tropism is the single feature that most distinguishes it from yaws, bejel and syphilis.\", \"meta\": {\"evidence_count\": 1, \"locations\": [\"skin\"]}}, {\"id\": \"Melanocyte Injury and Basal Melanin Loss\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In early lesions the basal layer loses melanin and undergoes liquefaction degeneration, the cellular event that converts a treponemal skin infection into a pigmentary disease. This is what makes pinta unique among the treponematoses: the organism\u0027s lasting damage is to the pigmentary apparatus of the epidermis rather than to tissue architecture.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"melanin biosynthetic process\"]}}, {\"id\": \"Penicillin injection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A single intramuscular injection of long-acting benzathine penicillin cures every stage of pinta and renders the lesions non-infectious within a day. It does not restore the pigment lost in late disease, so treatment ends transmission and halts progression without undoing the disfigurement that is the disease\u0027s lasting burden.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"benzylpenicillin\"]}}, {\"id\": \"Skin plaque\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The primary lesion expands into a scaly plaque exceeding 10 cm without ulcerating, which distinguishes it from the primary lesion of yaws.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0200035\"}}, {\"id\": \"Skin rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Secondary disseminated lesions (pintids) form a generalized eruption that persists and remains infectious for years.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000988\"}}, {\"id\": \"Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Treponema carateum maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This essential, bacteria-specific reaction is the target of the penicillin used to treat pinta: beta-lactam acylation of the PBP active site halts cross-linking and is treponemicidal, which is why a single penicillin injection cures all stages.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Peptidoglycan-Based Cell Wall Biogenesis\"], \"role\": \"therapeutic_vulnerability\"}}], \"edges\": [{\"source\": \"Cutaneous Treponemal Inoculation\", \"target\": \"Intradermal Treponemal Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Untreated primary infection spreads within the skin to produce secondary lesions.\"}, {\"source\": \"Cutaneous Treponemal Inoculation\", \"target\": \"Skin plaque\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Local replication produces an expanding scaly plaque at the inoculation site.\"}, {\"source\": \"Intradermal Treponemal Dissemination\", \"target\": \"Melanocyte Injury and Basal Melanin Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent intradermal infection drives the pigmentary lesion of pinta.\"}, {\"source\": \"Intradermal Treponemal Dissemination\", \"target\": \"Skin rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dissemination within the skin produces the generalized secondary eruption.\"}, {\"source\": \"Melanocyte Injury and Basal Melanin Loss\", \"target\": \"Hypopigmentation of the skin\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of basal-layer melanin produces the hypochromic and achromic lesions.\"}, {\"source\": \"Melanocyte Injury and Basal Melanin Loss\", \"target\": \"Dermal Melanophage Accumulation and Epidermal Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Melanin released from injured basal cells is taken up by dermal macrophages.\"}, {\"source\": \"Dermal Melanophage Accumulation and Epidermal Atrophy\", \"target\": \"Diffuse skin atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Late lesions thin the epidermis.\"}, {\"source\": \"Dermal Melanophage Accumulation and Epidermal Atrophy\", \"target\": \"Hypopigmented skin patches\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Pigment relocation into the dermis leaves persistent achromic patches.\"}, {\"source\": \"Penicillin injection\", \"target\": \"Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4151,19 +4985,34 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">12</span>
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-skin-pigmentation" data-dismech-node="Abnormality of skin pigmentation" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Abnormality of skin pigmentation
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                    <span class="phenotype-freq">FREQUENT</span>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Immune<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(10)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Dermatologic</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenopathy" data-dismech-node="Lymphadenopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lymphadenopathy
+
+
 
 
 
@@ -4172,15 +5021,833 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-2">HP:0001000</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Regional lymphadenopathy, annotated with Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"expands to a diameter of 10 cm or greater. Regional lymphadenopathy is common."</div>
+
+
+                <div class="evidence-explanation">Reports regional lymphadenopathy in the primary stage. Bound to the general HP term because HP carries no regional-lymphadenopathy class, so the regional qualifier is held in preferred_term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin rash" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skin rash
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000988</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In pinta, lesions remain active and infectious for many years"</div>
+
+
+                <div class="evidence-explanation">Supports a persistent disseminated cutaneous eruption.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">10</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-papule" data-dismech-node="Papule" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Papule
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0200034</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Papule (HP:0200034). HP:0200034 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the pinta primary lesion is an itchy, scaly papule or plaque that expands to greater than 10 cm but does not ulcerate"</div>
+
+
+                <div class="evidence-explanation">Names the papular form of the primary lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-plaque" data-dismech-node="Skin plaque" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skin plaque
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0200035" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0200035</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skin plaque (HP:0200035). HP:0200035 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the pinta primary lesion is an itchy, scaly papule or plaque that expands to greater than 10 cm but does not ulcerate"</div>
+
+
+                <div class="evidence-explanation">Names the plaque form and its size, and records the absence of ulceration.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scaling-skin" data-dismech-node="Scaling skin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Scaling skin
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0040189</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scaling skin (HP:0040189). HP:0040189 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the pinta primary lesion is an itchy, scaly papule or plaque that expands to greater than 10 cm but does not ulcerate"</div>
+
+
+                <div class="evidence-explanation">Records the scaly character of the primary lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pruritus" data-dismech-node="Pruritus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pruritus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000989</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the pinta primary lesion is an itchy, scaly papule or plaque that expands to greater than 10 cm but does not ulcerate"</div>
+
+
+                <div class="evidence-explanation">Records pruritus as a feature of the primary lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopigmentation-of-the-skin" data-dismech-node="Hypopigmentation of the skin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypopigmentation of the skin
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001010</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopigmentation of the skin (HP:0001010). HP:0001010 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leading to extensive depigmentation and acral dyschromia"</div>
+
+
+                <div class="evidence-explanation">Directly reports extensive depigmentation in pinta.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperpigmentation-of-the-skin" data-dismech-node="Hyperpigmentation of the skin" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperpigmentation of the skin
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000953" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000953</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperpigmentation of the skin (HP:0000953). HP:0000953 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leading to extensive depigmentation and acral dyschromia"</div>
+
+
+                <div class="evidence-explanation">Supports mixed pigmentary change. The source says dyschromia rather than hyperpigmentation specifically, so this binding is the narrower reading of a broader term and should not be read as a separately reported finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypopigmented-skin-patches" data-dismech-node="Hypopigmented skin patches" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypopigmented skin patches
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001053" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001053</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypopigmented skin patches (HP:0001053). HP:0001053 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leading to extensive depigmentation and acral dyschromia"</div>
+
+
+                <div class="evidence-explanation">Supports patchy depigmentation as the late cutaneous outcome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diffuse-skin-atrophy" data-dismech-node="Diffuse skin atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Diffuse skin atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007488" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007488</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diffuse skin atrophy (HP:0007488). HP:0007488 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidermal atrophy and the presence of many melanophages in the dermis are typical findings of late-stage pinta"</div>
+
+
+                <div class="evidence-explanation">Reports epidermal atrophy as a typical late-stage finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperkeratosis" data-dismech-node="Hyperkeratosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperkeratosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000962" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000962</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperkeratosis (HP:0000962). HP:0000962 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The late (tertiary) stage usually develops 2–5 years after initial infection and is characterized by pigmentary abnormalities (i.e., from dyschromic treponeme-containing lesions to achromic treponeme-free lesions), skin atrophy, and hyperkeratosis."</div>
+
+
+                <div class="evidence-explanation">Names hyperkeratosis directly as a feature of the late stage.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-skin-pigmentation" data-dismech-node="Abnormality of skin pigmentation" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of skin pigmentation
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001000</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:0001000 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
+
+
+
 
 
 
@@ -4202,6 +5869,10 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Mal del pinto is a dermatological disease characterized by discoloured patches of skin on the face and body."</div>
@@ -4221,8 +5892,34 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
 
 
-            </div>
+                </div>
 
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -4253,7 +5950,7 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-3">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-3">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -4294,11 +5991,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_18208" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-4">CHEBI:18208</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_18208" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-22">CHEBI:18208</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -4307,7 +6004,32 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
 
-                <div class="item-desc">Single-dose intramuscular penicillin treats all stages of pinta.</div>
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">A single intramuscular injection of long-acting benzathine penicillin cures every stage of pinta and renders the lesions non-infectious within a day. It does not restore the pigment lost in late disease, so treatment ends transmission and halts progression without undoing the disfigurement that is the disease&#39;s lasting burden.</div>
 
 
                 <div class="item-meta" style="margin-top: 8px;">
@@ -4334,7 +6056,7 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4348,12 +6070,66 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
                 </div>
 
                 <div class="evidence-snippet">"All stages of pinta are treatable with a single intramuscular injection of penicillin."</div>
 
 
                 <div class="evidence-explanation">The abstract states that penicillin injection treats pinta.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which renders the lesions noninfectious in less than 24 hours"</div>
+
+
+                <div class="evidence-explanation">Quantifies how quickly treatment ends infectiousness.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although early pinta lesions heal within several months after penicillin administration, this treatment cannot reverse the skin changes of late pinta that can stigmatize those who were infected."</div>
+
+
+                <div class="evidence-explanation">Establishes the limit of cure - early lesions heal, late pigmentary change does not - which is why this entry treats the residual disfigurement as an outcome rather than as treatment failure.</div>
 
 
 
@@ -4375,7 +6151,1213 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-and-epidemiologic-diagnosis">
+                <div class="item-name">
+                    Clinical and epidemiologic diagnosis
+
+                </div>
+
+                <div class="item-desc">Diagnosis rests on compatible lesion morphology together with residence in, or origin from, a historically endemic area, plus exclusion of the dyspigmentation mimics. Serology confirms treponemal infection but cannot name which treponematosis it is.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"U.S. physicians should consider pinta in the differential diagnosis of skin diseases in children and adolescents who come from areas where pinta was previously endemic and have a positive reaction in serological tests for syphilis."</div>
+
+
+                <div class="evidence-explanation">Describes the actual diagnostic pathway - endemic-area origin plus reactive syphilis serology plus compatible skin disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-treponemal-and-nontreponemal-serology">
+                <div class="item-name">
+                    Treponemal and nontreponemal serology
+
+                </div>
+
+                <div class="item-desc">The same tests used for syphilis (RPR or VDRL, confirmed by TPHA, TPPA or FTA-Abs) are used for pinta. Their central limitation is that they are positive in every treponematosis, so a reactive result establishes treponemal infection but not which one.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"treponemal tests TPHA, TPPA, and FTA-Abs are more specific, but remain positive for life"</div>
+
+
+                <div class="evidence-explanation">Names the confirmatory treponemal tests used across the endemic treponematoses.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"serological tests cannot distinguish between endemic treponematoses infections and syphilis"</div>
+
+
+                <div class="evidence-explanation">States the limitation that makes serology non-diagnostic for pinta specifically and forces reliance on clinical and epidemiologic context.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="stage-primary-pinta">
+                <div class="item-name">Primary pinta</div>
+
+                <div class="item-desc">An itchy, scaly papule or plaque appears at the inoculation site, usually on an exposed extremity, and enlarges to more than 10 cm. Unlike the primary lesion of yaws it does not ulcerate.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the pinta primary lesion is an itchy, scaly papule or plaque that expands to greater than 10 cm but does not ulcerate"</div>
+
+
+                <div class="evidence-explanation">Defines the primary lesion and its distinguishing absence of ulceration.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The primary stage is characterized by the presence of one or several papules or erythematous scaly plaques that develop about 3 weeks after infection."</div>
+
+
+                <div class="evidence-explanation">Gives the incubation interval and the papular or plaque form of the primary lesion.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-secondary-pinta">
+                <div class="item-name">Secondary pinta</div>
+
+                <div class="item-desc">Disseminated skin lesions (pintids) appear months after the primary lesion and remain active and infectious for years, developing progressive pigmentary change. Dissemination stays within the skin.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In pinta, lesions remain active and infectious for many years"</div>
+
+
+                <div class="evidence-explanation">Supports the defining feature of the secondary stage - lesions that persist and stay transmissible rather than resolving as secondary yaws lesions do.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pinta is a noninvasive condition causing only local dermal lesions."</div>
+
+
+                <div class="evidence-explanation">Supports that dissemination remains confined to the skin, in contrast to the bone and cartilage involvement of secondary yaws and bejel.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The secondary stage usually appears several months after the initial manifestations of the primary stage."</div>
+
+
+                <div class="evidence-explanation">Gives the interval between the primary and secondary stages.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="stage-late-pinta">
+                <div class="item-name">Late pinta</div>
+
+                <div class="item-desc">Years after infection the lesions become dyschromic and then achromic, accompanied by cutaneous atrophy. The depigmentation persists after cure.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epidermal atrophy and the presence of many melanophages in the dermis are typical findings of late-stage pinta"</div>
+
+
+                <div class="evidence-explanation">Defines the histological signature of the late stage.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The late (tertiary) stage usually develops 2–5 years after initial infection and is characterized by pigmentary abnormalities"</div>
+
+
+                <div class="evidence-explanation">Gives the interval to late disease and names its defining pigmentary character.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"resulting in a mottled appearance of the skin, which can persist lifelong"</div>
+
+
+                <div class="evidence-explanation">Supports the lifelong persistence of the pigmentary change, which is the basis for treating pinta&#39;s disability as cosmetic and permanent rather than as active infection.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-rural-panama-1980s-survey">
+                <div class="item-name">Rural Panama, 1980s survey</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        20000.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">20% of the surveyed population with active or inactive disease. A local survey in a historically hyperendemic setting, not a national figure, and four decades old - it bounds how intense transmission once was rather than describing current burden.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A survey in Panama in the 1980s noted evidence of active or inactive pinta among 20% of the population"</div>
+
+
+                <div class="evidence-explanation">Reports the surveyed prevalence figure and that it counts both active and inactive disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"clinical evidence of pinta was discovered in 20% of the examined inhabitants of a remote village in Panama"</div>
+
+
+                <div class="evidence-explanation">Independently reports the same survey and locates it precisely to a single remote village, which is why this figure is recorded as a local rather than a national rate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-latin-america-current">
+                <div class="item-name">Latin America, current</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">No current figure exists. Pinta has no active surveillance programme, and unlike yaws it is not covered by a WHO eradication campaign that would generate case counts.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the current prevalence of pinta is unknown due to the lack of surveillance data"</div>
+
+
+                <div class="evidence-explanation">States directly that no current prevalence estimate is available.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-formerly-endemic-across-tropical-latin-america">
+                <div class="item-name">Formerly endemic across tropical Latin America</div>
+
+                <div class="item-desc">Pinta was endemic across Mexico, Central America and northern South America, and persisted longest in remote forested communities. It is now rare, with residual foci reported in remote regions of Mexico and among Amazonian communities in Brazil, Colombia and Peru.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">rural and remote residence</span>
+
+                    <span class="tag">warm humid tropical climate</span>
+
+                    <span class="tag">poverty and limited health-system access</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The World Health Organization lists 15 countries in Latin America where pinta was previously endemic."</div>
+
+
+                <div class="evidence-explanation">Establishes the historical geographic extent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.15585/mmwr.rr7301a1" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.15585/mmwr.rr7301a1" target="_blank">DOI:10.15585/mmwr.rr7301a1</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treponema carateum infection results in pinta which, although rare, is found in tropical areas of Latin America"</div>
+
+
+                <div class="evidence-explanation">Confirms current rarity and the continuing Latin American distribution.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-treponema-carateum">
+                <div class="item-name">Treponema carateum</div>
+
+                <div class="item-desc">A non-cultivable spirochete, morphologically and serologically identical to the three Treponema pallidum subspecies that cause syphilis, yaws and bejel. It is the only agent of the four still carried as a separate species, because the absence of isolates has prevented the whole-genome comparison used to assign the others to subspecies rank.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Treponema carateum
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_3712027" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-23">NCBITaxon:3712027</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24396138" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24396138" target="_blank">PMID:24396138</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"T. pallidum subsp. pertenue, T. pallidum subsp. endemicum, and T. carateum are the agents of the endemic treponematoses yaws, bejel (or endemic syphilis), and pinta, respectively."</div>
+
+
+                <div class="evidence-explanation">The abstract identifies T. carateum as the agent of pinta.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The etiological agent of pinta, Treponema carateum, cannot be distinguished morphologically or serologically from the not-yet-cultivable Treponema pallidum subspecies that cause venereal syphilis, yaws, and bejel."</div>
+
+
+                <div class="evidence-explanation">Supports both the identity of the agent and the morphologic and serologic indistinguishability that makes pinta a diagnosis of clinical and epidemiologic context rather than of laboratory confirmation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"is not currently classified as a T. pallidum subspecies since our molecular knowledge at this time is insufficient to warrant such a classification"</div>
+
+
+                <div class="evidence-explanation">States why T. carateum retains separate species rank. The claim is about absent evidence, not demonstrated distance, which is why this entry does not assert a subspecies relationship in either direction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-direct-skin-to-skin-contact">
+                <div class="item-name">Direct skin-to-skin contact</div>
+
+                <div class="item-desc">Non-venereal transmission by direct contact with an infectious skin lesion, favoured by the warm, humid conditions that keep lesions moist and infectious. There is no sexual, congenital or vector-borne route.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yaws and pinta are found in warm, moist climates, mainly in forested tropical regions, and are transmitted by direct skin-to-skin contact."</div>
+
+
+                <div class="evidence-explanation">Directly states the transmission route and the climatic setting that supports it.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26304920" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26304920" target="_blank">PMID:26304920</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the endemic treponematoses are transmitted by nonsexual, direct skin-to-skin contact with infectious lesions"</div>
+
+
+                <div class="evidence-explanation">States the route explicitly as non-sexual, which is the contrast with syphilis that this entry&#39;s transmission section turns on.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
+
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">4</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Pinta:
+            </p>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-tinea-versicolor">
+                <div class="item-name">
+
+                    Tinea versicolor
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    A common tropical dyspigmentation that mimics the dyschromic lesions of pinta.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Superficial scale demonstrating hyphae and spores on potassium hydroxide microscopy</li>
+
+                        <li>Non-reactive treponemal serology</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disorders associated with dyspigmentation, such as tinea versicolor, vitiligo, melasma, and leprosy, are often in the differential diagnosis of pinta"</div>
+
+
+                <div class="evidence-explanation">Names tinea versicolor as a differential for pinta.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-vitiligo">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Vitiligo.html">Vitiligo</a>
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Acquired depigmented macules that closely resemble the achromic patches of late pinta.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>No preceding papular or plaque stage</li>
+
+                        <li>No endemic exposure history</li>
+
+                        <li>Non-reactive treponemal serology</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disorders associated with dyspigmentation, such as tinea versicolor, vitiligo, melasma, and leprosy, are often in the differential diagnosis of pinta"</div>
+
+
+                <div class="evidence-explanation">Names vitiligo as a differential for pinta.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-melasma">
+                <div class="item-name">
+
+                    Melasma
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Acquired hyperpigmentation that overlaps with the dyschromic phase of pinta.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Symmetric facial distribution</li>
+
+                        <li>Association with pregnancy or sun exposure</li>
+
+                        <li>Non-reactive treponemal serology</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disorders associated with dyspigmentation, such as tinea versicolor, vitiligo, melasma, and leprosy, are often in the differential diagnosis of pinta"</div>
+
+
+                <div class="evidence-explanation">Names melasma as a differential for pinta.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-leprosy">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Leprosy.html">Leprosy</a>
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    Hypopigmented patches of tuberculoid leprosy are the most consequential mimic, since the two share endemic settings and both are treatable infections.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Sensory loss within the hypopigmented patch, which does not occur in pinta</li>
+
+                        <li>Peripheral nerve thickening</li>
+
+                        <li>Acid-fast bacilli on slit-skin smear</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0002283" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0002283" target="_blank">DOI:10.1371/journal.pntd.0002283</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Disorders associated with dyspigmentation, such as tinea versicolor, vitiligo, melasma, and leprosy, are often in the differential diagnosis of pinta"</div>
+
+
+                <div class="evidence-explanation">Names leprosy as a differential for pinta.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Datasets -->
@@ -4408,7 +7390,30 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 creation_date: &#39;2026-01-26T15:40:02Z&#39;
 category: Infectious Disease
 description: &gt;-
-  Pinta is a non-venereal treponematosis caused by Treponema carateum.
+  Pinta is a chronic, non-venereal treponematosis caused by Treponema carateum
+  and transmitted by direct skin-to-skin contact in warm, humid rural areas of
+  Latin America. Alone among the four human treponematoses it is confined to
+  the skin: it produces no bone, cartilage, cardiovascular or neurological
+  disease. Infection begins as an itchy, scaly papule or plaque at the
+  inoculation site, disseminates within the skin as long-lived secondary
+  lesions (&#34;pintids&#34;), and ends in the dyschromic and achromic patches that
+  give the disease its name. A single intramuscular injection of penicillin
+  cures every stage, but the late pigmentary change is largely irreversible,
+  so the disability pinta leaves behind is cosmetic and social rather than
+  systemic.
+
+  Two features make pinta the outlier of its group. Its agent is the only one
+  of the four not classified as a Treponema pallidum subspecies - not because
+  it is known to be more distant, but because T. carateum has never been
+  cultivated or sequenced, so the genomic comparison that settled the other
+  three has never been possible. And because the treponemes are serologically
+  indistinguishable, a pinta diagnosis rests on lesion morphology plus
+  residence in a historically endemic area; the serology alone cannot separate
+  it from syphilis.
+synonyms:
+- mal del pinto
+- carate
+- mal de pinta
 disease_term:
   term:
     id: MONDO:0000979
@@ -4419,14 +7424,432 @@ parents:
 - Neglected tropical disease
 infectious_agent:
 - name: Treponema carateum
-  description: Treponemal agent of pinta.
+  description: &gt;-
+    A non-cultivable spirochete, morphologically and serologically identical to
+    the three Treponema pallidum subspecies that cause syphilis, yaws and
+    bejel. It is the only agent of the four still carried as a separate
+    species, because the absence of isolates has prevented the whole-genome
+    comparison used to assign the others to subspecies rank.
+  infectious_agent_term:
+    preferred_term: Treponema carateum
+    term:
+      id: NCBITaxon:3712027
+      label: Treponema carateum
   evidence:
   - reference: PMID:24396138
     reference_title: &#34;The endemic treponematoses.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;T. pallidum subsp. pertenue, T. pallidum subsp. endemicum, and T. carateum are the agents of the endemic treponematoses yaws, bejel (or endemic syphilis), and pinta, respectively.&#34;
     explanation: The abstract identifies T. carateum as the agent of pinta.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The etiological agent of pinta, Treponema carateum, cannot be
+      distinguished morphologically or serologically from the not-yet-cultivable
+      Treponema pallidum subspecies that cause venereal syphilis, yaws, and
+      bejel.
+    explanation: &gt;-
+      Supports both the identity of the agent and the morphologic and
+      serologic indistinguishability that makes pinta a diagnosis of clinical
+      and epidemiologic context rather than of laboratory confirmation.
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      is not currently classified as a T. pallidum subspecies since our
+      molecular knowledge at this time is insufficient to warrant such a
+      classification
+    explanation: &gt;-
+      States why T. carateum retains separate species rank. The claim is about
+      absent evidence, not demonstrated distance, which is why this entry does
+      not assert a subspecies relationship in either direction.
+transmission:
+- name: Direct skin-to-skin contact
+  description: &gt;-
+    Non-venereal transmission by direct contact with an infectious skin lesion,
+    favoured by the warm, humid conditions that keep lesions moist and
+    infectious. There is no sexual, congenital or vector-borne route.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Yaws and pinta are found in warm, moist climates, mainly in forested
+      tropical regions, and are transmitted by direct skin-to-skin contact.
+    explanation: Directly states the transmission route and the climatic setting that supports it.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the endemic treponematoses are transmitted by nonsexual, direct
+      skin-to-skin contact with infectious lesions
+    explanation: &gt;-
+      States the route explicitly as non-sexual, which is the contrast with
+      syphilis that this entry&#39;s transmission section turns on.
+prevalence:
+- population: Rural Panama, 1980s survey
+  measure_type: POINT_PREVALENCE
+  prevalence_class: ABOVE_1_IN_1000
+  rate_per_100000: 20000.0
+  notes: &gt;-
+    20% of the surveyed population with active or inactive disease. A local
+    survey in a historically hyperendemic setting, not a national figure, and
+    four decades old - it bounds how intense transmission once was rather than
+    describing current burden.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      A survey in Panama in the 1980s noted evidence of active or inactive
+      pinta among 20% of the population
+    explanation: Reports the surveyed prevalence figure and that it counts both active and inactive disease.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      clinical evidence of pinta was discovered in 20% of the examined
+      inhabitants of a remote village in Panama
+    explanation: &gt;-
+      Independently reports the same survey and locates it precisely to a
+      single remote village, which is why this figure is recorded as a local
+      rather than a national rate.
+- population: Latin America, current
+  measure_type: POINT_PREVALENCE
+  prevalence_class: NOT_YET_DOCUMENTED
+  notes: &gt;-
+    No current figure exists. Pinta has no active surveillance programme, and
+    unlike yaws it is not covered by a WHO eradication campaign that would
+    generate case counts.
+  evidence:
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;the current prevalence of pinta is unknown due to the lack of surveillance data&#34;
+    explanation: States directly that no current prevalence estimate is available.
+epidemiology:
+- name: Formerly endemic across tropical Latin America
+  description: &gt;-
+    Pinta was endemic across Mexico, Central America and northern South
+    America, and persisted longest in remote forested communities. It is now
+    rare, with residual foci reported in remote regions of Mexico and among
+    Amazonian communities in Brazil, Colombia and Peru.
+  factors:
+  - rural and remote residence
+  - warm humid tropical climate
+  - poverty and limited health-system access
+  evidence:
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;The World Health Organization lists 15 countries in Latin America where pinta was previously endemic.&#34;
+    explanation: Establishes the historical geographic extent.
+  - reference: DOI:10.15585/mmwr.rr7301a1
+    reference_title: &#34;CDC Laboratory Recommendations for Syphilis Testing, United States, 2024&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Treponema carateum infection results in pinta which, although rare, is
+      found in tropical areas of Latin America
+    explanation: Confirms current rarity and the continuing Latin American distribution.
+stages:
+- name: Primary pinta
+  description: &gt;-
+    An itchy, scaly papule or plaque appears at the inoculation site, usually
+    on an exposed extremity, and enlarges to more than 10 cm. Unlike the
+    primary lesion of yaws it does not ulcerate.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the pinta primary lesion is an itchy, scaly papule or plaque that expands
+      to greater than 10 cm but does not ulcerate
+    explanation: Defines the primary lesion and its distinguishing absence of ulceration.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The primary stage is characterized by the presence of one or several
+      papules or erythematous scaly plaques that develop about 3 weeks after
+      infection.
+    explanation: Gives the incubation interval and the papular or plaque form of the primary lesion.
+- name: Secondary pinta
+  description: &gt;-
+    Disseminated skin lesions (pintids) appear months after the primary lesion
+    and remain active and infectious for years, developing progressive
+    pigmentary change. Dissemination stays within the skin.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In pinta, lesions remain active and infectious for many years
+    explanation: &gt;-
+      Supports the defining feature of the secondary stage - lesions that
+      persist and stay transmissible rather than resolving as secondary yaws
+      lesions do.
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;pinta is a noninvasive condition causing only local dermal lesions.&#34;
+    explanation: &gt;-
+      Supports that dissemination remains confined to the skin, in contrast to
+      the bone and cartilage involvement of secondary yaws and bejel.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The secondary stage usually appears several months after the initial
+      manifestations of the primary stage.
+    explanation: Gives the interval between the primary and secondary stages.
+- name: Late pinta
+  description: &gt;-
+    Years after infection the lesions become dyschromic and then achromic,
+    accompanied by cutaneous atrophy. The depigmentation persists after cure.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Epidermal atrophy and the presence of many melanophages in the dermis are
+      typical findings of late-stage pinta
+    explanation: Defines the histological signature of the late stage.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The late (tertiary) stage usually develops 2–5 years after initial
+      infection and is characterized by pigmentary abnormalities
+    explanation: Gives the interval to late disease and names its defining pigmentary character.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      resulting in a mottled appearance of the skin, which can persist
+      lifelong
+    explanation: &gt;-
+      Supports the lifelong persistence of the pigmentary change, which is the
+      basis for treating pinta&#39;s disability as cosmetic and permanent rather
+      than as active infection.
 pathophysiology:
+- name: Cutaneous Treponemal Inoculation
+  biological_scale: TISSUE
+  description: &gt;-
+    Direct contact with an infectious lesion introduces Treponema carateum into
+    the skin, where it replicates locally and produces the primary scaly papule
+    or plaque. The inoculation site is typically an exposed extremity.
+  biological_processes:
+  - preferred_term: symbiont entry into host
+    term:
+      id: GO:0044409
+      label: symbiont entry into host
+  locations:
+  - preferred_term: skin
+    term:
+      id: UBERON:0002097
+      label: skin of body
+  downstream:
+  - target: Intradermal Treponemal Dissemination
+    description: Untreated primary infection spreads within the skin to produce secondary lesions.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        In pinta, lesions remain active and infectious for many years
+      explanation: Supports progression from the primary lesion to persistent disseminated disease.
+  - target: Skin plaque
+    description: Local replication produces an expanding scaly plaque at the inoculation site.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        the pinta primary lesion is an itchy, scaly papule or plaque that expands
+        to greater than 10 cm but does not ulcerate
+      explanation: Links the inoculation mechanism to its primary cutaneous lesion.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Yaws and pinta are found in warm, moist climates, mainly in forested
+      tropical regions, and are transmitted by direct skin-to-skin contact.
+    explanation: Establishes skin contact as the route by which the organism reaches the inoculation site.
+- name: Intradermal Treponemal Dissemination
+  biological_scale: TISSUE
+  description: &gt;-
+    The organism spreads within the skin to produce disseminated secondary
+    lesions that remain viable and transmissible for years. Dissemination is
+    confined to the dermis and epidermis: pinta produces none of the bone,
+    cartilage, cardiovascular or neurological involvement seen in the other
+    treponematoses, and this skin-limited tropism is the single feature that
+    most distinguishes it from yaws, bejel and syphilis.
+  locations:
+  - preferred_term: skin
+    term:
+      id: UBERON:0002097
+      label: skin of body
+  downstream:
+  - target: Melanocyte Injury and Basal Melanin Loss
+    description: Persistent intradermal infection drives the pigmentary lesion of pinta.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration.&#34;
+      explanation: Identifies basal-cell melanin loss as the earliest pigmentary consequence of skin infection.
+  - target: Skin rash
+    description: Dissemination within the skin produces the generalized secondary eruption.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        In pinta, lesions remain active and infectious for many years
+      explanation: Links dissemination to the persistent secondary lesions.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;pinta is a noninvasive condition causing only local dermal lesions.&#34;
+    explanation: &gt;-
+      Supports the skin-limited tropism this node asserts, in contrast with the
+      moderately invasive course of yaws and bejel.
+- name: Melanocyte Injury and Basal Melanin Loss
+  biological_scale: CELLULAR
+  description: &gt;-
+    In early lesions the basal layer loses melanin and undergoes liquefaction
+    degeneration, the cellular event that converts a treponemal skin infection
+    into a pigmentary disease. This is what makes pinta unique among the
+    treponematoses: the organism&#39;s lasting damage is to the pigmentary
+    apparatus of the epidermis rather than to tissue architecture.
+  cell_types:
+  - preferred_term: melanocyte
+    term:
+      id: CL:0000148
+      label: melanocyte
+  biological_processes:
+  - preferred_term: melanin biosynthetic process
+    modifier: DECREASED
+    term:
+      id: GO:0042438
+      label: melanin biosynthetic process
+  downstream:
+  - target: Hypopigmentation of the skin
+    description: Loss of basal-layer melanin produces the hypochromic and achromic lesions.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration.&#34;
+      explanation: Directly links basal melanin loss to the depigmented phenotype.
+  - target: Dermal Melanophage Accumulation and Epidermal Atrophy
+    description: Melanin released from injured basal cells is taken up by dermal macrophages.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Epidermal atrophy and the presence of many melanophages in the dermis are
+        typical findings of late-stage pinta
+      explanation: Supports progression from early basal-layer injury to the late melanophage-rich lesion.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration.&#34;
+    explanation: &gt;-
+      The histological description of the early lesion, which is the direct
+      evidence for melanocyte-level injury.
+- name: Dermal Melanophage Accumulation and Epidermal Atrophy
+  biological_scale: TISSUE
+  description: &gt;-
+    Late lesions show epidermal atrophy and numerous melanin-laden macrophages
+    in the dermis. Because the pigment has been relocated from the epidermis
+    into dermal melanophages rather than merely lost, the dyschromia is
+    structural, which is why depigmentation persists after the infection is
+    cured and treatment restores infectivity status but not appearance.
+  cell_types:
+  - preferred_term: melanophage
+    term:
+      id: CL:0000235
+      label: macrophage
+  locations:
+  - preferred_term: skin
+    term:
+      id: UBERON:0002097
+      label: skin of body
+  downstream:
+  - target: Diffuse skin atrophy
+    description: Late lesions thin the epidermis.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Epidermal atrophy and the presence of many melanophages in the dermis are
+        typical findings of late-stage pinta
+      explanation: Directly links the late-stage lesion to cutaneous atrophy.
+  - target: Hypopigmented skin patches
+    description: Pigment relocation into the dermis leaves persistent achromic patches.
+    evidence:
+    - reference: DOI:10.1371/journal.pntd.0002283
+      reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;leading to extensive depigmentation and acral dyschromia&#34;
+      explanation: Supports the late achromic and dyschromic outcome of this node.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Epidermal atrophy and the presence of many melanophages in the dermis are
+      typical findings of late-stage pinta
+    explanation: The histological definition of the late-stage lesion this node represents.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Although early pinta lesions heal within several months after penicillin
+      administration, this treatment cannot reverse the skin changes of late
+      pinta that can stigmatize those who were infected.
+    explanation: &gt;-
+      Supports this node&#39;s central claim that the late pigmentary lesion is
+      structural rather than active infection: curing the organism does not
+      undo it.
 - name: Treponemal Peptidoglycan Cross-Linking (Beta-Lactam Target)
   description: &gt;-
     Treponema carateum maintains its peptidoglycan cell wall by penicillin-binding
@@ -4455,9 +7878,209 @@ pathophysiology:
       transpeptidation, the cross-linking step this node represents. Evidence
       source is OTHER as this is a review article.
 phenotypes:
+- name: Papule
+  category: Dermatologic
+  description: The primary lesion begins as a papule at the inoculation site.
+  phenotype_term:
+    preferred_term: Papule
+    term:
+      id: HP:0200034
+      label: Papule
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the pinta primary lesion is an itchy, scaly papule or plaque that expands
+      to greater than 10 cm but does not ulcerate
+    explanation: Names the papular form of the primary lesion.
+- name: Skin plaque
+  category: Dermatologic
+  description: &gt;-
+    The primary lesion expands into a scaly plaque exceeding 10 cm without
+    ulcerating, which distinguishes it from the primary lesion of yaws.
+  phenotype_term:
+    preferred_term: Skin plaque
+    term:
+      id: HP:0200035
+      label: Skin plaque
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the pinta primary lesion is an itchy, scaly papule or plaque that expands
+      to greater than 10 cm but does not ulcerate
+    explanation: Names the plaque form and its size, and records the absence of ulceration.
+- name: Scaling skin
+  category: Dermatologic
+  description: The primary and secondary lesions are scaly.
+  phenotype_term:
+    preferred_term: Scaling skin
+    term:
+      id: HP:0040189
+      label: Scaling skin
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the pinta primary lesion is an itchy, scaly papule or plaque that expands
+      to greater than 10 cm but does not ulcerate
+    explanation: Records the scaly character of the primary lesion.
+- name: Pruritus
+  category: Dermatologic
+  description: The primary lesion is itchy.
+  phenotype_term:
+    preferred_term: Pruritus
+    term:
+      id: HP:0000989
+      label: Pruritus
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      the pinta primary lesion is an itchy, scaly papule or plaque that expands
+      to greater than 10 cm but does not ulcerate
+    explanation: Records pruritus as a feature of the primary lesion.
+- name: Skin rash
+  category: Dermatologic
+  description: &gt;-
+    Secondary disseminated lesions (pintids) form a generalized eruption that
+    persists and remains infectious for years.
+  phenotype_term:
+    preferred_term: Skin rash
+    term:
+      id: HP:0000988
+      label: Skin rash
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      In pinta, lesions remain active and infectious for many years
+    explanation: Supports a persistent disseminated cutaneous eruption.
+- name: Hypopigmentation of the skin
+  category: Dermatologic
+  frequency: FREQUENT
+  description: Extensive depigmentation develops as lesions age.
+  phenotype_term:
+    preferred_term: Hypopigmentation of the skin
+    term:
+      id: HP:0001010
+      label: Hypopigmentation of the skin
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;leading to extensive depigmentation and acral dyschromia&#34;
+    explanation: Directly reports extensive depigmentation in pinta.
+- name: Hyperpigmentation of the skin
+  category: Dermatologic
+  description: &gt;-
+    Dyschromia in pinta is mixed - hyperpigmented and hypopigmented areas
+    coexist, and both are captured by the term dyschromia used in the source.
+  phenotype_term:
+    preferred_term: Hyperpigmentation of the skin
+    term:
+      id: HP:0000953
+      label: Hyperpigmentation of the skin
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;leading to extensive depigmentation and acral dyschromia&#34;
+    explanation: &gt;-
+      Supports mixed pigmentary change. The source says dyschromia rather than
+      hyperpigmentation specifically, so this binding is the narrower reading
+      of a broader term and should not be read as a separately reported finding.
+- name: Hypopigmented skin patches
+  category: Dermatologic
+  description: &gt;-
+    Late disease is defined by achromic patches that persist after cure and
+    account for pinta&#39;s lasting disfigurement.
+  phenotype_term:
+    preferred_term: Hypopigmented skin patches
+    term:
+      id: HP:0001053
+      label: Hypopigmented skin patches
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;leading to extensive depigmentation and acral dyschromia&#34;
+    explanation: Supports patchy depigmentation as the late cutaneous outcome.
+- name: Diffuse skin atrophy
+  category: Dermatologic
+  description: Late lesions show epidermal atrophy accompanying the pigment loss.
+  phenotype_term:
+    preferred_term: Diffuse skin atrophy
+    term:
+      id: HP:0007488
+      label: Diffuse skin atrophy
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Epidermal atrophy and the presence of many melanophages in the dermis are
+      typical findings of late-stage pinta
+    explanation: Reports epidermal atrophy as a typical late-stage finding.
+- name: Lymphadenopathy
+  category: Hematologic
+  description: Regional lymphadenopathy commonly accompanies the primary lesion.
+  phenotype_term:
+    preferred_term: Regional lymphadenopathy
+    term:
+      id: HP:0002716
+      label: Lymphadenopathy
+  evidence:
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      expands to a diameter of 10 cm or greater. Regional lymphadenopathy is
+      common.
+    explanation: &gt;-
+      Reports regional lymphadenopathy in the primary stage. Bound to the
+      general HP term because HP carries no regional-lymphadenopathy class, so
+      the regional qualifier is held in preferred_term.
+- name: Hyperkeratosis
+  category: Dermatologic
+  description: Late lesions may show hyperkeratosis alongside atrophy and pigment loss.
+  phenotype_term:
+    preferred_term: Hyperkeratosis
+    term:
+      id: HP:0000962
+      label: Hyperkeratosis
+  evidence:
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      The late (tertiary) stage usually develops 2–5 years after initial
+      infection and is characterized by pigmentary abnormalities (i.e., from
+      dyschromic treponeme-containing lesions to achromic treponeme-free
+      lesions), skin atrophy, and hyperkeratosis.
+    explanation: Names hyperkeratosis directly as a feature of the late stage.
 - name: Abnormality of skin pigmentation
   category: Dermatologic
   frequency: FREQUENT
+  description: &gt;-
+    The defining clinical feature of pinta, and the one that gives the disease
+    its Spanish and Portuguese names.
   phenotype_term:
     preferred_term: Abnormality of skin pigmentation
     term:
@@ -4467,11 +8090,167 @@ phenotypes:
   - reference: PMID:23332859
     reference_title: &#34;From badge of pride to cause of stigma: combatting mal del pinto in Mexico.&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;Mal del pinto is a dermatological disease characterized by discoloured patches of skin on the face and body.&#34;
     explanation: The abstract describes discoloured patches of skin in pinta.
+histopathology:
+- name: Basal-cell melanin loss with liquefaction degeneration
+  description: &gt;-
+    The early lesion shows loss of melanin from basal keratinocytes together
+    with liquefaction degeneration of the basal layer.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration.&#34;
+    explanation: The histological description of the early pinta lesion.
+- name: Epidermal atrophy with dermal melanophages
+  description: &gt;-
+    The late lesion shows a thinned epidermis and abundant melanin-laden
+    macrophages in the dermis.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Epidermal atrophy and the presence of many melanophages in the dermis are
+      typical findings of late-stage pinta
+    explanation: The histological description of the late pinta lesion.
+- name: Absence of ulceration
+  description: &gt;-
+    Unlike yaws, pinta lesions do not ulcerate. This is a negative finding that
+    distinguishes the two on biopsy as well as clinically.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;In pinta, there is no ulcer formation comparable to that in yaws&#34;
+    explanation: States the absence of ulceration that separates pinta from yaws histologically.
+diagnosis:
+- name: Clinical and epidemiologic diagnosis
+  description: &gt;-
+    Diagnosis rests on compatible lesion morphology together with residence in,
+    or origin from, a historically endemic area, plus exclusion of the
+    dyspigmentation mimics. Serology confirms treponemal infection but cannot
+    name which treponematosis it is.
+  evidence:
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      U.S. physicians should consider pinta in the differential diagnosis of
+      skin diseases in children and adolescents who come from areas where pinta
+      was previously endemic and have a positive reaction in serological tests
+      for syphilis.
+    explanation: &gt;-
+      Describes the actual diagnostic pathway - endemic-area origin plus
+      reactive syphilis serology plus compatible skin disease.
+- name: Treponemal and nontreponemal serology
+  description: &gt;-
+    The same tests used for syphilis (RPR or VDRL, confirmed by TPHA, TPPA or
+    FTA-Abs) are used for pinta. Their central limitation is that they are
+    positive in every treponematosis, so a reactive result establishes
+    treponemal infection but not which one.
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      treponemal tests TPHA, TPPA, and FTA-Abs are more specific, but remain
+      positive for life
+    explanation: Names the confirmatory treponemal tests used across the endemic treponematoses.
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      serological tests cannot distinguish between endemic treponematoses
+      infections and syphilis
+    explanation: &gt;-
+      States the limitation that makes serology non-diagnostic for pinta
+      specifically and forces reliance on clinical and epidemiologic context.
+differential_diagnoses:
+- name: Tinea versicolor
+  description: A common tropical dyspigmentation that mimics the dyschromic lesions of pinta.
+  distinguishing_features:
+  - Superficial scale demonstrating hyphae and spores on potassium hydroxide microscopy
+  - Non-reactive treponemal serology
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disorders associated with dyspigmentation, such as
+      tinea versicolor, vitiligo, melasma, and leprosy, are often in the
+      differential diagnosis of pinta
+    explanation: Names tinea versicolor as a differential for pinta.
+- name: Vitiligo
+  description: &gt;-
+    Acquired depigmented macules that closely resemble the achromic patches of
+    late pinta.
+  distinguishing_features:
+  - No preceding papular or plaque stage
+  - No endemic exposure history
+  - Non-reactive treponemal serology
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disorders associated with dyspigmentation, such as
+      tinea versicolor, vitiligo, melasma, and leprosy, are often in the
+      differential diagnosis of pinta
+    explanation: Names vitiligo as a differential for pinta.
+- name: Melasma
+  description: Acquired hyperpigmentation that overlaps with the dyschromic phase of pinta.
+  distinguishing_features:
+  - Symmetric facial distribution
+  - Association with pregnancy or sun exposure
+  - Non-reactive treponemal serology
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disorders associated with dyspigmentation, such as
+      tinea versicolor, vitiligo, melasma, and leprosy, are often in the
+      differential diagnosis of pinta
+    explanation: Names melasma as a differential for pinta.
+- name: Leprosy
+  description: &gt;-
+    Hypopigmented patches of tuberculoid leprosy are the most consequential
+    mimic, since the two share endemic settings and both are treatable
+    infections.
+  distinguishing_features:
+  - Sensory loss within the hypopigmented patch, which does not occur in pinta
+  - Peripheral nerve thickening
+  - Acid-fast bacilli on slit-skin smear
+  evidence:
+  - reference: DOI:10.1371/journal.pntd.0002283
+    reference_title: &#34;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Disorders associated with dyspigmentation, such as
+      tinea versicolor, vitiligo, melasma, and leprosy, are often in the
+      differential diagnosis of pinta
+    explanation: Names leprosy as a differential for pinta.
 treatments:
 - name: Penicillin injection
-  description: Single-dose intramuscular penicillin treats all stages of pinta.
+  description: &gt;-
+    A single intramuscular injection of long-acting benzathine penicillin
+    cures every stage of pinta and renders the lesions non-infectious within a
+    day. It does not restore the pigment lost in late disease, so treatment
+    ends transmission and halts progression without undoing the disfigurement
+    that is the disease&#39;s lasting burden.
   treatment_term:
     preferred_term: Pharmacotherapy
     term:
@@ -4492,37 +8271,82 @@ treatments:
   - reference: PMID:26304920
     reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
     supports: SUPPORT
+    evidence_source: OTHER
     snippet: &#34;All stages of pinta are treatable with a single intramuscular injection of penicillin.&#34;
     explanation: The abstract states that penicillin injection treats pinta.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;which renders the lesions noninfectious in less than 24 hours&#34;
+    explanation: Quantifies how quickly treatment ends infectiousness.
+  - reference: PMID:26304920
+    reference_title: &#34;Pinta: Latin America&#39;s Forgotten Disease?&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      Although early pinta lesions heal within several months after penicillin
+      administration, this treatment cannot reverse the skin changes of late
+      pinta that can stigmatize those who were infected.
+    explanation: &gt;-
+      Establishes the limit of cure - early lesions heal, late pigmentary
+      change does not - which is why this entry treats the residual
+      disfigurement as an outcome rather than as treatment failure.
+notes: &gt;-
+  Curation gaps and boundary notes.
+
+  Why the agent is bound at species rank. T. carateum is bound to
+  NCBITaxon:3712027 rather than to a T. pallidum subspecies node, matching the
+  literature&#39;s own position: the separate species rank is retained because the
+  organism has never been cultivated or sequenced, so the genomic comparison
+  that assigned pertenue and endemicum to subspecies rank has never been
+  performed on it. This entry therefore asserts neither that T. carateum is a
+  distinct species nor that it is a T. pallidum subspecies. Any future entry
+  should treat a change in that classification as new evidence rather than as
+  a correction.
+
+  No azithromycin treatment is recorded. Single-dose oral azithromycin
+  underpins the WHO yaws eradication strategy and is curated on the Yaws
+  entry, but the sources reviewed here document only penicillin for pinta.
+  Adding azithromycin by analogy with yaws would be an inference, not a
+  citation, so it is deliberately absent.
+
+  No clinical trials, datasets, animal models or computational models. Pinta
+  has no modern trial literature, no sequenced isolate, and no model system -
+  a direct consequence of the organism being non-cultivable and the disease
+  being close to disappearance. These sections are absent because the evidence
+  does not exist, not because they were not searched.
+
+  Frequency bands are mostly unset. Only the two pigmentary phenotypes carry
+  FREQUENT; the rest are left without a frequency because the available
+  literature describes the lesions qualitatively and reports no case-series
+  denominators for pinta.
+
+  Hyperpigmentation is a narrower reading of a broader source term. The
+  sources report &#34;dyschromia&#34;, which covers both directions of pigmentary
+  change. HP has no single term for mixed dyschromia at this granularity, so
+  both directions are recorded separately and the explanation on the
+  hyperpigmentation item records that it derives from the broader word.
 references:
-- reference: DOI:10.1111/ijd.15264
-  title: Mal de Pinta, first autochthonous case from South of Brazil
-  found_in:
-  - Pinta-deep-research-falcon.md
-  findings:
-  - statement: Mal de Pinta, first autochthonous case from South of Brazil
-    supporting_text: Mal de Pinta, first autochthonous case from South of Brazil
 - reference: DOI:10.1371/journal.pntd.0002283
   title: &#39;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#39;
   found_in:
   - Pinta-deep-research-falcon.md
   findings:
-  - statement: &#39;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#39;
-    supporting_text: &#39;Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta&#39;
+  - statement: &gt;-
+      Pinta is skin-limited, transmitted by direct skin contact, and produces
+      early basal-cell melanin loss followed by late epidermal atrophy with
+      dermal melanophages.
+    supporting_text: &#34;In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration.&#34;
 - reference: DOI:10.15585/mmwr.rr7301a1
   title: CDC Laboratory Recommendations for Syphilis Testing, United States, 2024
   found_in:
   - Pinta-deep-research-falcon.md
   findings:
-  - statement: CDC Laboratory Recommendations for Syphilis Testing, United States, 2024
-    supporting_text: CDC Laboratory Recommendations for Syphilis Testing, United States, 2024
-- reference: DOI:10.3389/fimmu.2023.1126170
-  title: &#39;Syphilis vaccine: challenges, controversies and opportunities&#39;
-  found_in:
-  - Pinta-deep-research-falcon.md
-  findings:
-  - statement: Syphilis is a sexually or vertically (mother to fetus) transmitted disease caused by the infection of Treponema pallidum subspecie pallidum (TPA).
-    supporting_text: Syphilis is a sexually or vertically (mother to fetus) transmitted disease caused by the infection of Treponema pallidum subspecie pallidum (TPA).
+  - statement: Pinta remains present but rare in tropical Latin America.
+    supporting_text: &gt;-
+      Treponema carateum infection results in pinta which, although rare, is
+      found in tropical areas of Latin America
 </pre>
             </div>
         </div>
@@ -4538,44 +8362,7 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">4</span>
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.1111/ijd.15264" target="_blank">DOI:10.1111/ijd.15264</a>
-                            </div>
-
-                            <div class="reference-title">Mal de Pinta, first autochthonous case from South of Brazil</div>
-
-                        </div>
-
-                        <span class="reference-summary">1 finding</span>
-
-                    </div>
-
-
-
-    <div class="reference-findings">
-
-        <div class="reference-finding">
-
-            <div class="reference-finding-statement">Mal de Pinta, first autochthonous case from South of Brazil</div>
-
-
-            <div class="reference-finding-supporting">"Mal de Pinta, first autochthonous case from South of Brazil"</div>
-
-
-
-
-        </div>
-
-    </div>
-
-
-
+                    <span class="card-count">2</span>
                 </div>
 
                 <div class="reference-entry">
@@ -4599,10 +8386,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta</div>
+            <div class="reference-finding-statement">Pinta is skin-limited, transmitted by direct skin contact, and produces early basal-cell melanin loss followed by late epidermal atrophy with dermal melanophages.</div>
 
 
-            <div class="reference-finding-supporting">"Advances in the Diagnosis of Endemic Treponematoses: Yaws, Bejel, and Pinta"</div>
+            <div class="reference-finding-supporting">"In the early lesion, there is loss of melanin in basal cells and liquefaction degeneration."</div>
 
 
 
@@ -4636,47 +8423,10 @@ references:
 
         <div class="reference-finding">
 
-            <div class="reference-finding-statement">CDC Laboratory Recommendations for Syphilis Testing, United States, 2024</div>
+            <div class="reference-finding-statement">Pinta remains present but rare in tropical Latin America.</div>
 
 
-            <div class="reference-finding-supporting">"CDC Laboratory Recommendations for Syphilis Testing, United States, 2024"</div>
-
-
-
-
-        </div>
-
-    </div>
-
-
-
-                </div>
-
-                <div class="reference-entry">
-                    <div class="reference-entry-header">
-                        <div>
-                            <div class="reference-curie">
-                                <a href="https://bioregistry.io/DOI:10.3389/fimmu.2023.1126170" target="_blank">DOI:10.3389/fimmu.2023.1126170</a>
-                            </div>
-
-                            <div class="reference-title">Syphilis vaccine: challenges, controversies and opportunities</div>
-
-                        </div>
-
-                        <span class="reference-summary">1 finding</span>
-
-                    </div>
-
-
-
-    <div class="reference-findings">
-
-        <div class="reference-finding">
-
-            <div class="reference-finding-statement">Syphilis is a sexually or vertically (mother to fetus) transmitted disease caused by the infection of Treponema pallidum subspecie pallidum (TPA).</div>
-
-
-            <div class="reference-finding-supporting">"Syphilis is a sexually or vertically (mother to fetus) transmitted disease caused by the infection of Treponema pallidum subspecie pallidum (TPA)."</div>
+            <div class="reference-finding-supporting">"Treponema carateum infection results in pinta which, although rare, is found in tropical areas of Latin America"</div>
 
 
 
@@ -4697,6 +8447,37 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Expand Pinta from stub to full entry; bind T. carateum to NCBITaxon</strong> · 2026-09-01T07:53:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pinta/2026-09-01T075309Z-claude-code-fd41f5.yaml">View source</a></p>
+                        <p class="research-review-text">Pinta was the thinnest entry in the treponematoses group at 119 lines: one pathophysiology node, one phenotype bound to the most generic pigmentation term available (HP:0001000), and a references block whose four findings all quoted the paper title as their own supporting text.
+
+Agent binding. Treponema carateum previously had no infectious_agent_term, alone among the four treponematoses. Bound to NCBITaxon:3712027, verified live against OLS rather than taken from the deep-research report. The entry deliberately asserts neither that T. carateum is a distinct species nor that it is a T. pallidum subspecies: the literature retains separate species rank only because the organism has never been cultivated or sequenced, so the genomic comparison that assigned pertenue and endemicum has never been run. That reasoning is recorded in notes so a future reclassification reads as new evidence rather than as a correction here.
+
+Content added. Transmission (direct skin-to-skin contact), two structured prevalence records (a 1980s Panamanian survey at 20%, and an explicit NOT_YET_DOCUMENTED record for current burden), epidemiology, the three clinical stages, three histopathology findings including the negative finding that pinta lesions do not ulcerate, two diagnosis entries centred on the fact that serology cannot separate the treponematoses, and four differential diagnoses drawn from the dyspigmentation mimics.
+
+Pathophysiology went from one node to five, chained: cutaneous inoculation to intradermal dissemination to melanocyte injury and basal melanin loss to dermal melanophage accumulation with epidermal atrophy, plus the pre-existing beta-lactam target node that conforms to bacterial_cell_wall_synthesis_inhibition. The pigmentary chain is what makes pinta mechanistically distinct from its siblings, and it was entirely absent before.
+
+Phenotypes went from one to twelve. Five of the CURIEs suggested by the Falcon deep-research report named different concepts entirely and were not used: HP:0000952 is Jaundice not hyperpigmentation, HP:0000953 is hyperpigmentation not abnormal skin pigmentation, HP:0000962 is Hyperkeratosis not skin atrophy, HP:0000958 is Dry skin not scaly skin, and HP:0032316 is Family history not plaque of skin. Correct terms were found by OLS search and every binding passes validate-terms. Note HP:0000962 does appear in the entry, but as Hyperkeratosis, the concept it actually names, not as the skin atrophy the report labelled it.
+
+Evidence. Two references were newly fetched (DOI:10.1371/journal.pntd.0002283 and DOI:10.15585/mmwr.rr7301a1), both returning full text. Running the reference validator also upgraded PMID:26304920 (Stamm) from abstract_only to green-OA full text, which turned out to matter: the full text supplies the stage intervals (about 3 weeks to the primary lesion, several months to the secondary stage, 2-5 years to late disease), regional lymphadenopathy, hyperkeratosis, the sub-24-hour loss of infectiousness after penicillin, and the explicit statement that treatment cannot reverse late skin changes. Several claims that had been written as prose without a citation are now cited from it, and two phenotypes were added.
+
+All 59 snippets were verified as exact substrings of their cached references under whitespace and dash normalisation. This had to be done manually: linkml-reference-validator skips the DOI: prefix, so 38 of them are reported as &#39;skipped by prefix&#39; and are not covered by the automated gate at all. Snippets were also checked to contain no bracketed citation markers, since the validator strips bracketed content from the query side but not from the cached text, and to avoid PDF hyphenated line breaks.
+
+Two entries dropped from references. DOI:10.1111/ijd.15264 (Rosa 2021) caches as content_type: unavailable so no snippet can be verified against it, and DOI:10.3389/fimmu.2023.1126170 is about syphilis, not pinta; its recorded finding quoted a sentence naming T. pallidum subsp. pallidum.
+
+Deliberate omissions recorded in notes: no azithromycin treatment (documented for yaws, not for pinta in the sources reviewed; adding it would be inference), and no clinical_trials, datasets, animal_models or computational_models, because a non-cultivable organism with no sequenced isolate has none.
+
+Validation run: linkml-validate, just validate-terms, just count-verified-snippets, just validate-references, check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -5094,7 +8875,7 @@ A core limitation is repeatedly emphasized: <strong>serology cannot distinguish 
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pinta", "mondoId": "MONDO:0000979", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pinta", "yamlRevision": "7c95a9d28ca0"};
+        const OS_CONFIG = {"diseaseName": "Pinta", "mondoId": "MONDO:0000979", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pinta", "yamlRevision": "5eb61d591f6b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

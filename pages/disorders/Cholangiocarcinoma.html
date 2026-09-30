@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4260,6 +4353,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-biliary-inflammation-and-cholestasis" data-dismech-node="Chronic Biliary Inflammation and Cholestasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Biliary Inflammation and Cholestasis</div>
 
+
                 <div class="item-desc">Chronic inflammation of the biliary epithelium from conditions such as primary sclerosing cholangitis, hepatolithiasis, or liver fluke infection leads to repeated cycles of injury and repair. Persistent cholestasis and bile acid exposure cause oxidative stress and DNA damage in cholangiocytes, promoting malignant transformation. In Western countries about 50% of cases are diagnosed without any identifiable risk factor.</div>
 
 
@@ -4446,6 +4540,8 @@ This pathophysiological event occurs in bile duct (UBERON:0002394). UBERON:00023
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"in Western countries about 50% of cases are still diagnosed without any identifiable risk factor"</div>
@@ -4467,12 +4563,14 @@ This pathophysiological event occurs in bile duct (UBERON:0002394). UBERON:00023
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
-                <div class="evidence-snippet">"Between 1993 and 2012, incidence rates of both ICC and ECC increased in most countries."</div>
+                <div class="evidence-snippet">"The chronic inflammation associated with these conditions modifies cancer risk by causing DNA damage, alterations in apoptosis, and cellular proliferation, which can lead to cell transformation and cholangiocarcinogenesis."</div>
 
 
-                <div class="evidence-explanation">Documents rising global CCA incidence, consistent with increasing exposure to risk factors including metabolic syndrome and chronic liver disease.</div>
+                <div class="evidence-explanation">States the mechanistic chain this node asserts: chronic inflammation causes DNA damage and altered proliferation, leading to cholangiocyte transformation and cholangiocarcinogenesis.</div>
 
 
 
@@ -4487,6 +4585,7 @@ This pathophysiological event occurs in bile duct (UBERON:0002394). UBERON:00023
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-oncogenic-mutations" data-dismech-node="Accumulation of Oncogenic Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Oncogenic Mutations</div>
+
 
                 <div class="item-desc">CCA harbors a diverse mutational landscape. Common alterations include IDH1/2 mutations (10-20% of iCCA), FGFR2 fusions/rearrangements (10-16% of iCCA), TP53 mutations, KRAS mutations, ARID1A mutations, BAP1 loss, and PBRM1 mutations. The mutational profile differs by anatomic and pathologic subtype, with IDH and FGFR alterations enriched in small duct iCCA and KRAS mutations more common in large duct and extrahepatic subtypes.</div>
 
@@ -4585,6 +4684,8 @@ This pathophysiological event involves increased regulation of cell population p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"We provide a highly representative cartography of the genomic landscape of iCCA and outline the co-mutational spectra of seven therapeutically relevant oncogenic driver genes: IDH1/2, FGFR2, ERBB2, BRAF, MDM2, BRCA1/2, MET and KRASG12C."</div>
@@ -4604,6 +4705,8 @@ This pathophysiological event involves increased regulation of cell population p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4627,6 +4730,8 @@ This pathophysiological event involves increased regulation of cell population p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Approximately 10-16% of iCCA cases harbor FGFR2 fusions or rearrangements, defining a distinct molecular subtype characterized by sensitivity to FGFR-targeted therapies."</div>
@@ -4647,6 +4752,7 @@ This pathophysiological event involves increased regulation of cell population p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epigenetic-dysregulation" data-dismech-node="Epigenetic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epigenetic Dysregulation</div>
+
 
                 <div class="item-desc">IDH1/2 mutations produce the oncometabolite 2-hydroxyglutarate (2-HG), which inhibits alpha-ketoglutarate-dependent dioxygenases including TET2 and histone demethylases. This leads to DNA and histone hypermethylation, blocking cholangiocyte differentiation and promoting a progenitor-like state. EZH2 overexpression further drives epigenetic silencing of tumor suppressors. vCAF-derived IL-6 induces epigenetic alterations in CCA cells, particularly upregulating EZH2.</div>
 
@@ -4756,6 +4862,8 @@ This pathophysiological event involves abnormal epigenetic regulation of gene ex
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"We observed a negative selection of RTK/RAS/ERK pathway co-alterations, and an enrichment of epigenetic modifiers such as ARID1A and BAP1 in patients with IDH1/2 and FGFR2 alterations."</div>
@@ -4775,6 +4883,8 @@ This pathophysiological event involves abnormal epigenetic regulation of gene ex
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4799,6 +4909,7 @@ This pathophysiological event involves abnormal epigenetic regulation of gene ex
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-desmoplastic-stromal-reaction" data-dismech-node="Desmoplastic Stromal Reaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Desmoplastic Stromal Reaction</div>
+
 
                 <div class="item-desc">CCA is characterized by a prominent desmoplastic stroma comprising cancer-associated fibroblasts (CAFs), extracellular matrix proteins, and inflammatory cells. Single-cell analysis identified six distinct fibroblast subsets, with vascular CAFs (vCAFs) dominant and expressing high levels of IL-6. Matricellular glycoproteins including periostin, osteopontin, and tenascin-C promote proliferation, invasion, EMT, and immune evasion. The dense stroma limits immune cell infiltration and drug delivery.</div>
 
@@ -4931,6 +5042,8 @@ This pathophysiological event involves increased extracellular matrix organizati
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Intrahepatic cholangiocarcinoma (iCCA) is typically characterized by a prominent desmoplastic stroma that is often the most dominant feature of the tumor."</div>
@@ -4952,6 +5065,8 @@ This pathophysiological event involves increased extracellular matrix organizati
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"the interplay between cholangiocarcinoma cells, CAFs, and TAMs in particular play a critical role in promoting cholangiocarcinoma progression, therapeutic resistance, and immune evasion"</div>
@@ -4971,6 +5086,8 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4995,6 +5112,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immunosuppressive-tumor-microenvironment" data-dismech-node="Immunosuppressive Tumor Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Immunosuppressive Tumor Microenvironment</div>
+
 
                 <div class="item-desc">The CCA microenvironment is enriched with tumor-associated macrophages, myeloid-derived suppressor cells, and regulatory T cells with highly immunosuppressive characteristics. PD-L1 expression is variable. The dense desmoplastic stroma acts as a physical barrier to T cell infiltration. Tumor-infiltrating B cells are scarce, immature, and immunosuppressive.</div>
 
@@ -5104,6 +5222,8 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5127,6 +5247,8 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"ICC displayed an inflamed immunophenotype with an enrichment of IFN-related pathways and high expression of LGALS1 in activated regulatory T cells"</div>
@@ -5147,6 +5269,7 @@ This pathophysiological event involves decreased immune response (GO:0006955). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cell-proliferation-and-survival" data-dismech-node="Enhanced Cell Proliferation and Survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Cell Proliferation and Survival</div>
+
 
                 <div class="item-desc">Multiple oncogenic pathways converge to drive CCA proliferation and survival. RAS-MAPK and PI3K-AKT-mTOR pathways are frequently activated by KRAS mutations, FGFR alterations, or growth factor receptor amplifications. MAPK pathway activation serves as a convergent resistance mechanism across targeted therapies.</div>
 
@@ -5222,6 +5345,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"MAPK pathway alterations represent a recurrent mechanism of resistance to mIDH1 inhibition in ICC"</div>
@@ -5241,6 +5366,8 @@ This pathophysiological event involves increased cell population proliferation (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5286,7 +5413,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Oncogenic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA harbors a diverse mutational landscape. Common alterations include IDH1/2 mutations (10-20% of iCCA), FGFR2 fusions/rearrangements (10-16% of iCCA), TP53 mutations, KRAS mutations, ARID1A mutations, BAP1 loss, and PBRM1 mutations. The mutational profile differs by anatomic and pathologic subtype, with IDH and FGFR alterations enriched in small duct iCCA and KRAS mutations more common in large duct and extrahepatic subtypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of cell population proliferation\"]}}, {\"id\": \"Chronic Biliary Inflammation and Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the biliary epithelium from conditions such as primary sclerosing cholangitis, hepatolithiasis, or liver fluke infection leads to repeated cycles of injury and repair. Persistent cholestasis and bile acid exposure cause oxidative stress and DNA damage in cholangiocytes, promoting malignant transformation. In Western countries about 50% of cases are diagnosed without any identifiable risk factor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholangiocyte\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"bile duct\"]}}, {\"id\": \"Desmoplastic Stromal Reaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA is characterized by a prominent desmoplastic stroma comprising cancer-associated fibroblasts (CAFs), extracellular matrix proteins, and inflammatory cells. Single-cell analysis identified six distinct fibroblast subsets, with vascular CAFs (vCAFs) dominant and expressing high levels of IL-6. Matricellular glycoproteins including periostin, osteopontin, and tenascin-C promote proliferation, invasion, EMT, and immune evasion. The dense stroma limits immune cell infiltration and drug delivery.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cancer-associated fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Enhanced Cell Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple oncogenic pathways converge to drive CCA proliferation and survival. RAS-MAPK and PI3K-AKT-mTOR pathways are frequently activated by KRAS mutations, FGFR alterations, or growth factor receptor amplifications. MAPK pathway activation serves as a convergent resistance mechanism across targeted therapies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Epigenetic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH1/2 mutations produce the oncometabolite 2-hydroxyglutarate (2-HG), which inhibits alpha-ketoglutarate-dependent dioxygenases including TET2 and histone demethylases. This leads to DNA and histone hypermethylation, blocking cholangiocyte differentiation and promoting a progenitor-like state. EZH2 overexpression further drives epigenetic silencing of tumor suppressors. vCAF-derived IL-6 induces epigenetic alterations in CCA cells, particularly upregulating EZH2.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Immunosuppressive Tumor Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CCA microenvironment is enriched with tumor-associated macrophages, myeloid-derived suppressor cells, and regulatory T cells with highly immunosuppressive characteristics. PD-L1 expression is variable. The dense desmoplastic stroma acts as a physical barrier to T cell infiltration. Tumor-infiltrating B cells are scarce, immature, and immunosuppressive.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"]}}, {\"id\": \"Liver Fluke Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Infection with Opisthorchis viverrini or Clonorchis sinensis, endemic in Southeast Asia, is a major risk factor for CCA, particularly in Thailand and Laos. Chronic fluke infection causes biliary inflammation and epithelial damage.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Desmoplastic Stromal Reaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation activates periductal fibroblasts and stellate cells\"}, {\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Accumulation of Oncogenic Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated injury-repair cycles promote somatic mutation accumulation\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IDH mutations produce oncometabolite 2-HG causing epigenetic changes\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS and FGFR alterations drive proliferative signaling\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Immunosuppressive Tumor Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense stroma and CAF-derived factors create immune-excluded phenotype\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CAF-secreted growth factors promote tumor cell proliferation\"}, {\"source\": \"Liver Fluke Infection\", \"target\": \"Chronic Biliary Inflammation and Cholestasis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"The best-evidenced link in this tranche, and the only one where the intervening step is quoted rather than assumed: the flukes cause chronic irritation and increased cellular turnover in the bile ducts, which is the inflammation this node holds. Deliberately down to one item. Two further sentences were fetched from the same review, a four to fivefold risk figure and the ingestion route, and both were moved to the exposure\u0027s own evidence where they characterise the exposure rather than this edge into the node. The sentence that was already on the exposure reports incidence rates by country and never mentions flukes at all, so it names neither the exposure nor any relation to this node and stays where it is.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accumulation of Oncogenic Mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA harbors a diverse mutational landscape. Common alterations include IDH1/2 mutations (10-20% of iCCA), FGFR2 fusions/rearrangements (10-16% of iCCA), TP53 mutations, KRAS mutations, ARID1A mutations, BAP1 loss, and PBRM1 mutations. The mutational profile differs by anatomic and pathologic subtype, with IDH and FGFR alterations enriched in small duct iCCA and KRAS mutations more common in large duct and extrahepatic subtypes.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"regulation of cell population proliferation\"]}}, {\"id\": \"Chronic Biliary Inflammation and Cholestasis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic inflammation of the biliary epithelium from conditions such as primary sclerosing cholangitis, hepatolithiasis, or liver fluke infection leads to repeated cycles of injury and repair. Persistent cholestasis and bile acid exposure cause oxidative stress and DNA damage in cholangiocytes, promoting malignant transformation. In Western countries about 50% of cases are diagnosed without any identifiable risk factor.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cholangiocyte\"], \"biological_processes\": [\"inflammatory response\", \"response to oxidative stress\"], \"locations\": [\"bile duct\"]}}, {\"id\": \"Desmoplastic Stromal Reaction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CCA is characterized by a prominent desmoplastic stroma comprising cancer-associated fibroblasts (CAFs), extracellular matrix proteins, and inflammatory cells. Single-cell analysis identified six distinct fibroblast subsets, with vascular CAFs (vCAFs) dominant and expressing high levels of IL-6. Matricellular glycoproteins including periostin, osteopontin, and tenascin-C promote proliferation, invasion, EMT, and immune evasion. The dense stroma limits immune cell infiltration and drug delivery.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cancer-associated fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Enhanced Cell Proliferation and Survival\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Multiple oncogenic pathways converge to drive CCA proliferation and survival. RAS-MAPK and PI3K-AKT-mTOR pathways are frequently activated by KRAS mutations, FGFR alterations, or growth factor receptor amplifications. MAPK pathway activation serves as a convergent resistance mechanism across targeted therapies.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"Epigenetic Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IDH1/2 mutations produce the oncometabolite 2-hydroxyglutarate (2-HG), which inhibits alpha-ketoglutarate-dependent dioxygenases including TET2 and histone demethylases. This leads to DNA and histone hypermethylation, blocking cholangiocyte differentiation and promoting a progenitor-like state. EZH2 overexpression further drives epigenetic silencing of tumor suppressors. vCAF-derived IL-6 induces epigenetic alterations in CCA cells, particularly upregulating EZH2.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"chromatin organization\", \"epigenetic regulation of gene expression\"]}}, {\"id\": \"Immunosuppressive Tumor Microenvironment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The CCA microenvironment is enriched with tumor-associated macrophages, myeloid-derived suppressor cells, and regulatory T cells with highly immunosuppressive characteristics. PD-L1 expression is variable. The dense desmoplastic stroma acts as a physical barrier to T cell infiltration. Tumor-infiltrating B cells are scarce, immature, and immunosuppressive.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"tumor-associated macrophage\"], \"biological_processes\": [\"immune response\"]}}, {\"id\": \"Liver Fluke Infection\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Infection with Opisthorchis viverrini or Clonorchis sinensis, endemic in Southeast Asia, is a major risk factor for CCA, particularly in Thailand and Laos. Chronic fluke infection causes biliary inflammation and epithelial damage.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Desmoplastic Stromal Reaction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic inflammation activates periductal fibroblasts and stellate cells\"}, {\"source\": \"Chronic Biliary Inflammation and Cholestasis\", \"target\": \"Accumulation of Oncogenic Mutations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated injury-repair cycles promote somatic mutation accumulation\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Epigenetic Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IDH mutations produce oncometabolite 2-HG causing epigenetic changes\"}, {\"source\": \"Accumulation of Oncogenic Mutations\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"KRAS and FGFR alterations drive proliferative signaling\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Immunosuppressive Tumor Microenvironment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dense stroma and CAF-derived factors create immune-excluded phenotype\"}, {\"source\": \"Desmoplastic Stromal Reaction\", \"target\": \"Enhanced Cell Proliferation and Survival\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"CAF-secreted growth factors promote tumor cell proliferation\"}, {\"source\": \"Liver Fluke Infection\", \"target\": \"Chronic Biliary Inflammation and Cholestasis\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Liver flukes cause chronic irritation and increased cellular turnover in the bile ducts, promoting chronic biliary inflammation.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5305,15 +5432,13 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5323,8 +5448,47 @@ This pathophysiological event involves increased cell population proliferation (
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obstructive-jaundice" data-dismech-node="Obstructive Jaundice" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Obstructive Jaundice
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Extrahepatic cholestasis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0012334</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obstructive jaundice, annotated with Extrahepatic cholestasis (HP:0012334). HP:0012334 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5340,15 +5504,18 @@ This pathophysiological event involves increased cell population proliferation (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5383,15 +5550,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000989</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5426,15 +5596,18 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5469,15 +5642,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5489,14 +5665,16 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41429598" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41429598" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41429598" target="_blank">PMID:41429598</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5513,51 +5691,6 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
         </div>
     </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-obstructive-jaundice" data-dismech-node="Obstructive Jaundice" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Obstructive Jaundice
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Extrahepatic cholestasis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012334" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012334</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Obstructive jaundice, annotated with Extrahepatic cholestasis (HP:0012334). HP:0012334 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
 
 
 
@@ -5652,6 +5785,76 @@ This treatment is chemotherapy with immunotherapy, annotated with Chemotherapy (
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        gemcitabine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_175901" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:175901</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses gemcitabine (CHEBI:175901). CHEBI:175901 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        cisplatin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27899" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-20">CHEBI:27899</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses cisplatin (CHEBI:27899). CHEBI:27899 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        durvalumab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-21">NCIT:C103194</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses durvalumab (NCIT:C103194). NCIT:C103194 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
                 <div class="item-desc">Current first-line standard of care for advanced CCA. TOPAZ-1 and KEYNOTE-966 established GemCis plus durvalumab or pembrolizumab as the standard. Real-world data report median OS of 16 months, median PFS of 5 months.</div>
@@ -5677,6 +5880,8 @@ This treatment is chemotherapy with immunotherapy, annotated with Chemotherapy (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"In the first-line setting, gemcitabine plus cisplatin (GemCis) chemotherapy served as the long-standing standard of care; subsequently, TOPAZ-1 and KEYNOTE-966 established GemCis plus durvalumab or pembrolizumab as the current standard."</div>
@@ -5696,6 +5901,8 @@ This treatment is chemotherapy with immunotherapy, annotated with Chemotherapy (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5724,7 +5931,7 @@ This treatment is chemotherapy with immunotherapy, annotated with Chemotherapy (
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-19">surgical resection<span class="pill-tip" role="tooltip" id="pill-tip-19">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">surgical resection<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical resection, annotated with Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5757,6 +5964,31 @@ This treatment is surgical resection, annotated with Definitive Surgical Resecti
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical resection is the only potentially curative treatment for CCA. Procedure type depends on anatomic location: hepatectomy for iCCA, hilar resection with hepatectomy for pCCA, and pancreaticoduodenectomy for dCCA. R0 resection is the most important prognostic factor.</div>
 
 
@@ -5775,7 +6007,7 @@ This treatment is surgical resection, annotated with Definitive Surgical Resecti
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-20">adjuvant chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-20">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">adjuvant chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is adjuvant chemotherapy, annotated with Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5806,6 +6038,42 @@ This treatment is adjuvant chemotherapy, annotated with Chemotherapy (NCIT:C1563
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        capecitabine
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31348" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:31348</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses capecitabine (CHEBI:31348). CHEBI:31348 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
                 <div class="item-desc">Standard adjuvant therapy after curative resection of CCA. The BILCAP trial demonstrated improved median OS of 49.6 months with capecitabine versus 36.1 months with observation alone.</div>
@@ -5829,6 +6097,8 @@ This treatment is adjuvant chemotherapy, annotated with Chemotherapy (NCIT:C1563
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5857,7 +6127,7 @@ This treatment is adjuvant chemotherapy, annotated with Chemotherapy (NCIT:C1563
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-21">targeted molecular therapy<span class="pill-tip" role="tooltip" id="pill-tip-21">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">targeted molecular therapy<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is targeted molecular therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5888,6 +6158,42 @@ This treatment is targeted molecular therapy, annotated with Pharmacotherapy (NC
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        ivosidenib
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_145430" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:145430</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses ivosidenib (CHEBI:145430). CHEBI:145430 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
                 <div class="item-desc">FDA-approved targeted therapies include ivosidenib for IDH1-mutant CCA, pemigatinib and futibatinib for FGFR2-altered CCA. Comprehensive genomic profiling is recommended to identify actionable alterations. MAPK pathway activation is a convergent resistance mechanism across these agents.</div>
@@ -5913,6 +6219,8 @@ This treatment is targeted molecular therapy, annotated with Pharmacotherapy (NC
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Hotspot IDH1 mutations and activating fibroblast growth factor receptor 2 fusions occur frequently, and small-molecule inhibitors against these alterations are US Food and Drug Administration approved."</div>
@@ -5932,6 +6240,8 @@ This treatment is targeted molecular therapy, annotated with Pharmacotherapy (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5960,7 +6270,7 @@ This treatment is targeted molecular therapy, annotated with Pharmacotherapy (NC
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">immune checkpoint inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">immune checkpoint inhibitor therapy<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -5991,6 +6301,59 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
 
 
 
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        durvalumab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C103194" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C103194</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses durvalumab (NCIT:C103194). NCIT:C103194 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        pembrolizumab
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C106432</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+Relation: this treatment uses this therapeutic agent
+This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
                 <div class="item-desc">Durvalumab combined with gemcitabine-cisplatin is now a standard first-line option based on the TOPAZ-1 trial. Pembrolizumab is approved for MSI-high/dMMR tumors. Tertiary lymphoid structure status may predict immunotherapy response.</div>
@@ -6014,6 +6377,8 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6075,6 +6440,12 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
                 <div class="evidence-snippet">"Risk of CCA has been estimated to increase 4-5-fold with liver fluke infection in places such as South Korea (Clonorchis sinensis) and Thailand (Opisthorchis viverrini)"</div>
@@ -6095,6 +6466,12 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -6117,12 +6494,18 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
                 </div>
 
                 <div class="evidence-snippet">"The highest rates of ICC and ECC were in Asia, specifically South Korea (ASR for ICC, 2.80; ASR for ECC, 2.24), Thailand (ASR for ICC, 2.19; ASR for ECC, 0.71)"</div>
 
 
-                <div class="evidence-explanation">Highest CCA rates in regions endemic for liver fluke infection (Thailand, South Korea).</div>
+                <div class="evidence-explanation">Reports the highest intrahepatic and extrahepatic incidence in South Korea and Thailand, the two countries whose endemic fluke species and four to fivefold risk are quoted in the items above. This item carries the geographic burden only; the route, the risk figure and the mechanism are each quoted once in their own items. Laos and cholestasis are not specified in this passage.</div>
 
 
 
@@ -6145,7 +6528,7 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
 
                         <strong style="color: #115e59;">Chronic Biliary Inflammation and Cholestasis</strong>
 
-                        <span style="color: #0d9488;"> &mdash; The best-evidenced link in this tranche, and the only one where the intervening step is quoted rather than assumed: the flukes cause chronic irritation and increased cellular turnover in the bile ducts, which is the inflammation this node holds. Deliberately down to one item. Two further sentences were fetched from the same review, a four to fivefold risk figure and the ingestion route, and both were moved to the exposure&#39;s own evidence where they characterise the exposure rather than this edge into the node. The sentence that was already on the exposure reports incidence rates by country and never mentions flukes at all, so it names neither the exposure nor any relation to this node and stays where it is.</span>
+                        <span style="color: #0d9488;"> &mdash; Liver flukes cause chronic irritation and increased cellular turnover in the bile ducts, promoting chronic biliary inflammation.</span>
 
 
 
@@ -6164,6 +6547,12 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -6216,6 +6605,8 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"PSC also carries substantial risk for hepatobiliary malignancies, especially cholangiocarcinoma, with a lifetime incidence of 10% to 20% and an annual risk of 1% to 2%"</div>
@@ -6239,6 +6630,171 @@ This treatment is immune checkpoint inhibitor therapy, annotated with Pharmacoth
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-opisthorchis-viverrini">
+                <div class="item-name">Opisthorchis viverrini</div>
+
+                <div class="item-desc">Liver fluke endemic in Southeast Asia (Thailand, Laos, Vietnam, Cambodia). Chronic infection causes biliary inflammation and epithelial damage, leading to cholangiocarcinoma. Classified as a Group 1 carcinogen by IARC.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Opisthorchis viverrini
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_6198" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:6198</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32129902" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32129902" target="_blank">PMID:32129902</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Risk of CCA has been estimated to increase 4-5-fold with liver fluke infection in places such as South Korea (Clonorchis sinensis) and Thailand (Opisthorchis viverrini)"</div>
+
+
+                <div class="evidence-explanation">Names Opisthorchis viverrini explicitly and quantifies the 4-5-fold CCA risk increase from liver fluke infection in endemic Thailand.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-clonorchis-sinensis">
+                <div class="item-name">Clonorchis sinensis</div>
+
+                <div class="item-desc">Liver fluke endemic in East Asia (China, South Korea, Russia). Chronic infection causes periductal inflammation and cholangiocarcinoma. Classified as a Group 1 carcinogen by IARC.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Clonorchis sinensis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_79923" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-31">NCBITaxon:79923</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6583,11 +7139,13 @@ pathophysiology:
     reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
     supports: SUPPORT
     snippet: &gt;-
-      Between 1993 and 2012, incidence rates of both ICC and ECC increased in most
-      countries.
+      The chronic inflammation associated with these conditions modifies cancer risk
+      by causing DNA damage, alterations in apoptosis, and cellular proliferation,
+      which can lead to cell transformation and cholangiocarcinogenesis.
     explanation: &gt;-
-      Documents rising global CCA incidence, consistent with increasing exposure to
-      risk factors including metabolic syndrome and chronic liver disease.
+      States the mechanistic chain this node asserts: chronic inflammation causes
+      DNA damage and altered proliferation, leading to cholangiocyte
+      transformation and cholangiocarcinogenesis.
   cell_types:
   - preferred_term: cholangiocyte
     term:
@@ -6861,7 +7419,7 @@ phenotypes:
   evidence:
   - reference: PMID:41429598
     reference_title: &#34;Systemic Therapy for Advanced Biliary Tract Cancers in 2026: Current Standard of Care and Emerging Therapeutic Strategies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: &gt;-
       the majority present with advanced disease, and palliative systemic therapy is
       the mainstay of treatment
@@ -6919,6 +7477,19 @@ treatments:
     term:
       id: NCIT:C15632
       label: Chemotherapy
+    therapeutic_agent:
+    - preferred_term: gemcitabine
+      term:
+        id: CHEBI:175901
+        label: gemcitabine
+    - preferred_term: cisplatin
+      term:
+        id: CHEBI:27899
+        label: cisplatin
+    - preferred_term: durvalumab
+      term:
+        id: NCIT:C103194
+        label: Durvalumab
 - name: Surgical Resection
   description: &gt;-
     Surgical resection is the only potentially curative treatment for CCA. Procedure
@@ -6950,6 +7521,11 @@ treatments:
     term:
       id: NCIT:C15632
       label: Chemotherapy
+    therapeutic_agent:
+    - preferred_term: capecitabine
+      term:
+        id: CHEBI:31348
+        label: capecitabine
 - name: Targeted Therapy for Molecular Subtypes
   description: &gt;-
     FDA-approved targeted therapies include ivosidenib for IDH1-mutant CCA, pemigatinib
@@ -6981,6 +7557,11 @@ treatments:
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: ivosidenib
+      term:
+        id: CHEBI:145430
+        label: ivosidenib
 - name: Immune Checkpoint Inhibitor Therapy
   description: &gt;-
     Durvalumab combined with gemcitabine-cisplatin is now a standard first-line option
@@ -7002,6 +7583,15 @@ treatments:
     term:
       id: NCIT:C15986
       label: Pharmacotherapy
+    therapeutic_agent:
+    - preferred_term: durvalumab
+      term:
+        id: NCIT:C103194
+        label: Durvalumab
+    - preferred_term: pembrolizumab
+      term:
+        id: NCIT:C106432
+        label: Pembrolizumab
 infectious_agent:
 - name: Opisthorchis viverrini
   description: &gt;-
@@ -7017,11 +7607,10 @@ infectious_agent:
   - reference: PMID:32129902
     reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
     supports: SUPPORT
-    snippet: &gt;-
-      The highest rates of ICC and ECC were in Asia, specifically South Korea (ASR for
-      ICC, 2.80; ASR for ECC, 2.24), Thailand (ASR for ICC, 2.19; ASR for ECC, 0.71)
+    snippet: &#34;Risk of CCA has been estimated to increase 4-5-fold with liver fluke infection in places such as South Korea (Clonorchis sinensis) and Thailand (Opisthorchis viverrini)&#34;
     explanation: &gt;-
-      Highest CCA rates in regions endemic for liver fluke infection.
+      Names Opisthorchis viverrini explicitly and quantifies the 4-5-fold CCA
+      risk increase from liver fluke infection in endemic Thailand.
 - name: Clonorchis sinensis
   description: &gt;-
     Liver fluke endemic in East Asia (China, South Korea, Russia). Chronic infection
@@ -7039,21 +7628,14 @@ environmental:
     environmental_effect: TRIGGERS
     causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
     description: &gt;-
-      The best-evidenced link in this tranche, and the only one where the
-      intervening step is quoted rather than assumed: the flukes cause chronic
-      irritation and increased cellular turnover in the bile ducts, which is
-      the inflammation this node holds. Deliberately down to one item. Two
-      further sentences were fetched from the same review, a four to fivefold
-      risk figure and the ingestion route, and both were moved to the
-      exposure&#39;s own evidence where they characterise the exposure rather
-      than this edge into the node. The sentence that was already on the
-      exposure reports incidence rates by country and never mentions flukes at
-      all, so it names neither the exposure nor any relation to this node and
-      stays where it is.
+      Liver flukes cause chronic irritation and increased cellular turnover in the bile ducts,
+      promoting chronic biliary inflammation.
     evidence:
     - reference: PMID:32129902
       reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
       supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: BACKGROUND
       snippet: &#34;These flukes cause chronic irritation and increased cellular turnover, which can increase the susceptibility of cholangiocytes to endogenous and exogenous carcinogens&#34;
       explanation: &gt;-
         Names the mechanism this edge asserts: chronic irritation and cellular
@@ -7067,6 +7649,8 @@ environmental:
   - reference: PMID:32129902
     reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &#34;Risk of CCA has been estimated to increase 4-5-fold with liver fluke infection in places such as South Korea (Clonorchis sinensis) and Thailand (Opisthorchis viverrini)&#34;
     explanation: &gt;-
       Quantifies the exposure at a four to fivefold increase in disease risk
@@ -7076,6 +7660,8 @@ environmental:
   - reference: PMID:32129902
     reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
     snippet: &#34;Liver flukes are parasitic trematodes that, when ingested via raw, pickled, or undercooked fish, can live in the host biliary system for decades&#34;
     explanation: &gt;-
       Establishes the route and the duration, which is what makes this an
@@ -7085,12 +7671,18 @@ environmental:
   - reference: PMID:32129902
     reference_title: &#34;Global trends in intrahepatic and extrahepatic cholangiocarcinoma incidence from 1993 to 2012.&#34;
     supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
     snippet: &gt;-
       The highest rates of ICC and ECC were in Asia, specifically South Korea (ASR for
       ICC, 2.80; ASR for ECC, 2.24), Thailand (ASR for ICC, 2.19; ASR for ECC, 0.71)
     explanation: &gt;-
-      Highest CCA rates in regions endemic for liver fluke infection (Thailand,
-      South Korea).
+      Reports the highest intrahepatic and extrahepatic incidence in South Korea
+      and Thailand, the two countries whose endemic fluke species and four to
+      fivefold risk are quoted in the items above. This item carries the
+      geographic burden only; the route, the risk figure and the mechanism are
+      each quoted once in their own items. Laos and cholestasis are not
+      specified in this passage.
 - name: Primary Sclerosing Cholangitis
   description: &gt;-
     Chronic autoimmune biliary disease causing progressive biliary fibrosis and
@@ -7165,6 +7757,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7515,7 +8109,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Cholangiocarcinoma", "mondoId": "MONDO:0019087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholangiocarcinoma", "yamlRevision": "b0475de13a54"};
+        const OS_CONFIG = {"diseaseName": "Cholangiocarcinoma", "mondoId": "MONDO:0019087", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Cholangiocarcinoma", "yamlRevision": "8678c2b81c4c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

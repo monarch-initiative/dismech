@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4084,6 +4177,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4107,6 +4202,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4179,6 +4276,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4271,6 +4370,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4292,6 +4393,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4355,6 +4458,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4376,6 +4481,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4422,6 +4529,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-ryr1-missense-hotspot-variants" data-dismech-node="Dominant RYR1 missense hotspot variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant RYR1 missense hotspot variants</div>
+
 
                 <div class="item-desc">Dominant central core myopathy is usually caused by heterozygous RYR1 missense variants concentrated in recognized mutational hotspot regions. These variants alter RyR1 channel gating rather than simply reducing gene dosage, creating an upstream mutation class that feeds into abnormal sarcoplasmic-reticulum calcium release, congenital myopathy, and malignant hyperthermia susceptibility.
 </div>
@@ -4553,6 +4661,40 @@ This pathophysiological event involves abnormal Regulation of SR calcium release
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ryanodine-sensitive calcium-release channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005219</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4602,6 +4744,8 @@ This pathophysiological event involves abnormal Regulation of SR calcium release
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4625,6 +4769,8 @@ This pathophysiological event involves abnormal Regulation of SR calcium release
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4652,6 +4798,7 @@ This pathophysiological event involves abnormal Regulation of SR calcium release
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recessive-ryr1-reduced-expression-variants" data-dismech-node="Recessive RYR1 reduced-expression variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Recessive RYR1 reduced-expression variants</div>
 
+
                 <div class="item-desc">Recessive RYR1-related myopathy often reflects biallelic variants spread across the coding sequence, including nonsense and splice variants expected to reduce RyR1 protein abundance. This mutation class is associated with earlier onset, greater weakness, more functional limitation, and extraocular or bulbar involvement compared with dominant disease.
 </div>
 
@@ -4667,11 +4814,11 @@ This pathophysiological event involves abnormal Regulation of SR calcium release
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4707,11 +4854,11 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
         RYR1
 
 
-    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:10483</a>
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:10483</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4784,6 +4931,8 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4792,7 +4941,7 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 "</div>
 
 
-                <div class="evidence-explanation">Supports reduced RyR1 protein abundance as a recessive mutation-to- mechanism path.
+                <div class="evidence-explanation">Supports reduced RyR1 protein abundance as a recessive mutation-to-mechanism path.
 </div>
 
 
@@ -4807,6 +4956,8 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4834,6 +4985,7 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-ryr1-calcium-release-channel-function" data-dismech-node="Abnormal RyR1 calcium release channel function" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal RyR1 calcium release channel function</div>
 
+
                 <div class="item-desc">RYR1 mutations alter the function of the ryanodine receptor, the principal calcium release channel of the sarcoplasmic reticulum in skeletal muscle. Dominant missense variants often produce hypersensitive or leaky RyR1 channels with lowered threshold for sarcoplasmic reticulum calcium release, while recessive mutations frequently result in reduced RyR1 protein expression or excitation-contraction coupling uncoupling. Both mechanisms disrupt the DHPR-RyR1 signaling axis and calcium homeostasis in skeletal muscle fibers.
 </div>
 
@@ -4849,11 +5001,11 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4879,11 +5031,11 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000189" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000189</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000189" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000189</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Slow muscle cell (type I fiber), annotated with slow muscle cell (CL:0000189). CL:0000189 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4919,11 +5071,11 @@ This pathophysiological event involves Slow muscle cell (type I fiber), annotate
         RYR1
 
 
-    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:10483</a>
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:10483</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves abnormal RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4965,11 +5117,11 @@ This pathophysiological event involves abnormal RYR1 (hgnc:10483). hgnc:10483 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0010880" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0010880</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0010880" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0010880</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Regulation of SR calcium release, annotated with regulation of release of sequestered calcium ion into cytosol by sarcoplasmic reticulum (GO:0010880). GO:0010880 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4995,11 +5147,11 @@ This pathophysiological event involves Regulation of SR calcium release, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0055074</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5025,11 +5177,11 @@ This pathophysiological event involves Calcium ion homeostasis (GO:0055074). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0014722</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0014722</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Regulation of skeletal muscle contraction by calcium signaling, annotated with regulation of skeletal muscle contraction by calcium ion signaling (GO:0014722). GO:0014722 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5049,6 +5201,40 @@ This pathophysiological event involves Regulation of skeletal muscle contraction
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ryanodine-sensitive calcium-release channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0005219</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5108,6 +5294,8 @@ This pathophysiological event involves Regulation of skeletal muscle contraction
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5131,6 +5319,8 @@ This pathophysiological event involves Regulation of skeletal muscle contraction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5158,6 +5348,8 @@ This pathophysiological event involves Regulation of skeletal muscle contraction
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5183,6 +5375,7 @@ This pathophysiological event involves Regulation of skeletal muscle contraction
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ryr1-deficiency-and-excitation-contraction-uncoupling" data-dismech-node="RyR1 deficiency and excitation-contraction uncoupling" data-dismech-type="pathophysiology">
                 <div class="item-name">RyR1 deficiency and excitation-contraction uncoupling</div>
 
+
                 <div class="item-desc">Recessive RYR1 variants that lower RyR1 expression reduce the functional channel pool available at the triad. The resulting excitation-contraction uncoupling causes reduced calcium-triggered contraction and explains the more severe congenital weakness, ophthalmoplegia, bulbar involvement, and respiratory compromise observed in recessive disease.
 </div>
 
@@ -5198,11 +5391,11 @@ This pathophysiological event involves Regulation of skeletal muscle contraction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5238,11 +5431,11 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
         RYR1
 
 
-    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:10483</a>
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:10483</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5284,11 +5477,11 @@ This pathophysiological event involves decreased RYR1 (hgnc:10483). hgnc:10483 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0014722</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0014722</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated Regulation of skeletal muscle contraction by calcium signaling, annotated with regulation of skeletal muscle contraction by calcium ion signaling (GO:0014722). GO:0014722 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5318,11 +5511,11 @@ This pathophysiological event involves dysregulated Regulation of skeletal muscl
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0003009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0003009</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Skeletal muscle contraction (GO:0003009). GO:0003009 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5346,6 +5539,44 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
                 </div>
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        ryanodine-sensitive calcium-release channel activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0005219" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0005219</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased ryanodine-sensitive calcium-release channel activity (GO:0005219). GO:0005219 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5414,6 +5645,8 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5437,6 +5670,8 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5464,6 +5699,7 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitation-contraction-coupling-impairment" data-dismech-node="Excitation-contraction coupling impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitation-contraction coupling impairment</div>
 
+
                 <div class="item-desc">RyR1 dysfunction disrupts the DHPR-RyR1 calcium-release signal that couples sarcolemmal depolarization to actin-myosin force generation. This provides the central mechanistic bridge from RYR1 mutation classes to congenital weakness, hypotonia, delayed motor development, respiratory involvement, and core formation.
 </div>
 
@@ -5479,11 +5715,11 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-19">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5509,11 +5745,11 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002211" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0002211</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002211" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0002211</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Type I muscle fiber, annotated with type I muscle cell (CL:0002211). CL:0002211 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5550,11 +5786,11 @@ This pathophysiological event involves Type I muscle fiber, annotated with type 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0014722</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014722" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0014722</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated Regulation of skeletal muscle contraction by calcium signaling, annotated with regulation of skeletal muscle contraction by calcium ion signaling (GO:0014722). GO:0014722 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5584,11 +5820,11 @@ This pathophysiological event involves dysregulated Regulation of skeletal muscl
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0003009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0003009</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Skeletal muscle contraction (GO:0003009). GO:0003009 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5662,6 +5898,8 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5685,6 +5923,8 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5712,6 +5952,7 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-skeletal-muscle-force-generation" data-dismech-node="Reduced skeletal muscle force generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced skeletal muscle force generation</div>
 
+
                 <div class="item-desc">Impaired RyR1-dependent calcium signaling reduces activation of skeletal muscle contraction. The functional consequence is congenital hypotonia, delayed motor milestones, predominantly proximal weakness, orthopedic complications from chronic weakness and hypotonia, and respiratory insufficiency in more severe disease.
 </div>
 
@@ -5727,11 +5968,11 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5768,11 +6009,11 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0003009</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0003009" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0003009</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Skeletal muscle contraction (GO:0003009). GO:0003009 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5899,6 +6140,8 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5922,6 +6165,8 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5949,6 +6194,7 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-depletion-and-oxidative-metabolism-deficiency-in-cores" data-dismech-node="Mitochondrial depletion and oxidative metabolism deficiency in cores" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial depletion and oxidative metabolism deficiency in cores</div>
 
+
                 <div class="item-desc">The central cores that define this myopathy histologically represent focal regions of myofibrillar disorganization with depletion of mitochondria and absence of oxidative enzyme activity. Cores run along the longitudinal axis of type 1 muscle fibers and are visualized as unstained regions on NADH-TR and cytochrome oxidase histochemistry. Mitochondrial calcium overload from dysfunctional RyR1 channels generates energetic strain and oxidative stress, contributing to the ultrastructural disorganization characteristic of cores.
 </div>
 
@@ -5964,11 +6210,11 @@ This pathophysiological event involves decreased Skeletal muscle contraction (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-22">CL:0008002</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0008002" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-25">CL:0008002</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:0008002 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -6005,11 +6251,11 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0006979</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0006979</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Response to oxidative stress (GO:0006979). GO:0006979 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6035,11 +6281,11 @@ This pathophysiological event involves Response to oxidative stress (GO:0006979)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-24">GO:0006874</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006874" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0006874</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Intracellular calcium ion homeostasis (GO:0006874). GO:0006874 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6107,14 +6353,16 @@ This pathophysiological event involves Intracellular calcium ion homeostasis (GO
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6142,6 +6390,8 @@ This pathophysiological event involves Intracellular calcium ion homeostasis (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6167,6 +6417,7 @@ This pathophysiological event involves Intracellular calcium ion homeostasis (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anesthetic-triggered-malignant-hyperthermia-mechanism" data-dismech-node="Anesthetic-triggered malignant hyperthermia mechanism" data-dismech-type="pathophysiology">
                 <div class="item-name">Anesthetic-triggered malignant hyperthermia mechanism</div>
 
+
                 <div class="item-desc">RYR1 mutations predispose to malignant hyperthermia (MH), a pharmacogenetic disorder triggered by volatile anesthetic agents and succinylcholine. The susceptible RyR1 channel exhibits exaggerated calcium release in response to these triggers, causing sustained muscle contraction, hypermetabolism, rhabdomyolysis, and potentially fatal hyperthermia. CCD and MHS are allelic conditions and a single RYR1 mutation may result in either or both phenotypes.
 </div>
 
@@ -6189,11 +6440,11 @@ This pathophysiological event involves Intracellular calcium ion homeostasis (GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0006936</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006936" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0006936</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Muscle contraction (GO:0006936). GO:0006936 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6223,11 +6474,11 @@ This pathophysiological event involves increased Muscle contraction (GO:0006936)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0055074</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055074" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-29">GO:0055074</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:0055074). GO:0055074 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -6300,6 +6551,8 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6323,6 +6576,8 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6372,7 +6627,7 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal RyR1 calcium release channel function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RYR1 mutations alter the function of the ryanodine receptor, the principal calcium release channel of the sarcoplasmic reticulum in skeletal muscle. Dominant missense variants often produce hypersensitive or leaky RyR1 channels with lowered threshold for sarcoplasmic reticulum calcium release, while recessive mutations frequently result in reduced RyR1 protein expression or excitation-contraction coupling uncoupling. Both mechanisms disrupt the DHPR-RyR1 signaling axis and calcium homeostasis in skeletal muscle fibers.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\", \"Slow muscle cell (type I fiber)\"], \"biological_processes\": [\"Regulation of SR calcium release\", \"Calcium ion homeostasis\", \"Regulation of skeletal muscle contraction by calcium signaling\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Abnormal foot morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foot deformities, including pes cavus and pes planus, can occur as orthopedic complications in central core disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0001760\"}}, {\"id\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RYR1 mutations predispose to malignant hyperthermia (MH), a pharmacogenetic disorder triggered by volatile anesthetic agents and succinylcholine. The susceptible RyR1 channel exhibits exaggerated calcium release in response to these triggers, causing sustained muscle contraction, hypermetabolism, rhabdomyolysis, and potentially fatal hyperthermia. CCD and MHS are allelic conditions and a single RYR1 mutation may result in either or both phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Muscle contraction\", \"Calcium ion homeostasis\"]}}, {\"id\": \"Axial muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of paraspinal and trunk-stabilizing muscles occurs in a substantial minority of patients alongside the predominantly proximal pattern. Axial weakness contributes to scoliosis risk and postural deformity (kyphosis). It is reported as a common feature of congenital myopathies of EC-coupling, including RYR1-related disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0003327\"}}, {\"id\": \"Central core regions in muscle fibers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle biopsy shows well-demarcated central core regions in skeletal muscle fibers, reflecting focal sarcomeric disorganization with mitochondrial and oxidative-enzyme depletion. This is the defining histopathological feature of central core myopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040280\", \"term_id\": \"HP:0030230\"}}, {\"id\": \"Congenital hip dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hip dislocation is a characteristic orthopaedic complication and may be the presenting feature of the disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001374\"}}, {\"id\": \"Delayed gross motor development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor development is typically delayed, with late achievement of sitting, standing, and independent ambulation. Most patients eventually achieve independent walking, though this may be delayed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002194\"}}, {\"id\": \"Dominant RYR1 missense hotspot variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dominant central core myopathy is usually caused by heterozygous RYR1 missense variants concentrated in recognized mutational hotspot regions. These variants alter RyR1 channel gating rather than simply reducing gene dosage, creating an upstream mutation class that feeds into abnormal sarcoplasmic-reticulum calcium release, congenital myopathy, and malignant hyperthermia susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Regulation of SR calcium release\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Excitation-contraction coupling impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RyR1 dysfunction disrupts the DHPR-RyR1 calcium-release signal that couples sarcolemmal depolarization to actin-myosin force generation. This provides the central mechanistic bridge from RYR1 mutation classes to congenital weakness, hypotonia, delayed motor development, respiratory involvement, and core formation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\", \"Type I muscle fiber\"], \"biological_processes\": [\"Regulation of skeletal muscle contraction by calcium signaling\", \"Skeletal muscle contraction\"]}}, {\"id\": \"Exertional rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis can occur as an exertional or heat-related episodic phenotype in RYR1-related malignant hyperthermia susceptibility, which is allelic to central core disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"External ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"External ophthalmoplegia is observed primarily in autosomal recessive forms of RYR1-related myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040284\", \"term_id\": \"HP:0000544\"}}, {\"id\": \"Family cascade testing for malignant hyperthermia risk\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-degree relatives and other at-risk family members should be offered targeted familial RYR1 variant testing when the pathogenic variant is known. If the molecular cause is unknown or testing is inconclusive, muscle biopsy with contracture testing can clarify MH susceptibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malignant hyperthermia susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Susceptibility to malignant hyperthermia episodes triggered by volatile anesthetics or depolarizing muscle relaxants is a frequent and potentially life-threatening complication requiring precautionary measures for all surgical procedures.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002047\"}}, {\"id\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central cores that define this myopathy histologically represent focal regions of myofibrillar disorganization with depletion of mitochondria and absence of oxidative enzyme activity. Cores run along the longitudinal axis of type 1 muscle fibers and are visualized as unstained regions on NADH-TR and cytochrome oxidase histochemistry. Mitochondrial calcium overload from dysfunctional RyR1 channels generates energetic strain and oxidative stress, contributing to the ultrastructural disorganization characteristic of cores.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Response to oxidative stress\", \"Intracellular calcium ion homeostasis\"]}}, {\"id\": \"Myopathic facies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild facial weakness may be present, more commonly in autosomal recessive forms. Extraocular and bulbar muscle involvement is almost exclusively observed in the recessive group.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0002058\"}}, {\"id\": \"Neonatal hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia present from birth is a common presenting feature, often leading to the initial clinical evaluation. Severity ranges from mild to marked, with recessive forms tending to be more severe.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Perioperative malignant hyperthermia emergency planning\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients should carry medical alert documentation for malignant hyperthermia susceptibility, inform surgeons and anesthesiologists before any procedure requiring anesthesia, use prepared non-triggering anesthetic protocols, and have an emergency plan that includes immediate access to dantrolene and MHAUS consultation resources.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Predominantly proximal muscle weakness affecting hip girdle and shoulder girdle muscles is a hallmark feature. Weakness is pronounced in the hip girdle and is typically static or only slowly progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"RYR1 mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\"}], \"association\": \"Causative\"}}, {\"id\": \"Recessive RYR1 reduced-expression variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recessive RYR1-related myopathy often reflects biallelic variants spread across the coding sequence, including nonsense and splice variants expected to reduce RyR1 protein abundance. This mutation class is associated with earlier onset, greater weakness, more functional limitation, and extraocular or bulbar involvement compared with dominant disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Reduced skeletal muscle force generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired RyR1-dependent calcium signaling reduces activation of skeletal muscle contraction. The functional consequence is congenital hypotonia, delayed motor milestones, predominantly proximal weakness, orthopedic complications from chronic weakness and hypotonia, and respiratory insufficiency in more severe disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Skeletal muscle contraction\"]}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable respiratory involvement may occur, particularly in more severe recessive forms, sometimes requiring respiratory support.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Respiratory surveillance and support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory function should be followed over time, especially in recessive or severe disease and when scoliosis or spinal rigidity is present. Serial pulmonary function testing and sleep studies can detect subclinical nocturnal hypoventilation; respiratory support is managed according to respiratory-muscle involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recessive RYR1 variants that lower RyR1 expression reduce the functional channel pool available at the triad. The resulting excitation-contraction uncoupling causes reduced calcium-triggered contraction and explains the more severe congenital weakness, ophthalmoplegia, bulbar involvement, and respiratory compromise observed in recessive disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Regulation of skeletal muscle contraction by calcium signaling\", \"Skeletal muscle contraction\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a common orthopaedic complication that may require surgical correction in severe cases.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Type 1 muscle fiber predominance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal muscle biopsy frequently shows predominance or near-uniformity of type 1 (slow oxidative) fibers, with type 2 fibers reduced in number and often atrophic. The selective involvement reflects the higher RyR1 abundance and oxidative-metabolism dependence of type 1 fibers, which are most affected by RyR1-driven Ca2+ leak and mitochondrial damage. Type 1 fiber predominance/uniformity is a recognized accompanying biopsy pattern alongside the central cores in RYR1-related myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0003803\"}}], \"edges\": [{\"source\": \"Dominant RYR1 missense hotspot variants\", \"target\": \"Abnormal RyR1 calcium release channel function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Missense hotspot variants alter RyR1 channel conformation and calcium release behavior.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dominant RYR1 missense hotspot variants\", \"target\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dominant RYR1 missense variants create the allelic substrate for malignant hyperthermia susceptibility in CCD.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered RyR1 channel gating\", \"exaggerated calcium release after anesthetic trigger\"]}, {\"source\": \"Recessive RYR1 reduced-expression variants\", \"target\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced RyR1 protein compromises the channel complex needed for normal skeletal muscle excitation-contraction coupling.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced RyR1 protein\", \"impaired DHPR-RyR1 coupling\"]}, {\"source\": \"Abnormal RyR1 calcium release channel function\", \"target\": \"Excitation-contraction coupling impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal RyR1 calcium release disrupts the calcium signal that links membrane depolarization to skeletal muscle contraction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal RyR1 calcium release channel function\", \"target\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic calcium-homeostasis disturbance contributes to focal metabolic and structural disruption within type 1 fibers.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered intracellular calcium homeostasis\", \"mitochondrial stress\"]}, {\"source\": \"Abnormal RyR1 calcium release channel function\", \"target\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RyR1 channel instability provides the mechanism for exaggerated calcium release during malignant-hyperthermia-triggering anesthesia.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"volatile anesthetic or succinylcholine exposure\", \"uncontrolled sarcoplasmic reticulum calcium release\"]}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"Reduced skeletal muscle force generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncoupling lowers calcium-dependent activation of contraction in skeletal muscle fibers.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"External ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular involvement is a recessive RYR1-enriched phenotype in the cohort data.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe recessive RYR1-related myopathy\", \"extraocular muscle weakness\"]}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"Myopathic facies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and facial weakness are linked to recessive RYR1 disease severity.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe recessive RYR1-related myopathy\", \"bulbar or facial muscle weakness\"]}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe recessive impairment of skeletal muscle contraction can involve respiratory muscle groups.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"respiratory muscle weakness\"]}, {\"source\": \"Excitation-contraction coupling impairment\", \"target\": \"Reduced skeletal muscle force generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired calcium release reduces calcium-dependent actin-myosin force generation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excitation-contraction coupling impairment\", \"target\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent calcium-homeostasis disturbance contributes to type 1 fiber core formation and oxidative enzyme loss.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered intracellular calcium homeostasis\", \"local mitochondrial dysfunction\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced force output in skeletal muscle fibers produces predominantly proximal weakness.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Neonatal hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital weakness lowers resting tone in infancy.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Delayed gross motor development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia and proximal weakness delay attainment of early gross motor milestones.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal hypotonia\", \"proximal weakness\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Axial muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced contractile force in paraspinal and trunk-stabilizing muscles manifests clinically as axial weakness.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic axial and proximal weakness contributes to orthopedic complications including scoliosis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"axial muscle weakness\", \"altered spinal loading\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Congenital hip dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital hypotonia and weakness contribute to hip instability and other orthopedic complications.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal hypotonia\", \"periarticular muscle weakness\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe skeletal muscle weakness may involve respiratory muscles.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"respiratory muscle weakness\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Abnormal foot morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic congenital weakness and hypotonia contribute to orthopedic foot abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal hypotonia\", \"distal or periarticular muscle weakness\"]}, {\"source\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"target\": \"Central core regions in muscle fibers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal mitochondrial depletion and loss of oxidative enzyme activity define central core regions on muscle biopsy.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"target\": \"Type 1 muscle fiber predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core pathology commonly occurs in type 1 fibers and can be accompanied by type 1 fiber predominance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"target\": \"Reduced skeletal muscle force generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core regions combine sarcomeric disorganization and metabolic deficiency, contributing to reduced contractile performance.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sarcomeric disorganization\", \"oxidative metabolism deficiency\"]}, {\"source\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RYR1-triggered excessive calcium release is the mechanism underlying the malignant hyperthermia susceptibility phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"target\": \"Exertional rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive calcium release and skeletal-muscle hypermetabolism can manifest as exertional rhabdomyolysis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"skeletal-muscle calcium overload\", \"myofiber injury\"]}, {\"source\": \"Perioperative malignant hyperthermia emergency planning\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Respiratory surveillance and support\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Family cascade testing for malignant hyperthermia risk\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"Abnormal RyR1 calcium release channel function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"Dominant RYR1 missense hotspot variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"Recessive RYR1 reduced-expression variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal RyR1 calcium release channel function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RYR1 mutations alter the function of the ryanodine receptor, the principal calcium release channel of the sarcoplasmic reticulum in skeletal muscle. Dominant missense variants often produce hypersensitive or leaky RyR1 channels with lowered threshold for sarcoplasmic reticulum calcium release, while recessive mutations frequently result in reduced RyR1 protein expression or excitation-contraction coupling uncoupling. Both mechanisms disrupt the DHPR-RyR1 signaling axis and calcium homeostasis in skeletal muscle fibers.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\", \"Slow muscle cell (type I fiber)\"], \"biological_processes\": [\"Regulation of SR calcium release\", \"Calcium ion homeostasis\", \"Regulation of skeletal muscle contraction by calcium signaling\"], \"molecular_functions\": [\"ryanodine-sensitive calcium-release channel activity\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Abnormal foot morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Foot deformities, including pes cavus and pes planus, can occur as orthopedic complications in central core disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0001760\"}}, {\"id\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RYR1 mutations predispose to malignant hyperthermia (MH), a pharmacogenetic disorder triggered by volatile anesthetic agents and succinylcholine. The susceptible RyR1 channel exhibits exaggerated calcium release in response to these triggers, causing sustained muscle contraction, hypermetabolism, rhabdomyolysis, and potentially fatal hyperthermia. CCD and MHS are allelic conditions and a single RYR1 mutation may result in either or both phenotypes.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Muscle contraction\", \"Calcium ion homeostasis\"]}}, {\"id\": \"Axial muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Weakness of paraspinal and trunk-stabilizing muscles occurs in a substantial minority of patients alongside the predominantly proximal pattern. Axial weakness contributes to scoliosis risk and postural deformity (kyphosis). It is reported as a common feature of congenital myopathies of EC-coupling, including RYR1-related disease.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0003327\"}}, {\"id\": \"Central core regions in muscle fibers\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Muscle biopsy shows well-demarcated central core regions in skeletal muscle fibers, reflecting focal sarcomeric disorganization with mitochondrial and oxidative-enzyme depletion. This is the defining histopathological feature of central core myopathy.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040280\", \"term_id\": \"HP:0030230\"}}, {\"id\": \"Congenital hip dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital hip dislocation is a characteristic orthopaedic complication and may be the presenting feature of the disease.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001374\"}}, {\"id\": \"Delayed gross motor development\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor development is typically delayed, with late achievement of sitting, standing, and independent ambulation. Most patients eventually achieve independent walking, though this may be delayed.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002194\"}}, {\"id\": \"Dominant RYR1 missense hotspot variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Dominant central core myopathy is usually caused by heterozygous RYR1 missense variants concentrated in recognized mutational hotspot regions. These variants alter RyR1 channel gating rather than simply reducing gene dosage, creating an upstream mutation class that feeds into abnormal sarcoplasmic-reticulum calcium release, congenital myopathy, and malignant hyperthermia susceptibility.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Regulation of SR calcium release\"], \"molecular_functions\": [\"ryanodine-sensitive calcium-release channel activity\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"ABNORMAL\"}]}}, {\"id\": \"Excitation-contraction coupling impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"RyR1 dysfunction disrupts the DHPR-RyR1 calcium-release signal that couples sarcolemmal depolarization to actin-myosin force generation. This provides the central mechanistic bridge from RYR1 mutation classes to congenital weakness, hypotonia, delayed motor development, respiratory involvement, and core formation.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\", \"Type I muscle fiber\"], \"biological_processes\": [\"Regulation of skeletal muscle contraction by calcium signaling\", \"Skeletal muscle contraction\"]}}, {\"id\": \"Exertional rhabdomyolysis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rhabdomyolysis can occur as an exertional or heat-related episodic phenotype in RYR1-related malignant hyperthermia susceptibility, which is allelic to central core disease.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0003201\"}}, {\"id\": \"External ophthalmoplegia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"External ophthalmoplegia is observed primarily in autosomal recessive forms of RYR1-related myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040284\", \"term_id\": \"HP:0000544\"}}, {\"id\": \"Family cascade testing for malignant hyperthermia risk\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-degree relatives and other at-risk family members should be offered targeted familial RYR1 variant testing when the pathogenic variant is known. If the molecular cause is unknown or testing is inconclusive, muscle biopsy with contracture testing can clarify MH susceptibility.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Malignant hyperthermia susceptibility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Susceptibility to malignant hyperthermia episodes triggered by volatile anesthetics or depolarizing muscle relaxants is a frequent and potentially life-threatening complication requiring precautionary measures for all surgical procedures.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002047\"}}, {\"id\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The central cores that define this myopathy histologically represent focal regions of myofibrillar disorganization with depletion of mitochondria and absence of oxidative enzyme activity. Cores run along the longitudinal axis of type 1 muscle fibers and are visualized as unstained regions on NADH-TR and cytochrome oxidase histochemistry. Mitochondrial calcium overload from dysfunctional RyR1 channels generates energetic strain and oxidative stress, contributing to the ultrastructural disorganization characteristic of cores.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Response to oxidative stress\", \"Intracellular calcium ion homeostasis\"]}}, {\"id\": \"Myopathic facies\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild facial weakness may be present, more commonly in autosomal recessive forms. Extraocular and bulbar muscle involvement is almost exclusively observed in the recessive group.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0002058\"}}, {\"id\": \"Neonatal hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypotonia present from birth is a common presenting feature, often leading to the initial clinical evaluation. Severity ranges from mild to marked, with recessive forms tending to be more severe.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0001319\"}}, {\"id\": \"Perioperative malignant hyperthermia emergency planning\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Patients should carry medical alert documentation for malignant hyperthermia susceptibility, inform surgeons and anesthesiologists before any procedure requiring anesthesia, use prepared non-triggering anesthetic protocols, and have an emergency plan that includes immediate access to dantrolene and MHAUS consultation resources.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Proximal muscle weakness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Predominantly proximal muscle weakness affecting hip girdle and shoulder girdle muscles is a hallmark feature. Weakness is pronounced in the hip girdle and is typically static or only slowly progressive.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0003701\"}}, {\"id\": \"RYR1 mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\"}], \"association\": \"Causative\"}}, {\"id\": \"Recessive RYR1 reduced-expression variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recessive RYR1-related myopathy often reflects biallelic variants spread across the coding sequence, including nonsense and splice variants expected to reduce RyR1 protein abundance. This mutation class is associated with earlier onset, greater weakness, more functional limitation, and extraocular or bulbar involvement compared with dominant disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Reduced skeletal muscle force generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired RyR1-dependent calcium signaling reduces activation of skeletal muscle contraction. The functional consequence is congenital hypotonia, delayed motor milestones, predominantly proximal weakness, orthopedic complications from chronic weakness and hypotonia, and respiratory insufficiency in more severe disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Skeletal muscle contraction\"]}}, {\"id\": \"Respiratory insufficiency\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Variable respiratory involvement may occur, particularly in more severe recessive forms, sometimes requiring respiratory support.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040283\", \"term_id\": \"HP:0002093\"}}, {\"id\": \"Respiratory surveillance and support\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Respiratory function should be followed over time, especially in recessive or severe disease and when scoliosis or spinal rigidity is present. Serial pulmonary function testing and sleep studies can detect subclinical nocturnal hypoventilation; respiratory support is managed according to respiratory-muscle involvement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recessive RYR1 variants that lower RyR1 expression reduce the functional channel pool available at the triad. The resulting excitation-contraction uncoupling causes reduced calcium-triggered contraction and explains the more severe congenital weakness, ophthalmoplegia, bulbar involvement, and respiratory compromise observed in recessive disease.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"Regulation of skeletal muscle contraction by calcium signaling\", \"Skeletal muscle contraction\"], \"molecular_functions\": [\"ryanodine-sensitive calcium-release channel activity\"], \"genes\": [\"RYR1\"], \"gene_terms\": [{\"label\": \"RYR1\", \"id\": \"hgnc:10483\", \"modifier\": \"DECREASED\"}]}}, {\"id\": \"Scoliosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Scoliosis is a common orthopaedic complication that may require surgical correction in severe cases.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040282\", \"term_id\": \"HP:0002650\"}}, {\"id\": \"Type 1 muscle fiber predominance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Skeletal muscle biopsy frequently shows predominance or near-uniformity of type 1 (slow oxidative) fibers, with type 2 fibers reduced in number and often atrophic. The selective involvement reflects the higher RyR1 abundance and oxidative-metabolism dependence of type 1 fibers, which are most affected by RyR1-driven Ca2+ leak and mitochondrial damage. Type 1 fiber predominance/uniformity is a recognized accompanying biopsy pattern alongside the central cores in RYR1-related myopathy.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"HP_0040281\", \"term_id\": \"HP:0003803\"}}], \"edges\": [{\"source\": \"Dominant RYR1 missense hotspot variants\", \"target\": \"Abnormal RyR1 calcium release channel function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Missense hotspot variants alter RyR1 channel conformation and calcium release behavior.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dominant RYR1 missense hotspot variants\", \"target\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Dominant RYR1 missense variants create the allelic substrate for malignant hyperthermia susceptibility in CCD.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered RyR1 channel gating\", \"exaggerated calcium release after anesthetic trigger\"]}, {\"source\": \"Recessive RYR1 reduced-expression variants\", \"target\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced RyR1 protein compromises the channel complex needed for normal skeletal muscle excitation-contraction coupling.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"reduced RyR1 protein\", \"impaired DHPR-RyR1 coupling\"]}, {\"source\": \"Abnormal RyR1 calcium release channel function\", \"target\": \"Excitation-contraction coupling impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal RyR1 calcium release disrupts the calcium signal that links membrane depolarization to skeletal muscle contraction.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Abnormal RyR1 calcium release channel function\", \"target\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic calcium-homeostasis disturbance contributes to focal metabolic and structural disruption within type 1 fibers.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered intracellular calcium homeostasis\", \"mitochondrial stress\"]}, {\"source\": \"Abnormal RyR1 calcium release channel function\", \"target\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RyR1 channel instability provides the mechanism for exaggerated calcium release during malignant-hyperthermia-triggering anesthesia.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"volatile anesthetic or succinylcholine exposure\", \"uncontrolled sarcoplasmic reticulum calcium release\"]}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"Reduced skeletal muscle force generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncoupling lowers calcium-dependent activation of contraction in skeletal muscle fibers.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"External ophthalmoplegia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extraocular involvement is a recessive RYR1-enriched phenotype in the cohort data.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe recessive RYR1-related myopathy\", \"extraocular muscle weakness\"]}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"Myopathic facies\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Bulbar and facial weakness are linked to recessive RYR1 disease severity.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"severe recessive RYR1-related myopathy\", \"bulbar or facial muscle weakness\"]}, {\"source\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe recessive impairment of skeletal muscle contraction can involve respiratory muscle groups.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"respiratory muscle weakness\"]}, {\"source\": \"Excitation-contraction coupling impairment\", \"target\": \"Reduced skeletal muscle force generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired calcium release reduces calcium-dependent actin-myosin force generation.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excitation-contraction coupling impairment\", \"target\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persistent calcium-homeostasis disturbance contributes to type 1 fiber core formation and oxidative enzyme loss.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"altered intracellular calcium homeostasis\", \"local mitochondrial dysfunction\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Proximal muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced force output in skeletal muscle fibers produces predominantly proximal weakness.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Neonatal hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital weakness lowers resting tone in infancy.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Delayed gross motor development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypotonia and proximal weakness delay attainment of early gross motor milestones.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal hypotonia\", \"proximal weakness\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Axial muscle weakness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced contractile force in paraspinal and trunk-stabilizing muscles manifests clinically as axial weakness.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Scoliosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic axial and proximal weakness contributes to orthopedic complications including scoliosis.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"axial muscle weakness\", \"altered spinal loading\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Congenital hip dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Congenital hypotonia and weakness contribute to hip instability and other orthopedic complications.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal hypotonia\", \"periarticular muscle weakness\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe skeletal muscle weakness may involve respiratory muscles.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"respiratory muscle weakness\"]}, {\"source\": \"Reduced skeletal muscle force generation\", \"target\": \"Abnormal foot morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic congenital weakness and hypotonia contribute to orthopedic foot abnormalities.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"neonatal hypotonia\", \"distal or periarticular muscle weakness\"]}, {\"source\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"target\": \"Central core regions in muscle fibers\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Focal mitochondrial depletion and loss of oxidative enzyme activity define central core regions on muscle biopsy.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"target\": \"Type 1 muscle fiber predominance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core pathology commonly occurs in type 1 fibers and can be accompanied by type 1 fiber predominance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Mitochondrial depletion and oxidative metabolism deficiency in cores\", \"target\": \"Reduced skeletal muscle force generation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Core regions combine sarcomeric disorganization and metabolic deficiency, contributing to reduced contractile performance.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"sarcomeric disorganization\", \"oxidative metabolism deficiency\"]}, {\"source\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"RYR1-triggered excessive calcium release is the mechanism underlying the malignant hyperthermia susceptibility phenotype.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Anesthetic-triggered malignant hyperthermia mechanism\", \"target\": \"Exertional rhabdomyolysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive calcium release and skeletal-muscle hypermetabolism can manifest as exertional rhabdomyolysis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"skeletal-muscle calcium overload\", \"myofiber injury\"]}, {\"source\": \"Perioperative malignant hyperthermia emergency planning\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Respiratory surveillance and support\", \"target\": \"Respiratory insufficiency\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Family cascade testing for malignant hyperthermia risk\", \"target\": \"Malignant hyperthermia susceptibility\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"Abnormal RyR1 calcium release channel function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"Dominant RYR1 missense hotspot variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"Recessive RYR1 reduced-expression variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RYR1 mutations\", \"target\": \"RyR1 deficiency and excitation-contraction uncoupling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6395,17 +6650,15 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(4)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6434,15 +6687,18 @@ This pathophysiological event involves dysregulated Calcium ion homeostasis (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000544" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000544</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000544" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000544</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is External ophthalmoplegia (HP:0000544). HP:0000544 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6462,6 +6718,8 @@ This clinical feature is External ophthalmoplegia (HP:0000544). HP:0000544 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6514,15 +6772,18 @@ This clinical feature is External ophthalmoplegia (HP:0000544). HP:0000544 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002058</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6542,6 +6803,8 @@ This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6575,7 +6838,7 @@ This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotyp
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-hip-dislocation" data-dismech-node="Congenital hip dislocation" data-dismech-type="phenotype">
@@ -6594,15 +6857,18 @@ This clinical feature is Myopathic facies (HP:0002058). HP:0002058 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001374</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001374" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001374</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital hip dislocation (HP:0001374). HP:0001374 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6614,14 +6880,16 @@ This clinical feature is Congenital hip dislocation (HP:0001374). HP:0001374 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6634,6 +6902,80 @@ This clinical feature is Congenital hip dislocation (HP:0001374). HP:0001374 is 
 
                 <div class="evidence-explanation">Congenital hip dislocation is one of the common orthopaedic complications in CCD.
 </div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-foot-morphology" data-dismech-node="Abnormal foot morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal foot morphology
+
+                        <span class="phenotype-freq">HP_0040283</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001760" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001760</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal foot morphology (HP:0001760). HP:0001760 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"musculoskeletal deformities including congenital hip dislocation, kyphoscoliosis, pes cavus, pes planus, and thoracic deformities"</div>
+
+
+                <div class="evidence-explanation">The core-myopathy review lists foot deformities among orthopedic complications of central core disease.</div>
 
 
 
@@ -6674,15 +7016,18 @@ This clinical feature is Congenital hip dislocation (HP:0001374). HP:0001374 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6702,6 +7047,8 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6727,6 +7074,8 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6760,7 +7109,7 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-proximal-muscle-weakness" data-dismech-node="Proximal muscle weakness" data-dismech-type="phenotype">
@@ -6779,15 +7128,18 @@ This clinical feature is Malignant hyperthermia (HP:0002047). HP:0002047 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003701</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003701" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003701</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6809,6 +7161,8 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6824,14 +7178,16 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:29391587" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:29391587" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29391587" target="_blank">PMID:29391587</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6875,15 +7231,18 @@ This clinical feature is Proximal muscle weakness (HP:0003701). HP:0003701 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001319</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6903,6 +7262,8 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6929,315 +7290,6 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
                 </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Scoliosis
-
-                        <span class="phenotype-freq">HP_0040282</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002650</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"orthopaedic complications are common
-"</div>
-
-
-                <div class="evidence-explanation">Orthopaedic complications including scoliosis are identified as common in CCD.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-exertional-rhabdomyolysis" data-dismech-node="Exertional rhabdomyolysis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Exertional rhabdomyolysis
-
-                        <span class="phenotype-freq">HP_0040283</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003201</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"RYR1-related malignant hyperthermia susceptibility is allelic to central core disease and has also been described as a common cause of induced and episodic phenotypes such as exertional rhabdomyolysis or periodic paralysis, which present throughout life."</div>
-
-
-                <div class="evidence-explanation">This is modeled with partial support because the source frames exertional rhabdomyolysis as an allelic RYR1/MH-related episodic phenotype rather than as a universal central core disease manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-gross-motor-development" data-dismech-node="Delayed gross motor development" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Delayed gross motor development
-
-                        <span class="phenotype-freq">HP_0040282</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002194</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"CCD typically presents in infancy with hypotonia and motor developmental delay
-"</div>
-
-
-                <div class="evidence-explanation">Motor developmental delay is identified as a typical presenting feature.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory insufficiency
-
-                        <span class="phenotype-freq">HP_0040283</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002093</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:29391587" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29391587" target="_blank">PMID:29391587</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"involvement of extraocular, cardiorespiratory and/or distal muscles can implicate specific genetic defects
-"</div>
-
-
-                <div class="evidence-explanation">Cardiorespiratory involvement is noted as a feature that can occur in congenital myopathies.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-central-core-regions-in-muscle-fibers" data-dismech-node="Central core regions in muscle fibers" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7269,6 +7321,9 @@ This clinical feature is Central core regions in muscle fibers (HP:0030230). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7283,6 +7338,8 @@ This clinical feature is Central core regions in muscle fibers (HP:0030230). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7308,6 +7365,8 @@ This clinical feature is Central core regions in muscle fibers (HP:0030230). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7365,6 +7424,9 @@ This clinical feature is Type 1 muscle fiber predominance (HP:0003803). HP:00038
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7379,6 +7441,8 @@ This clinical feature is Type 1 muscle fiber predominance (HP:0003803). HP:00038
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7436,6 +7500,9 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7450,6 +7517,8 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7477,6 +7546,8 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7502,9 +7573,85 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-foot-morphology" data-dismech-node="Abnormal foot morphology" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-scoliosis" data-dismech-node="Scoliosis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormal foot morphology
+                        Scoliosis
+
+                        <span class="phenotype-freq">HP_0040282</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002650</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"orthopaedic complications are common
+"</div>
+
+
+                <div class="evidence-explanation">Orthopaedic complications including scoliosis are identified as common in CCD.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-exertional-rhabdomyolysis" data-dismech-node="Exertional rhabdomyolysis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Exertional rhabdomyolysis
 
                         <span class="phenotype-freq">HP_0040283</span>
 
@@ -7518,15 +7665,18 @@ This clinical feature is Axial muscle weakness (HP:0003327). HP:0003327 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001760" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001760</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003201" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0003201</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal foot morphology (HP:0001760). HP:0001760 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7548,14 +7698,186 @@ This clinical feature is Abnormal foot morphology (HP:0001760). HP:0001760 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"musculoskeletal deformities including congenital hip dislocation, kyphoscoliosis, pes cavus, pes planus, and thoracic deformities"</div>
+                <div class="evidence-snippet">"RYR1-related malignant hyperthermia susceptibility is allelic to central core disease and has also been described as a common cause of induced and episodic phenotypes such as exertional rhabdomyolysis or periodic paralysis, which present throughout life."</div>
 
 
-                <div class="evidence-explanation">The core-myopathy review lists foot deformities among orthopedic complications of central core disease.</div>
+                <div class="evidence-explanation">This is modeled with partial support because the source frames exertional rhabdomyolysis as an allelic RYR1/MH-related episodic phenotype rather than as a universal central core disease manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-delayed-gross-motor-development" data-dismech-node="Delayed gross motor development" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Delayed gross motor development
+
+                        <span class="phenotype-freq">HP_0040282</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002194</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CCD typically presents in infancy with hypotonia and motor developmental delay
+"</div>
+
+
+                <div class="evidence-explanation">Motor developmental delay is identified as a typical presenting feature.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-insufficiency" data-dismech-node="Respiratory insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory insufficiency
+
+                        <span class="phenotype-freq">HP_0040283</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002093</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29391587" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29391587" target="_blank">PMID:29391587</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"involvement of extraocular, cardiorespiratory and/or distal muscles can implicate specific genetic defects
+"</div>
+
+
+                <div class="evidence-explanation">Cardiorespiratory involvement is noted as a feature that can occur in congenital myopathies.
+</div>
 
 
 
@@ -7628,10 +7950,10 @@ This clinical feature is Abnormal foot morphology (HP:0001760). HP:0001760 is a 
                         Gene: RYR1
 
 
-    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:10483</a>
+    <a href="https://bioregistry.io/hgnc:10483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-44">hgnc:10483</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7639,6 +7961,9 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7657,6 +7982,8 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7684,6 +8011,8 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7706,6 +8035,8 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7759,7 +8090,7 @@ This disease-associated gene is RYR1 (hgnc:10483). hgnc:10483 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">chemical exposure avoidance<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">chemical exposure avoidance<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy (NCIT:C15900). NCIT:C15900 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7792,6 +8123,20 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Strict avoidance of volatile anesthetic agents (halothane, sevoflurane, desflurane, isoflurane) and depolarizing neuromuscular blocking agents (succinylcholine) during surgical procedures. Total intravenous anesthesia (TIVA) with agents such as propofol is recommended. Management must anticipate susceptibility to potentially life-threatening reactions to general anaesthesia.
 </div>
 
@@ -7814,6 +8159,8 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7839,6 +8186,8 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7869,7 +8218,7 @@ This treatment is chemical exposure avoidance, annotated with Lifestyle Therapy 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">preventative therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">preventative therapy<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is preventative therapy, annotated with Preventive Intervention (NCIT:C15843). NCIT:C15843 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7902,6 +8251,20 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Patients should carry medical alert documentation for malignant hyperthermia susceptibility, inform surgeons and anesthesiologists before any procedure requiring anesthesia, use prepared non-triggering anesthetic protocols, and have an emergency plan that includes immediate access to dantrolene and MHAUS consultation resources.</div>
 
 
@@ -7917,11 +8280,11 @@ This treatment is preventative therapy, annotated with Preventive Intervention (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002047</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7947,6 +8310,8 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7970,6 +8335,8 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7991,6 +8358,8 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8021,7 +8390,7 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Dantrolene therapy<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">Dantrolene therapy<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Dantrolene therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8063,16 +8432,30 @@ This treatment is Dantrolene therapy, annotated with Pharmacotherapy (NCIT:C1598
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4317" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:4317</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4317" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-49">CHEBI:4317</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8098,6 +8481,8 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8128,7 +8513,7 @@ This treatment uses dantrolene (CHEBI:4317). CHEBI:4317 is a therapeutic agent f
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-50">Physical therapy<span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8161,6 +8546,31 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular physical therapy focusing on maintaining range of motion, preventing contractures, and maximizing functional capacity. Exercise programs should be tailored to individual ability.
 </div>
 
@@ -8183,6 +8593,8 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8213,7 +8625,7 @@ This treatment is Physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-48">orthopedic procedure<span class="pill-tip" role="tooltip" id="pill-tip-48">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">orthopedic procedure<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is orthopedic procedure, annotated with Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8246,6 +8658,20 @@ This treatment is orthopedic procedure, annotated with Orthopedic Surgical Proce
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical and conservative management of musculoskeletal complications including scoliosis, hip dislocation, and foot deformities. Bracing and assistive devices may be needed.
 </div>
 
@@ -8270,6 +8696,8 @@ This treatment is orthopedic procedure, annotated with Orthopedic Surgical Proce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8291,6 +8719,8 @@ This treatment is orthopedic procedure, annotated with Orthopedic Surgical Proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8321,7 +8751,7 @@ This treatment is orthopedic procedure, annotated with Orthopedic Surgical Proce
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8354,6 +8784,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Respiratory function should be followed over time, especially in recessive or severe disease and when scoliosis or spinal rigidity is present. Serial pulmonary function testing and sleep studies can detect subclinical nocturnal hypoventilation; respiratory support is managed according to respiratory-muscle involvement.</div>
 
 
@@ -8369,11 +8813,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002093</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8397,6 +8841,8 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8427,7 +8873,7 @@ This treatment targets Respiratory insufficiency (HP:0002093). HP:0002093 is a p
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Genetic counseling<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8460,6 +8906,20 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected families should discuss autosomal dominant and autosomal recessive inheritance, recurrence risk, variant interpretation, central core disease severity spectrum, and implications for family members regarding malignant hyperthermia susceptibility.
 </div>
 
@@ -8474,14 +8934,16 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8507,6 +8969,8 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8537,7 +9001,7 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-52">genetic testing<span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">genetic testing<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is genetic testing (NCIT:C15709). NCIT:C15709 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8570,6 +9034,20 @@ This treatment is genetic testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-degree relatives and other at-risk family members should be offered targeted familial RYR1 variant testing when the pathogenic variant is known. If the molecular cause is unknown or testing is inconclusive, muscle biopsy with contracture testing can clarify MH susceptibility.</div>
 
 
@@ -8585,11 +9063,11 @@ This treatment is genetic testing (NCIT:C15709). NCIT:C15709 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0002047</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8613,6 +9091,8 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8642,6 +9122,813 @@ This treatment targets Malignant hyperthermia (HP:0002047). HP:0002047 is a phen
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">6</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-neuromuscular-assessment">
+                <div class="item-name">
+                    Clinical neuromuscular assessment
+
+                </div>
+
+                <div class="item-desc">Evaluation starts with congenital or early-onset myopathy features including neonatal hypotonia, delayed motor milestones, proximal or axial weakness, orthopedic complications, and family history. Dominant disease is often mild-to-moderate, while recessive disease can present with severe neonatal, bulbar, ophthalmoplegic, or respiratory involvement.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        physical examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C20989</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CCD typically presents in infancy with hypotonia and motor developmental delay and is characterized by predominantly proximal weakness pronounced in the hip girdle"</div>
+
+
+                <div class="evidence-explanation">This defines the core clinical presentation that should prompt diagnostic evaluation for central core disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-muscle-biopsy-and-oxidative-histochemistry">
+                <div class="item-name">
+                    Muscle biopsy and oxidative histochemistry
+
+                </div>
+
+                <div class="item-desc">Muscle biopsy should evaluate hematoxylin/eosin and modified trichrome morphology, oxidative enzyme stains such as NADH-TR and COX/SDH, fiber type, and ultrastructure. Diagnostic findings include well-demarcated cores in type 1 fibers, absent oxidative enzyme activity in core regions, mitochondrial depletion, and often type 1 fiber predominance or uniformity.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        biopsy of muscle tissue
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51895" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C51895</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pathological hallmark of central core disease is the presence of well-demarcated cores (round or oval shaped regions within a muscle fiber that lack oxidative enzyme activity on histochemical stains) within type 1 muscle fibers (Fig. 3)."</div>
+
+
+                <div class="evidence-explanation">The review identifies well-demarcated oxidative-enzyme-negative cores in type 1 fibers as the diagnostic biopsy hallmark.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the presence of cores as the predominant pathological feature in the biopsy establishes the diagnosis of central core disease."</div>
+
+
+                <div class="evidence-explanation">This directly supports muscle biopsy as a diagnostic criterion when cores are the predominant pathologic feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ryr1-molecular-genetic-testing">
+                <div class="item-name">
+                    RYR1 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing should sequence RYR1 comprehensively and include copy number/deletion-duplication analysis when available, because dominant hotspot variants and recessive variants distributed throughout the gene can both cause central core disease. Variant interpretation should be integrated with clinical, biopsy, and muscle MRI findings.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-59">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-59">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mutations in the ryanodine gene can be identified in more than 90% of patients with central core disease when all parts of the RYR1 are carefully sequenced"</div>
+
+
+                <div class="evidence-explanation">This supports comprehensive RYR1 sequencing as a high-yield molecular diagnostic test for central core disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22473935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22473935" target="_blank">PMID:22473935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dominant mutations, typically missense, were frequently located in recognized mutational hotspot regions, while recessive mutations were distributed throughout the entire coding sequence."</div>
+
+
+                <div class="evidence-explanation">The dominant/recessive variant distribution supports broad RYR1 testing rather than hotspot-only testing.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22473935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22473935" target="_blank">PMID:22473935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"interpretation of genetic results in the context of clinical, histological, and muscle magnetic resonance imaging findings is essential."</div>
+
+
+                <div class="evidence-explanation">Variant interpretation should be integrated with the clinical, biopsy, and imaging phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-creatine-kinase-and-emg-ncs-assessment">
+                <div class="item-name">
+                    Serum creatine kinase and EMG/NCS assessment
+
+                </div>
+
+                <div class="item-desc">Serum CK is usually normal or mildly elevated, while EMG/NCS can help exclude denervation disorders and may be normal or mildly myopathic. These ancillary studies support classification and differential diagnosis but do not replace biopsy or molecular testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electromyography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38056" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-60">NCIT:C38056</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Serum creatine kinase is usually normal or mildly elevated."</div>
+
+
+                <div class="evidence-explanation">CK is useful as an ancillary laboratory feature and is usually normal or only mildly elevated in core myopathies.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EMG is typically normal or shows myopathic features, with short-duration, small-amplitude, polyphasic motor unit potentials."</div>
+
+
+                <div class="evidence-explanation">EMG/NCS supports differential diagnosis by excluding denervation disorders and documenting normal or myopathic patterns.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-muscle-imaging-to-guide-diagnosis">
+                <div class="item-name">
+                    Muscle imaging to guide diagnosis
+
+                </div>
+
+                <div class="item-desc">Muscle MRI or ultrasound can demonstrate selective muscle involvement, support RYR1-related pattern recognition, guide biopsy-site selection, and help interpret variants when biopsy or genetic findings are equivocal.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-61">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"muscle MRI may show a characteristic pattern of selective muscle involvement and aid the diagnosis in cases with equivocal histopathological findings."</div>
+
+
+                <div class="evidence-explanation">Disease-specific review supports muscle MRI as an aid to diagnosis when biopsy findings are equivocal.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33458581" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33458581" target="_blank">PMID:33458581</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Muscle imaging (ultrasonography and MRI) may be useful in diagnosis demonstrating a characteristic pattern of selective muscle involvement, which may be used in conjunction with clinical features to guide genetic testing."</div>
+
+
+                <div class="evidence-explanation">Muscle imaging supports diagnostic pattern recognition and genetic testing strategy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-malignant-hyperthermia-susceptibility-evaluation">
+                <div class="item-name">
+                    Malignant hyperthermia susceptibility evaluation
+
+                </div>
+
+                <div class="item-desc">Patients with central core disease should be treated as at risk for malignant hyperthermia. Risk evaluation includes review of prior anesthetic reactions, family history, RYR1 variant interpretation, and in vitro contracture testing with halothane and caffeine when molecular diagnosis is absent, uncertain, or needed for at-risk relatives.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-62">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"malignant hyperthermia susceptibility (MHS) is a frequent complication"</div>
+
+
+                <div class="evidence-explanation">The disease-specific review supports MH-risk evaluation in central core disease; GeneReviews supplies the specific IVCT/contracture-testing method.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301325" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301325" target="_blank">PMID:20301325</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of MHS is established with in vitro muscle contracture testing by measuring the contracture responses of biopsied muscle samples to halothane and graded concentrations of caffeine."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifies the standard contracture-test approach for MH susceptibility evaluation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-all-age-populations">
+                <div class="item-name">All-age populations</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.37 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Population studies usually report prevalence for core myopathies or congenital myopathies as groups rather than for central core myopathy alone. Meta-analysis estimated pooled all-age prevalence for core myopathy at 0.37 per 100,000, and an Orphanet review noted that central core disease is probably the most common congenital myopathy.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34795634" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34795634" target="_blank">PMID:34795634</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"0.37 (95% CI 0.21-0.53) for core myopathy"</div>
+
+
+                <div class="evidence-explanation">This meta-analysis provides the best available pooled population estimate for the core-myopathy group that includes central core myopathy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17504518" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17504518" target="_blank">PMID:17504518</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prevalence is unknown but the condition is probably more common than other congenital myopathies."</div>
+
+
+                <div class="evidence-explanation">This disease-specific review clarifies that central core disease itself lacks a separate direct population estimate but is likely the commonest congenital myopathy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8868,6 +10155,11 @@ pathophysiology:
     term:
       id: CL:0008002
       label: skeletal muscle fiber
+  molecular_functions:
+  - preferred_term: ryanodine-sensitive calcium-release channel activity
+    term:
+      id: GO:0005219
+      label: ryanodine-sensitive calcium-release channel activity
   biological_processes:
   - preferred_term: Regulation of SR calcium release
     modifier: ABNORMAL
@@ -8940,8 +10232,8 @@ pathophysiology:
       Recessive mutations included nonsense and splice mutations expected to
       result in reduced RyR1 protein.
     explanation: &gt;
-      Supports reduced RyR1 protein abundance as a recessive mutation-to-
-      mechanism path.
+      Supports reduced RyR1 protein abundance as a recessive mutation-to-mechanism
+      path.
   - reference: PMID:22473935
     reference_title: &#34;Clinical and genetic findings in a large cohort of patients with ryanodine receptor 1 gene-associated myopathies.&#34;
     supports: SUPPORT
@@ -8991,6 +10283,11 @@ pathophysiology:
     term:
       id: CL:0000189
       label: slow muscle cell
+  molecular_functions:
+  - preferred_term: ryanodine-sensitive calcium-release channel activity
+    term:
+      id: GO:0005219
+      label: ryanodine-sensitive calcium-release channel activity
   biological_processes:
   - preferred_term: Regulation of SR calcium release
     term:
@@ -9081,6 +10378,12 @@ pathophysiology:
     term:
       id: CL:0008002
       label: skeletal muscle fiber
+  molecular_functions:
+  - preferred_term: ryanodine-sensitive calcium-release channel activity
+    term:
+      id: GO:0005219
+      label: ryanodine-sensitive calcium-release channel activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: Regulation of skeletal muscle contraction by calcium signaling
     modifier: DYSREGULATED
@@ -9327,7 +10630,7 @@ pathophysiology:
   evidence:
   - reference: PMID:17504518
     reference_title: &#34;Central core disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       Central core disease (CCD) is an inherited neuromuscular disorder
@@ -9449,7 +10752,7 @@ phenotypes:
       hip girdle as a characteristic feature of CCD.
   - reference: PMID:29391587
     reference_title: &#34;Congenital myopathies: disorders of excitation-contraction coupling and muscle contraction.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       Pronounced weakness in axial and proximal muscle groups is a common
@@ -9611,7 +10914,7 @@ phenotypes:
   evidence:
   - reference: PMID:17504518
     reference_title: &#34;Central core disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       orthopaedic complications are common
@@ -9631,7 +10934,7 @@ phenotypes:
   evidence:
   - reference: PMID:17504518
     reference_title: &#34;Central core disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       orthopaedic complications are common
@@ -9703,7 +11006,7 @@ phenotypes:
   evidence:
   - reference: PMID:33458581
     reference_title: Core myopathies - a short review.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       RYR1-related malignant hyperthermia susceptibility is allelic to central
@@ -9770,7 +11073,7 @@ phenotypes:
   evidence:
   - reference: PMID:29391587
     reference_title: &#34;Congenital myopathies: disorders of excitation-contraction coupling and muscle contraction.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       involvement of extraocular, cardiorespiratory and/or distal muscles
@@ -10244,7 +11547,7 @@ treatments:
   evidence:
   - reference: PMID:17504518
     reference_title: &#34;Central core disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;
       Mutational analysis of the RYR1 gene may provide genetic confirmation
@@ -10380,6 +11683,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11392,7 +12697,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Central Core Myopathy", "mondoId": "MONDO:0007294", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Core_Myopathy", "yamlRevision": "b9f58ceea5a3"};
+        const OS_CONFIG = {"diseaseName": "Central Core Myopathy", "mondoId": "MONDO:0007294", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Central_Core_Myopathy", "yamlRevision": "c818205debbf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4236,6 +4329,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4257,6 +4352,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4411,6 +4508,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tpmt-loss-of-function-variant" data-dismech-node="TPMT Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">TPMT Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">Low-activity TPMT alleles reduce or abolish enzyme activity, chiefly by destabilizing the protein and accelerating its proteasomal degradation rather than by abolishing catalysis outright. Three alleles account for almost all deficiency in European-ancestry populations: TPMT*3A (the commonest, carrying two missense changes in cis), TPMT*3C and TPMT*2. Every deficient subject in a 1,214-donor cohort was homozygous or compound heterozygous for one of these three. Allele frequencies differ substantially by ancestry, so a genotyping panel validated in one population under-detects deficiency in another.
 </div>
 
@@ -4545,6 +4643,8 @@ This pathophysiological event involves thiopurine S-methyltransferase activity (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4566,6 +4666,8 @@ This pathophysiological event involves thiopurine S-methyltransferase activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4590,6 +4692,7 @@ This pathophysiological event involves thiopurine S-methyltransferase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-proteasomal-degradation-of-variant-tpmt" data-dismech-node="Accelerated Proteasomal Degradation of Variant TPMT" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Proteasomal Degradation of Variant TPMT</div>
+
 
                 <div class="item-desc">The low-activity alleles do not abolish catalysis directly — they destabilize the protein. TPMT*2 and TPMT*3A produce normal mRNA levels and are translated at a normal rate, but their degradation half-life falls from about 18 hours to roughly 15 minutes, and the degradation is proteasome- and ATP-dependent rather than lysosomal. Erythrocyte TPMT activity tracks TPMT protein amount almost perfectly across the activity range. This node is what justifies treating the star alleles as one pathograph rather than as subtypes: they differ in sequence but converge on the same proximal event, less enzyme.
 </div>
@@ -4682,6 +4785,8 @@ This pathophysiological event involves increased proteasome-mediated degradation
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4703,6 +4808,8 @@ This pathophysiological event involves increased proteasome-mediated degradation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4728,6 +4835,8 @@ This pathophysiological event involves increased proteasome-mediated degradation
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4750,6 +4859,7 @@ This pathophysiological event involves increased proteasome-mediated degradation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thiopurine-s-methylation" data-dismech-node="Impaired Thiopurine S-Methylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thiopurine S-Methylation</div>
+
 
                 <div class="item-desc">TPMT catalyses S-methylation of thiopurines, one of the two competing inactivating routes (the other being xanthine oxidase) that divert drug away from the activating hypoxanthine-guanine phosphoribosyltransferase pathway. When methylation capacity is lost, the competing routes do not compensate and a larger fraction of each administered dose is committed to activation. This node is the point at which the trait becomes conditional on exposure: no thiopurine, no flux, no downstream pathology.
 </div>
@@ -4842,6 +4952,8 @@ This pathophysiological event involves decreased thiopurine S-methylation, annot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4863,6 +4975,8 @@ This pathophysiological event involves decreased thiopurine S-methylation, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4887,6 +5001,7 @@ This pathophysiological event involves decreased thiopurine S-methylation, annot
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-6-thioguanine-nucleotide-accumulation" data-dismech-node="6-Thioguanine Nucleotide Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">6-Thioguanine Nucleotide Accumulation</div>
+
 
                 <div class="item-desc">Thiopurines are prodrugs: therapeutic and toxic effects alike are mediated by the 6-thioguanine nucleotides (6-TGN) formed downstream of HGPRT. In a TPMT-deficient patient given a standard dose, 6-TGN concentrations rise to levels that would ordinarily follow a many-fold higher dose. The nucleotides are incorporated into DNA and RNA, and the resulting thioguanine-substituted DNA triggers cytotoxicity in dividing cells. Because the same metabolite mediates efficacy, this is a therapeutic-index problem rather than an off-target toxicity — dose reduction preserves the intended effect while avoiding the toxic exposure, which is precisely why genotype-guided dosing works rather than requiring a different drug class.
 </div>
@@ -4979,6 +5094,8 @@ This pathophysiological event involves increased purine nucleotide salvage (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5001,6 +5118,7 @@ This pathophysiological event involves increased purine nucleotide salvage (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haematopoietic-progenitor-cytotoxicity" data-dismech-node="Haematopoietic Progenitor Cytotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Haematopoietic Progenitor Cytotoxicity</div>
+
 
                 <div class="item-desc">Proliferating haematopoietic stem and progenitor cells are the tissue most sensitive to 6-TGN-mediated DNA damage, because thioguanine incorporation is replication-dependent and marrow turnover is high. This is the disorder-specific substitution into the conserved cytotoxic-myelosuppression pattern: the cytotoxic driver is an endogenously over-activated prodrug rather than an externally dosed cytotoxic agent, but the progenitor-level insult is the same.
 </div>
@@ -5147,14 +5265,16 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41618934" target="_blank">PMID:41618934</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5179,6 +5299,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-suppression" data-dismech-node="Bone Marrow Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Suppression</div>
+
 
                 <div class="item-desc">Loss of the proliferating progenitor compartment produces marrow hypocellularity and a fall in production across the myeloid, erythroid and megakaryocytic lineages.
 </div>
@@ -5233,6 +5354,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5255,6 +5378,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multilineage-cytopenias" data-dismech-node="Multilineage Cytopenias" data-dismech-type="pathophysiology">
                 <div class="item-name">Multilineage Cytopenias</div>
+
 
                 <div class="item-desc">Leukopenia and thrombocytopenia are the presenting cytopenias; anaemia and frank pancytopenia follow in severe cases. In biallelic-variant patients the onset is rapid — under six weeks from starting the drug — whereas heterozygotes and normal metabolizers who develop myelosuppression do so over a much wider and later window. That timing difference is diagnostically useful and is a genuine finding rather than a restatement of the genotype.
 </div>
@@ -5293,6 +5417,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5314,6 +5440,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5407,6 +5535,9 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5421,6 +5552,8 @@ This clinical feature is Leukopenia, annotated with Decreased total leukocyte co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5474,6 +5607,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5488,6 +5624,8 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5541,20 +5679,25 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41618934" target="_blank">PMID:41618934</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5626,6 +5769,9 @@ This disease-associated gene is TPMT (hgnc:12014). hgnc:12014 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5640,6 +5786,8 @@ This disease-associated gene is TPMT (hgnc:12014). hgnc:12014 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5663,6 +5811,8 @@ This disease-associated gene is TPMT (hgnc:12014). hgnc:12014 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5829,6 +5979,31 @@ This treatment uses mercaptopurine (CHEBI:50667). CHEBI:50667 is a therapeutic a
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Where a thiopurine is still indicated, the starting dose is set from metabolizer status rather than the drug being withheld. This is the recommendation for intermediate metabolizers, and for poor metabolizers it applies only where the thiopurine is not readily replaceable — in malignant disease, where CPIC calls for drastic dose reduction rather than substitution. In nonmalignant disease a poor metabolizer is switched to a different drug class instead; see &#34;Alternative Nonthiopurine Agent for Poor Metabolizers&#34;. Dose reduction is what makes TPMT testing actionable in the intermediate range: efficacy and toxicity share the same metabolite, so a lower dose can reach a therapeutic 6-TGN concentration without reaching a toxic one. That logic does not extend to poor metabolizers, in whom 6-TGN stays above tolerated concentrations even at markedly reduced doses.
 </div>
 
@@ -5861,6 +6036,8 @@ This treatment uses mercaptopurine (CHEBI:50667). CHEBI:50667 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5905,6 +6082,8 @@ This treatment uses mercaptopurine (CHEBI:50667). CHEBI:50667 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5928,6 +6107,8 @@ This treatment uses mercaptopurine (CHEBI:50667). CHEBI:50667 is a therapeutic a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5949,6 +6130,8 @@ This treatment uses mercaptopurine (CHEBI:50667). CHEBI:50667 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6013,6 +6196,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For TPMT poor metabolizers treated for a nonmalignant condition, CPIC recommends switching to a nonthiopurine agent rather than prescribing a reduced thiopurine dose, because alternative agents are available and because 6-TGN concentrations in poor metabolizers remain well above tolerated levels even at markedly reduced doses. For azathioprine the same recommendation is phrased as considering alternative immunosuppressant therapy. This is the one situation in TPMT deficiency where the correct action is to withhold the drug class outright rather than dose around the enzyme defect; in malignant disease, where thiopurines are not readily replaceable, drastic dose reduction is used instead.
 </div>
 
@@ -6045,6 +6253,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6089,6 +6299,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6110,6 +6322,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6173,6 +6387,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Serial full blood counts remain mandatory in every thiopurine-treated patient regardless of TPMT status. This is not belt-and-braces: TPMT variants explain only a minority of thiopurine myelosuppression, so a normal TPMT result gives no licence to stop monitoring.
 </div>
 
@@ -6195,6 +6423,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6258,6 +6488,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6306,6 +6538,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6370,6 +6604,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6393,6 +6629,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6414,6 +6652,347 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pre-prescription-tpmt-genotyping-or-activity-testing">
+                <div class="item-name">
+                    Pre-Prescription TPMT Genotyping or Activity Testing
+
+                </div>
+
+                <div class="item-desc">Determining TPMT status before the first thiopurine dose is what makes this latent trait actionable, and it is a diagnostic procedure rather than a therapy: it identifies the metabolizer phenotype, and a separate decision then sets the dose or substitutes the drug. Two assay routes exist — genotyping against the CPIC allele definitions, and direct measurement of erythrocyte TPMT activity. CPIC provides genotype-stratified starting-dose recommendations for mercaptopurine, thioguanine and azathioprine. Because the genotype-phenotype relationship is pharmacokinetic rather than disease-specific, the recommendations are extrapolated across all conditions treated with thiopurines, not only the few in which the dosing studies were done.
+A TPMT-only result is not a complete answer to thiopurine-toxicity risk. CPIC issues joint TPMT/NUDT15 recommendations because NUDT15 accounts for most severe thiopurine-related myelosuppression in patients of Asian descent, so testing TPMT alone leaves the dominant risk allele unmeasured in a large part of the world&#39;s population. NUDT15 deficiency remains a separate entity and is not curated here; see the notes.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-18">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Markers:</strong> Erythrocyte TPMT activity; TPMT genotype (CPIC allele definitions)</div>
+
+
+                <div class="item-desc"><strong>Results:</strong> Assigns a normal, intermediate or poor metabolizer phenotype, which sets the thiopurine starting dose or triggers substitution with a nonthiopurine agent.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41618934" target="_blank">PMID:41618934</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genetic variants in these genes are present in all world populations; however, their frequency varies by ancestry."</div>
+
+
+                <div class="evidence-explanation">Supports testing across populations while noting the ancestry-dependent allele frequencies that make a single fixed panel inadequate.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41618934" target="_blank">PMID:41618934</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Decreased and no‐function alleles in NUDT15 explain the majority of severe thiopurine‐related myelosuppression in patients of Asian descent and are common in patients with Amerindian genetic ancestry."</div>
+
+
+                <div class="evidence-explanation">Cited support for the scope limit stated in this entry&#39;s notes: a TPMT-only test does not measure the dominant thiopurine-toxicity risk allele in patients of Asian or Amerindian ancestry.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-northern-european-caucasian-blood-donors">
+                <div class="item-name">Northern European Caucasian blood donors</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        600.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">Deficient (poor metabolizer) phenotype in 0.6% of 1,214 German-Caucasian healthy blood donors; a further 9.9% had intermediate activity. Note this is the prevalence of the metabolic trait, not of clinical disease — the latter depends entirely on thiopurine exposure.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15226673" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15226673" target="_blank">PMID:15226673</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A clearly defined trimodal frequency distribution of TPMT activity was found with 0.6% deficient, 9.9% intermediate and 89.5% normal to high methylators."</div>
+
+
+                <div class="evidence-explanation">Gives the trimodal population distribution and the deficient-phenotype frequency in a 1,214-subject cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states-randomly-selected-subjects">
+                <div class="item-name">United States, randomly selected subjects</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        300.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">The original 298-subject survey found undetectable erythrocyte TPMT activity in 0.3% and intermediate activity in 11.1%.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7191632" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7191632" target="_blank">PMID:7191632</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"11.1% were included in a subgroup with intermediate activity (7.20 +/- 1.08 U), and 0.3% had undetectable activity"</div>
+
+
+                <div class="evidence-explanation">Reports deficient and intermediate metabolizer frequencies in the founding population survey.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-populations-of-european-descent">
+                <div class="item-name">Populations of European descent</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        190.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">CPIC&#39;s own 2025 figure for the TPMT poor metabolizer phenotype in European-descent populations, given as the comparator for the NUDT15 poor metabolizer frequency (about 1 in 100 in East Asian descent). Lower than the two single-cohort surveys above, which is expected: this is the CPIC frequency-table estimate pooled across studies rather than one cohort. As with those records, this is the prevalence of the metabolic trait, not of clinical disease.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41618934" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41618934" target="_blank">PMID:41618934</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"which is more common than the TPMT poor metabolizer phenotype in populations of European descent (estimated to be 0.19%"</div>
+
+
+                <div class="evidence-explanation">Gives the CPIC-endorsed European-descent TPMT poor metabolizer frequency. The quote is truncated where the source sentence runs into its frequency table citation, so the closing parenthesis is not part of the quoted span.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6787,7 +7366,7 @@ pathophysiology:
   evidence:
   - reference: PMID:41618934
     reference_title: &#34;Clinical Pharmacogenetics Implementation Consortium (CPIC) Guideline for Thiopurine Dosing Based on TPMT and NUDT15 Genotypes: 2025 Update.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;predictive of pronounced adverse effects, including severe myelosuppression&#34;
     explanation: &gt;-
@@ -6901,7 +7480,7 @@ phenotypes:
   evidence:
   - reference: PMID:41618934
     reference_title: &#34;Clinical Pharmacogenetics Implementation Consortium (CPIC) Guideline for Thiopurine Dosing Based on TPMT and NUDT15 Genotypes: 2025 Update.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;predictive of pronounced adverse effects, including severe myelosuppression, that may occur among individuals treated with standard doses of thiopurines&#34;
     explanation: &gt;-
@@ -7423,7 +8002,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thiopurine S-methyltransferase Deficiency", "mondoId": "MONDO:0012503", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thiopurine_S-methyltransferase_Deficiency", "yamlRevision": "5ef1ecfa2828"};
+        const OS_CONFIG = {"diseaseName": "Thiopurine S-methyltransferase Deficiency", "mondoId": "MONDO:0012503", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thiopurine_S-methyltransferase_Deficiency", "yamlRevision": "a3e6d85af76b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4080,6 +4173,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4103,6 +4198,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4124,6 +4221,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4251,6 +4350,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4288,9 +4389,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">1 support</span>
-
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">2 support</span>
 
                 </div>
 
@@ -4657,6 +4756,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4670,14 +4771,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4717,6 +4820,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p-arg138trp-supported-p5cs-dominant-negative-complex-disruption" data-dismech-node="p.Arg138Trp-supported P5CS dominant-negative complex disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">p.Arg138Trp-supported P5CS dominant-negative complex disruption</div>
+
 
                 <div class="item-desc">In p.Arg138Trp experiments, mutant P5CS is stable and interacts with wild-type P5CS but alters the structure or composition and submitochondrial localization of the P5CS complex. This dominant-negative state reduces overall P5CS enzymatic activity in patient cells. A comparable mechanism has not been directly demonstrated for the other ADCL-associated substitutions.
 </div>
@@ -4825,6 +4929,44 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
                 </div>
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        delta1-pyrroline-5-carboxylate synthetase (NADP+) activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0017084" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0017084</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased delta1-pyrroline-5-carboxylate synthetase (NADP+) activity (GO:0017084). GO:0017084 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -4836,11 +4978,11 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0005739</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4896,6 +5038,8 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4917,6 +5061,8 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4941,6 +5087,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p-arg138trp-associated-reduced-p5cs-activity-and-delayed-proline-accumulation" data-dismech-node="p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation</div>
+
 
                 <div class="item-desc">P5CS p.Arg138Trp mutant fibroblasts show reduced enzymatic activity with delayed proline accumulation, placing ADCL3 in the ALDH18A1-linked proline biosynthesis disease spectrum.
 </div>
@@ -4975,11 +5122,11 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5016,11 +5163,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0055129" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0055129</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0055129" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0055129</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased L-proline biosynthetic process (GO:0055129). GO:0055129 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5154,6 +5301,8 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5176,6 +5325,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-extracellular-matrix-vulnerability" data-dismech-node="Proposed extracellular-matrix vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Proposed extracellular-matrix vulnerability</div>
+
 
                 <div class="item-desc">Altered P5CS-dependent proline biosynthesis may perturb extracellular-matrix synthesis and thereby contribute to lax skin and musculoskeletal findings. This is a proposed tissue-level mechanism; collagen synthesis or crosslinking has not been directly measured in ADCL3 patient tissue.
 </div>
@@ -5336,14 +5486,16 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40164711" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40164711" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40164711" target="_blank">PMID:40164711</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5368,6 +5520,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldh18a1-adcl-neurodevelopmental-involvement" data-dismech-node="ALDH18A1-ADCL neurodevelopmental involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">ALDH18A1-ADCL neurodevelopmental involvement</div>
+
 
                 <div class="item-desc">ADCL3 includes neurodevelopmental involvement with growth delay, microcephaly, hypotonia, and psychomotor or global developmental delay, although the intermediate mechanism from altered P5CS metabolism remains incompletely defined.
 </div>
@@ -5595,6 +5748,8 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5617,6 +5772,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldh18a1-adcl-ocular-involvement" data-dismech-node="ALDH18A1-ADCL ocular involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">ALDH18A1-ADCL ocular involvement</div>
+
 
                 <div class="item-desc">Cataract occurs in ALDH18A1-associated dominant cutis laxa; the specific tissue mechanism downstream of altered P5CS metabolism remains unresolved.
 </div>
@@ -5692,6 +5848,8 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5737,7 +5895,7 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH18A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALDH18A1\"], \"gene_terms\": [{\"label\": \"ALDH18A1\", \"id\": \"hgnc:9722\"}], \"association\": \"Causative\"}}, {\"id\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADCL3 includes neurodevelopmental involvement with growth delay, microcephaly, hypotonia, and psychomotor or global developmental delay, although the intermediate mechanism from altered P5CS metabolism remains incompletely defined.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ALDH18A1-ADCL ocular involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cataract occurs in ALDH18A1-associated dominant cutis laxa; the specific tissue mechanism downstream of altered P5CS metabolism remains unresolved.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atlantoaxial instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe atlantoaxial instability with spinal cord compression after a standing-height fall has been described in one molecularly confirmed case; it is a potential complication rather than an established common feature.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003467\"}}, {\"id\": \"Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataracts or lens opacities are reported ocular manifestations. Ocular opacity severity varies across the combined disorder group, and surgical correction is necessary in some individuals.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebral white matter abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased cerebral white matter T2 signal has been reported on neuroimaging in dominant ALDH18A1-associated cutis laxa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002500\"}}, {\"id\": \"Cranial vessel tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial arterial tortuosity has been reported in most evaluated ALDH18A1-ADCL individuals, although the clinical implications remain uncertain.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005116\"}}, {\"id\": \"Cutis laxa with progeroid appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin, lax, wrinkled skin with visible veins giving a prematurely aged appearance. Cutis laxa is the defining cutaneous finding of this disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000973\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor, speech, psychomotor, or global developmental delay has been documented in molecularly confirmed ADCL3 cases. Developmental delay in young children is not treated here as interchangeable with a measured intellectual-disability diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay or growth retardation has been reported in ALDH18A1-associated autosomal dominant cutis laxa.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Hip dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dislocation has been reported in ALDH18A1-associated autosomal dominant cutis laxa, consistent with generalized connective tissue laxity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002827\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is a reported neurodevelopmental feature in ALDH18A1-associated autosomal dominant cutis laxa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intrauterine growth retardation is a prenatal feature of ALDH18A1-associated autosomal dominant cutis laxa, distinct from postnatal growth restriction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001511\"}}, {\"id\": \"Joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint contractures have been described as part of the ALDH18A1-associated autosomal dominant cutis laxa phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Joint hyperlaxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint laxity or hypermobility is a recurrent connective-tissue manifestation; its exact downstream molecular mechanism is unresolved.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Lower limb spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lower-limb hyperreflexia or spasticity is described across the combined mitochondrial proline-synthesis disorder group, and the GeneReviews subtype table identifies spastic diplegia specifically in ALDH18A1-related ADCL. Frequency estimates remain based on sparse published cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002061\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly was reported in a molecularly confirmed p.Ser134Pro case.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Proposed extracellular-matrix vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered P5CS-dependent proline biosynthesis may perturb extracellular-matrix synthesis and thereby contribute to lax skin and musculoskeletal findings. This is a proposed tissue-level mechanism; collagen synthesis or crosslinking has not been directly measured in ADCL3 patient tissue.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin corpus callosum is a recurrent brain MRI finding in ALDH18A1-related ADCL.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent or widened ventricular and extra-axial CSF spaces have been documented in an imaged ALDH18A1-ADCL patient.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"p.Arg138Trp delayed fibroblast proline accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DELAYED\"}}, {\"id\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P5CS p.Arg138Trp mutant fibroblasts show reduced enzymatic activity with delayed proline accumulation, placing ADCL3 in the ALDH18A1-linked proline biosynthesis disease spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"L-proline biosynthetic process\"]}}, {\"id\": \"p.Arg138Trp-supported P5CS dominant-negative complex disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In p.Arg138Trp experiments, mutant P5CS is stable and interacts with wild-type P5CS but alters the structure or composition and submitochondrial localization of the P5CS complex. This dominant-negative state reduces overall P5CS enzymatic activity in patient cells. A comparable mechanism has not been directly demonstrated for the other ADCL-associated substitutions.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-proline biosynthetic process\"], \"genes\": [\"ALDH18A1\"], \"gene_terms\": [{\"label\": \"ALDH18A1\", \"id\": \"hgnc:9722\", \"modifier\": \"ABNORMAL\"}]}}], \"edges\": [{\"source\": \"p.Arg138Trp-supported P5CS dominant-negative complex disruption\", \"target\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Arg138Trp-supported dominant-negative state reduces enzyme activity and delays cellular proline accumulation.\", \"hypothesis_groups\": [\"dominant_negative_p5cs_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"p.Arg138Trp delayed fibroblast proline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed proline accumulation is the cellular biochemical readout of reduced P5CS activity.\", \"hypothesis_groups\": [\"dominant_negative_p5cs_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"Proposed extracellular-matrix vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered P5CS-dependent proline metabolism may perturb extracellular-matrix synthesis.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"proposed altered proline supply for extracellular-matrix synthesis\"]}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental findings occur across ADCL variants, but placement downstream of the p.Arg138Trp biochemical defect is hypothetical; the p.Ser134Pro case cited here has not been functionally tested for that defect.\\n\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"ALDH18A1-ADCL ocular involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cataract occurs across ADCL variants, but placement downstream of the p.Arg138Trp biochemical defect is hypothetical; the p.Ser134Pro case cited here has not been functionally tested for that defect.\\n\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Cutis laxa with progeroid appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed extracellular-matrix branch may contribute to the lax, wrinkled skin phenotype.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"proposed altered proline supply for extracellular-matrix synthesis\"]}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Joint hyperlaxity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed extracellular-matrix branch may contribute to joint laxity and hypermobility.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"proposed altered proline supply for extracellular-matrix synthesis\"]}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Hip dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue laxity is associated with hip dislocation in reported ALDH18A1-ADCL cases.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue involvement is associated with joint contractures in dominant ALDH18A1 cutis laxa.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Atlantoaxial instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A single molecularly confirmed case expands the connective-tissue phenotype to severe cervical instability with cord compression after minor trauma.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Cranial vessel tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed tissue-level branch is associated with cranial vessel tortuosity, but its intermediate mechanism is unknown.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental growth involvement can include prenatal intrauterine growth retardation.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental involvement includes prenatal or postnatal growth delay.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement is associated with hypotonia.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced head circumference has been reported in an ALDH18A1-ADCL case, although it is not a defining feature of the dominant disorder.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement includes psychomotor and global developmental delay.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Cerebral white matter abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroimaging in dominant ALDH18A1 cutis laxa can show cerebral white matter signal abnormality.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Lower limb spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive lower-limb hyperreflexia and spasticity are reported within the mitochondrial proline-synthesis disorder spectrum.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Current syndrome-level synthesis identifies a thin corpus callosum as a recurrent ADCL neuroimaging finding.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular and extra-axial CSF-space enlargement has been documented in an imaged ADCL patient.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL ocular involvement\", \"target\": \"Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular involvement can be expressed as cataract.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1\", \"target\": \"p.Arg138Trp-supported P5CS dominant-negative complex disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH18A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ALDH18A1\"], \"gene_terms\": [{\"label\": \"ALDH18A1\", \"id\": \"hgnc:9722\"}], \"association\": \"Causative\"}}, {\"id\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADCL3 includes neurodevelopmental involvement with growth delay, microcephaly, hypotonia, and psychomotor or global developmental delay, although the intermediate mechanism from altered P5CS metabolism remains incompletely defined.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"ALDH18A1-ADCL ocular involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cataract occurs in ALDH18A1-associated dominant cutis laxa; the specific tissue mechanism downstream of altered P5CS metabolism remains unresolved.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Atlantoaxial instability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe atlantoaxial instability with spinal cord compression after a standing-height fall has been described in one molecularly confirmed case; it is a potential complication rather than an established common feature.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0003467\"}}, {\"id\": \"Cataracts\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataracts or lens opacities are reported ocular manifestations. Ocular opacity severity varies across the combined disorder group, and surgical correction is necessary in some individuals.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cerebral white matter abnormality\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased cerebral white matter T2 signal has been reported on neuroimaging in dominant ALDH18A1-associated cutis laxa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002500\"}}, {\"id\": \"Cranial vessel tortuosity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intracranial arterial tortuosity has been reported in most evaluated ALDH18A1-ADCL individuals, although the clinical implications remain uncertain.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005116\"}}, {\"id\": \"Cutis laxa with progeroid appearance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Thin, lax, wrinkled skin with visible veins giving a prematurely aged appearance. Cutis laxa is the defining cutaneous finding of this disorder.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000973\"}}, {\"id\": \"Global developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Motor, speech, psychomotor, or global developmental delay has been documented in molecularly confirmed ADCL3 cases. Developmental delay in young children is not treated here as interchangeable with a measured intellectual-disability diagnosis.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Growth delay or growth retardation has been reported in ALDH18A1-associated autosomal dominant cutis laxa.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004322\"}}, {\"id\": \"Hip dislocation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hip dislocation has been reported in ALDH18A1-associated autosomal dominant cutis laxa, consistent with generalized connective tissue laxity.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002827\"}}, {\"id\": \"Hypotonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized hypotonia is a reported neurodevelopmental feature in ALDH18A1-associated autosomal dominant cutis laxa.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001252\"}}, {\"id\": \"Intrauterine growth retardation\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Intrauterine growth retardation is a prenatal feature of ALDH18A1-associated autosomal dominant cutis laxa, distinct from postnatal growth restriction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001511\"}}, {\"id\": \"Joint contractures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint contractures have been described as part of the ALDH18A1-associated autosomal dominant cutis laxa phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0034392\"}}, {\"id\": \"Joint hyperlaxity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Generalized joint laxity or hypermobility is a recurrent connective-tissue manifestation; its exact downstream molecular mechanism is unresolved.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001382\"}}, {\"id\": \"Lower limb spasticity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive lower-limb hyperreflexia or spasticity is described across the combined mitochondrial proline-synthesis disorder group, and the GeneReviews subtype table identifies spastic diplegia specifically in ALDH18A1-related ADCL. Frequency estimates remain based on sparse published cases.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0002061\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly was reported in a molecularly confirmed p.Ser134Pro case.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Proposed extracellular-matrix vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Altered P5CS-dependent proline biosynthesis may perturb extracellular-matrix synthesis and thereby contribute to lax skin and musculoskeletal findings. This is a proposed tissue-level mechanism; collagen synthesis or crosslinking has not been directly measured in ADCL3 patient tissue.\\n\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thin corpus callosum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A thin corpus callosum is a recurrent brain MRI finding in ALDH18A1-related ADCL.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0033725\"}}, {\"id\": \"Ventriculomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Prominent or widened ventricular and extra-axial CSF spaces have been documented in an imaged ALDH18A1-ADCL patient.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002119\"}}, {\"id\": \"p.Arg138Trp delayed fibroblast proline accumulation\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"DELAYED\"}}, {\"id\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"P5CS p.Arg138Trp mutant fibroblasts show reduced enzymatic activity with delayed proline accumulation, placing ADCL3 in the ALDH18A1-linked proline biosynthesis disease spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"L-proline biosynthetic process\"]}}, {\"id\": \"p.Arg138Trp-supported P5CS dominant-negative complex disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In p.Arg138Trp experiments, mutant P5CS is stable and interacts with wild-type P5CS but alters the structure or composition and submitochondrial localization of the P5CS complex. This dominant-negative state reduces overall P5CS enzymatic activity in patient cells. A comparable mechanism has not been directly demonstrated for the other ADCL-associated substitutions.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"L-proline biosynthetic process\"], \"molecular_functions\": [\"delta1-pyrroline-5-carboxylate synthetase (NADP+) activity\"], \"genes\": [\"ALDH18A1\"], \"gene_terms\": [{\"label\": \"ALDH18A1\", \"id\": \"hgnc:9722\", \"modifier\": \"ABNORMAL\"}]}}], \"edges\": [{\"source\": \"p.Arg138Trp-supported P5CS dominant-negative complex disruption\", \"target\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The p.Arg138Trp-supported dominant-negative state reduces enzyme activity and delays cellular proline accumulation.\", \"hypothesis_groups\": [\"dominant_negative_p5cs_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"p.Arg138Trp delayed fibroblast proline accumulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Delayed proline accumulation is the cellular biochemical readout of reduced P5CS activity.\", \"hypothesis_groups\": [\"dominant_negative_p5cs_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"Proposed extracellular-matrix vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered P5CS-dependent proline metabolism may perturb extracellular-matrix synthesis.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"proposed altered proline supply for extracellular-matrix synthesis\"]}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental findings occur across ADCL variants, but placement downstream of the p.Arg138Trp biochemical defect is hypothetical; the p.Ser134Pro case cited here has not been functionally tested for that defect.\\n\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"p.Arg138Trp-associated reduced P5CS activity and delayed proline accumulation\", \"target\": \"ALDH18A1-ADCL ocular involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cataract occurs across ADCL variants, but placement downstream of the p.Arg138Trp biochemical defect is hypothetical; the p.Ser134Pro case cited here has not been functionally tested for that defect.\\n\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Cutis laxa with progeroid appearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed extracellular-matrix branch may contribute to the lax, wrinkled skin phenotype.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"proposed altered proline supply for extracellular-matrix synthesis\"]}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Joint hyperlaxity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed extracellular-matrix branch may contribute to joint laxity and hypermobility.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"proposed altered proline supply for extracellular-matrix synthesis\"]}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Hip dislocation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue laxity is associated with hip dislocation in reported ALDH18A1-ADCL cases.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Joint contractures\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Connective tissue involvement is associated with joint contractures in dominant ALDH18A1 cutis laxa.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Atlantoaxial instability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A single molecularly confirmed case expands the connective-tissue phenotype to severe cervical instability with cord compression after minor trauma.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Proposed extracellular-matrix vulnerability\", \"target\": \"Cranial vessel tortuosity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed tissue-level branch is associated with cranial vessel tortuosity, but its intermediate mechanism is unknown.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Intrauterine growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental growth involvement can include prenatal intrauterine growth retardation.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Growth retardation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental involvement includes prenatal or postnatal growth delay.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Hypotonia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement is associated with hypotonia.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced head circumference has been reported in an ALDH18A1-ADCL case, although it is not a defining feature of the dominant disorder.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Global developmental delay\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurodevelopmental involvement includes psychomotor and global developmental delay.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Cerebral white matter abnormality\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neuroimaging in dominant ALDH18A1 cutis laxa can show cerebral white matter signal abnormality.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Lower limb spasticity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive lower-limb hyperreflexia and spasticity are reported within the mitochondrial proline-synthesis disorder spectrum.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Thin corpus callosum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Current syndrome-level synthesis identifies a thin corpus callosum as a recurrent ADCL neuroimaging finding.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL neurodevelopmental involvement\", \"target\": \"Ventriculomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ventricular and extra-axial CSF-space enlargement has been documented in an imaged ADCL patient.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1-ADCL ocular involvement\", \"target\": \"Cataracts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular involvement can be expressed as cataract.\", \"hypothesis_groups\": [\"downstream_tissue_consequence_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ALDH18A1\", \"target\": \"p.Arg138Trp-supported P5CS dominant-negative complex disruption\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5764,13 +5922,13 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5799,15 +5957,18 @@ This pathophysiological event involves decreased L-proline biosynthetic process 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0005116</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005116" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0005116</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cranial vessel tortuosity, annotated with Arterial tortuosity (HP:0005116). HP:0005116 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5827,6 +5988,8 @@ This clinical feature is Cranial vessel tortuosity, annotated with Arterial tort
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5850,6 +6013,8 @@ This clinical feature is Cranial vessel tortuosity, annotated with Arterial tort
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5898,15 +6063,18 @@ This clinical feature is Cranial vessel tortuosity, annotated with Arterial tort
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5918,14 +6086,16 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40164711" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40164711" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40164711" target="_blank">PMID:40164711</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5949,6 +6119,8 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5997,15 +6169,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6025,6 +6200,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6073,15 +6250,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000973</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000973" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000973</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutis laxa (HP:0000973). HP:0000973 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6101,6 +6281,8 @@ This clinical feature is Cutis laxa (HP:0000973). HP:0000973 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6131,13 +6313,13 @@ This clinical feature is Cutis laxa (HP:0000973). HP:0000973 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">4</span>
+                    Limbs
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dislocation" data-dismech-node="Hip dislocation" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Hypotonia
+                        Hip dislocation
 
 
 
@@ -6149,15 +6331,18 @@ This clinical feature is Cutis laxa (HP:0000973). HP:0000973 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002827</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6177,6 +6362,89 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"microcephaly, cranial vessel tortuosity, hip dislocation"</div>
+
+
+                <div class="evidence-explanation">Case report directly documents hip dislocation in a confirmed ALDH18A1-ADCL patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40164711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40164711" target="_blank">PMID:40164711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6218,15 +6486,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001382</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001382" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001382</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6246,6 +6517,8 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6269,6 +6542,8 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6308,15 +6583,18 @@ This clinical feature is Joint hypermobility (HP:0001382). HP:0001382 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0034392</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0034392</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Joint contractures, annotated with Joint contracture (HP:0034392). HP:0034392 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6336,6 +6614,8 @@ This clinical feature is Joint contractures, annotated with Joint contracture (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6375,15 +6655,18 @@ This clinical feature is Joint contractures, annotated with Joint contracture (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003467</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003467" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0003467</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6403,6 +6686,8 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6428,13 +6713,110 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower limb spasticity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lower limb spasticity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41570168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41570168" target="_blank">PMID:41570168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional features can include joint laxity, congenital hypotonia, progressive increased lower limb reflexes/spasticity, congenital hip dislocation, adducted thumbs, corneal clouding, and lens opacities."</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies progressive lower-limb reflex and tone abnormalities in this disorder spectrum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Spastic diplegia ... 10% ... Only in ... ALDH18A1- ... related ADCL"</div>
+
+
+                <div class="evidence-explanation">The GeneReviews subtype table attributes spastic diplegia specifically to ALDH18A1-related ADCL.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
@@ -6451,15 +6833,18 @@ This clinical feature is Atlantoaxial instability (HP:0003467). HP:0003467 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6479,6 +6864,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6502,6 +6889,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6543,15 +6932,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral white matter T2 signal abnormality, annotated with Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6573,6 +6965,8 @@ This clinical feature is Cerebral white matter T2 signal abnormality, annotated 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6581,6 +6975,78 @@ This clinical feature is Cerebral white matter T2 signal abnormality, annotated 
 
 
                 <div class="evidence-explanation">Neuroimaging case series reports increased cerebral white matter T2 signal in a patient with dominant ALDH18A1 cutis laxa.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin corpus callosum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0033725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"related ADCL, a thin corpus callosum and enlarged ventricles and perivascular spaces are usually observed."</div>
+
+
+                <div class="evidence-explanation">GeneReviews specifically identifies this recurrent ADCL imaging feature.</div>
 
 
 
@@ -6610,15 +7076,18 @@ This clinical feature is Cerebral white matter T2 signal abnormality, annotated 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6638,6 +7107,8 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6665,7 +7136,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-7">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
@@ -6686,15 +7157,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001511</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001511</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intrauterine growth retardation (HP:0001511). HP:0001511 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6714,6 +7188,8 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6755,15 +7231,18 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6783,6 +7262,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6808,6 +7289,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6816,239 +7299,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Recent case report lists growth retardation among the reported ADCL features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hip-dislocation" data-dismech-node="Hip dislocation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hip dislocation
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002827" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002827</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hip dislocation (HP:0002827). HP:0002827 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40164711" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40164711" target="_blank">PMID:40164711</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"microcephaly, cranial vessel tortuosity, hip dislocation"</div>
-
-
-                <div class="evidence-explanation">Case report directly documents hip dislocation in a confirmed ALDH18A1-ADCL patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lower-limb-spasticity" data-dismech-node="Lower limb spasticity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lower limb spasticity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002061</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lower limb spasticity (HP:0002061). HP:0002061 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41570168" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41570168" target="_blank">PMID:41570168</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional features can include joint laxity, congenital hypotonia, progressive increased lower limb reflexes/spasticity, congenital hip dislocation, adducted thumbs, corneal clouding, and lens opacities."</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies progressive lower-limb reflex and tone abnormalities in this disorder spectrum.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Spastic diplegia ... 10% ... Only in ... ALDH18A1- ... related ADCL"</div>
-
-
-                <div class="evidence-explanation">The GeneReviews subtype table attributes spastic diplegia specifically to ALDH18A1-related ADCL.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thin corpus callosum
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0033725</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"related ADCL, a thin corpus callosum and enlarged ventricles and perivascular spaces are usually observed."</div>
-
-
-                <div class="evidence-explanation">GeneReviews specifically identifies this recurrent ADCL imaging feature.</div>
 
 
 
@@ -7121,10 +7371,10 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
                         Gene: ALDH18A1
 
 
-    <a href="https://bioregistry.io/hgnc:9722" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:9722</a>
+    <a href="https://bioregistry.io/hgnc:9722" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:9722</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ALDH18A1 (hgnc:9722). hgnc:9722 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7132,6 +7382,9 @@ This disease-associated gene is ALDH18A1 (hgnc:9722). hgnc:9722 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7158,6 +7411,8 @@ This disease-associated gene is ALDH18A1 (hgnc:9722). hgnc:9722 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7181,6 +7436,8 @@ This disease-associated gene is ALDH18A1 (hgnc:9722). hgnc:9722 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7202,6 +7459,8 @@ This disease-associated gene is ALDH18A1 (hgnc:9722). hgnc:9722 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7254,7 +7513,7 @@ This disease-associated gene is ALDH18A1 (hgnc:9722). hgnc:9722 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7286,6 +7545,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling should explain the usually de novo dominant mechanism. When the proband&#39;s variant is absent from parental leukocyte DNA, sibling recurrence risk is estimated at about 1% because gonadal mosaicism remains possible; reproductive testing options can be discussed once the familial variant is known.
 </div>
 
@@ -7308,6 +7581,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7341,7 +7616,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7373,6 +7648,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no confirmed targeted therapy. Multidisciplinary supportive care includes speech and developmental therapies, physical and occupational therapy, mobility support when needed, orthopedic management of hip, contracture, scoliosis, or cervical-spine complications, ophthalmologic treatment for visual impairment, and cardiovascular care when indicated.
 </div>
 
@@ -7387,14 +7676,16 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7420,6 +7711,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7441,6 +7734,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7475,7 +7770,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-25">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">clinical monitoring<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:C124351). NCIT:C124351 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7508,6 +7803,20 @@ This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews proposes longitudinal neurologic and developmental assessment, brain MRI and MRA, growth and orthopedic review, annual ocular assessment, periodic echocardiography, and pulmonary testing. These are expert-review recommendations for the broader mitochondrial proline-synthesis disorder group and should be individualized for ADCL.
 </div>
 
@@ -7530,6 +7839,8 @@ This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7598,6 +7909,8 @@ This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7619,6 +7932,365 @@ This treatment is clinical monitoring, annotated with Clinical Evaluation (NCIT:
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-confirmation">
+                <div class="item-name">
+                    Molecular genetic confirmation
+
+                </div>
+
+                <div class="item-desc">In a person with the characteristic neurocutaneous connective-tissue phenotype, diagnosis is established by identifying a specific heterozygous ALDH18A1 pathogenic variant associated with ADCL, typically de novo. An ALDH18A1 variant of uncertain significance neither establishes nor excludes the diagnosis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A specific heterozygous pathogenic ALDH18A1 variant associated with ADCL confirms the molecular diagnosis in the appropriate clinical context.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41570168" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41570168" target="_blank">PMID:41570168</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characteristic clinical findings and identification of biallelic ALDH18A1 or PYCR1 pathogenic variants or a de novo ALDH18A1 pathogenic variant associated with ALDH18A1-related ADCL.
+"</div>
+
+
+                <div class="evidence-explanation">GeneReviews defines clinical-plus-molecular confirmation for the dominant subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variant of uncertain significance) does not establish or rule out the diagnosis."</div>
+
+
+                <div class="evidence-explanation">GeneReviews explicitly prevents a VUS from being treated as diagnostic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-to-adulthood">
+                <div class="item-name">Childhood to adulthood</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Age-dependent cutaneous evolution</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Across the combined mitochondrial proline-synthesis disorder group, skin wrinkling generally becomes less prominent with age, while translucent skin and paucity of subcutaneous fat become more apparent. ADCL-specific longitudinal data remain limited.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"With increasing age, wrinkling becomes less prominent and translucent skin with paucity of subcutaneous fat tissue becomes more prominent."</div>
+
+
+                <div class="evidence-explanation">GeneReviews describes this age-dependent cutaneous evolution for the combined disorder group rather than an isolated ADCL cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-childhood-developmental-course">
+                <div class="item-name">Childhood developmental course</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Longitudinal pediatric follow-up</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Across the combined mitochondrial proline-synthesis disorder literature, growth deficiency often improves and developmental regression has not been reported. ADCL-specific adult follow-up remains sparse.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, growth deficiency usually improves with age."</div>
+
+
+                <div class="evidence-explanation">The current review describes the combined disorder group&#39;s longitudinal growth pattern.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, regression has not been reported."</div>
+
+
+                <div class="evidence-explanation">The current review reports no developmental regression across the combined disorder group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">GeneReviews estimates the combined mitochondrial proline-synthesis disorder group below one per million. Because ALDH18A1-related ADCL is a subset, this is a conservative upper bound; no subtype-specific denominator-based prevalence is available.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/url:https://www.ncbi.nlm.nih.gov/books/NBK620405/" target="_blank">url:https://www.ncbi.nlm.nih.gov/books/NBK620405/</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prevalence is unknown but is likely less than 1:1,000,000."</div>
+
+
+                <div class="evidence-explanation">This estimate supports ultra-rarity but applies to the combined disorder group, not an ADCL-specific population denominator.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7701,7 +8373,7 @@ prevalence:
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK620405/
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects - GeneReviews® - NCBI Bookshelf
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Prevalence is unknown but is likely less than 1:1,000,000.
     explanation: This estimate supports ultra-rarity but applies to the combined disorder group, not an ADCL-specific population denominator.
@@ -7716,7 +8388,7 @@ progression:
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK620405/
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects - GeneReviews® - NCBI Bookshelf
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: With increasing age, wrinkling becomes less prominent and translucent skin with paucity of subcutaneous fat tissue becomes more prominent.
     explanation: GeneReviews describes this age-dependent cutaneous evolution for the combined disorder group rather than an isolated ADCL cohort.
@@ -7729,13 +8401,13 @@ progression:
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK620405/
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects - GeneReviews® - NCBI Bookshelf
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: However, growth deficiency usually improves with age.
     explanation: The current review describes the combined disorder group&#39;s longitudinal growth pattern.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK620405/
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects - GeneReviews® - NCBI Bookshelf
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: To date, regression has not been reported.
     explanation: The current review reports no developmental regression across the combined disorder group.
@@ -7861,7 +8533,7 @@ mechanistic_hypotheses:
     explanation: The current GeneReview explicitly bounds the downstream tissue model as unresolved.
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK620405/
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects - GeneReviews® - NCBI Bookshelf
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Among them is altered proline biosynthesis in the context of extracellular matrix synthesis
     explanation: The current GeneReview presents the proline-to-extracellular-matrix link as one proposed mechanism.
@@ -7879,6 +8551,12 @@ pathophysiology:
     term:
       id: hgnc:9722
       label: ALDH18A1
+  molecular_functions:
+  - preferred_term: delta1-pyrroline-5-carboxylate synthetase (NADP+) activity
+    term:
+      id: GO:0017084
+      label: delta1-pyrroline-5-carboxylate synthetase (NADP+) activity
+    modifier: DECREASED
   biological_processes:
   - preferred_term: L-proline biosynthetic process
     term:
@@ -7968,7 +8646,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40164711
       reference_title: &#34;A novel case of autosomal-dominant cutis laxa caused by a de novo likely pathogenic variant in ALDH18A1: case report and literature review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;including ALDH18A1, which encodes Δ1-pyrroline-5-carboxylate synthetase, a key enzyme in proline and collagen metabolism.&#34;
       explanation: The 2025 case review supports biological plausibility but does not demonstrate extracellular-matrix disruption in ADCL tissue.
@@ -8011,7 +8689,7 @@ pathophysiology:
   evidence:
   - reference: PMID:40164711
     reference_title: &#34;A novel case of autosomal-dominant cutis laxa caused by a de novo likely pathogenic variant in ALDH18A1: case report and literature review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;including ALDH18A1, which encodes Δ1-pyrroline-5-carboxylate synthetase, a key enzyme in proline and collagen metabolism.&#34;
     explanation: The case review supports biological plausibility but does not directly measure extracellular-matrix synthesis in ADCL3 tissue.
@@ -8285,7 +8963,7 @@ phenotypes:
   evidence:
   - reference: PMID:40164711
     reference_title: &#34;A novel case of autosomal-dominant cutis laxa caused by a de novo likely pathogenic variant in ALDH18A1: case report and literature review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;lax skin, cataract, dysmorphic features&#34;
     explanation: Cataract is directly reported in a confirmed ALDH18A1-ADCL patient.
@@ -8524,7 +9202,7 @@ phenotypes:
   evidence:
   - reference: PMID:41570168
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: Additional features can include joint laxity, congenital hypotonia, progressive increased lower limb reflexes/spasticity, congenital hip dislocation, adducted thumbs, corneal clouding, and lens opacities.
     explanation: GeneReviews identifies progressive lower-limb reflex and tone abnormalities in this disorder spectrum.
@@ -8638,7 +9316,7 @@ treatments:
   evidence:
   - reference: url:https://www.ncbi.nlm.nih.gov/books/NBK620405/
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects - GeneReviews® - NCBI Bookshelf
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: There are no targeted therapies available for neurocutaneous disorders due to mitochondrial proline synthesis defects
     explanation: GeneReviews states that no targeted therapy is available for the broader disorder group; ADCL-specific therapeutic trials are not established.
@@ -8656,7 +9334,7 @@ treatments:
     explanation: GeneReviews gives concrete supportive interventions for neurologic and orthopedic manifestations.
   - reference: PMID:41570168
     reference_title: Neurocutaneous Disorders due to Mitochondrial Proline Synthesis Defects.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: supplementation with arginine has been described in a limited number of individuals, but clinical benefit remains to be confirmed
     explanation: GeneReviews prevents amino-acid supplementation from being represented as established effective therapy.
@@ -8880,6 +9558,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/ALDH18A1_Cutis_Laxa-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11374,7 +12064,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ALDH18A1-Related Autosomal Dominant Cutis Laxa Type 3", "mondoId": "MONDO:0014706", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALDH18A1-Related_Autosomal_Dominant_Cutis_Laxa_Type_3", "yamlRevision": "cf422d12f53c"};
+        const OS_CONFIG = {"diseaseName": "ALDH18A1-Related Autosomal Dominant Cutis Laxa Type 3", "mondoId": "MONDO:0014706", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ALDH18A1-Related_Autosomal_Dominant_Cutis_Laxa_Type_3", "yamlRevision": "7e22045bad0f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

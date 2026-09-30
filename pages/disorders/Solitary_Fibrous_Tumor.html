@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4152,6 +4245,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4197,6 +4292,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nab2-stat6-fusion-oncogene" data-dismech-node="NAB2-STAT6 Fusion Oncogene" data-dismech-type="pathophysiology">
                 <div class="item-name">NAB2-STAT6 Fusion Oncogene</div>
 
+
                 <div class="item-desc">A recurrent intrachromosomal rearrangement on chromosome 12q13 fuses the NAB2 gene to STAT6. NAB2-STAT6 is the defining molecular feature of SFT, identified by whole-exome sequencing across the SFT spectrum (including tumors formerly called hemangiopericytoma). The chimeric product joins the truncated repressor domain of NAB2 to the intact transactivation domain of STAT6.</div>
 
 
@@ -4234,6 +4330,31 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -4282,6 +4403,8 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4305,7 +4428,8 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-egr1-target-transactivation" data-dismech-node="Aberrant EGR1-Target Transactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant EGR1-Target Transactivation</div>
 
-                <div class="item-desc">Native NAB2 represses EGR1 (EGR-1) target genes. The NAB2-STAT6 fusion replaces the NAB2 repressor activity with the STAT6 transactivation domain, so EGR1-target genes are aberrantly activated. STAT6 accumulates in the nucleus (the basis of the diagnostic nuclear STAT6 immunostain). Upregulation of EGR1 and its proliferation- associated target IGF2 drives p-Rb/cyclin D1 and enhanced proliferation.</div>
+
+                <div class="item-desc">Native NAB2 represses EGR1 (EGR-1) target genes. The NAB2-STAT6 fusion replaces the NAB2 repressor activity with the STAT6 transactivation domain, so EGR1-target genes are aberrantly activated. STAT6 accumulates in the nucleus (the basis of the diagnostic nuclear STAT6 immunostain). Upregulation of EGR1 and its proliferation-associated target IGF2 drives p-Rb/cyclin D1 and enhanced proliferation.</div>
 
 
 
@@ -4436,6 +4560,8 @@ This pathophysiological event involves increased positive regulation of transcri
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4458,6 +4584,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblastic-proliferation" data-dismech-node="Fibroblastic Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblastic Proliferation</div>
+
 
                 <div class="item-desc">Aberrant EGR1/IGF2 signaling drives p-Rb (Ser795) and cyclin D1 upregulation and enhanced proliferation of the spindled fibroblastic tumor cells, producing the patternless, variably cellular architecture of SFT with branching &#34;staghorn&#34; thin-walled vasculature.</div>
 
@@ -4612,6 +4739,8 @@ This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4634,6 +4763,7 @@ This pathophysiological event involves angiogenesis (GO:0001525). GO:0001525 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paraneoplastic-big-igf-ii-secretion-doege-potter-syndrome" data-dismech-node="Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)" data-dismech-type="pathophysiology">
                 <div class="item-name">Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)</div>
+
 
                 <div class="item-desc">A subset of SFTs secretes incompletely processed insulin-like growth factor II (&#34;Big-IGF-II&#34;), a precursor of IGF-II. This prohormone aberrantly activates insulin/IGF receptors, inhibiting gluconeogenesis and stimulating glucose uptake, producing recurrent non-islet-cell tumor hypoglycemia known as Doege-Potter syndrome. EGR1-driven IGF2 upregulation downstream of NAB2-STAT6 provides a mechanistic link to the tumor&#39;s IGF-II production.</div>
 
@@ -4758,6 +4888,8 @@ This pathophysiological event involves decreased gluconeogenesis (GO:0006094). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4780,6 +4912,7 @@ This pathophysiological event involves decreased gluconeogenesis (GO:0006094). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-induced-hypoglycemia" data-dismech-node="Tumor-Induced Hypoglycemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor-Induced Hypoglycemia</div>
+
 
                 <div class="item-desc">Big-IGF-II activation of insulin receptors inhibits gluconeogenesis, activates glycolysis, and stimulates cellular glucose uptake, culminating in recurrent tumor-induced hypoglycemic episodes that resolve with tumor resection.</div>
 
@@ -4855,6 +4988,8 @@ This pathophysiological event involves decreased gluconeogenesis (GO:0006094). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4877,6 +5012,7 @@ This pathophysiological event involves decreased gluconeogenesis (GO:0006094). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-transformation-via-tp53-tert" data-dismech-node="Malignant Transformation via TP53/TERT" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Transformation via TP53/TERT</div>
+
 
                 <div class="item-desc">Progression to malignant SFT is associated with TERT-promoter mutations and acquired TP53 dysfunction (TP53 immunopositivity) together with loss of APAF1, impairing apoptosis and contributing to aggressive, metastasizing behavior and dedifferentiation.</div>
 
@@ -4986,6 +5122,8 @@ This pathophysiological event involves increased cell population proliferation (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5066,7 +5204,7 @@ This pathophysiological event involves increased cell population proliferation (
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant EGR1-Target Transactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Native NAB2 represses EGR1 (EGR-1) target genes. The NAB2-STAT6 fusion replaces the NAB2 repressor activity with the STAT6 transactivation domain, so EGR1-target genes are aberrantly activated. STAT6 accumulates in the nucleus (the basis of the diagnostic nuclear STAT6 immunostain). Upregulation of EGR1 and its proliferation- associated target IGF2 drives p-Rb/cyclin D1 and enhanced proliferation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"positive regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Antiangiogenic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiangiogenic tyrosine kinase inhibitors (e.g., pazopanib) are the standard systemic backbone for locally advanced or metastatic non-dedifferentiated SFT.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pazopanib\"]}}, {\"id\": \"Fibroblastic Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant EGR1/IGF2 signaling drives p-Rb (Ser795) and cyclin D1 upregulation and enhanced proliferation of the spindled fibroblastic tumor cells, producing the patternless, variably cellular architecture of SFT with branching \\\"staghorn\\\" thin-walled vasculature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cell population proliferation\", \"angiogenesis\"]}}, {\"id\": \"Malignant Transformation via TP53/TERT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progression to malignant SFT is associated with TERT-promoter mutations and acquired TP53 dysfunction (TP53 immunopositivity) together with loss of APAF1, impairing apoptosis and contributing to aggressive, metastasizing behavior and dedifferentiation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"]}}, {\"id\": \"NAB2-STAT6 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent intrachromosomal rearrangement on chromosome 12q13 fuses the NAB2 gene to STAT6. NAB2-STAT6 is the defining molecular feature of SFT, identified by whole-exome sequencing across the SFT spectrum (including tumors formerly called hemangiopericytoma). The chimeric product joins the truncated repressor domain of NAB2 to the intact transactivation domain of STAT6.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"]}}, {\"id\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of SFTs secretes incompletely processed insulin-like growth factor II (\\\"Big-IGF-II\\\"), a precursor of IGF-II. This prohormone aberrantly activates insulin/IGF receptors, inhibiting gluconeogenesis and stimulating glucose uptake, producing recurrent non-islet-cell tumor hypoglycemia known as Doege-Potter syndrome. EGR1-driven IGF2 upregulation downstream of NAB2-STAT6 provides a mechanistic link to the tumor\u0027s IGF-II production.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\", \"gluconeogenesis\"]}}, {\"id\": \"Somatostatin Analogue Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatostatin analogues (octreotide, lanreotide) can help control paraneoplastic hypoglycemia in Doege-Potter syndrome when complete resection is not feasible.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"octreotide\"]}}, {\"id\": \"Tumor-Induced Hypoglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Big-IGF-II activation of insulin receptors inhibits gluconeogenesis, activates glycolysis, and stimulates cellular glucose uptake, culminating in recurrent tumor-induced hypoglycemic episodes that resolve with tumor resection.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gluconeogenesis\"]}}], \"edges\": [{\"source\": \"NAB2-STAT6 Fusion Oncogene\", \"target\": \"Aberrant EGR1-Target Transactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chimeric protein converts NAB2\u0027s repressor function into an EGR1-target transcriptional activator.\"}, {\"source\": \"Aberrant EGR1-Target Transactivation\", \"target\": \"Fibroblastic Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGR1/IGF2-driven cell-cycle entry (p-Rb, cyclin D1) sustains tumor-cell proliferation.\"}, {\"source\": \"Aberrant EGR1-Target Transactivation\", \"target\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGR1-driven IGF2 upregulation downstream of NAB2-STAT6 provides the mechanistic basis for Big-IGF-II overproduction in a subset of SFTs.\"}, {\"source\": \"Fibroblastic Proliferation\", \"target\": \"Malignant Transformation via TP53/TERT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of established SFTs acquire additional TERT-promoter and TP53 alterations with APAF1 loss, driving malignant transformation and dedifferentiation on the background of the proliferating tumor.\"}, {\"source\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"target\": \"Tumor-Induced Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Big-IGF-II suppresses gluconeogenesis and increases glucose uptake.\"}, {\"source\": \"Antiangiogenic Therapy\", \"target\": \"Fibroblastic Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin Analogue Therapy\", \"target\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Aberrant EGR1-Target Transactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Native NAB2 represses EGR1 (EGR-1) target genes. The NAB2-STAT6 fusion replaces the NAB2 repressor activity with the STAT6 transactivation domain, so EGR1-target genes are aberrantly activated. STAT6 accumulates in the nucleus (the basis of the diagnostic nuclear STAT6 immunostain). Upregulation of EGR1 and its proliferation-associated target IGF2 drives p-Rb/cyclin D1 and enhanced proliferation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of DNA-templated transcription\", \"positive regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Antiangiogenic Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antiangiogenic tyrosine kinase inhibitors (e.g., pazopanib) are the standard systemic backbone for locally advanced or metastatic non-dedifferentiated SFT.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pazopanib\"]}}, {\"id\": \"Fibroblastic Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Aberrant EGR1/IGF2 signaling drives p-Rb (Ser795) and cyclin D1 upregulation and enhanced proliferation of the spindled fibroblastic tumor cells, producing the patternless, variably cellular architecture of SFT with branching \\\"staghorn\\\" thin-walled vasculature.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"cell population proliferation\", \"angiogenesis\"]}}, {\"id\": \"Malignant Transformation via TP53/TERT\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progression to malignant SFT is associated with TERT-promoter mutations and acquired TP53 dysfunction (TP53 immunopositivity) together with loss of APAF1, impairing apoptosis and contributing to aggressive, metastasizing behavior and dedifferentiation.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\", \"cell population proliferation\"]}}, {\"id\": \"NAB2-STAT6 Fusion Oncogene\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent intrachromosomal rearrangement on chromosome 12q13 fuses the NAB2 gene to STAT6. NAB2-STAT6 is the defining molecular feature of SFT, identified by whole-exome sequencing across the SFT spectrum (including tumors formerly called hemangiopericytoma). The chimeric product joins the truncated repressor domain of NAB2 to the intact transactivation domain of STAT6.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"fibroblast\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A subset of SFTs secretes incompletely processed insulin-like growth factor II (\\\"Big-IGF-II\\\"), a precursor of IGF-II. This prohormone aberrantly activates insulin/IGF receptors, inhibiting gluconeogenesis and stimulating glucose uptake, producing recurrent non-islet-cell tumor hypoglycemia known as Doege-Potter syndrome. EGR1-driven IGF2 upregulation downstream of NAB2-STAT6 provides a mechanistic link to the tumor\u0027s IGF-II production.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\", \"gluconeogenesis\"]}}, {\"id\": \"Somatostatin Analogue Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatostatin analogues (octreotide, lanreotide) can help control paraneoplastic hypoglycemia in Doege-Potter syndrome when complete resection is not feasible.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"octreotide\"]}}, {\"id\": \"Tumor-Induced Hypoglycemia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Big-IGF-II activation of insulin receptors inhibits gluconeogenesis, activates glycolysis, and stimulates cellular glucose uptake, culminating in recurrent tumor-induced hypoglycemic episodes that resolve with tumor resection.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"gluconeogenesis\"]}}], \"edges\": [{\"source\": \"NAB2-STAT6 Fusion Oncogene\", \"target\": \"Aberrant EGR1-Target Transactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chimeric protein converts NAB2\u0027s repressor function into an EGR1-target transcriptional activator.\"}, {\"source\": \"Aberrant EGR1-Target Transactivation\", \"target\": \"Fibroblastic Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGR1/IGF2-driven cell-cycle entry (p-Rb, cyclin D1) sustains tumor-cell proliferation.\"}, {\"source\": \"Aberrant EGR1-Target Transactivation\", \"target\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EGR1-driven IGF2 upregulation downstream of NAB2-STAT6 provides the mechanistic basis for Big-IGF-II overproduction in a subset of SFTs.\"}, {\"source\": \"Fibroblastic Proliferation\", \"target\": \"Malignant Transformation via TP53/TERT\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A subset of established SFTs acquire additional TERT-promoter and TP53 alterations with APAF1 loss, driving malignant transformation and dedifferentiation on the background of the proliferating tumor.\"}, {\"source\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"target\": \"Tumor-Induced Hypoglycemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Big-IGF-II suppresses gluconeogenesis and increases glucose uptake.\"}, {\"source\": \"Antiangiogenic Therapy\", \"target\": \"Fibroblastic Proliferation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin Analogue Therapy\", \"target\": \"Paraneoplastic Big-IGF-II Secretion (Doege-Potter Syndrome)\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5148,6 +5286,9 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as temporality rec
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5162,6 +5303,8 @@ This clinical feature is Hypoglycemia (HP:0001943), qualified as temporality rec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5221,6 +5364,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Dyspnea, cough, and chest pain are well-recognized compressive symptoms of large pleural/thoracic SFTs, but no exact supporting snippet is available in the currently cached references; the available systemic-therapy reference (PMID:42149317) addresses treatment rather than respiratory symptoms, so the evidence block has been omitted pending a properly quotable source.</div>
 
 
@@ -5271,6 +5417,9 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5285,6 +5434,8 @@ This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5382,6 +5533,9 @@ This disease-associated gene is STAT6 (hgnc:11368). hgnc:11368 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5396,6 +5550,8 @@ This disease-associated gene is STAT6 (hgnc:11368). hgnc:11368 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5452,6 +5608,9 @@ This disease-associated gene is NAB2 (hgnc:7627). hgnc:7627 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5466,6 +5625,8 @@ This disease-associated gene is NAB2 (hgnc:7627). hgnc:7627 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5547,6 +5708,31 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complete surgical resection is the cornerstone of curative treatment for localized SFT; meningeal SFTs are managed by gross total or subtotal resection.</div>
 
 
@@ -5568,6 +5754,8 @@ This treatment is Definitive Surgical Resection (NCIT:C154430). NCIT:C154430 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5631,6 +5819,31 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adjuvant radiotherapy is used for meningeal/intracranial SFT after resection to reduce local recurrence, given the high recurrence risk of these tumors.</div>
 
 
@@ -5652,6 +5865,8 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5736,6 +5951,31 @@ This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiangiogenic tyrosine kinase inhibitors (e.g., pazopanib) are the standard systemic backbone for locally advanced or metastatic non-dedifferentiated SFT.</div>
 
 
@@ -5775,6 +6015,8 @@ This treatment uses pazopanib (CHEBI:71219). CHEBI:71219 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5859,6 +6101,31 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Peptide</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Somatostatin analogues (octreotide, lanreotide) can help control paraneoplastic hypoglycemia in Doege-Potter syndrome when complete resection is not feasible.</div>
 
 
@@ -5898,6 +6165,8 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5961,6 +6230,8 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6007,6 +6278,8 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6041,6 +6314,33 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6219,6 +6519,8 @@ has_subtypes:
       higher-risk subtype enriched for TERT-promoter mutations.
 pathophysiology:
 - name: NAB2-STAT6 Fusion Oncogene
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     A recurrent intrachromosomal rearrangement on chromosome 12q13 fuses the NAB2
     gene to STAT6. NAB2-STAT6 is the defining molecular feature of SFT, identified
@@ -6258,8 +6560,8 @@ pathophysiology:
     Native NAB2 represses EGR1 (EGR-1) target genes. The NAB2-STAT6 fusion replaces
     the NAB2 repressor activity with the STAT6 transactivation domain, so EGR1-target
     genes are aberrantly activated. STAT6 accumulates in the nucleus (the basis of the
-    diagnostic nuclear STAT6 immunostain). Upregulation of EGR1 and its proliferation-
-    associated target IGF2 drives p-Rb/cyclin D1 and enhanced proliferation.
+    diagnostic nuclear STAT6 immunostain). Upregulation of EGR1 and its proliferation-associated
+    target IGF2 drives p-Rb/cyclin D1 and enhanced proliferation.
   biological_processes:
   - preferred_term: regulation of DNA-templated transcription
     modifier: INCREASED
@@ -6757,6 +7059,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7183,7 +7487,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Solitary Fibrous Tumor", "mondoId": "MONDO:0016238", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Solitary_Fibrous_Tumor", "yamlRevision": "78fc3e384d9e"};
+        const OS_CONFIG = {"diseaseName": "Solitary Fibrous Tumor", "mondoId": "MONDO:0016238", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Solitary_Fibrous_Tumor", "yamlRevision": "2c972bfa6875"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

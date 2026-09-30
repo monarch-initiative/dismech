@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4170,6 +4263,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4193,6 +4288,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4214,6 +4311,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4574,6 +4673,13 @@ Monoallelic reports are recorded here rather than as phenotypes, deliberately. A
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-duoxa2-loss-of-function" data-dismech-node="DUOXA2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">DUOXA2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Biallelic DUOXA2 variants abolish or severely reduce the function of the dual oxidase maturation factor 2 protein. The index allele, homozygous p.Tyr246Ter, truncates the protein before transmembrane helix 5 and the C-terminal cytoplasmic domain, and the truncated product was shown to be inactive when tested for its ability to reconstitute DUOX2.</div>
 
 
@@ -4668,6 +4774,8 @@ This pathophysiological event involves DUOXA2 (hgnc:32698). hgnc:32698 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4680,6 +4788,9 @@ This pathophysiological event involves DUOXA2 (hgnc:32698). hgnc:32698 is a gene
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The index genotype is a homozygous germline nonsense allele in a non-consanguineous Chinese family. Loss of function was demonstrated functionally, not merely predicted from the truncation.</div>
 
@@ -4747,6 +4858,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4768,6 +4881,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4793,6 +4908,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4815,6 +4932,13 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-duox2-maturation-and-apical-trafficking" data-dismech-node="Failure of DUOX2 Maturation and Apical Trafficking" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of DUOX2 Maturation and Apical Trafficking</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">DUOX2 cannot mature or leave the endoplasmic reticulum unaided. DUOXA2 is an ER-resident transmembrane protein whose co-expression permits ER-to-Golgi transition, maturation and translocation of functional DUOX2 to the plasma membrane; this was the activity by which DUOXA2 was originally identified, resolving the long-standing failure to reconstitute a functional DUOX-based NADPH oxidase at the cell surface. Without DUOXA2, DUOX2 is retained in the ER and never reaches its site of action.</div>
 
@@ -4958,6 +5082,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4979,6 +5105,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5003,6 +5131,13 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-apical-hydrogen-peroxide-generation" data-dismech-node="Deficient Apical Hydrogen Peroxide Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Apical Hydrogen Peroxide Generation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">DUOX2 is the catalytic core of the thyroid hydrogen peroxide generator, an NADPH:O2 oxidoreductase flavoprotein that supplies peroxide at the apical membrane of the follicular cell. With DUOX2 stranded in the ER, apical peroxide generation falls and the oxidant required for the iodination reaction is no longer available in the follicular lumen.</div>
 
@@ -5087,6 +5222,8 @@ This pathophysiological event involves Thyroid follicular cell (CL:0002258). CL:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5108,6 +5245,8 @@ This pathophysiological event involves Thyroid follicular cell (CL:0002258). CL:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5132,6 +5271,13 @@ This pathophysiological event involves Thyroid follicular cell (CL:0002258). CL:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-iodine-organification-defect" data-dismech-node="Partial Iodine Organification Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Iodine Organification Defect</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Thyroid peroxidase requires hydrogen peroxide to organify iodide onto thyroglobulin tyrosyl residues. Peroxide limitation therefore presents as an organification defect, demonstrable on perchlorate discharge testing. It is characteristically partial rather than total — the index cohort was assembled specifically from patients with a partial iodine organification defect — which is consistent with residual peroxide supply from DUOXA1-supported DUOX1.</div>
 
@@ -5241,6 +5387,8 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5262,6 +5410,8 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5286,6 +5436,13 @@ This pathophysiological event occurs in thyroid gland (UBERON:0002046). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-goitrous-congenital-hypothyroidism" data-dismech-node="Goitrous Congenital Hypothyroidism" data-dismech-type="pathophysiology">
                 <div class="item-name">Goitrous Congenital Hypothyroidism</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Reduced hormone output releases the pituitary from negative feedback; the resulting TSH drive both raises TSH on newborn screening and produces goitrous enlargement of a structurally normal, eutopic gland. Reported DUOXA2 disease spans transient and permanent congenital hypothyroidism, with severity variable and generally milder than biallelic DUOX2 nonsense disease.</div>
 
@@ -5361,6 +5518,8 @@ This pathophysiological event involves decreased thyroid hormone metabolic proce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5374,14 +5533,16 @@ This pathophysiological event involves decreased thyroid hormone metabolic proce
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18042646" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18042646" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18042646" target="_blank">PMID:18042646</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5407,6 +5568,8 @@ This pathophysiological event involves decreased thyroid hormone metabolic proce
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5429,6 +5592,13 @@ This pathophysiological event involves decreased thyroid hormone metabolic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-compensation-by-duoxa1" data-dismech-node="Partial Compensation by DUOXA1" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial Compensation by DUOXA1</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">DUOXA2 has a paralogue, DUOXA1, arranged head-to-head with DUOX1 in the same way DUOXA2 is with DUOX2. Functional studies indicate DUOXA1 can partially substitute for missing DUOXA2, which is the proposed reason the index DUOXA2 patient had a milder phenotype than patients carrying biallelic DUOX2 nonsense alleles. This node is a severity modifier rather than a step in the causal chain, and the supporting evidence is in-vitro plus a single-patient clinical correlation, so it is curated as PROVISIONAL.</div>
 
@@ -5522,6 +5692,8 @@ This pathophysiological event involves DUOXA1 (hgnc:26507). hgnc:26507 is a gene
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5567,7 +5739,7 @@ This pathophysiological event involves DUOXA1 (hgnc:26507). hgnc:26507 is a gene
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"DUOXA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DUOXA2\"], \"gene_terms\": [{\"label\": \"DUOXA2\", \"id\": \"hgnc:32698\"}], \"frequency\": \"Biallelic in the index families that define TDH5; cohort sequencing also reports monoallelic DUOXA2 carriers with congenital hypothyroidism (4 of 6 in one Guangzhou series), whose sufficiency is unresolved\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DUOXA2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic DUOXA2 variants abolish or severely reduce the function of the dual oxidase maturation factor 2 protein. The index allele, homozygous p.Tyr246Ter, truncates the protein before transmembrane helix 5 and the C-terminal cytoplasmic domain, and the truncated product was shown to be inactive when tested for its ability to reconstitute DUOX2.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Thyroid follicular cell\"], \"genes\": [\"DUOXA2\"], \"gene_terms\": [{\"label\": \"DUOXA2\", \"id\": \"hgnc:32698\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"The index genotype is a homozygous germline nonsense allele in a non-consanguineous Chinese family. Loss of function was demonstrated functionally, not merely predicted from the truncation.\"}, \"role\": \"trigger\", \"locations\": [\"endoplasmic reticulum membrane\"]}}, {\"id\": \"Deficient Apical Hydrogen Peroxide Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUOX2 is the catalytic core of the thyroid hydrogen peroxide generator, an NADPH:O2 oxidoreductase flavoprotein that supplies peroxide at the apical membrane of the follicular cell. With DUOX2 stranded in the ER, apical peroxide generation falls and the oxidant required for the iodination reaction is no longer available in the follicular lumen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Thyroid follicular cell\"], \"role\": \"central_effector\"}}, {\"id\": \"Failure of DUOX2 Maturation and Apical Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUOX2 cannot mature or leave the endoplasmic reticulum unaided. DUOXA2 is an ER-resident transmembrane protein whose co-expression permits ER-to-Golgi transition, maturation and translocation of functional DUOX2 to the plasma membrane; this was the activity by which DUOXA2 was originally identified, resolving the long-standing failure to reconstitute a functional DUOX-based NADPH oxidase at the cell surface. Without DUOXA2, DUOX2 is retained in the ER and never reaches its site of action.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Thyroid follicular cell\"], \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"role\": \"central_effector\", \"locations\": [\"endoplasmic reticulum membrane\"]}}, {\"id\": \"Goitrous Congenital Hypothyroidism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced hormone output releases the pituitary from negative feedback; the resulting TSH drive both raises TSH on newborn screening and produces goitrous enlargement of a structurally normal, eutopic gland. Reported DUOXA2 disease spans transient and permanent congenital hypothyroidism, with severity variable and generally milder than biallelic DUOX2 nonsense disease.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"thyroid hormone metabolic process\"], \"role\": \"consequence\"}}, {\"id\": \"Partial Compensation by DUOXA1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUOXA2 has a paralogue, DUOXA1, arranged head-to-head with DUOX1 in the same way DUOXA2 is with DUOX2. Functional studies indicate DUOXA1 can partially substitute for missing DUOXA2, which is the proposed reason the index DUOXA2 patient had a milder phenotype than patients carrying biallelic DUOX2 nonsense alleles. This node is a severity modifier rather than a step in the causal chain, and the supporting evidence is in-vitro plus a single-patient clinical correlation, so it is curated as PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DUOXA1\"], \"gene_terms\": [{\"label\": \"DUOXA1\", \"id\": \"hgnc:26507\"}], \"role\": \"modifier\"}}, {\"id\": \"Partial Iodine Organification Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thyroid peroxidase requires hydrogen peroxide to organify iodide onto thyroglobulin tyrosyl residues. Peroxide limitation therefore presents as an organification defect, demonstrable on perchlorate discharge testing. It is characteristically partial rather than total \\u2014 the index cohort was assembled specifically from patients with a partial iodine organification defect \\u2014 which is consistent with residual peroxide supply from DUOXA1-supported DUOX1.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"thyroid hormone generation\"], \"role\": \"central_effector\", \"locations\": [\"thyroid gland\"]}}], \"edges\": [{\"source\": \"DUOXA2 Loss of Function\", \"target\": \"Failure of DUOX2 Maturation and Apical Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of DUOX2 Maturation and Apical Trafficking\", \"target\": \"Deficient Apical Hydrogen Peroxide Generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient Apical Hydrogen Peroxide Generation\", \"target\": \"Partial Iodine Organification Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Partial Iodine Organification Defect\", \"target\": \"Goitrous Congenital Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Partial Compensation by DUOXA1\", \"target\": \"Partial Iodine Organification Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DUOXA2\", \"target\": \"DUOXA2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"DUOXA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DUOXA2\"], \"gene_terms\": [{\"label\": \"DUOXA2\", \"id\": \"hgnc:32698\"}], \"frequency\": \"Biallelic in the index families that define TDH5; cohort sequencing also reports monoallelic DUOXA2 carriers with congenital hypothyroidism (4 of 6 in one Guangzhou series), whose sufficiency is unresolved\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DUOXA2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic DUOXA2 variants abolish or severely reduce the function of the dual oxidase maturation factor 2 protein. The index allele, homozygous p.Tyr246Ter, truncates the protein before transmembrane helix 5 and the C-terminal cytoplasmic domain, and the truncated product was shown to be inactive when tested for its ability to reconstitute DUOX2.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Thyroid follicular cell\"], \"genes\": [\"DUOXA2\"], \"gene_terms\": [{\"label\": \"DUOXA2\", \"id\": \"hgnc:32698\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"The index genotype is a homozygous germline nonsense allele in a non-consanguineous Chinese family. Loss of function was demonstrated functionally, not merely predicted from the truncation.\"}, \"role\": \"trigger\", \"locations\": [\"endoplasmic reticulum membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Deficient Apical Hydrogen Peroxide Generation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUOX2 is the catalytic core of the thyroid hydrogen peroxide generator, an NADPH:O2 oxidoreductase flavoprotein that supplies peroxide at the apical membrane of the follicular cell. With DUOX2 stranded in the ER, apical peroxide generation falls and the oxidant required for the iodination reaction is no longer available in the follicular lumen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Thyroid follicular cell\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Failure of DUOX2 Maturation and Apical Trafficking\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUOX2 cannot mature or leave the endoplasmic reticulum unaided. DUOXA2 is an ER-resident transmembrane protein whose co-expression permits ER-to-Golgi transition, maturation and translocation of functional DUOX2 to the plasma membrane; this was the activity by which DUOXA2 was originally identified, resolving the long-standing failure to reconstitute a functional DUOX-based NADPH oxidase at the cell surface. Without DUOXA2, DUOX2 is retained in the ER and never reaches its site of action.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Thyroid follicular cell\"], \"biological_processes\": [\"endoplasmic reticulum to Golgi vesicle-mediated transport\"], \"role\": \"central_effector\", \"locations\": [\"endoplasmic reticulum membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Goitrous Congenital Hypothyroidism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced hormone output releases the pituitary from negative feedback; the resulting TSH drive both raises TSH on newborn screening and produces goitrous enlargement of a structurally normal, eutopic gland. Reported DUOXA2 disease spans transient and permanent congenital hypothyroidism, with severity variable and generally milder than biallelic DUOX2 nonsense disease.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"thyroid hormone metabolic process\"], \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Partial Compensation by DUOXA1\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DUOXA2 has a paralogue, DUOXA1, arranged head-to-head with DUOX1 in the same way DUOXA2 is with DUOX2. Functional studies indicate DUOXA1 can partially substitute for missing DUOXA2, which is the proposed reason the index DUOXA2 patient had a milder phenotype than patients carrying biallelic DUOX2 nonsense alleles. This node is a severity modifier rather than a step in the causal chain, and the supporting evidence is in-vitro plus a single-patient clinical correlation, so it is curated as PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DUOXA1\"], \"gene_terms\": [{\"label\": \"DUOXA1\", \"id\": \"hgnc:26507\"}], \"role\": \"modifier\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Partial Iodine Organification Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Thyroid peroxidase requires hydrogen peroxide to organify iodide onto thyroglobulin tyrosyl residues. Peroxide limitation therefore presents as an organification defect, demonstrable on perchlorate discharge testing. It is characteristically partial rather than total \\u2014 the index cohort was assembled specifically from patients with a partial iodine organification defect \\u2014 which is consistent with residual peroxide supply from DUOXA1-supported DUOX1.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"thyroid hormone generation\"], \"role\": \"central_effector\", \"locations\": [\"thyroid gland\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"DUOXA2 Loss of Function\", \"target\": \"Failure of DUOX2 Maturation and Apical Trafficking\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of DUOX2 Maturation and Apical Trafficking\", \"target\": \"Deficient Apical Hydrogen Peroxide Generation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Deficient Apical Hydrogen Peroxide Generation\", \"target\": \"Partial Iodine Organification Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Partial Iodine Organification Defect\", \"target\": \"Goitrous Congenital Hypothyroidism\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Partial Compensation by DUOXA1\", \"target\": \"Partial Iodine Organification Defect\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"DUOXA2\", \"target\": \"DUOXA2 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5584,28 +5756,13 @@ This pathophysiological event involves DUOXA1 (hgnc:26507). hgnc:26507 is a gene
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-hypothyroidism" data-dismech-node="Congenital Hypothyroidism" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Congenital Hypothyroidism
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Endocrine
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyshormonogenic-goiter" data-dismech-node="Dyshormonogenic Goiter" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dyshormonogenic Goiter
-
-
+                    <span class="phenotype-category">Endocrine</span>
 
 
 
@@ -5614,16 +5771,18 @@ This pathophysiological event involves DUOXA1 (hgnc:26507). hgnc:26507 is a gene
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000853" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000853</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000851</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Goiter (HP:0000853). HP:0000853 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5645,80 +5804,6 @@ This clinical feature is Goiter (HP:0000853). HP:0000853 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report the first mutation in DUOXA2, identified in a patient with CH and dyshormonogenic goiter."</div>
-
-
-                <div class="evidence-explanation">Documents dyshormonogenic goiter in the index patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-hypothyroidism" data-dismech-node="Congenital Hypothyroidism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital Hypothyroidism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000851" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000851</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18042646" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18042646" target="_blank">PMID:18042646</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5742,19 +5827,91 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-transient-congenital-hypothyroidism" data-dismech-node="Transient Congenital Hypothyroidism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Transient Congenital Hypothyroidism
+            <div class="item-box phenotype-box anchor-target" id="phenotype-dyshormonogenic-goiter" data-dismech-node="Dyshormonogenic Goiter" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Dyshormonogenic Goiter
 
 
+                    <span class="phenotype-category">Endocrine</span>
 
 
 
 
                     <span class="phenotype-id">
 
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000853" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000853</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Goiter (HP:0000853). HP:0000853 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18042646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18042646" target="_blank">PMID:18042646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report the first mutation in DUOXA2, identified in a patient with CH and dyshormonogenic goiter."</div>
+
+
+                <div class="evidence-explanation">Documents dyshormonogenic goiter in the index patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-transient-congenital-hypothyroidism" data-dismech-node="Transient Congenital Hypothyroidism" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Transient Congenital Hypothyroidism
+
+
+                    <span class="phenotype-category">Endocrine</span>
+
+
+
+
+                    <span class="phenotype-id">
 
 
 
@@ -5766,9 +5923,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Congenital hypothyroidism (HP:0000851), qualified as temporality transient. HP:0000851 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -5784,7 +5941,10 @@ This clinical feature is Congenital hypothyroidism (HP:0000851), qualified as te
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5804,6 +5964,8 @@ This clinical feature is Congenital hypothyroidism (HP:0000851), qualified as te
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5827,21 +5989,19 @@ This clinical feature is Congenital hypothyroidism (HP:0000851), qualified as te
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-variable-severity-independent-of-genotype" data-dismech-node="Variable Severity Independent of Genotype" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Variable Severity Independent of Genotype
+            <div class="item-box phenotype-box anchor-target" id="phenotype-variable-severity-independent-of-genotype" data-dismech-node="Variable Severity Independent of Genotype" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Variable Severity Independent of Genotype
 
 
+                    <span class="phenotype-category">Endocrine</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Congenital hypothyroidism</span>
-
 
 
 
@@ -5853,7 +6013,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5873,6 +6036,8 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5896,34 +6061,8 @@ This clinical feature is Congenital hypothyroidism (HP:0000851). HP:0000851 is a
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5972,6 +6111,9 @@ This disease-associated gene is DUOXA2 (hgnc:32698). hgnc:32698 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5986,6 +6128,8 @@ This disease-associated gene is DUOXA2 (hgnc:32698). hgnc:32698 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6009,6 +6153,8 @@ This disease-associated gene is DUOXA2 (hgnc:32698). hgnc:32698 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6112,6 +6258,31 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Thyroid hormone replacement is the standard treatment for permanent congenital hypothyroidism from any dyshormonogenesis gene. It corrects the hormone deficit; it does not address the DUOXA2 maturation defect.</div>
 
 
@@ -6133,6 +6304,8 @@ This treatment uses levothyroxine (NCIT:C62080). NCIT:C62080 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6195,6 +6368,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recessive inheritance carries a 25% recurrence risk for siblings, and current consensus guidance recommends counselling for every family with an affected child. Counselling also identifies asymptomatic carriers.</div>
 
 
@@ -6216,6 +6403,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6281,6 +6470,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6302,6 +6493,152 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-newborn-tsh-screening">
+                <div class="item-name">
+                    Newborn TSH Screening
+
+                </div>
+
+                <div class="item-desc">TDH5 is ascertained through routine neonatal congenital hypothyroidism screening. Screening does not distinguish dyshormonogenesis from dysgenesis; that requires imaging of a eutopic gland plus, ideally, molecular diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18042646" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18042646" target="_blank">PMID:18042646</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pedigree analysis demonstrated recessive inheritance, because heterozygous carriers had normal thyroid function including negative results in neonatal TSH screening."</div>
+
+
+                <div class="evidence-explanation">Establishes neonatal TSH screening as the ascertainment route and shows carriers screen negative.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-diagnosis-of-the-dyshormonogenesis-gene">
+                <div class="item-name">
+                    Molecular Diagnosis of the Dyshormonogenesis Gene
+
+                </div>
+
+                <div class="item-desc">Identifying the specific gene has prognostic value beyond confirming the diagnosis: it distinguishes transient from permanent congenital hypothyroidism, informs genetic counselling, and predicts whether iodine supplementation may serve as an adjunct or alternative to levothyroxine.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21543982" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21543982" target="_blank">PMID:21543982</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A definite molecular diagnosis of thyroid dyshormonogenesis allows genetic counseling and has prognostic value in differentiating transient from permanent congenital hypothyroidism and predicting the response of patients to iodine supplementation as adjunct or alternative treatment to L-T4 replacement."</div>
+
+
+                <div class="evidence-explanation">States the specific clinical value of establishing the molecular diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6694,7 +7031,7 @@ pathophysiology:
       patient.
   - reference: PMID:18042646
     reference_title: &#34;Biallelic inactivation of the dual oxidase maturation factor 2 (DUOXA2) gene as a novel cause of congenital hypothyroidism.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Biallelic DUOXA2 mutations are a novel genetic event in permanent CH.
@@ -6762,7 +7099,7 @@ phenotypes:
   evidence:
   - reference: PMID:18042646
     reference_title: &#34;Biallelic inactivation of the dual oxidase maturation factor 2 (DUOXA2) gene as a novel cause of congenital hypothyroidism.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Biallelic DUOXA2 mutations are a novel genetic event in permanent CH.
@@ -7367,7 +7704,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Thyroid dyshormonogenesis 5", "mondoId": "MONDO:0010137", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thyroid_dyshormonogenesis_5", "yamlRevision": "831d4c3662cf"};
+        const OS_CONFIG = {"diseaseName": "Thyroid dyshormonogenesis 5", "mondoId": "MONDO:0010137", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Thyroid_dyshormonogenesis_5", "yamlRevision": "4c96290d2a41"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

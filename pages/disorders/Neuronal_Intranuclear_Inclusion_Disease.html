@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4211,6 +4304,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4232,6 +4327,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4303,6 +4400,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4324,6 +4423,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4466,6 +4567,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4487,6 +4590,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4525,9 +4630,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-SUPPORT">2 support</span>
-
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">3 support</span>
 
                 </div>
 
@@ -4596,6 +4699,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4619,6 +4724,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4632,14 +4739,18 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178126" target="_blank">PMID:31178126</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4649,7 +4760,7 @@
                 <div class="evidence-snippet">"the expanded GGC repeat does not alter the expression of NOTCH2NLC and that the GGC repeat RNA could potentially play a role in the molecular pathogenesis of NIID"</div>
 
 
-                <div class="evidence-explanation">PARTIAL — unchanged expression of the unmethylated expanded allele establishes that repeat-containing RNA is still produced (a precondition for RNA toxicity) but does not demonstrate that the RNA is itself pathogenic; the authors state it only as a possibility.</div>
+                <div class="evidence-explanation">INDIRECT — unchanged expression of the unmethylated expanded allele establishes that repeat-containing RNA is still produced (a precondition for RNA toxicity) but does not demonstrate that the RNA is itself pathogenic; the authors state it only as a possibility.</div>
 
 
 
@@ -4821,6 +4932,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4842,6 +4955,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4924,6 +5039,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4937,14 +5054,18 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31332381" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31332381" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31332381" target="_blank">PMID:31332381</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4954,7 +5075,7 @@
                 <div class="evidence-snippet">"We observed abnormal anti-sense transcripts in fibroblasts specifically from patients but not unaffected individuals."</div>
 
 
-                <div class="evidence-explanation">The observation supporting an RNA arm; PARTIAL because it is correlative, in fibroblasts rather than brain, and does not establish toxicity.</div>
+                <div class="evidence-explanation">The observation supporting an RNA arm; INDIRECT because it is correlative, in fibroblasts rather than brain, and does not establish toxicity.</div>
 
 
 
@@ -4981,6 +5102,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-notch2nlc-5-utr-ggc-repeat-expansion" data-dismech-node="NOTCH2NLC 5&#39; UTR GGC Repeat Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">NOTCH2NLC 5&#39; UTR GGC Repeat Expansion</div>
+
 
                 <div class="item-desc">The initiating lesion is an expanded non-coding GGC (CGG) trinucleotide repeat in the 5&#39; region of NOTCH2NLC, a human-specific gene that arose by segmental duplication of NOTCH2. The expansion was identified independently by two long-read-sequencing studies and by a targeted repeat search, in familial and sporadic NIID alike. Because the repeat is non-coding, the mechanism is not loss of NOTCH2NLC function but a gain-of-function acting through the expanded repeat itself.</div>
 
@@ -5126,6 +5248,8 @@ This pathophysiological event involves abnormal NOTCH2NLC (hgnc:53924). hgnc:539
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5147,6 +5271,8 @@ This pathophysiological event involves abnormal NOTCH2NLC (hgnc:53924). hgnc:539
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5172,6 +5298,8 @@ This pathophysiological event involves abnormal NOTCH2NLC (hgnc:53924). hgnc:539
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5194,6 +5322,7 @@ This pathophysiological event involves abnormal NOTCH2NLC (hgnc:53924). hgnc:539
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uorf-translation-of-the-polyglycine-protein-un2cpolyg" data-dismech-node="uORF Translation of the Polyglycine Protein uN2CpolyG" data-dismech-type="pathophysiology">
                 <div class="item-name">uORF Translation of the Polyglycine Protein uN2CpolyG</div>
+
 
                 <div class="item-desc">The expanded GGC repeat is embedded in a small upstream open reading frame (uN2C) in the NOTCH2NLC 5&#39; UTR. Translation of that uORF reads through the expanded repeat and produces uN2CpolyG, a protein carrying a long polyglycine tract. This is the same class of event as RAN/uORF translation of FMRpolyG from the FMR1 CGG premutation in FXTAS, and it is what makes NIID a polyglycine rather than a polyglutamine disease.</div>
 
@@ -5306,6 +5435,8 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5327,6 +5458,8 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5351,6 +5484,7 @@ This pathophysiological event involves abnormal translation (GO:0006412). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-expanded-repeat-transcript-accumulation" data-dismech-node="Expanded-Repeat Transcript Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Expanded-Repeat Transcript Accumulation</div>
+
 
                 <div class="item-desc">Transcription across the expanded repeat produces abnormal repeat-containing transcripts, including antisense transcripts detectable in patient fibroblasts but not in cells from unaffected individuals. By analogy with FXTAS and other non-coding repeat expansion disorders, such transcripts are candidate mediators of an RNA gain-of-function arm; their contribution in human NIID brain remains unquantified.</div>
 
@@ -5463,6 +5597,8 @@ This pathophysiological event involves abnormal gene expression (GO:0010467). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5485,6 +5621,7 @@ This pathophysiological event involves abnormal gene expression (GO:0010467). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophilic-ubiquitin-positive-intranuclear-inclusion-formation" data-dismech-node="Eosinophilic Ubiquitin-Positive Intranuclear Inclusion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophilic Ubiquitin-Positive Intranuclear Inclusion Formation</div>
+
 
                 <div class="item-desc">The defining pathological lesion is an eosinophilic, hyaline, ubiquitin- and SUMO1-positive intranuclear inclusion. NIID is a systemic inclusion-body disease: inclusions occur in neurons and glia of the central, peripheral, and autonomic nervous systems, in visceral organs, and in somatic cells of the skin — adipocytes, fibroblasts, and sweat gland cells — where they are ultrastructurally identical to those in neurons. This node conforms to the conserved misfolded-protein aggregation step of the proteostasis module, substituting uN2CpolyG as the aggregating species and the widely distributed neuronal, glial, and somatic cells as the affected populations.</div>
 
@@ -5751,6 +5888,8 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5774,6 +5913,8 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5795,6 +5936,8 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5821,6 +5964,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-neuronal-dysfunction-and-loss" data-dismech-node="Progressive Neuronal Dysfunction and Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Neuronal Dysfunction and Loss</div>
+
 
                 <div class="item-desc">Proteotoxic nuclear accumulation of uN2CpolyG produces progressive neuronal dysfunction and neuronal loss. The strongest causal evidence is from mouse models expressing uN2CpolyG, which develop neuronal cell loss, locomotor impairment, and premature death; the corresponding human evidence is the slowly progressive neurodegenerative course.</div>
 
@@ -5961,6 +6105,8 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5982,6 +6128,8 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6007,6 +6155,8 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6029,6 +6179,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corticomedullary-junction-leukoencephalopathy" data-dismech-node="Corticomedullary-Junction Leukoencephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Corticomedullary-Junction Leukoencephalopathy</div>
+
 
                 <div class="item-desc">NIID produces a distinctive leukoencephalopathy whose radiologic signature is high signal intensity along the corticomedullary junction on diffusion-weighted MRI. In a 57-case adult-onset series this finding was present in both sporadic and familial cases and in all dementia-dominant cases, and it is the single strongest imaging clue to the diagnosis. NIID therefore belongs in the differential diagnosis of adult leukoencephalopathy.</div>
 
@@ -6081,6 +6232,8 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6102,6 +6255,8 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6126,6 +6281,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-and-autonomic-nerve-involvement" data-dismech-node="Peripheral and Autonomic Nerve Involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral and Autonomic Nerve Involvement</div>
+
 
                 <div class="item-desc">Inclusions are present in peripheral and autonomic neurons, and nerve conduction studies are frequently abnormal in both sporadic and familial NIID, alongside elevated cerebrospinal fluid protein. Clinically this arm produces sensory disturbance, muscle weakness, miosis, and bladder dysfunction.</div>
 
@@ -6242,6 +6398,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6263,6 +6421,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6287,6 +6447,7 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-neurological-decline" data-dismech-node="Multisystem Neurological Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Neurological Decline</div>
+
 
                 <div class="item-desc">The clinical endpoint is a slowly progressive, highly heterogeneous multisystem neurological syndrome. Two clinicopathologically defined presentations recur: a dementia-dominant group (sporadic, later onset, with miosis, ataxia, and episodes of unconsciousness) and a limb-weakness-dominant group (familial, onset before 40, with sensory disturbance, miosis, and bladder dysfunction). Episodic features — headache, fever, altered consciousness, and seizures — punctuate the course and are a frequent source of misdiagnosis.</div>
 
@@ -6324,6 +6485,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6347,6 +6510,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6368,6 +6533,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6428,6 +6595,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6451,6 +6620,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6472,6 +6643,8 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6535,19 +6708,125 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Eye
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-miosis" data-dismech-node="Miosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Miosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000616</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dementia was the most prominent initial symptom (94.7%) as designated &#39;dementia dominant group&#39;, followed by miosis, ataxia and unconsciousness"</div>
+
+
+                <div class="evidence-explanation">Lists miosis among the leading features of sporadic adult-onset NIID.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"muscle weakness was seen most frequently (100%), as designated &#39;limb weakness group&#39;, followed by sensory disturbance, miosis, bladder dysfunction, and dementia"</div>
+
+
+                <div class="evidence-explanation">Confirms miosis also occurs in the early-onset familial presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
@@ -6572,15 +6851,18 @@ This pathophysiological event involves Schwann cell (CL:0002573). CL:0002573 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000011</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000011" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000011</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6600,6 +6882,8 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6623,6 +6907,8 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6650,7 +6936,7 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
@@ -6673,10 +6959,10 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001324</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001324</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscle weakness (HP:0001324), qualified as course progressive. HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6705,6 +6991,9 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6719,6 +7008,8 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6744,6 +7035,8 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6765,6 +7058,8 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6792,7 +7087,7 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6813,10 +7108,10 @@ This clinical feature is Muscle weakness (HP:0001324), qualified as course progr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000726</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6845,6 +7140,9 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6859,6 +7157,8 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6882,6 +7182,8 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6921,15 +7223,18 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002352</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002352" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002352</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6949,6 +7254,8 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6972,6 +7279,8 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7011,15 +7320,18 @@ This clinical feature is Leukoencephalopathy (HP:0002352). HP:0002352 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7039,6 +7351,8 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7082,15 +7396,18 @@ This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003474</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003474" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003474</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Somatic sensory dysfunction (HP:0003474). HP:0003474 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7110,6 +7427,8 @@ This clinical feature is Somatic sensory dysfunction (HP:0003474). HP:0003474 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7133,6 +7452,8 @@ This clinical feature is Somatic sensory dysfunction (HP:0003474). HP:0003474 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7172,15 +7493,18 @@ This clinical feature is Somatic sensory dysfunction (HP:0003474). HP:0003474 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7200,6 +7524,8 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7223,6 +7549,8 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7264,15 +7592,18 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7292,6 +7623,8 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7331,10 +7664,10 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001298</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001298" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001298</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Encephalopathy (HP:0001298), qualified as temporality recurrent. HP:0001298 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7363,6 +7696,9 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality r
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7377,6 +7713,8 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7400,6 +7738,8 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7439,15 +7779,18 @@ This clinical feature is Encephalopathy (HP:0001298), qualified as temporality r
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7467,6 +7810,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7506,15 +7851,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7534,6 +7882,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7575,15 +7925,18 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001337</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7603,6 +7956,8 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7626,6 +7981,8 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7665,15 +8022,18 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7685,14 +8045,16 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178126" target="_blank">PMID:31178126</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7703,105 +8065,6 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                 <div class="evidence-explanation">Supports parkinsonism as part of the NOTCH2NLC expansion spectrum; marked PARTIAL because these families were ascertained as parkinsonism/AD rather than as classical NIID.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-miosis" data-dismech-node="Miosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Miosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000616</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Miosis (HP:0000616). HP:0000616 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"dementia was the most prominent initial symptom (94.7%) as designated &#39;dementia dominant group&#39;, followed by miosis, ataxia and unconsciousness"</div>
-
-
-                <div class="evidence-explanation">Lists miosis among the leading features of sporadic adult-onset NIID.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"muscle weakness was seen most frequently (100%), as designated &#39;limb weakness group&#39;, followed by sensory disturbance, miosis, bladder dysfunction, and dementia"</div>
-
-
-                <div class="evidence-explanation">Confirms miosis also occurs in the early-onset familial presentation.</div>
 
 
 
@@ -7893,6 +8156,9 @@ This disease-associated gene is NOTCH2NLC (hgnc:53924). hgnc:53924 is a gene fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -7907,6 +8173,8 @@ This disease-associated gene is NOTCH2NLC (hgnc:53924). hgnc:53924 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7932,6 +8200,8 @@ This disease-associated gene is NOTCH2NLC (hgnc:53924). hgnc:53924 is a gene fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7953,6 +8223,8 @@ This disease-associated gene is NOTCH2NLC (hgnc:53924). hgnc:53924 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7989,6 +8261,7 @@ This disease-associated gene is NOTCH2NLC (hgnc:53924). hgnc:53924 is a gene fro
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8008,11 +8281,17 @@ This variant is in NOTCH2NLC (hgnc:53924). hgnc:53924 is a gene from the HUGO Ge
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">trinucleotide repeat expansion</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Expansion of the non-coding GGC (CGG) trinucleotide repeat in the 5&#39; region/5&#39; UTR of NOTCH2NLC, above the normal repeat-length range. The expanded repeat is embedded in the uN2C upstream open reading frame and is translated into the polyglycine protein uN2CpolyG. Reported allele sizes in affected individuals span 66-517 repeats, against a control distribution of 5-38 (usually under 40) repeats in 211 healthy subjects. Repeat length shows no clear association with severity or age at onset, though it tracks loosely with presenting subgroup in the discovery cohort (muscle-weakness-dominant 118-517, dementia-dominant 91-268, parkinsonism-dominant 66-102) — which is why the genotype-phenotype relationship is curated below as an open knowledge gap rather than as a rule.</div>
@@ -8093,6 +8372,31 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists for NIID. Management is symptomatic and supportive, directed at the individual patient&#39;s dominant problems (cognitive decline, weakness, neuropathic symptoms, seizures, autonomic and bladder dysfunction), and is best delivered as coordinated multidisciplinary care alongside early diagnosis.</div>
 
 
@@ -8114,6 +8418,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8177,6 +8483,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because familial NIID is autosomal dominant and caused by a defined repeat expansion, genetic counseling and NOTCH2NLC repeat-length testing are relevant for probands and at-risk relatives.</div>
 
 
@@ -8198,6 +8529,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8261,6 +8594,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8282,6 +8617,723 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-skin-biopsy">
+                <div class="item-name">
+                    Skin Biopsy
+
+                </div>
+
+                <div class="item-desc">Skin biopsy demonstrating eosinophilic, ubiquitin/p62- and SUMO1-positive intranuclear inclusions in adipocytes, fibroblasts, and sweat gland cells is the established, minimally invasive antemortem diagnostic procedure for NIID. Its adoption converted NIID from a post-mortem to an antemortem diagnosis and is directly responsible for the rise in adult-onset NIID case ascertainment. In current practice it is paired with NOTCH2NLC repeat-length genetic testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        skin biopsy with immunohistochemistry for intranuclear inclusions
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51692" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C51692</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Eosinophilic ubiquitin/p62- and SUMO1-positive intranuclear inclusions in dermal adipocytes, fibroblasts, and sweat gland cells</div>
+
+
+                <div class="item-notes">Unlike the corticomedullary-junction DWI sign, the skin-biopsy finding was positive in all familial expansion carriers examined in PMID:31178126, so it does not lose sensitivity in the early-onset familial group.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21411744" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21411744" target="_blank">PMID:21411744</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skin biopsy is an effective and less invasive antemortem diagnostic tool for NIID."</div>
+
+
+                <div class="evidence-explanation">States the conclusion establishing skin biopsy as the antemortem diagnostic procedure.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21411744" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21411744" target="_blank">PMID:21411744</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"No intranuclear inclusions were identified in the skin samples from normal control subjects and patients with other neurologic diseases."</div>
+
+
+                <div class="evidence-explanation">Establishes the specificity of the skin inclusion finding against controls and other neurological disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"since we reported the usefulness of skin biopsy for the diagnosis of NIID, the number of NIID diagnoses has increased, in particular adult-onset NIID"</div>
+
+
+                <div class="evidence-explanation">Documents the effect of skin biopsy on NIID case ascertainment.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-diffusion-weighted-brain-mri">
+                <div class="item-name">
+                    Diffusion-Weighted Brain MRI
+
+                </div>
+
+                <div class="item-desc">High signal intensity along the corticomedullary junction on diffusion-weighted brain MRI is the strongest antemortem imaging clue to NIID and, together with skin biopsy, underpins the published diagnostic flow chart for adult-onset disease. It was present in all dementia-dominant cases in the largest adult-onset series. Sensitivity is presentation-dependent rather than universal: in an independent familial cohort only about 37.5% of expansion carriers showed the classic corticomedullary DWI lesion, so a negative MRI does not exclude NIID — particularly in the early-onset limb-weakness group.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diffusion-weighted brain MRI
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C111116" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C111116</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Symmetrical high signal at the corticomedullary junction on DWI, with white matter hyperintensity on FLAIR/T2</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Head magnetic resonance imaging showed high intensity signal in corticomedullary junction in diffusion-weighted image in both sporadic and familial NIID cases, a strong clue to the diagnosis."</div>
+
+
+                <div class="evidence-explanation">Establishes the corticomedullary-junction DWI sign as the key antemortem imaging clue in both sporadic and familial NIID.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All of the dementia dominant cases presented with this type of leukoencephalopathy on head magnetic resonance imaging."</div>
+
+
+                <div class="evidence-explanation">Quantifies complete penetrance of the imaging finding within the dementia-dominant group.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Based on these clinicopathological features, we proposed a diagnosis flow chart of adult-onset NIID."</div>
+
+
+                <div class="evidence-explanation">Documents that these imaging and pathological features were assembled into a formal diagnostic algorithm.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-notch2nlc-ggc-repeat-length-genetic-testing">
+                <div class="item-name">
+                    NOTCH2NLC GGC Repeat-Length Genetic Testing
+
+                </div>
+
+                <div class="item-desc">Sizing the non-coding GGC repeat in the 5&#39; region of NOTCH2NLC is the molecular confirmatory test. Because the repeat is GC-rich and can be very long, it is assayed by repeat-primed PCR combined with GC-rich PCR, or by long-read sequencing; short-read exome sequencing does not resolve it. Affected individuals in the discovery cohorts carried more than 66 repeats, against a control range of roughly 5-38 (usually under 40) repeats.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        NOTCH2NLC GGC repeat-length testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Markers:</strong> NOTCH2NLC 5&#39; GGC repeat length</div>
+
+
+                <div class="item-desc"><strong>Results:</strong> Expanded 5&#39; NOTCH2NLC GGC repeat (&gt;66 repeats reported in affected individuals; controls usually &lt;40)</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178126" target="_blank">PMID:31178126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we designed primer sets for both repeat-primed PCR (RP-PCR) and GC-rich PCR (GC-PCR) assays to detect both normal and expanded GGC repeats"</div>
+
+
+                <div class="evidence-explanation">Describes the assay pair used to size the expansion, which is the basis of the clinical genetic test.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178126" target="_blank">PMID:31178126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Among the 211 healthy control subjects that we examined, the GGC repeat sizes range from 5 to 38, with modes at 11 and 16 repeats"</div>
+
+
+                <div class="evidence-explanation">Provides the control repeat-length distribution against which an expanded allele is called.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31178126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178126" target="_blank">PMID:31178126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All affected individuals from both familial and sporadic case subjects carried an expanded GGC repeat larger than 66."</div>
+
+
+                <div class="evidence-explanation">Provides the affected repeat-length threshold observed across familial and sporadic cases.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Mean 59.7 years overall; familial early-onset cases before age 40</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Age at onset is bimodal with respect to presentation: sporadic adult cases in the largest series had onset between 51 and 76 years and presented with dementia, whereas familial cases with onset before 40 years presented with limb weakness. Familial cases with onset after 40 resemble the sporadic dementia-dominant group.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31332381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31332381" target="_blank">PMID:31332381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The average onset age is 59.7 years among approximately 140 NIID cases consisting of mostly sporadic and several familial cases."</div>
+
+
+                <div class="evidence-explanation">Provides the mean age at onset across the reported NIID case literature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the sporadic NIID cases with onset age from 51 to 76, dementia was the most prominent initial symptom (94.7%)"</div>
+
+
+                <div class="evidence-explanation">Documents the sporadic adult-onset age range and its dementia-dominant presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-course">
+                <div class="item-name">Progressive course</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">NIID is slowly progressive. Cognitive decline is measurable on MMSE and the Frontal Assessment Battery in both sporadic and familial disease. No quantitative survival data are curated here.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Neuronal intranuclear inclusion disease (NIID) is a slowly progressive neurodegenerative disease characterized by eosinophilic hyaline intranuclear inclusions in the central and peripheral nervous system, and also in the visceral organs."</div>
+
+
+                <div class="evidence-explanation">Establishes the slowly progressive natural history.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both sporadic and familial NIID cases presented with a decline in Mini-Mental State Examination and Frontal Assessment Battery scores."</div>
+
+
+                <div class="evidence-explanation">Documents instrumented cognitive decline over the disease course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-reported-niid-case-literature-pre-2019">
+                <div class="item-name">Worldwide (reported NIID case literature, pre-2019)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Approximately 140 NIID cases had been reported at the time the causal expansion was identified, mostly sporadic. No population-based prevalence estimate is cited here; the true frequency is unknown and probably underestimated because antemortem diagnosis only became practical after skin biopsy and MRI criteria were established.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31332381" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31332381" target="_blank">PMID:31332381</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The average onset age is 59.7 years among approximately 140 NIID cases consisting of mostly sporadic and several familial cases."</div>
+
+
+                <div class="evidence-explanation">Provides the reported case count in the literature at the time of gene discovery.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27797808" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27797808" target="_blank">PMID:27797808</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our study suggested that the prevalence rate of adult-onset NIID may be higher than previously thought, and that NIID may be underdiagnosed."</div>
+
+
+                <div class="evidence-explanation">Supports the statement that NIID is underdiagnosed and its true prevalence higher than the reported case count implies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8485,10 +9537,11 @@ mechanistic_hypotheses:
     explanation: The clinical/radiologic parallel to FXTAS, itself a canonical non-coding repeat RNA gain-of-function disorder, motivates the RNA-toxicity arm.
   - reference: PMID:31178126
     reference_title: &#34;Expansion of Human-Specific GGC Repeat in Neuronal Intranuclear Inclusion Disease-Related Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the expanded GGC repeat does not alter the expression of NOTCH2NLC and that the GGC repeat RNA could potentially play a role in the molecular pathogenesis of NIID&#34;
-    explanation: PARTIAL — unchanged expression of the unmethylated expanded allele establishes that repeat-containing RNA is still produced (a precondition for RNA toxicity) but does not demonstrate that the RNA is itself pathogenic; the authors state it only as a possibility.
+    explanation: INDIRECT — unchanged expression of the unmethylated expanded allele establishes that repeat-containing RNA is still produced (a precondition for RNA toxicity) but does not demonstrate that the RNA is itself pathogenic; the authors state it only as a possibility.
 pathophysiology:
 - name: NOTCH2NLC 5&#39; UTR GGC Repeat Expansion
   biological_scale: MOLECULAR
@@ -9151,7 +10204,7 @@ phenotypes:
   evidence:
   - reference: PMID:31178126
     reference_title: &#34;Expansion of Human-Specific GGC Repeat in Neuronal Intranuclear Inclusion Disease-Related Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Surprisingly, GGC repeat expansion was observed in two Alzheimer disease (AD)-affected families and three parkinsonism-affected families, implicating that the GGC repeat expansions in NOTCH2NLC could also contribute to the pathogenesis of both AD and PD.&#34;
     explanation: Supports parkinsonism as part of the NOTCH2NLC expansion spectrum; marked PARTIAL because these families were ascertained as parkinsonism/AD rather than as classical NIID.
@@ -9425,7 +10478,7 @@ diagnosis:
     explanation: Documents that these imaging and pathological features were assembled into a formal diagnostic algorithm.
   - reference: PMID:31178126
     reference_title: &#34;Expansion of Human-Specific GGC Repeat in Neuronal Intranuclear Inclusion Disease-Related Disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Only about 37.5% of affected familial individuals presented with the classical NIID radiological findings of symmetrical hyperintense linear lesions in the corticomedullary junction in DWI&#34;
     explanation: PARTIAL because it confirms the sign occurs but bounds its sensitivity in familial cases, showing a negative DWI cannot exclude the diagnosis.
@@ -9580,10 +10633,11 @@ discussions:
     explanation: The sufficiency result that makes the protein arm the stronger of the two.
   - reference: PMID:31332381
     reference_title: &#34;Long-read sequencing identifies GGC repeat expansions in NOTCH2NLC associated with neuronal intranuclear inclusion disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: IN_VITRO
     snippet: &#34;We observed abnormal anti-sense transcripts in fibroblasts specifically from patients but not unaffected individuals.&#34;
-    explanation: The observation supporting an RNA arm; PARTIAL because it is correlative, in fibroblasts rather than brain, and does not establish toxicity.
+    explanation: The observation supporting an RNA arm; INDIRECT because it is correlative, in fibroblasts rather than brain, and does not establish toxicity.
 datasets: []
 </pre>
             </div>
@@ -9645,7 +10699,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Neuronal Intranuclear Inclusion Disease", "mondoId": "MONDO:0011327", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuronal_Intranuclear_Inclusion_Disease", "yamlRevision": "8c8ba3263613"};
+        const OS_CONFIG = {"diseaseName": "Neuronal Intranuclear Inclusion Disease", "mondoId": "MONDO:0011327", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Neuronal_Intranuclear_Inclusion_Disease", "yamlRevision": "5dd10511ce76"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

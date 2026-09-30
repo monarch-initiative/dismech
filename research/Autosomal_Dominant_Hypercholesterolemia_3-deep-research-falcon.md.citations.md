@@ -90,6 +90,16 @@ For each phenotype, provide:
 
 ### 6. Mechanism / Pathophysiology
 
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
+
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
 - **Cellular Processes**: Cell-level mechanisms (apoptosis, autophagy, cell cycle dysregulation, inflammation, etc.)
@@ -447,53 +457,39 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 **Provider:** falcon
-**Generated:** 2026-08-18T21:13:37.170113
+**Generated:** 2026-09-06T14:21:50.782779
 
-1. rochemolina2015inductionofsustained pages 1-2
-2. haradashiba2023guidelinesforthe pages 2-4
-3. yip2023geneticspectrumand pages 1-2
-4. sarkar2022pathogenicgainoffunctionmutations pages 1-2
-5. taranto2023geneticheterogeneityof pages 1-2
-6. toftnielsen2022familialhypercholesterolemiaprevalence pages 1-3
-7. haradashiba2023guidelinesforthe pages 1-2
-8. damase2024establishedandemerging pages 1-3
-9. rajendran2024acomparativeanalysis pages 1-2
-10. ray2022worldheartfederation pages 1-2
-11. fang2024developmentofa pages 1-3
-12. hu2020prevalenceoffamilial pages 1-2
-13. cesaro2020beyondcholesterolmetabolism pages 1-2
-14. abifadel2023geneticandmolecular pages 1-2
-15. sarkar2022pathogenicgainoffunctionmutations pages 2-3
-16. hu2020prevalenceoffamilial pages 11-11
-17. perleberg2018geneticallyengineeredpigs pages 4-4
-18. katsuki2024theroleof pages 7-7
-19. taranto2023geneticheterogeneityof pages 2-4
-20. katsuki2024theroleof pages 1-2
-21. rochemolina2015inductionofsustained pages 10-10
-22. https://doi.org/10.1038/ng1161
-23. https://doi.org/10.1161/CIRCULATIONAHA.123.067957,
-24. https://doi.org/10.1161/ATVBAHA.114.303617.
-25. https://doi.org/10.1016/j.xcrm.2024.101614.
-26. https://doi.org/10.5551/jat.CR005.
-27. https://doi.org/10.3389/fphys.2022.960272.
-28. https://doi.org/10.1161/CIRCULATIONAHA.123.067957.
-29. https://doi.org/10.1161/CIRCULATIONAHA.119.044795.
-30. https://doi.org/10.1002/biof.1619,
-31. https://doi.org/10.1111/joim.13577,
-32. https://doi.org/10.3389/fphys.2022.960272,
-33. https://doi.org/10.1161/circresaha.118.313238,
-34. https://doi.org/10.48350/157973,
-35. https://doi.org/10.5551/jat.cr005,
-36. https://doi.org/10.3390/ijms25031637,
-37. https://doi.org/10.3390/genes14112071,
-38. https://doi.org/10.1161/circulationaha.123.067957,
-39. https://doi.org/10.3389/fphys.2020.595819,
-40. https://doi.org/10.7759/cureus.69900,
-41. https://doi.org/10.1161/circulationaha.119.044795,
-42. https://doi.org/10.3389/fgene.2022.840797,
-43. https://doi.org/10.3390/ijms24043224,
-44. https://doi.org/10.1161/atvbaha.114.303617,
-45. https://doi.org/10.1242/dmm.030783,
-46. https://doi.org/10.1016/j.xcrm.2024.101614,
-47. https://doi.org/10.3389/fcvm.2024.1431398,
-48. https://doi.org/10.5334/gh.1154,
+1. allard2005novelmutationsof pages 1-3
+2. allard2005novelmutationsof pages 3-6
+3. watts2023internationalatherosclerosissociety pages 1-2
+4. otero2024functionalanalysisof pages 4-5
+5. watts2023internationalatherosclerosissociety pages 9-10
+6. marquina2024costeffectivenessofscreening pages 1-2
+7. rochemolina2015inductionofsustained pages 1-2
+8. weider2017inhibitionofthe pages 61-64
+9. weider2017inhibitionofthe pages 152-156
+10. weider2017inhibitionofthe pages 64-68
+11. mcnutt2010characterizationofthe pages 115-119
+12. weider2017inhibitionofthea pages 152-156
+13. watts2023internationalatherosclerosissociety pages 7-8
+14. yip2023geneticspectrumand pages 5-6
+15. rochemolina2015inductionofsustained pages 10-10
+16. mcnutt2010characterizationofthea pages 115-119
+17. DOI
+18. https://doi.org/10.1038/ng1161
+19. https://doi.org/10.1038/ng1161;
+20. https://doi.org/10.1155/2024/9964734;
+21. https://doi.org/10.1161/CIRCULATIONAHA.123.067957;
+22. https://doi.org/10.1007/s40273-023-01347-7;
+23. https://doi.org/10.1161/ATVBAHA.114.303617;
+24. https://doi.org/10.21542/gcsp.2017.2,
+25. https://doi.org/10.1038/ng1161,
+26. https://doi.org/10.3390/ijms25031637,
+27. https://doi.org/10.1002/humu.9383,
+28. https://doi.org/10.1007/s40273-023-01347-7,
+29. https://doi.org/10.1038/s41569-023-00892-0,
+30. https://doi.org/10.3390/genes14112071,
+31. https://doi.org/10.1161/atvbaha.114.303617,
+32. https://doi.org/10.1155/2024/9964734,
+33. https://doi.org/10.2478/bjmg-2021-0009,
+34. https://doi.org/10.1002/hsr2.70174,

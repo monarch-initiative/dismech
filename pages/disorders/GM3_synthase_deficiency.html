@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4144,6 +4237,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4226,6 +4321,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4247,6 +4344,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4295,6 +4394,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-st3gal5-gm3-synthase-loss-of-function" data-dismech-node="ST3GAL5 GM3 synthase loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">ST3GAL5 GM3 synthase loss of function</div>
+
 
                 <div class="item-desc">Pathogenic ST3GAL5 variants reduce or abolish GM3 synthase activity, blocking the sialylation step that produces ganglioside GM3 from lactosylceramide.
 </div>
@@ -4475,6 +4575,8 @@ This pathophysiological event involves decreased lactosylceramide alpha-2,3-sial
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4496,6 +4598,8 @@ This pathophysiological event involves decreased lactosylceramide alpha-2,3-sial
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4520,6 +4624,7 @@ This pathophysiological event involves decreased lactosylceramide alpha-2,3-sial
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gm3-and-downstream-ganglioside-depletion" data-dismech-node="GM3 and downstream ganglioside depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">GM3 and downstream ganglioside depletion</div>
+
 
                 <div class="item-desc">Because GM3 is the precursor for most complex gangliosides, GM3 synthase loss causes absence of GM3 and downstream a-, b-, and c-series gangliosides with accumulation of upstream lactosylceramide-related species.
 </div>
@@ -4678,6 +4783,8 @@ This pathophysiological event involves abnormal ganglioside metabolic process (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4699,6 +4806,8 @@ This pathophysiological event involves abnormal ganglioside metabolic process (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4724,6 +4833,8 @@ This pathophysiological event involves abnormal ganglioside metabolic process (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4746,6 +4857,7 @@ This pathophysiological event involves abnormal ganglioside metabolic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycosphingolipid-remodeling" data-dismech-node="Glycosphingolipid remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycosphingolipid remodeling</div>
+
 
                 <div class="item-desc">Loss of the GM3 branch alters glycosphingolipid composition and collateral glycan programs in patient cells and model systems.
 </div>
@@ -4863,6 +4975,8 @@ This pathophysiological event involves abnormal glycosphingolipid biosynthetic p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4884,6 +4998,8 @@ This pathophysiological event involves abnormal glycosphingolipid biosynthetic p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4908,6 +5024,7 @@ This pathophysiological event involves abnormal glycosphingolipid biosynthetic p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-cell-signaling-vulnerability" data-dismech-node="Neural cell signaling vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural cell signaling vulnerability</div>
+
 
                 <div class="item-desc">Complex ganglioside depletion in patient-derived neural lineage cells alters receptor tyrosine kinase abundance, O-GlcNAcylation, and apoptosis susceptibility, providing a plausible cellular route from glycosphingolipid biosynthesis failure to neurodevelopmental dysfunction.
 </div>
@@ -5220,6 +5337,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5243,6 +5362,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5264,6 +5385,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5387,6 +5510,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5401,6 +5527,8 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5465,6 +5593,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5479,6 +5610,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5502,6 +5635,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5566,6 +5701,9 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5580,6 +5718,8 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5603,6 +5743,8 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5658,6 +5800,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5817,8 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5736,6 +5883,9 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5750,6 +5900,8 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5805,6 +5957,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5819,6 +5974,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5842,6 +5999,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5906,6 +6065,9 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5920,6 +6082,8 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5943,6 +6107,8 @@ This clinical feature is Abnormality of skin pigmentation (HP:0001000). HP:00010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6007,6 +6173,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6021,6 +6190,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6076,6 +6247,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6090,6 +6264,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6113,6 +6289,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6177,6 +6355,9 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6191,6 +6372,8 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6214,6 +6397,8 @@ This clinical feature is Irritability (HP:0000737). HP:0000737 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6269,6 +6454,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6283,6 +6471,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6306,6 +6496,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6361,6 +6553,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6375,6 +6570,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6398,6 +6595,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6454,6 +6653,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6468,6 +6670,8 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6523,6 +6727,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6537,6 +6744,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6560,6 +6769,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6615,6 +6826,9 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6629,6 +6843,8 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6652,6 +6868,8 @@ This clinical feature is Choreoathetosis (HP:0001266). HP:0001266 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6718,6 +6936,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6732,6 +6953,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6755,6 +6978,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6810,6 +7035,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6824,6 +7052,8 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6847,6 +7077,8 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6946,6 +7178,9 @@ This disease-associated gene is ST3GAL5 (hgnc:10872). hgnc:10872 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6960,6 +7195,8 @@ This disease-associated gene is ST3GAL5 (hgnc:10872). hgnc:10872 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6985,6 +7222,8 @@ This disease-associated gene is ST3GAL5 (hgnc:10872). hgnc:10872 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7006,6 +7245,8 @@ This disease-associated gene is ST3GAL5 (hgnc:10872). hgnc:10872 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7088,6 +7329,8 @@ This disease-associated gene is ST3GAL5 (hgnc:10872). hgnc:10872 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7109,6 +7352,8 @@ This disease-associated gene is ST3GAL5 (hgnc:10872). hgnc:10872 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7207,6 +7452,31 @@ This treatment uses ganglioside (CHEBI:28892). CHEBI:28892 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral ganglioside-enriched dairy supplementation has been reported to produce transient improvements in growth and development in affected children, but benefits waned after about 12 months and durable restoration of endogenous ganglioside synthesis remains an unmet therapeutic goal.
 </div>
 
@@ -7238,6 +7508,8 @@ This treatment uses ganglioside (CHEBI:28892). CHEBI:28892 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7321,6 +7593,8 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7342,6 +7616,8 @@ This treatment targets Global developmental delay (HP:0001263). HP:0001263 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7404,6 +7680,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is appropriate for affected families because the disorder is autosomal recessive and molecular diagnosis clarifies recurrence risk.
 </div>
 
@@ -7426,6 +7716,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7524,6 +7816,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7603,6 +7897,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7686,6 +7982,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7707,6 +8005,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7790,6 +8090,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7811,6 +8113,441 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-st3gal5-molecular-genetic-testing">
+                <div class="item-name">
+                    ST3GAL5 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing for biallelic pathogenic ST3GAL5 variants confirms the diagnosis when the clinical and biochemical phenotype is compatible.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic ST3GAL5 variants support molecular diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34906476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34906476" target="_blank">PMID:34906476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"clinical and molecular data from 16 non-Amish patients"</div>
+
+
+                <div class="evidence-explanation">The cohort used clinical and molecular data to define pathogenic ST3GAL5 disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:370933" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:370933" target="_blank">ORPHA:370933</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ST3GAL5 | ST3 beta-galactoside alpha-2,3-sialyltransferase 5"</div>
+
+
+                <div class="evidence-explanation">Orphanet identifies ST3GAL5 as the disease gene for molecular confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-glycosphingolipid-biochemical-analysis">
+                <div class="item-name">
+                    Glycosphingolipid biochemical analysis
+
+                </div>
+
+                <div class="item-desc">Biochemical analysis of plasma or cellular glycosphingolipids can show lack of GM3 and downstream gangliosides with altered upstream glycosphingolipid species.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-35">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Absence of GM3 and biosynthetic derivatives supports GM3 synthase deficiency.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15502825" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15502825" target="_blank">PMID:15502825</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biochemical analysis of plasma"</div>
+
+
+                <div class="evidence-explanation">Plasma glycosphingolipid analysis confirmed the biochemical defect in affected individuals.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24026681" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24026681" target="_blank">PMID:24026681</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Glycolipid analysis confirmed a complete lack of GM3"</div>
+
+
+                <div class="evidence-explanation">Patient fibroblast glycolipid analysis confirmed absent GM3.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-initial-infantile-presentation">
+                <div class="item-name">Initial infantile presentation</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Affected infants typically develop irritability, poor feeding, failure to thrive, and early-onset refractory epilepsy during infancy.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:370933" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:370933" target="_blank">ORPHA:370933</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"initially characterized by irritability, poor feeding, failure to thrive"</div>
+
+
+                <div class="evidence-explanation">Orphanet describes the early infantile presentation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15502825" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15502825" target="_blank">PMID:15502825</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infantile-onset symptomatic epilepsy syndrome"</div>
+
+
+                <div class="evidence-explanation">The original human report defines the disease as infantile-onset symptomatic epilepsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-neurodevelopmental-and-sensory-disease">
+                <div class="item-name">Progressive neurodevelopmental and sensory disease</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Infancy to childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Later disease includes severe developmental delay or regression, profound intellectual disability, movement disorder, microcephaly, visual impairment, hearing impairment, and progressive pigmentation abnormalities.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:370933" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:370933" target="_blank">ORPHA:370933</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"followed by postnatal growth impairment, severe developmental delay or developmental regression"</div>
+
+
+                <div class="evidence-explanation">Orphanet describes later developmental and growth impairment.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34906476" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34906476" target="_blank">PMID:34906476</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"severe to profound intellectual disability"</div>
+
+
+                <div class="evidence-explanation">The non-Amish cohort supports severe childhood neurodevelopmental involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7892,13 +8629,13 @@ external_assertions:
     loss-of-function gene assertion used in this entry.
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MONDO:0018274 | Exact&#34;
     explanation: Orphanet maps ORPHA:370933 to the MONDO identifier used by this entry.
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;OMIM:609056 | Exact&#34;
@@ -7916,7 +8653,7 @@ definitions:
     features.
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;due to impaired synthesis of complex ganglioside species&#34;
@@ -7931,7 +8668,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -7950,7 +8687,7 @@ progression:
     thrive, and early-onset refractory epilepsy during infancy.
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;initially characterized by irritability, poor feeding, failure to thrive&#34;
@@ -7969,7 +8706,7 @@ progression:
     hearing impairment, and progressive pigmentation abnormalities.
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;followed by postnatal growth impairment, severe developmental delay or developmental regression&#34;
@@ -7994,7 +8731,7 @@ genetic:
     that abolish or markedly impair GM3 synthase activity.
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -8220,7 +8957,7 @@ pathophysiology:
       snippet: &#34;altered dermal pigmentation&#34;
       explanation: The salt-and-pepper syndrome report links ST3GAL5 disease to altered dermal pigmentation.
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;abnormalities of skin pigmentation&#34;
@@ -8239,7 +8976,7 @@ pathophysiology:
       snippet: &#34;dysmorphic facial features&#34;
       explanation: The salt-and-pepper syndrome report lists dysmorphic facial features.
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Dysmorphic facial features may be associated.&#34;
@@ -8311,7 +9048,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;severe developmental delay or developmental regression&#34;
@@ -8321,7 +9058,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Visual impairment due to cortical atrophy&#34;
@@ -8354,7 +9091,7 @@ pathophysiology:
     causal_link_type: UNKNOWN
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;poor feeding, failure to thrive&#34;
@@ -8368,7 +9105,7 @@ pathophysiology:
     - poor feeding
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;poor feeding, failure to thrive&#34;
@@ -8382,7 +9119,7 @@ pathophysiology:
     - failure to thrive
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;followed by postnatal growth impairment&#34;
@@ -8394,7 +9131,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;developmental delay or developmental regression&#34;
@@ -8430,7 +9167,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;choreoathetosis and hypotonic tetraparesis&#34;
@@ -8447,7 +9184,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:370933
-      reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;GM3 synthase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;hypotonic tetraparesis&#34;
@@ -8488,7 +9225,7 @@ phenotypes:
       label: Irritability
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;initially characterized by irritability&#34;
@@ -8509,7 +9246,7 @@ phenotypes:
       label: Failure to thrive
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;poor feeding, failure to thrive&#34;
@@ -8530,7 +9267,7 @@ phenotypes:
       label: Feeding difficulties
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;poor feeding, failure to thrive&#34;
@@ -8545,7 +9282,7 @@ phenotypes:
       label: Growth delay
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;postnatal growth impairment&#34;
@@ -8566,7 +9303,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;early-onset refractory epilepsy&#34;
@@ -8587,7 +9324,7 @@ phenotypes:
       label: Global developmental delay
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;severe developmental delay or developmental regression&#34;
@@ -8608,7 +9345,7 @@ phenotypes:
       label: Developmental regression
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;developmental delay or developmental regression&#34;
@@ -8623,7 +9360,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;profound intellectual disability&#34;
@@ -8644,7 +9381,7 @@ phenotypes:
       label: Hearing impairment
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;profound intellectual disability, deafness&#34;
@@ -8665,7 +9402,7 @@ phenotypes:
       label: Visual impairment
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Visual impairment due to cortical atrophy&#34;
@@ -8701,7 +9438,7 @@ phenotypes:
       label: Choreoathetosis
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;choreoathetosis and hypotonic tetraparesis&#34;
@@ -8724,7 +9461,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;hypotonic tetraparesis&#34;
@@ -8739,7 +9476,7 @@ phenotypes:
       label: Abnormality of skin pigmentation
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;abnormalities of skin pigmentation&#34;
@@ -8760,7 +9497,7 @@ phenotypes:
       label: Abnormal facial shape
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Dysmorphic facial features may be associated.&#34;
@@ -8920,7 +9657,7 @@ diagnosis:
     snippet: &#34;clinical and molecular data from 16 non-Amish patients&#34;
     explanation: The cohort used clinical and molecular data to define pathogenic ST3GAL5 disease.
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ST3GAL5 | ST3 beta-galactoside alpha-2,3-sialyltransferase 5&#34;
@@ -9011,7 +9748,7 @@ treatments:
       label: Genetic Counseling
   evidence:
   - reference: ORPHA:370933
-    reference_title: &#34;GM3 synthase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;GM3 synthase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -9274,6 +10011,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9454,7 +10193,7 @@ and records autosomal recessive genetic counseling separately.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "GM3 synthase deficiency", "mondoId": "MONDO:0018274", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GM3_synthase_deficiency", "yamlRevision": "f97f796379d2"};
+        const OS_CONFIG = {"diseaseName": "GM3 synthase deficiency", "mondoId": "MONDO:0018274", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "GM3_synthase_deficiency", "yamlRevision": "127fc15f7294"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

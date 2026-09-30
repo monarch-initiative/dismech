@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,9 +1626,14 @@
         <header class="page-header">
             <h1>Antisense Oligonucleotide Therapy Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Drug mechanism of action and therapeutic targeting: modules built around a molecular drug target, a therapeutic modality, or an acquired-resistance pathway that gates drug choice. Typically carries the target_mechanisms drug pattern."
+                      style="background: hsl(153, 68%, 96%); border-color: hsl(153, 52%, 78%); color: hsl(153, 62%, 26%);">Pharmacology</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">antisense_oligonucleotide_therapy</span>
-                <span class="badge badge-count">2 disorders</span>
+                <span class="badge badge-count">3 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
                 
@@ -1815,8 +1880,10 @@ This mechanism module involves increased viral gene expression (GO:0019080). GO:
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">i</div>
                 <h2 class="card-title">Notes</h2>
             </div>
-            <div class="item-desc">This is a mechanism module, not a specific disease, and conformance is node-level consistency rather than inheritance. The operational splice-branch boundary below is a curation guardrail, not a formal schema or Grouping criterion. Use &#34;antisense_oligonucleotide_therapy#Pathogenic Pre-mRNA Missplicing&#34; only for an evidence-backed disease-, variant-, or subgroup-specific abnormal splice event, and use &#34;antisense_oligonucleotide_therapy#Exon-Skipping-Addressable Reading-Frame Lesion&#34; for a genomic reading-frame lesion whose pre-mRNA is a substrate for therapeutic exon skipping without claiming abnormal basal splicing. In either branch, the disorder entry must duplicate the conserved vulnerability-to-ASO-effector-to-productive-output chain with disease-specific nodes and causal edges; the treatment must also target the exact RNA vulnerability through an evidence-bearing target_mechanisms link. Every vulnerability-to-effector edge is conditional on administration of the sequence-matched ASO and must say so explicitly. Prefer direct evidence that the ASO redirects the named splice event toward a productive transcript. When the cached evidence establishes only molecular eligibility and downstream protein production, mark the exact RNA-target link PARTIAL and state that limitation. If evidence establishes restored productive RNA and cellular function but does not measure protein expression, retain the disease-specific consequence without conforming it to the module protein-expression outcome and do not add an unsupported translation modifier merely to complete the chain. A modality tag, a downstream protein deficit, or clinical benefit alone is not sufficient. In scope here are exon-skipping-amenable DMD transcripts, whose genomic reading-frame lesion creates a targetable pre-mRNA processing vulnerability without implying globally abnormal basal splicing, and the patient-specific MFSD8 cryptic splice-acceptor event targeted by milasen. Exclude siRNA/RNAi, splice-modifying small molecules, and ASOs whose operative mechanism is lncRNA unsilencing, upstream-open-reading-frame blockade, or epigenetic de-repression. The RNase H and viral-translation branches are retained as descriptive module content, but new conformers to those branches are deferred until their trigger semantics and drug-specific evidence are separately reconciled; in particular, do not map fomivirsen while its RNase H versus steric-blockade classification remains contradictory in the cached evidence. Spinal muscular atrophy and nusinersen are also deliberately deferred: their compensatory SMN2 exon-inclusion vulnerability requires a separately curated anchor and must not be presumed to conform to the disease-causal missplicing anchor used here.</div>
+            <div class="item-desc">This is a mechanism module, not a specific disease, and conformance is node-level consistency rather than inheritance. The operational splice-branch boundary below is a curation guardrail, not a formal schema or Grouping criterion. Use &#34;antisense_oligonucleotide_therapy#Pathogenic Pre-mRNA Missplicing&#34; only for an evidence-backed disease-, variant-, or subgroup-specific abnormal splice event, and use &#34;antisense_oligonucleotide_therapy#Exon-Skipping-Addressable Reading-Frame Lesion&#34; for a genomic reading-frame lesion whose pre-mRNA is a substrate for therapeutic exon skipping without claiming abnormal basal splicing. In either branch, the disorder entry must duplicate the conserved vulnerability-to-ASO-effector-to-productive-output chain with disease-specific nodes and causal edges; the treatment must also target the exact RNA vulnerability through an evidence-bearing target_mechanisms link. Every vulnerability-to-effector edge is conditional on administration of the sequence-matched ASO and must say so explicitly. Prefer direct evidence that the ASO redirects the named splice event toward a productive transcript. When the cached evidence establishes only molecular eligibility and downstream protein production, mark the exact RNA-target link PARTIAL and state that limitation. If evidence establishes restored productive RNA and cellular function but does not measure protein expression, retain the disease-specific consequence without conforming it to the module protein-expression outcome and do not add an unsupported translation modifier merely to complete the chain. A modality tag, a downstream protein deficit, or clinical benefit alone is not sufficient. In scope here are exon-skipping-amenable DMD transcripts, whose genomic reading-frame lesion creates a targetable pre-mRNA processing vulnerability without implying globally abnormal basal splicing, and the patient-specific MFSD8 cryptic splice-acceptor event targeted by milasen. Exclude siRNA/RNAi, splice-modifying small molecules, and ASOs whose operative mechanism is lncRNA unsilencing, upstream-open-reading-frame blockade, or epigenetic de-repression. siRNA and RNAi belong to the sibling module rnai_gene_silencing, which models the same base-pairing knockdown strategy through RISC and Argonaute-2 rather than RNase H1; route a double-stranded siRNA drug there, not here. The RNase H and viral-translation branches are retained as descriptive module content, but new conformers to those branches are deferred until their trigger semantics and drug-specific evidence are separately reconciled; in particular, do not map fomivirsen while its RNase H versus steric-blockade classification remains contradictory in the cached evidence. Spinal muscular atrophy and nusinersen are also deliberately deferred: their compensatory SMN2 exon-inclusion vulnerability requires a separately curated anchor and must not be presumed to conform to the disease-causal missplicing anchor used here.</div>
         </div>
+        
+
         
 
         
@@ -1831,7 +1898,7 @@ This mechanism module involves increased viral gene expression (GO:0019080). GO:
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
             
             <div class="crosslink-list">
@@ -1881,6 +1948,31 @@ This mechanism module involves increased viral gene expression (GO:0019080). GO:
                     
                 </div>
                 
+                <div class="crosslink-item">
+                    <a href="../disorders/Werner_Syndrome.html">Werner Syndrome</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        c.3139-1G&gt;C-Dependent WRN Pre-mRNA Missplicing → Pathogenic Pre-mRNA Missplicing
+                        
+                        
+                        , 
+                        
+                        WRN-108-Directed Exon 27 Skipping → ASO-Directed Splice Redirection
+                        
+                        
+                        , 
+                        
+                        Restored Partial WRN Expression and Nuclear Localization → Restored Productive Transcript and Protein Expression
+                        
+                        
+                    </span>
+                    
+                </div>
+                
             </div>
             
         </div>
@@ -1920,11 +2012,13 @@ This mechanism module involves increased viral gene expression (GO:0019080). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-pathogenic-mrna-accumulation" data-dismech-node="Pathogenic mRNA Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic mRNA Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In dominant gain-of-function or toxic protein overexpression diseases, the causal mRNA is transcribed and translated at a level that produces harmful amounts of the encoded protein. The transcript itself is structurally normal but its abundance or the toxicity of its protein product is the pathogenic driver — making mRNA level reduction, rather than protein inhibition, the upstream therapeutic target. Examples include SOD1 mRNA in SOD1-ALS, TTR mRNA in hereditary transthyretin amyloidosis, APOB mRNA in homozygous familial hypercholesterolemia, APOC3 mRNA in familial chylomicronemia syndrome, KLKB1 (prekallikrein) mRNA in hereditary angioedema, and FUS mRNA in FUS-ALS. RNase H-dependent ASOs bind the target mRNA and recruit endogenous RNase H1 to cleave the heteroduplex, degrading the message and reducing the pathogenic protein.</div>
                 
@@ -1988,11 +2082,13 @@ This pathophysiological event involves increased mRNA metabolic process (GO:0016
             
             <div class="item-box anchor-target" id="module-pathophysiology-rnase-h-mediated-transcript-degradation" data-dismech-node="RNase H-Mediated Transcript Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">RNase H-Mediated Transcript Degradation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The ASO:mRNA heteroduplex recruits endogenous RNase H1, which cleaves the RNA strand of the duplex. This catalytic cleavage degrades the target mRNA, freeing the ASO to engage additional mRNA molecules. The result is a sustained, dose-dependent reduction in steady-state mRNA and protein levels. The ASO backbone chemistry — typically 2&#39;-O-methoxyethyl (2&#39;-MOE) modifications with a central phosphorothioate gap region (gapmer design) — is optimized to support RNase H recruitment while resisting nuclease degradation. GalNAc conjugation (as in eplontersen and olezarsen) enables hepatocyte-targeted delivery for liver-expressed transcripts.</div>
                 
@@ -2056,11 +2152,13 @@ This pathophysiological event involves increased RNA catabolic process (GO:00064
             
             <div class="item-box anchor-target" id="module-pathophysiology-reduction-of-pathogenic-protein" data-dismech-node="Reduction of Pathogenic Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduction of Pathogenic Protein</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">RNase H-mediated mRNA cleavage reduces ribosomal substrate availability, producing a sustained, dose-dependent reduction in the pathogenic protein. The magnitude of protein reduction is the primary pharmacodynamic readout: tofersen reduces CSF SOD1; inotersen and eplontersen reduce serum TTR; mipomersen reduces LDL-C via APOB reduction; volanesorsen and olezarsen reduce APOC3 and serum triglycerides; donidalorsen reduces prekallikrein. Protein reduction translates to disease modification when the targeted protein is the proximate pathogenic driver.</div>
                 
@@ -2110,11 +2208,13 @@ This pathophysiological event involves increased negative regulation of translat
             
             <div class="item-box anchor-target" id="module-pathophysiology-pathogenic-pre-mrna-missplicing" data-dismech-node="Pathogenic Pre-mRNA Missplicing" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic Pre-mRNA Missplicing</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A disease-, variant-, or subgroup-specific pre-mRNA is processed through an abnormal splice event, such as activation of a cryptic splice acceptor or pathogenic exclusion of an exon. The missplicing is part of the untreated disease mechanism and creates a sequence-specific therapeutic vulnerability when a steric ASO can occlude the responsible regulatory element. This anchor is not for genomic reading-frame lesions whose basal splice-site use is normal.</div>
                 
@@ -2169,6 +2269,13 @@ This pathophysiological event involves abnormal RNA splicing (GO:0008380). GO:00
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Werner_Syndrome.html">Werner Syndrome</a>
+                            
+                            <span class="crosslink-desc">as c.3139-1G&gt;C-Dependent WRN Pre-mRNA Missplicing</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2192,11 +2299,13 @@ This pathophysiological event involves abnormal RNA splicing (GO:0008380). GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-exon-skipping-addressable-reading-frame-lesion" data-dismech-node="Exon-Skipping-Addressable Reading-Frame Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Exon-Skipping-Addressable Reading-Frame Lesion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A genomic exon deletion or related lesion shifts the coding frame, yielding an out-of-frame mature transcript and prematurely truncated dysfunctional protein. Basal splice-site use need not be abnormal. The therapeutic vulnerability is the pre-mRNA state in which controlled skipping of one additional, genotype-specific exon can restore an in-frame transcript. This anchor applies only to molecularly amenable genotypes, not to the disorder generally.</div>
                 
@@ -2272,11 +2381,13 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
             
             <div class="item-box anchor-target" id="module-pathophysiology-aso-directed-splice-redirection" data-dismech-node="ASO-Directed Splice Redirection" data-dismech-type="pathophysiology">
                 <div class="item-name">ASO-Directed Splice Redirection</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">After administration to a patient with the matching RNA vulnerability, a steric-blocking ASO (uniformly modified; no RNase H recruitment) binds a splice regulatory element on the pre-mRNA — a splice acceptor, splice donor, exonic splicing silencer, or intronic silencing sequence — and physically prevents spliceosome recognition. The spliceosome bypasses the blocked element, either skipping a mutation-bearing exon (exon-skipping paradigm) or including a normally silenced exon (exon-inclusion paradigm). Phosphorodiamidate morpholino oligomer (PMO) chemistry, used in the DMD exon-skipping ASOs, is uncharged and cell-penetrant without lipid formulation, while 2&#39;-MOE chemistry (used in nusinersen) supports intrathecal delivery to motor neurons.</div>
                 
@@ -2336,6 +2447,13 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Werner_Syndrome.html">Werner Syndrome</a>
+                            
+                            <span class="crosslink-desc">as WRN-108-Directed Exon 27 Skipping</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2359,11 +2477,13 @@ This pathophysiological event involves RNA splicing (GO:0008380). GO:0008380 is 
             
             <div class="item-box anchor-target" id="module-pathophysiology-restored-productive-transcript-and-protein-expression" data-dismech-node="Restored Productive Transcript and Protein Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Restored Productive Transcript and Protein Expression</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Under treatment with the matching splice-switching ASO, redirection increases a productive transcript and functional output from its encoded protein. In DMD exon skipping, the resulting dystrophin is shorter than wild type but in frame and partially functional. Correction of a cryptic splice acceptor, as in the single milasen-treated NCL7 patient, instead restores the normal exon junction, avoids premature translational termination, and can rescue cellular function even when protein abundance is not directly quantified. Exon-inclusion strategies can restore a full-length protein. This node describes the shared productive-transcript outcome without claiming that every strategy restores a literal genomic reading frame or a full-length protein.</div>
                 
@@ -2418,6 +2538,13 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
                             
                         </div>
                         
+                        <div class="crosslink-item">
+                            <a href="../disorders/Werner_Syndrome.html">Werner Syndrome</a>
+                            
+                            <span class="crosslink-desc">as Restored Partial WRN Expression and Nuclear Localization</span>
+                            
+                        </div>
+                        
                     </div>
                 </div>
                 
@@ -2427,11 +2554,13 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-pathogenic-viral-mrna-translation" data-dismech-node="Pathogenic Viral mRNA Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic Viral mRNA Translation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">In viral infections where the pathogenic protein is virus-encoded rather than host-encoded, an ASO can sterically block translation of the viral mRNA without recruiting RNase H. This generic paradigm differs from host-gene RNase H knockdown because the target is an exogenous transcript and the therapeutic window relies on viral-sequence specificity. Fomivirsen is not treated as an example or conformer here: the review cited below discusses steric blockade as a general ASO mechanism but classifies fomivirsen itself as RNase H dependent, so its drug-specific placement must be resolved with direct evidence before curation.</div>
                 
@@ -2495,11 +2624,13 @@ This pathophysiological event involves increased viral gene expression (GO:00190
             
             <div class="item-box anchor-target" id="module-pathophysiology-steric-viral-mrna-translation-blockade" data-dismech-node="Steric Viral mRNA Translation Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Steric Viral mRNA Translation Blockade</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The ASO:viral mRNA duplex physically impedes ribosomal access to the translation initiation region or coding sequence without recruiting RNase H. Because the RNA strand is not cleaved, this mechanism requires sustained ASO occupancy at the target site. The steric blockade reduces viral immediate-early gene product levels, disrupting the transcriptional amplification cascade essential for productive viral replication. This paradigm is now largely superseded by RNase H knockdown and small-molecule antivirals for most viral targets, but established the proof of concept for ASO therapeutics.</div>
                 
@@ -2548,6 +2679,9 @@ This pathophysiological event involves increased negative regulation of translat
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

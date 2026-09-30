@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revesz Syndrome · Falcon · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Revesz Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Revesz Syndrome</h1>
+                
+                <p class="report-subtitle">Revesz Syndrome: Comprehensive Disease-Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-08-31</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-edison">Falcon</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0009990" target="_blank" rel="noopener noreferrer">MONDO:0009990</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Edison Scientific Literature</span>
+                    
+                    
+                    <span class="meta-chip">38 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Revesz Syndrome: Comprehensive Disease-Characteristics Report</h1>
+<p><strong>Target entity:</strong> Revesz syndrome (RS), a severe, early-onset telomere biology disorder (TBD), usually caused by heterozygous pathogenic <strong>TINF2</strong> variants and characterized by early bone-marrow failure, bilateral exudative retinopathy, and intracranial abnormalities.</p>
+<p><strong>Evidence boundary.</strong> RS is exceptionally rare. The strongest RS-specific quantitative source remains the systematic review of 18 children published by Karremann et al. on <strong>7 October 2020</strong> (DOI: <a href="https://doi.org/10.1186/s13023-020-01553-y">10.1186/s13023-020-01553-y</a>). No 2023–2024 RS-specific cohort superseding it was identified. Consequently, this report labels recommendations derived from the broader DC/TBD literature as <strong>TBD extrapolation</strong>, rather than presenting them as demonstrated RS evidence. The underlying data are aggregated disease-level literature and case reports, not individual-level EHR data. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-8-9">karremann2020reveszsyndromerevisited pages 8-9</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</p>
+<p>The following table provides a knowledge-base-oriented synopsis.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Domain</th>
+<th>Best-supported finding</th>
+<th>Quantitative detail</th>
+<th>Evidence type</th>
+<th>Knowledge-base ontology suggestions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Disease identifiers</td>
+<td>Revesz syndrome is an ultra-rare, severe pediatric telomere biology disorder within the dyskeratosis congenita spectrum, classically defined by bilateral exudative retinopathy plus intracranial calcification/cerebellar hypoplasia and early bone marrow failure; OMIM #268130 and <a href="http://purl.obolibrary.org/obo/MONDO_0009990" target="_blank" rel="noopener noreferrer">MONDO:0009990</a> are supported in retrieved sources</td>
+<td>18 children summarized in the largest RS-specific review; all pediatric cases (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, OpenTargets Search: Revesz syndrome-TINF2)</td>
+<td>RS-specific systematic review + broader TBD review</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009990" target="_blank" rel="noopener noreferrer">MONDO:0009990</a>; MeSH: Dyskeratosis Congenita; HPO: <a href="http://purl.obolibrary.org/obo/HP_0001872" target="_blank" rel="noopener noreferrer">HP:0001872</a> Pancytopenia, <a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> Blindness, <a href="http://purl.obolibrary.org/obo/HP_0009713" target="_blank" rel="noopener noreferrer">HP:0009713</a> Nail dystrophy</td>
+</tr>
+<tr>
+<td>Synonyms / nomenclature</td>
+<td>RS is best treated as a disease-level, aggregated literature-defined syndrome; recent sources also describe it as an early severe pediatric TBD and a TINF2-associated dyskeratosis congenita variant</td>
+<td>No EHR-derived cohort identified; evidence comes from published case reports/reviews (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</td>
+<td>RS-specific + broader TBD extrapolation</td>
+<td>MONDO label plus exact synonym string: TINF2-associated dyskeratosis congenita with bilateral exudative retinopathy and intracranial calcification</td>
+</tr>
+<tr>
+<td>Epidemiology / demographics</td>
+<td>Extremely rare; no population prevalence or incidence was identified. Reported sex distribution does not support strong male predominance</td>
+<td>18 cases total; 7 female, 11 male; median survival 6.5 years; none survived beyond 12 years in the 2020 review (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</td>
+<td>RS-specific systematic review</td>
+<td>HANCESTRO/NCIT demographic annotations as available; evidence gap flag for prevalence/incidence</td>
+</tr>
+<tr>
+<td>Inheritance</td>
+<td>RS is usually caused by de novo heterozygous TINF2 variants, although TINF2-related TBDs more broadly can also show autosomal dominant familial inheritance and anticipation</td>
+<td>In reviewed RS cases, all genetically characterized patients reportedly had unaffected parents/de novo events; TINF2 often de novo in broader TBDs (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-2-4">rolles2024inheritedtelomerebiology pages 2-4</a>)</td>
+<td>RS-specific + broader TBD extrapolation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000006" target="_blank" rel="noopener noreferrer">HP:0000006</a> Autosomal dominant inheritance; <a href="http://purl.obolibrary.org/obo/HP_0032113" target="_blank" rel="noopener noreferrer">HP:0032113</a> De novo mutation</td>
+</tr>
+<tr>
+<td>Causal gene</td>
+<td>TINF2 is the established causal gene for RS</td>
+<td>Open Targets shows Revesz syndrome–TINF2 association; evidence size 5 (OpenTargets Search: Revesz syndrome-TINF2)</td>
+<td>Disease-target association + RS review</td>
+<td>HGNC: TINF2; NCBI Gene: TINF2; GO CC: shelterin complex</td>
+</tr>
+<tr>
+<td>Pathogenic variants</td>
+<td>RS-associated variants cluster in TINF2 exon 6, especially around amino acids 280-289; p.Arg282His is the most recurrent hotspot. Truncating variants can also produce severe early phenotypes including RS</td>
+<td>In historical TINF2-DC series, c.845G&gt;A (p.Arg282His) accounted for 12 DC, 2 DC/RS, 1 DC/HH/RS probands; RS also reported with c.839delA (p.Lys280Argfs*36); mosaic c.865C&gt;T (p.Pro289Ser) reported in an RS case (<a href="#ref-sasa2012threenoveltruncating-pages-3-4">sasa2012threenoveltruncating pages 3-4</a>, <a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>)</td>
+<td>RS-specific cases + TINF2 variant series</td>
+<td>HGVS variant annotations; <a href="http://purl.obolibrary.org/obo/SO_0001583" target="_blank" rel="noopener noreferrer">SO:0001583</a> missense_variant, <a href="http://purl.obolibrary.org/obo/SO_0001589" target="_blank" rel="noopener noreferrer">SO:0001589</a> frameshift_variant, <a href="http://purl.obolibrary.org/obo/SO_0001587" target="_blank" rel="noopener noreferrer">SO:0001587</a> stop_gained</td>
+</tr>
+<tr>
+<td>Telomere biomarker</td>
+<td>Very short telomeres are a defining functional biomarker in RS and early severe TBDs</td>
+<td>In 7 RS patients with measurements, telomeres were below the 1st percentile for age; example RS case telomeres 2.47-2.48 kb (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-4-7">karremann2020reveszsyndromerevisited pages 4-7</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</td>
+<td>RS-specific review/case + broader TBD review</td>
+<td>HPO: <a href="http://purl.obolibrary.org/obo/HP_0034004" target="_blank" rel="noopener noreferrer">HP:0034004</a> Short telomere; LOINC/assay annotation for flow-FISH telomere length</td>
+</tr>
+<tr>
+<td>Core phenotype: bone marrow failure</td>
+<td>Early bone marrow failure is universal or near-universal in RS and often the dominant life-limiting manifestation</td>
+<td>All reviewed patients had early BMF; onset median 1.5 years, within second year; all by age 6 years (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>)</td>
+<td>RS-specific systematic review</td>
+<td>HPO: <a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" rel="noopener noreferrer">HP:0001876</a> Pancytopenia, <a href="http://purl.obolibrary.org/obo/HP_0005528" target="_blank" rel="noopener noreferrer">HP:0005528</a> Bone marrow hypocellularity</td>
+</tr>
+<tr>
+<td>Core phenotype: retinopathy</td>
+<td>Bilateral exudative retinopathy is a defining RS feature and can be the presenting manifestation</td>
+<td>Retinopathy in all patients with available data; median onset 1.1 years, typically 6-18 months; severe visual loss common; glaucoma in 3 cases (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</td>
+<td>RS-specific systematic review + case reports</td>
+<td>HPO: <a href="http://purl.obolibrary.org/obo/HP_0000555" target="_blank" rel="noopener noreferrer">HP:0000555</a> Exudative retinopathy, <a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a> Retinal detachment, <a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" rel="noopener noreferrer">HP:0000501</a> Glaucoma; UBERON: retina</td>
+</tr>
+<tr>
+<td>Core phenotype: intracranial abnormalities</td>
+<td>Intracranial calcifications and cerebellar hypoplasia are common neurologic hallmarks; neurodevelopmental delay is frequent but variable</td>
+<td>Intracranial calcifications 85%; cerebellar hypoplasia 76%; neurodevelopmental delay/mental retardation 71%; seizures about 20%; intracranial hemorrhage in 3 cases (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</td>
+<td>RS-specific systematic review + review</td>
+<td>HPO: <a href="http://purl.obolibrary.org/obo/HP_0002521" target="_blank" rel="noopener noreferrer">HP:0002521</a> Cerebral calcification, <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" rel="noopener noreferrer">HP:0001321</a> Cerebellar hypoplasia, <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> Developmental delay, <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> Seizure</td>
+</tr>
+<tr>
+<td>Other phenotype features</td>
+<td>Classical dyskeratosis congenita mucocutaneous triad is less consistently expressed in RS, likely because of early severe course; growth restriction and fine/sparse hair are common</td>
+<td>Only 2 RS cases had complete classic DKC triad in the 2020 review; growth retardation frequent qualitatively (<a href="#ref-karremann2020reveszsyndromerevisited-pages-8-9">karremann2020reveszsyndromerevisited pages 8-9</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</td>
+<td>RS-specific review</td>
+<td>HPO: <a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a> Growth delay, <a href="http://purl.obolibrary.org/obo/HP_0002219" target="_blank" rel="noopener noreferrer">HP:0002219</a> Sparse hair, <a href="http://purl.obolibrary.org/obo/HP_0001597" target="_blank" rel="noopener noreferrer">HP:0001597</a> Aplasia/hypoplasia of the skin pigmentation pattern</td>
+</tr>
+<tr>
+<td>Mechanism</td>
+<td>Germline TINF2 mutation disrupts TIN2, a central shelterin component linking TRF1/TRF2 with TPP1/POT1, leading to defective telomere protection/regulation, accelerated telomere shortening, stem-cell replicative exhaustion, and multisystem degeneration. Specific interaction defects vary by variant class</td>
+<td>TIN2 mutants cluster in DC hotspot; truncation mutant severely impaired TRF1 interaction; TIN2L/TRF2 and TIN2L/TRF1 interactions are altered by DC-cluster mutations; TINF2 consequences considered multifactorial in broader TBD reviews (<a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>, <a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-2-4">rolles2024inheritedtelomerebiology pages 2-4</a>)</td>
+<td>Biochemical/in vitro + human genetics + broader TBD review</td>
+<td><a href="http://purl.obolibrary.org/obo/GO_0000784" target="_blank" rel="noopener noreferrer">GO:0000784</a> nuclear chromosome telomeric region, <a href="http://purl.obolibrary.org/obo/GO_0032200" target="_blank" rel="noopener noreferrer">GO:0032200</a> telomere organization, <a href="http://purl.obolibrary.org/obo/GO_0003691" target="_blank" rel="noopener noreferrer">GO:0003691</a> double-stranded telomeric DNA binding, <a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" rel="noopener noreferrer">GO:0090398</a> cellular senescence</td>
+</tr>
+<tr>
+<td>Cell and tissue vulnerability</td>
+<td>High-turnover stem-cell compartments are most vulnerable; pathology extends beyond blood to retina/CNS and other organs. Tissue-specific shortening may be most severe outside donor-derived hematopoiesis</td>
+<td>Broader TBD reviews emphasize HSCs, immune cells, intestinal cells, liver, lung, skin; autopsy in TINF2-DC showed shortest telomeres in lung, liver, kidney and age-appropriate donor hematopoietic tissue after transplant (<a href="#ref-rolles2024inheritedtelomerebiology-pages-2-4">rolles2024inheritedtelomerebiology pages 2-4</a>, <a href="#ref-roake2021tissuespecifictelomereshortening-pages-1-2">roake2021tissuespecifictelomereshortening pages 1-2</a>)</td>
+<td>Broader TBD review + TINF2 human pathology case</td>
+<td>CL: hematopoietic stem cell, lymphocyte; UBERON: bone marrow, retina, cerebellum, brain, liver, lung, kidney</td>
+</tr>
+<tr>
+<td>Diagnostic workflow</td>
+<td>Best-supported workup is clinical recognition of RS features plus telomere testing and germline sequencing of TINF2/TBD genes; flow-FISH is the current clinical standard for functional screening</td>
+<td>Age-adjusted lymphocyte telomere length &lt;1st percentile is the commonly used threshold; WES/WGS/panel sequencing recommended after short TL or strong suspicion; chromosome breakage testing is recommended to exclude Fanconi anemia (<a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-10-12">rolles2024inheritedtelomerebiology pages 10-12</a>, NCT06817590 chunk 1)</td>
+<td>Broader TBD review/guidance, applicable to RS</td>
+<td>HPO terms above; LOINC assay for telomere length by flow-FISH; SO/ClinVar variant classification</td>
+</tr>
+<tr>
+<td>Differential diagnosis</td>
+<td>Main differentials are other TBDs and inherited bone marrow failure disorders, especially Hoyeraal-Hreidarsson syndrome, Coats plus syndrome, and Fanconi anemia</td>
+<td>Coats plus may show exudative retinopathy but not necessarily short telomeres; Fanconi anemia exclusion by mitomycin C/DEB testing is recommended in transplant diagnostic pathways (<a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>, NCT01659606 chunk 1)</td>
+<td>RS-specific/broader TBD reviews + trial eligibility criteria</td>
+<td>MONDO/HPO mappings for Hoyeraal-Hreidarsson syndrome, Coats plus syndrome, Fanconi anemia</td>
+</tr>
+<tr>
+<td>Prognosis</td>
+<td>Prognosis is poor in RS, with death typically in childhood, although transplant may improve hematologic survival in some patients</td>
+<td>Kaplan-Meier median survival 6.5 years (95% CI 3.6-9.4); no survival beyond 12 years in 2020 review (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</td>
+<td>RS-specific systematic review</td>
+<td>NCIT prognosis annotation; HPO complication terms</td>
+</tr>
+<tr>
+<td>Treatment: hematopoietic transplant</td>
+<td>Allogeneic stem-cell transplantation is the only potentially curative therapy for marrow failure, but toxicity is a major concern; reduced-intensity, radiation/alkylator-sparing approaches are preferred in TBDs</td>
+<td>In RS review, SCT in 8 children; 4 alive at last follow-up after median 22 months; deaths from pulmonary failure reported post-SCT. Broader TBD data note 10-year post-allo-SCT survival about 23% and benefit of non-myeloablative/radiation-avoiding protocols (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>)</td>
+<td>RS-specific review + broader TBD extrapolation</td>
+<td>NCIT: Hematopoietic Stem Cell Transplantation; NCIT: Reduced-Intensity Conditioning Regimen</td>
+</tr>
+<tr>
+<td>Treatment: ophthalmic interventions</td>
+<td>Vision-preserving therapy is disease-modifying for the eye but evidence is case-based; laser photocoagulation appears most supported, with anti-VEGF and surgery used in selected eyes</td>
+<td>Reported interventions include photocoagulation, intraocular bevacizumab, retinocryopexy, vitrectomy, enucleation; one mosaic TINF2 RS case retained VA 0.9 in treated eye at age 7 after photocoagulation (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-4-7">karremann2020reveszsyndromerevisited pages 4-7</a>, <a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>)</td>
+<td>RS-specific case reports/review</td>
+<td>NCIT: Laser Photocoagulation; NCIT: Bevacizumab; NCIT: Vitrectomy; NCIT: Enucleation</td>
+</tr>
+<tr>
+<td>Supportive management</td>
+<td>Multidisciplinary surveillance is essential because complications extend across hematologic, ophthalmologic, pulmonary, hepatic, neurologic, mucocutaneous, and cancer domains</td>
+<td>No RS-specific formal guideline retrieved; 2022-2024 TBD reviews/guidelines recommend surveillance, specialized-center care, and family counseling (<a href="#ref-savage2022dyskeratosiscongenitaand-pages-5-6">savage2022dyskeratosiscongenitaand pages 5-6</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>, NCT04959188 chunk 1)</td>
+<td>Broader TBD extrapolation</td>
+<td>NCIT care pathway terms; HPO surveillance-linked phenotypes</td>
+</tr>
+<tr>
+<td>Pharmacotherapy / experimental systemic therapy</td>
+<td>No RS-specific drug proven effective. Broader TBD evidence supports androgen responsiveness in some patients and emerging nucleotide/telomerase-directed strategies</td>
+<td>Broader TBD: danazol hematologic response 50-100% short-term; 11/12 gained telomere length with mean +386 bp after 24 months in one study summarized in review; applicability to RS is unproven (<a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>, <a href="#ref-carvalho2022recentadvancesin-pages-7-9">carvalho2022recentadvancesin pages 7-9</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-5-6">savage2022dyskeratosiscongenitaand pages 5-6</a>)</td>
+<td>Broader TBD extrapolation</td>
+<td>CHEBI/DrugBank: danazol, oxymetholone, deoxycytidine, thymidine</td>
+</tr>
+<tr>
+<td>Current RS-inclusive trials</td>
+<td>RS is explicitly included in current TBD clinical trial frameworks rather than having RS-only trials</td>
+<td>NCT01659606 active-not-recruiting phase 2 radiation- and alkylator-free HCT, estimated n=40, explicitly includes Revesz syndrome; NCT06817590 recruiting phase 1 oral deoxycytidine + deoxythymidine, estimated n=36, condition list explicitly includes Revesz syndrome; NCT04959188 completed needs-assessment study, n=53, included DC/TBD patients/caregivers (NCT01659606 chunk 1, NCT01659606 chunk 2, NCT06817590 chunk 1, NCT06817590 chunk 2, NCT04959188 chunk 1)</td>
+<td>Trial registry evidence</td>
+<td>NCIT: Clinical Trial; NCIT: Alemtuzumab/Fludarabine conditioning; CHEBI: deoxycytidine, thymidine</td>
+</tr>
+<tr>
+<td>Model organisms / cellular models</td>
+<td>No RS-specific animal model was directly retrieved, but TINF2/TBD mechanistic modeling exists in mouse and pluripotent stem-cell systems</td>
+<td>TIN2 biochemical cell models show altered shelterin interactions; iPSC DC models recapitulate telomere maintenance defects and loss of self-renewal; a cited mouse study found a DC-associated TINF2 mutation causes telomerase-independent telomere shortening (<a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>, <a href="#ref-batista2011telomereshorteningand-pages-1-3">batista2011telomereshorteningand pages 1-3</a>, <a href="#ref-nelson2018thecterminalextension-pages-30-33">nelson2018thecterminalextension pages 30-33</a>)</td>
+<td>In vitro/cellular + cited mouse-model evidence</td>
+<td>MGI mouse model annotation; Cellosaurus/iPSC model tags; GO telomere maintenance</td>
+</tr>
+<tr>
+<td>Environmental / modifier factors</td>
+<td>No RS-specific environmental or protective factors were identified. In broader telomere disease literature, smoking, alcohol, viral infections, radiation, and pulmonary-toxic drugs may worsen organ phenotypes or treatment toxicity</td>
+<td>Qualitative only; no RS-specific gene-environment study retrieved (<a href="#ref-carvalho2022recentadvancesin-pages-7-9">carvalho2022recentadvancesin pages 7-9</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>)</td>
+<td>Broader TBD extrapolation</td>
+<td>CHEBI exposure annotations; evidence-gap flag</td>
+</tr>
+<tr>
+<td>Explicit evidence gaps</td>
+<td>Major RS evidence gaps remain: prevalence/incidence, penetrance, founder effects, carrier frequency, modifier genes, protective factors, epigenetics, transcriptomics/proteomics/metabolomics, QoL metrics, standardized diagnostic criteria, and controlled treatment-response data</td>
+<td>No robust RS-specific 2023-2024 cohort superseding the 2020 review was retrieved; most modern data are TBD-wide extrapolations (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-5-6">savage2022dyskeratosiscongenitaand pages 5-6</a>)</td>
+<td>Evidence-gap synthesis</td>
+<td>Evidence code tags for "not available" / "broader TBD extrapolation only"</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Table: This table condenses the strongest retrieved evidence for Revesz syndrome across identifiers, genetics, phenotype, mechanism, diagnosis, prognosis, treatment, trials, and evidence gaps. It distinguishes Revesz-specific findings from broader telomere biology disorder extrapolations for knowledge-base use.</em></p>
+<h2>1. Disease information</h2>
+<h3>Definition</h3>
+<p>RS is an ultra-rare, severe pediatric variant within the dyskeratosis congenita/telomere biology disorder spectrum. Its defining clinical combination is <strong>bilateral exudative retinopathy</strong>, early progressive marrow failure, and CNS abnormalities—particularly intracranial calcification and cerebellar hypoplasia. Unlike classic dyskeratosis congenita, the complete mucocutaneous triad of nail dystrophy, reticular pigmentation, and oral leukoplakia is uncommon at presentation, probably because RS begins and progresses before all age-dependent features can develop. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-8-9">karremann2020reveszsyndromerevisited pages 8-9</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</p>
+<p>A concise direct quotation from the 2020 abstract is: <strong>“RS is a severe variant of DKC with early bone marrow failure and retinopathy in all patients.”</strong> (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</p>
+<h3>Identifiers and synonyms</h3>
+<ul>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009990" target="_blank" rel="noopener noreferrer">MONDO:0009990</a>.</li>
+<li><strong>OMIM:</strong> #268130.</li>
+<li><strong>MeSH:</strong> no uniquely retrieved RS descriptor; use the broader <strong>Dyskeratosis Congenita, D019871</strong>, with an RS subtype annotation.</li>
+<li><strong>ClinicalTrials.gov/MeSH supplementary concept:</strong> “Revesz Debuse syndrome,” concept C538371.</li>
+<li><strong>ICD-10/ICD-11:</strong> no specific RS code was identified. Coding generally falls under congenital marrow-failure, dyskeratosis congenita, retinal, and neurologic manifestations, depending on jurisdiction.</li>
+<li><strong>Synonyms:</strong> Revesz syndrome; Revesz–Debuse syndrome; Revesz type dyskeratosis congenita; TINF2-associated Revesz syndrome; TINF2-associated dyskeratosis congenita with bilateral exudative retinopathy and intracranial calcification. (OpenTargets Search: Revesz syndrome-TINF2, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, NCT06817590 chunk 2)</li>
+</ul>
+<p>Open Targets links <a href="http://purl.obolibrary.org/obo/MONDO_0009990" target="_blank" rel="noopener noreferrer">MONDO:0009990</a> specifically to <strong>TINF2/ENSG00000092330</strong>, supported by five association evidence records and literature including PMID <strong>18252230</strong> and <strong>21477109</strong>. (OpenTargets Search: Revesz syndrome-TINF2)</p>
+<h2>2. Etiology</h2>
+<h3>Causal factor</h3>
+<p>RS is primarily a <strong>germline Mendelian disorder</strong> caused by heterozygous pathogenic variants in <strong>TINF2</strong>, encoding TIN2, a central shelterin-complex protein. The causal lesion is constitutional rather than infectious, toxic, or acquired. Most genetically characterized RS cases have apparently de novo variants, although TINF2-related TBDs can be transmitted as autosomal-dominant disorders. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>)</p>
+<h3>Genetic risk factors</h3>
+<p>The dominant risk factor is a pathogenic TINF2 variant, especially within the narrow exon-6 dyskeratosis-congenita hotspot. Variants reported in RS or overlapping RS/Hoyeraal–Hreidarsson phenotypes include:</p>
+<ul>
+<li><strong>NM_001099274.1:c.845G&gt;A, p.Arg282His</strong>, the recurrent hotspot;</li>
+<li><strong>c.838A&gt;T, p.Lys280Ter</strong>;</li>
+<li><strong>c.839delA, p.Lys280ArgfsTer36</strong>, a truncating RS-associated allele;</li>
+<li><strong>c.865C&gt;T, p.Pro289Ser</strong>, reported in mosaic form in one RS case.</li>
+</ul>
+<p>The historical variant series showed p.Arg282His in 12 DC probands, two DC/RS probands, one DC/HH/RS proband, and two HH probands, illustrating that a TINF2 genotype does not map uniquely to one syndromic label. (<a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>, <a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>, <a href="#ref-sasa2012threenoveltruncating-pages-3-4">sasa2012threenoveltruncating pages 3-4</a>)</p>
+<h3>Environmental, protective, and gene–environment factors</h3>
+<p>No environmental exposure is known to cause RS, and no validated genetic or environmental protective factor, modifier allele, founder effect, diet, or lifestyle intervention has been demonstrated specifically in RS. Broader TBD literature suggests that smoking, alcohol, viral infection, ionizing radiation, and pulmonary-toxic or DNA-damaging drugs may aggravate organ injury or treatment toxicity, but this is <strong>not RS-specific evidence</strong>. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>, <a href="#ref-carvalho2022recentadvancesin-pages-7-9">carvalho2022recentadvancesin pages 7-9</a>)</p>
+<h2>3. Phenotypes</h2>
+<p>The frequencies below derive principally from 18 published children and are vulnerable to case-report ascertainment and incomplete reporting.</p>
+<ul>
+<li><strong>Bone-marrow failure/pancytopenia:</strong> severe, progressive laboratory and clinical phenotype; effectively universal in the reviewed RS series. It occurred from 6 months to 6 years, with median onset <strong>1.5 years</strong>; all affected children had developed it by age six. Consequences include infection, bleeding, anemia, transfusion dependence, and transplant need. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001876" target="_blank" rel="noopener noreferrer">HP:0001876</a> Pancytopenia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0005528" target="_blank" rel="noopener noreferrer">HP:0005528</a> Bone marrow hypocellularity</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a> Anemia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a> Thrombocytopenia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001875" target="_blank" rel="noopener noreferrer">HP:0001875</a> Neutropenia</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</li>
+<li><strong>Bilateral exudative retinopathy:</strong> defining, severe, and progressive; present in all 15 children for whom retinal data were available. Median onset was <strong>1.1 years</strong> (95% CI 0.7–1.5), usually at 6–18 months. It can progress to proliferative vitreoretinopathy, retinal detachment, neovascular glaucoma, blindness, and enucleation. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0000555" target="_blank" rel="noopener noreferrer">HP:0000555</a> Exudative retinopathy</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0011003" target="_blank" rel="noopener noreferrer">HP:0011003</a> Retinal detachment</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000501" target="_blank" rel="noopener noreferrer">HP:0000501</a> Glaucoma</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0000510" target="_blank" rel="noopener noreferrer">HP:0000510</a> Blindness</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-8-9">karremann2020reveszsyndromerevisited pages 8-9</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>)</li>
+<li><strong>Intracranial calcification:</strong> imaging sign reported in approximately <strong>85%</strong>. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002514" target="_blank" rel="noopener noreferrer">HP:0002514</a>/<a href="http://purl.obolibrary.org/obo/HP_0002521" target="_blank" rel="noopener noreferrer">HP:0002521</a> intracranial/cerebral calcification</strong>; terminology should be verified against the current HPO release. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>)</li>
+<li><strong>Cerebellar hypoplasia and ataxia:</strong> cerebellar hypoplasia in approximately <strong>76%</strong>; generally congenital/developmental and non-reversible. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" rel="noopener noreferrer">HP:0001321</a> Cerebellar hypoplasia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a> Ataxia</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</li>
+<li><strong>Developmental delay/intellectual impairment:</strong> approximately <strong>71%</strong>, usually recognized in infancy or early childhood, with variable severity. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a> Global developmental delay</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a> Intellectual disability</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>)</li>
+<li><strong>Seizures:</strong> estimated cumulative frequency approximately <strong>20%</strong>, exclusively beginning in early childhood in the reviewed cases. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a> Seizure</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</li>
+<li><strong>Intracranial hemorrhage:</strong> three reviewed patients; potentially catastrophic. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0002170" target="_blank" rel="noopener noreferrer">HP:0002170</a> Intracranial hemorrhage</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>)</li>
+<li><strong>Growth restriction:</strong> intrauterine or postnatal, qualitatively common. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> Intrauterine growth retardation</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001510" target="_blank" rel="noopener noreferrer">HP:0001510</a> Growth delay</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" rel="noopener noreferrer">HP:0004322</a> Short stature</strong>. (<a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</li>
+<li><strong>Mucocutaneous findings:</strong> nail dystrophy was the most frequent element, with variable reticular pigmentation, oral leukoplakia, and fine/sparse hair. Only two children had the full classic DC triad. Suggested HPO: <strong><a href="http://purl.obolibrary.org/obo/HP_0001597" target="_blank" rel="noopener noreferrer">HP:0001597</a> Abnormality of the nail</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0009713" target="_blank" rel="noopener noreferrer">HP:0009713</a> Nail dystrophy</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0001000" target="_blank" rel="noopener noreferrer">HP:0001000</a> Abnormality of skin pigmentation</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002745" target="_blank" rel="noopener noreferrer">HP:0002745</a> Oral leukoplakia</strong>, <strong><a href="http://purl.obolibrary.org/obo/HP_0002219" target="_blank" rel="noopener noreferrer">HP:0002219</a> Sparse hair</strong>. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-8-9">karremann2020reveszsyndromerevisited pages 8-9</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</li>
+</ul>
+<p>No RS-specific EQ-5D, SF-36, PROMIS, or other standardized quality-of-life measurements were identified. Nevertheless, blindness, developmental disability, transfusion dependence, infection risk, and repeated hospitalization imply profound effects on mobility, education, communication, independence, and family burden. A completed NIH needs-assessment study enrolled 53 DC/TBD patients and caregivers, but it was not RS-specific. (NCT04959188 chunk 1)</p>
+<h2>4. Genetic and molecular information</h2>
+<h3>Gene and protein</h3>
+<ul>
+<li><strong>Gene:</strong> TINF2, TERF1 interacting nuclear factor 2.</li>
+<li><strong>Ensembl:</strong> ENSG00000092330.</li>
+<li><strong>Protein:</strong> TIN2, a shelterin component linking TRF1/TRF2 to TPP1/POT1.</li>
+<li><strong>Inheritance:</strong> autosomal dominant, usually de novo in severe pediatric TINF2 disease.</li>
+<li><strong>Origin:</strong> constitutional/germline; mosaicism has occasionally been reported. These are not characteristically somatic cancer-driver lesions. (OpenTargets Search: Revesz syndrome-TINF2, <a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>)</li>
+</ul>
+<h3>Variant classes and consequences</h3>
+<p>Both missense and truncating alleles occur. Stable truncated TIN2 protein was demonstrated in patient-derived lymphoblastoid cells, arguing against a simple null/haploinsufficiency model for all alleles. A truncation markedly impaired TIN2–TRF1 interaction, whereas common p.Arg282His had a smaller effect on that particular interaction. TINF2 pathogenesis is therefore best annotated as <strong>multifactorial altered-function/dominant dysfunction</strong>, with variant-dependent effects on shelterin organization, telomerase regulation, telomere cohesion, and end protection; a universal dominant-negative mechanism has not been proven. (<a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>, <a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>)</p>
+<p>The biochemical abstract states: <strong>“TIN2 is central to the shelterin complex, linking the telomeric proteins TRF1 and TRF2 with TPP1/POT1.”</strong> It further concludes that TIN2 isoforms are functionally distinguishable and that shelterin composition may be altered in patients with TINF2 mutations. (<a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>)</p>
+<p>Population allele frequencies were not available in the retrieved evidence. Given severe early-onset disease and frequent de novo occurrence, established pathogenic RS alleles are expected to be absent or extremely rare in population databases, but each HGVS allele must be checked directly in current gnomAD and ClinVar before database ingestion. No recurrent RS-associated chromosomal rearrangement, aneuploidy, or large structural variant was identified.</p>
+<h3>Modifiers and epigenetics</h3>
+<p>No validated RS modifier gene or disease-specific epigenetic signature is known. Somatic reversion has been reported in TINF2-related TBD more broadly and may obscure blood-based variant detection, occasionally making fibroblast DNA testing necessary. This has not been established as a protective mechanism in RS. (<a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>)</p>
+<h2>5. Environmental information</h2>
+<p>RS is not infectious and has no zoonotic or contagious component. No toxin, pollutant, occupational exposure, smoking pattern, diet, exercise level, or alcohol exposure is established as etiologic. Because telomere-deficient tissues have limited regenerative reserve, avoidance of tobacco, excessive alcohol, unnecessary radiation, and organ-toxic medications is biologically and clinically prudent under general TBD management, but evidence is indirect for RS. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>, <a href="#ref-carvalho2022recentadvancesin-pages-7-9">carvalho2022recentadvancesin pages 7-9</a>)</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li>A <strong>heterozygous germline TINF2 hotspot or truncating variant</strong> leads to altered TIN2 structure or protein interactions.</li>
+<li>Altered TIN2 leads to defective integration/regulation of the <strong>TRF1–TIN2–TRF2–TPP1/POT1 shelterin network</strong> and telomerase recruitment; the exact defect is variant-dependent.</li>
+<li>Shelterin/telomerase dysregulation leads to exceptionally rapid telomere attrition and/or defective telomere capping; telomerase-independent shortening has been demonstrated in a Tinf2-mutant mouse model.</li>
+<li>Critically short or uncapped telomeres lead to DNA-damage signaling, chromosome instability, senescence, apoptosis, and loss of self-renewal.</li>
+<li>Stem/progenitor-cell exhaustion leads directly to failure of high-turnover tissues—most demonstrably hematopoietic stem/progenitor cells—resulting in hypocellular marrow and pancytopenia.</li>
+<li><strong>Retinal branch:</strong> telomere-associated vascular/endothelial or supporting-cell dysfunction is inferred to lead to peripheral capillary nonperfusion, leakage, neovascularization, exudation, retinal detachment, glaucoma, and blindness; this cell-level sequence remains incompletely demonstrated in RS.</li>
+<li><strong>Neurodevelopmental branch:</strong> developmental telomere dysfunction is inferred to disrupt cerebellar and cerebral growth and microvascular integrity, resulting in cerebellar hypoplasia, calcification, white-matter abnormalities, developmental delay, seizures, and occasional hemorrhage.</li>
+<li><strong>Systemic branch:</strong> limited tissue regenerative capacity leads to mucocutaneous degeneration, growth restriction, infection susceptibility, and later pulmonary/hepatic complications, compounded in some patients by treatment toxicity. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>, <a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>, <a href="#ref-nelson2018thecterminalextension-pages-30-33">nelson2018thecterminalextension pages 30-33</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-2-4">rolles2024inheritedtelomerebiology pages 2-4</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-10-12">rolles2024inheritedtelomerebiology pages 10-12</a>)</li>
+</ol>
+<h3>Processes and ontology suggestions</h3>
+<p>Relevant GO concepts include <strong>telomere maintenance (<a href="http://purl.obolibrary.org/obo/GO_0000723" target="_blank" rel="noopener noreferrer">GO:0000723</a>)</strong>, <strong>telomere organization (<a href="http://purl.obolibrary.org/obo/GO_0032200" target="_blank" rel="noopener noreferrer">GO:0032200</a>)</strong>, <strong>protein localization to chromosome, telomeric region</strong>, <strong>DNA-damage response</strong>, <strong>cellular senescence (<a href="http://purl.obolibrary.org/obo/GO_0090398" target="_blank" rel="noopener noreferrer">GO:0090398</a>)</strong>, <strong>stem-cell population maintenance (<a href="http://purl.obolibrary.org/obo/GO_0019827" target="_blank" rel="noopener noreferrer">GO:0019827</a>)</strong>, and <strong>apoptotic process (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>)</strong>. Relevant cellular components include <strong>nuclear chromosome telomeric region (<a href="http://purl.obolibrary.org/obo/GO_0000784" target="_blank" rel="noopener noreferrer">GO:0000784</a>)</strong> and <strong>shelterin complex</strong>. Candidate CL annotations include <strong>hematopoietic stem cell</strong>, hematopoietic progenitor cell, retinal endothelial cell, retinal pigment epithelial cell, photoreceptor cell, neuron, cerebellar granule cell, and glial cell; only hematopoietic stem-cell involvement is strongly demonstrated, while the exact retinal/CNS target populations remain uncertain.</p>
+<p>No RS-specific transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, or integrated multi-omics dataset was identified. DC iPSCs recapitulate telomere-maintenance defects and eventual loss of self-renewal, but the retrieved iPSC study did not specifically model RS/TINF2. (<a href="#ref-batista2011telomereshorteningand-pages-1-3">batista2011telomereshorteningand pages 1-3</a>)</p>
+<h2>7. Anatomical structures affected</h2>
+<p>Primary sites are:</p>
+<ul>
+<li><strong>Bone marrow/hematopoietic system</strong>—hematopoietic stem and progenitor compartments; UBERON: bone marrow.</li>
+<li><strong>Both retinas and retinal vasculature</strong>—bilateral by definition; UBERON: retina, retinal blood vessel, vitreous body.</li>
+<li><strong>Brain</strong>, especially cerebellum and periventricular white matter; UBERON: brain, cerebellum, cerebral white matter, ventricular system.</li>
+<li><strong>Skin, nails, oral mucosa, and hair follicles</strong>.</li>
+<li>Secondary or later TBD-associated involvement may include <strong>lung, liver, gastrointestinal tract, kidney, and immune system</strong>.</li>
+</ul>
+<p>A TINF2-DC autopsy—not a classic RS case—showed donor-derived hematopoietic tissue with age-appropriate telomeres but severe shortening in native tissues, especially lung, liver, and kidney, supporting tissue-specific vulnerability beyond marrow. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-4-7">karremann2020reveszsyndromerevisited pages 4-7</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, <a href="#ref-roake2021tissuespecifictelomereshortening-pages-1-2">roake2021tissuespecifictelomereshortening pages 1-2</a>)</p>
+<p>At the subcellular level, the principal compartment is the <strong>nucleus</strong>, particularly telomeric chromatin and shelterin at chromosome ends.</p>
+<h2>8. Temporal development</h2>
+<p>RS is congenital in genetic origin and usually manifests during infancy. Retinopathy generally appears at 6–18 months, often before or alongside hematologic disease. Marrow failure usually becomes apparent in the second year and was present by age six in all reviewed patients. Neurodevelopmental abnormalities may be evident prenatally or in early infancy; seizures, when present, begin in early childhood. The course is chronic, progressive, and lifelong, without documented spontaneous remission. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</p>
+<p>There is no validated stage system. A practical clinical sequence is: congenital growth/CNS abnormality → infantile retinopathy → early cytopenias/marrow failure → progressive visual and neurologic disability → severe infections, bleeding, pulmonary complications, or transplant-related morbidity. The first 1–2 years constitute a critical window for retinal surveillance and hematologic diagnosis.</p>
+<h2>9. Inheritance and population</h2>
+<p>RS is autosomal dominant at the molecular level but is most often caused by a <strong>de novo</strong> heterozygous TINF2 variant. Recurrence risk is low but not zero when parents test negative because parental germline mosaicism cannot be excluded. An affected individual would theoretically have a 50% transmission risk, although severe childhood mortality limits observed vertical transmission. Familial TINF2 TBD shows variable expressivity; the penetrance of specific RS alleles has not been quantified. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-5-6">savage2022dyskeratosiscongenitaand pages 5-6</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>)</p>
+<p>Telomere-mediated genetic anticipation is recognized across TBDs, but direct multigenerational anticipation data for RS are lacking. No founder allele, population enrichment, consanguinity effect, or carrier frequency has been demonstrated. In the 18-child review there were 11 boys and seven girls; this small difference did not establish a biologically meaningful sex bias. No prevalence or incidence per 100,000 can be calculated reliably. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-10-12">rolles2024inheritedtelomerebiology pages 10-12</a>)</p>
+<h2>10. Diagnostics</h2>
+<h3>Recommended workflow</h3>
+<ol>
+<li>Recognize the combination of infantile bilateral exudative retinopathy, unexplained cytopenia/hypocellular marrow, intracranial calcification/cerebellar hypoplasia, growth restriction, or DC stigmata.</li>
+<li>Obtain CBC with differential, reticulocyte count, marrow aspirate/biopsy with morphology and cytogenetics, and infection/immunologic evaluation.</li>
+<li>Perform complete dilated retinal examination, wide-field imaging and fluorescein angiography where feasible; assess retinal nonperfusion, leakage, exudation, neovascularization, detachment, and glaucoma.</li>
+<li>Obtain noncontrast head CT for calcification and MRI for cerebellar, callosal, white-matter, hemorrhagic, and cystic abnormalities.</li>
+<li>Measure leukocyte telomere length by <strong>flow-FISH</strong>, preferably lymphocyte and granulocyte subsets. Lymphocyte length below the age-adjusted <strong>first percentile</strong> is the standard “very short” threshold; seven measured RS patients were below this threshold. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</li>
+<li>Sequence <strong>TINF2</strong>, including exon 6, using a comprehensive TBD/inherited-marrow-failure panel. If unrevealing, use WES or WGS with copy-number analysis and consider non-blood DNA if somatic reversion/mosaicism is suspected. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-10-12">rolles2024inheritedtelomerebiology pages 10-12</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-5-6">savage2022dyskeratosiscongenitaand pages 5-6</a>, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-8-10">savage2022dyskeratosiscongenitaand pages 8-10</a>)</li>
+<li>Perform mitomycin-C or diepoxybutane chromosome-breakage testing when Fanconi anemia remains possible. CMA, karyotyping, FISH, mitochondrial testing, and repeat-expansion testing are not first-line RS tests unless another diagnosis is suspected. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>, NCT01659606 chunk 1)</li>
+</ol>
+<p>A reported RS child had telomere lengths of <strong>2.47–2.48 kb</strong>, below the first percentile, and TINF2 c.845G&gt;A/p.Arg282His. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-4-7">karremann2020reveszsyndromerevisited pages 4-7</a>)</p>
+<h3>Differential diagnosis</h3>
+<ul>
+<li><strong>Coats plus/CRMCC</strong>, usually CTC1, STN1 or POT1 related: retinal telangiectasia, calcifications, white-matter disease, cysts, GI bleeding, and bone disease; telomeres may be normal.</li>
+<li><strong>Hoyeraal–Hreidarsson syndrome:</strong> cerebellar hypoplasia, growth restriction, immunodeficiency, microcephaly and severe marrow failure, often DKC1 or biallelic RTEL1 related; exudative retinopathy is less defining.</li>
+<li><strong>Classic DC/other TBDs:</strong> mucocutaneous triad and marrow failure without the characteristic RS retinal/CNS combination.</li>
+<li><strong>Fanconi anemia:</strong> congenital anomalies and marrow failure with positive chromosome-breakage testing.</li>
+<li><strong>Isolated Coats disease/familial exudative vitreoretinopathy:</strong> retinal disease without very short telomeres or systemic marrow failure.</li>
+<li>Congenital infection and metabolic causes of intracranial calcification should be excluded based on context. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, NCT01659606 chunk 1)</li>
+</ul>
+<p>No universally accepted RS-only diagnostic criteria exist; diagnosis is syndromic plus molecular/functional confirmation.</p>
+<h2>11. Outcome and prognosis</h2>
+<p>In the 18-child review, Kaplan–Meier median survival was <strong>6.5 years</strong> (95% CI 3.6–9.4), and no reported patient survived beyond 12 years. These historical estimates are based on very small, heterogeneous case reports and may not reflect contemporary transplant and ophthalmic care. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</p>
+<p>Major morbidity includes blindness, developmental disability, ataxia, seizures, recurrent infection, bleeding, transfusion dependence, transplant toxicity, and pulmonary failure. Three patients had intracranial hemorrhage. In a 2023 childhood DC natural-history cohort, the RS patient developed cerebral calcifications and retinopathy progressing to blindness and later died from septic shock after dental/gum infection, illustrating combined visual and immune/hematologic morbidity. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>)</p>
+<p>Poor prognostic markers plausibly include very early marrow failure, severe retinal disease, profound telomere shortening, pre-existing pulmonary/hepatic injury, infection, hemorrhage, and inability to undergo successful transplantation. No validated RS prognostic score or biomarker beyond phenotype, organ status, blood counts, and telomere length exists.</p>
+<h2>12. Treatment</h2>
+<h3>Hematologic treatment</h3>
+<p><strong>Allogeneic hematopoietic-cell transplantation (HCT)</strong> is the only established potentially curative treatment for marrow failure, but it does not correct retinal, neurologic, pulmonary, hepatic, or other native-tissue telomere pathology. Eight of 18 reviewed RS children underwent transplantation; four were alive at last follow-up after a median of 22 months. Two reported late deaths were from pulmonary failure at two and 4.5 years after HCT. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-8-9">karremann2020reveszsyndromerevisited pages 8-9</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>)</p>
+<p>Reduced-intensity, radiation-avoiding conditioning is preferred because TBD tissues are unusually sensitive to DNA-damaging chemotherapy and radiation. Four RS cases receiving fludarabine/cyclophosphamide/antithymocyte-globulin conditioning had limited acute toxicity, but long-term evidence remains weak. In broader TBD cohorts, 10-year post-HCT survival was about 23%, with progressive pulmonary fibrosis an important late complication. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>)</p>
+<p>The active-not-recruiting phase-2 <strong>NCT01659606</strong> explicitly includes RS and evaluates an alkylator- and radiation-free regimen of alemtuzumab plus fludarabine, followed by cyclosporine or tacrolimus and mycophenolate prophylaxis; target enrollment is 40. ClinicalTrials.gov: <a href="https://clinicaltrials.gov/study/NCT01659606" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT01659606</a>. (NCT01659606 chunk 1, NCT01659606 chunk 2)</p>
+<p>Suggested NCIT concepts: <strong>Hematopoietic Stem Cell Transplantation</strong>, <strong>Allogeneic Bone Marrow Transplantation</strong>, <strong>Reduced-Intensity Conditioning</strong>, <strong>Fludarabine</strong>, <strong>Alemtuzumab</strong>, <strong>Cyclophosphamide</strong>, and <strong>Antithymocyte Globulin</strong>.</p>
+<h3>Ophthalmic treatment</h3>
+<p>Urgent retinal treatment is warranted before irreversible detachment or glaucoma. Reported approaches include laser photocoagulation of avascular retina, cryotherapy, intravitreal bevacizumab, vitrectomy, and—when a painful blind eye develops—enucleation. Evidence consists of case reports, not comparative trials. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-4-7">karremann2020reveszsyndromerevisited pages 4-7</a>, <a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>)</p>
+<p>One child with mosaic TINF2 p.Pro289Ser had the left eye enucleated for neovascular glaucoma, while photocoagulation of the right ischemic retina preserved reported visual acuity of <strong>0.9 at age seven</strong>. This supports early retinal examination in every young child with unexplained aplastic anemia. (<a href="#ref-tomcikova2018whyisit-pages-1-2">tomcikova2018whyisit pages 1-2</a>)</p>
+<p>Suggested NCIT concepts: <strong>Laser Photocoagulation</strong>, <strong>Cryotherapy</strong>, <strong>Bevacizumab</strong>, <strong>Intravitreal Injection</strong>, <strong>Vitrectomy</strong>, and <strong>Enucleation</strong>.</p>
+<h3>Pharmacotherapy and supportive care</h3>
+<p>Transfusions, infection prophylaxis/treatment, dental care, nutritional support, developmental therapies, low-vision services, seizure treatment, and physical/occupational/speech therapy should be individualized. Standard immunosuppressive therapy for acquired aplastic anemia generally has little benefit in constitutional TBD marrow failure. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-10-12">rolles2024inheritedtelomerebiology pages 10-12</a>, <a href="#ref-carvalho2022recentadvancesin-pages-7-9">carvalho2022recentadvancesin pages 7-9</a>)</p>
+<p>Oral androgens such as danazol or oxymetholone can improve counts in some TBD patients, but there are no RS-specific response data. A 2024 review reported short-term hematologic responses in approximately 50–100% of heterogeneous TBD patients receiving danazol; in one underlying study, 11/12 gained telomere length (mean +386 bp) and 83% had a hematologic response at 24 months. Hepatotoxicity, virilization, lipid changes, and clonal evolution require monitoring. These figures must <strong>not</strong> be interpreted as RS response rates. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-12-14">rolles2024inheritedtelomerebiology pages 12-14</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>)</p>
+<h3>Emerging therapy</h3>
+<p><strong>NCT06817590</strong>, a phase-1 Boston Children’s Hospital study first posted 10 February 2025, explicitly includes RS. It evaluates oral <strong>deoxycytidine plus deoxythymidine</strong> three times daily for 24 weeks in 36 estimated participants aged 1–70, based on 2023 evidence that thymidine-nucleotide metabolism controls human telomere length (PMID <strong>36959362</strong>). Outcomes include safety, blood counts, telomere length, marrow cellularity, clonal hematopoiesis, and pulmonary function. ClinicalTrials.gov: <a href="https://clinicaltrials.gov/study/NCT06817590" target="_blank" rel="noopener noreferrer">https://clinicaltrials.gov/study/NCT06817590</a>. This is experimental and has no efficacy result yet. (NCT06817590 chunk 1, NCT06817590 chunk 2)</p>
+<p>PAPD5 inhibition, engineered telomerase RNA, gene editing, and telomerase gene therapy remain preclinical or early translational TBD approaches. No approved RS gene, RNA, or cell therapy exists. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>)</p>
+<h2>13. Prevention</h2>
+<p>Primary prevention by lifestyle change is impossible because RS is genetic. Reproductive options after identification of a familial pathogenic variant include genetic counseling, prenatal diagnosis, and preimplantation genetic testing. Parental testing should include discussion of possible germline mosaicism.</p>
+<p>Secondary prevention centers on early detection: cascade testing, CBC surveillance, telomere testing where indicated, immediate retinal examination in infants with cytopenia or suspected TBD, and neuroimaging when CNS features are present. Population newborn screening is not available.</p>
+<p>Tertiary prevention includes early laser treatment of avascular retina, prompt infection management, meticulous dental care, matched-donor screening, avoidance of affected related donors, reduced-toxicity HCT conditioning, sun protection, smoking avoidance, minimized diagnostic/therapeutic radiation, and surveillance for pulmonary, hepatic, marrow-clonal, mucosal, and malignant complications. General vaccines should follow expert guidance tailored to immune status and transplant timing; there is no RS-specific vaccine. (NCT01659606 chunk 1, <a href="#ref-savage2022dyskeratosiscongenitaand-pages-5-6">savage2022dyskeratosiscongenitaand pages 5-6</a>, <a href="#ref-carvalho2022recentadvancesin-pages-7-9">carvalho2022recentadvancesin pages 7-9</a>)</p>
+<h2>14. Other species and natural disease</h2>
+<p>No naturally occurring veterinary syndrome equivalent to human RS was identified in companion animals, livestock, or wildlife. RS has no zoonotic potential and cannot be transmitted between species. TINF2 orthologues are evolutionarily conserved in vertebrates, preserving the central shelterin role, but orthologue identifiers should be retrieved directly from current NCBI Gene/Alliance records before database deposition.</p>
+<h2>15. Model organisms and experimental systems</h2>
+<ul>
+<li><strong>Mouse:</strong> a knock-in model carrying a DC-associated Tinf2 mutation demonstrated telomerase-independent telomere shortening, supporting a direct TIN2 role beyond simply reducing telomerase activity. It models the molecular lesion but has not been shown here to reproduce the complete human RS combination of retinopathy, intracranial calcification, and infantile marrow failure. (<a href="#ref-nelson2018thecterminalextension-pages-30-33">nelson2018thecterminalextension pages 30-33</a>)</li>
+<li><strong>Human patient-derived cells:</strong> lymphoblastoid lines expressing truncating TIN2 demonstrated stable mutant protein and impaired TRF1 interaction. These are useful for shelterin biochemistry but do not reproduce tissue-level RS. (<a href="#ref-sasa2012threenoveltruncating-pages-1-3">sasa2012threenoveltruncating pages 1-3</a>)</li>
+<li><strong>Engineered cell systems:</strong> overexpression and CRISPR studies distinguish TIN2S and TIN2L interactions with TRF1/TRF2 and their permissiveness for telomere elongation. (<a href="#ref-nelson2018thecterminalextension-pages-1-3">nelson2018thecterminalextension pages 1-3</a>, <a href="#ref-nelson2018thecterminalextension-pages-8-10">nelson2018thecterminalextension pages 8-10</a>)</li>
+<li><strong>DC iPSCs:</strong> patient-derived iPSCs reproduce biochemical telomere defects and loss of self-renewal, making them a platform for therapeutic screening; however, the retrieved study modeled TERT, DKC1, and TCAB1 disease rather than RS-specific TINF2 alleles. (<a href="#ref-batista2011telomereshorteningand-pages-1-3">batista2011telomereshorteningand pages 1-3</a>)</li>
+</ul>
+<p>No validated RS retinal organoid, cerebral organoid, zebrafish, Drosophila, rat, or naturally occurring animal model was identified.</p>
+<h2>Recent developments and expert assessment</h2>
+<p>The major 2023–2024 advance is not a new RS natural-history cohort but refinement of the broader TBD framework. The July <strong>2024</strong> review by Rolles et al. reaffirmed RS as an early severe pediatric TBD with telomeres “considerably below the 1% percentile,” endorsed lymphocyte flow-FISH followed by germline sequencing, and emphasized reduced-intensity/radiation-avoiding HCT. DOI: <a href="https://doi.org/10.1159/000540109">10.1159/000540109</a>. (<a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>)</p>
+<p>The 2023 thymidine-metabolism study (PMID <strong>36959362</strong>; DOI: <a href="https://doi.org/10.1038/s41588-023-01339-5">10.1038/s41588-023-01339-5</a>) supplied the mechanistic basis for the subsequent RS-inclusive dC/dT phase-1 trial. This represents a transition from supportive/transplant care toward attempts to manipulate telomere substrate metabolism, although clinical benefit remains unproven. (NCT06817590 chunk 1, NCT06817590 chunk 2)</p>
+<p>The principal expert conclusion is that RS should be managed as a <strong>multisystem developmental and degenerative disorder</strong>, not merely aplastic anemia. HCT can replace hematopoiesis but cannot repair the retina, brain, lung, or liver; successful care therefore requires coordinated hematology/transplantation, ophthalmology, neurology, genetics, pulmonology, hepatology, dentistry, rehabilitation, and psychosocial support. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-9-11">karremann2020reveszsyndromerevisited pages 9-11</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-14-15">rolles2024inheritedtelomerebiology pages 14-15</a>, NCT04959188 chunk 1)</p>
+<h2>Priority knowledge gaps</h2>
+<p>Reliable prevalence, incidence, penetrance, allele-specific natural history, population frequencies, germline-mosaic recurrence risk, modifier genes, protective factors, quantitative quality of life, retinal cellular mechanism, RS-specific omics, and controlled treatment outcomes are unavailable. Published percentages arise from fewer than 20 historical patients and should be stored with small-sample and ascertainment-bias qualifiers. No 2023–2024 RS-specific cohort, randomized trial, approved targeted therapy, or validated prognostic model was identified. (<a href="#ref-karremann2020reveszsyndromerevisited-pages-7-8">karremann2020reveszsyndromerevisited pages 7-8</a>, <a href="#ref-karremann2020reveszsyndromerevisited-pages-1-2">karremann2020reveszsyndromerevisited pages 1-2</a>, <a href="#ref-rolles2024inheritedtelomerebiology-pages-8-9">rolles2024inheritedtelomerebiology pages 8-9</a>)</p>
+<p>References</p>
+<ol>
+<li>
+<p><a id="ref-karremann2020reveszsyndromerevisited-pages-8-9"></a>(karremann2020reveszsyndromerevisited pages 8-9): Michael Karremann, Eva Neumaier-Probst, Frank Schlichtenbrede, Fabian Beier, Tim H. Brümmendorf, Friedrich W. Cremer, Peter Bader, and Matthias Dürken. Revesz syndrome revisited. Orphanet Journal of Rare Diseases, Oct 2020. URL: <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13023-020-01553-y</a>, <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s13023-020-01553-y</a>. This article has 39 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-karremann2020reveszsyndromerevisited-pages-1-2"></a>(karremann2020reveszsyndromerevisited pages 1-2): Michael Karremann, Eva Neumaier-Probst, Frank Schlichtenbrede, Fabian Beier, Tim H. Brümmendorf, Friedrich W. Cremer, Peter Bader, and Matthias Dürken. Revesz syndrome revisited. Orphanet Journal of Rare Diseases, Oct 2020. URL: <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13023-020-01553-y</a>, <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s13023-020-01553-y</a>. This article has 39 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-rolles2024inheritedtelomerebiology-pages-8-9"></a>(rolles2024inheritedtelomerebiology pages 8-9): Benjamin Rolles, Mareike Tometten, Robert Meyer, Martin Kirschner, Fabian Beier, and Tim H. Brümmendorf. Inherited telomere biology disorders: pathophysiology, clinical presentation, diagnostics, and treatment. Transfusion Medicine and Hemotherapy, 51:292-309, Jul 2024. URL: <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000540109</a>, <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">doi:10.1159/000540109</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-karremann2020reveszsyndromerevisited-pages-7-8"></a>(karremann2020reveszsyndromerevisited pages 7-8): Michael Karremann, Eva Neumaier-Probst, Frank Schlichtenbrede, Fabian Beier, Tim H. Brümmendorf, Friedrich W. Cremer, Peter Bader, and Matthias Dürken. Revesz syndrome revisited. Orphanet Journal of Rare Diseases, Oct 2020. URL: <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13023-020-01553-y</a>, <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s13023-020-01553-y</a>. This article has 39 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-opentargets-search-revesz-syndrome-tinf2"></a>(OpenTargets Search: Revesz syndrome-TINF2): Open Targets Query (Revesz syndrome-TINF2, 1 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.</p>
+</li>
+<li>
+<p><a id="ref-savage2022dyskeratosiscongenitaand-pages-8-10"></a>(savage2022dyskeratosiscongenitaand pages 8-10): Sharon A. Savage. Dyskeratosis congenita and telomere biology disorders. Hematology. American Society of Hematology. Education Program, 2022 1:637-648, Dec 2022. URL: <a href="https://doi.org/10.1182/hematology.2022000394" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/hematology.2022000394</a>, <a href="https://doi.org/10.1182/hematology.2022000394" target="_blank" rel="noopener noreferrer">doi:10.1182/hematology.2022000394</a>. This article has 119 citations.</p>
+</li>
+<li>
+<p><a id="ref-rolles2024inheritedtelomerebiology-pages-2-4"></a>(rolles2024inheritedtelomerebiology pages 2-4): Benjamin Rolles, Mareike Tometten, Robert Meyer, Martin Kirschner, Fabian Beier, and Tim H. Brümmendorf. Inherited telomere biology disorders: pathophysiology, clinical presentation, diagnostics, and treatment. Transfusion Medicine and Hemotherapy, 51:292-309, Jul 2024. URL: <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000540109</a>, <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">doi:10.1159/000540109</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-sasa2012threenoveltruncating-pages-3-4"></a>(sasa2012threenoveltruncating pages 3-4): Ghadir Sasa, Albert Ribes-Zamora, Nya D. Nelson, and Alison A. Bertuch. Three novel truncating tinf2 mutations causing severe dyskeratosis congenita in early childhood. Clinical Genetics, 81:470-478, May 2012. URL: <a href="https://doi.org/10.1111/j.1399-0004.2011.01658.x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/j.1399-0004.2011.01658.x</a>, <a href="https://doi.org/10.1111/j.1399-0004.2011.01658.x" target="_blank" rel="noopener noreferrer">doi:10.1111/j.1399-0004.2011.01658.x</a>. This article has 118 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-tomcikova2018whyisit-pages-1-2"></a>(tomcikova2018whyisit pages 1-2): D. Tomcikova, A. Gerinec, B. Busanyova, M. Gresikova, S. Biskup, and K. Hortnagel. Why is it necessary to examine retina when the patient suffers from aplastic anemia? Bratislavske lekarske listy, 119 5:275-277, Jan 2018. URL: <a href="https://doi.org/10.4149/bll_2018_051" target="_blank" rel="noopener noreferrer">https://doi.org/10.4149/bll_2018_051</a>, <a href="https://doi.org/10.4149/bll_2018_051" target="_blank" rel="noopener noreferrer">doi:10.4149/bll_2018_051</a>. This article has 7 citations.</p>
+</li>
+<li>
+<p><a id="ref-karremann2020reveszsyndromerevisited-pages-4-7"></a>(karremann2020reveszsyndromerevisited pages 4-7): Michael Karremann, Eva Neumaier-Probst, Frank Schlichtenbrede, Fabian Beier, Tim H. Brümmendorf, Friedrich W. Cremer, Peter Bader, and Matthias Dürken. Revesz syndrome revisited. Orphanet Journal of Rare Diseases, Oct 2020. URL: <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13023-020-01553-y</a>, <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s13023-020-01553-y</a>. This article has 39 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-karremann2020reveszsyndromerevisited-pages-9-11"></a>(karremann2020reveszsyndromerevisited pages 9-11): Michael Karremann, Eva Neumaier-Probst, Frank Schlichtenbrede, Fabian Beier, Tim H. Brümmendorf, Friedrich W. Cremer, Peter Bader, and Matthias Dürken. Revesz syndrome revisited. Orphanet Journal of Rare Diseases, Oct 2020. URL: <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">https://doi.org/10.1186/s13023-020-01553-y</a>, <a href="https://doi.org/10.1186/s13023-020-01553-y" target="_blank" rel="noopener noreferrer">doi:10.1186/s13023-020-01553-y</a>. This article has 39 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nelson2018thecterminalextension-pages-1-3"></a>(nelson2018thecterminalextension pages 1-3): Nya D. Nelson, Lois M. Dodson, Laura Escudero, Ann T. Sukumar, Christopher L. Williams, Ivana Mihalek, Alessandro Baldan, Duncan M. Baird, and Alison A. Bertuch. The c-terminal extension unique to the long isoform of the shelterin component tin2 enhances its interaction with trf2 in a phosphorylation- and dyskeratosis congenita cluster-dependent fashion. Jun 2018. URL: <a href="https://doi.org/10.1128/mcb.00025-18" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/mcb.00025-18</a>, <a href="https://doi.org/10.1128/mcb.00025-18" target="_blank" rel="noopener noreferrer">doi:10.1128/mcb.00025-18</a>. This article has 34 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-sasa2012threenoveltruncating-pages-1-3"></a>(sasa2012threenoveltruncating pages 1-3): Ghadir Sasa, Albert Ribes-Zamora, Nya D. Nelson, and Alison A. Bertuch. Three novel truncating tinf2 mutations causing severe dyskeratosis congenita in early childhood. Clinical Genetics, 81:470-478, May 2012. URL: <a href="https://doi.org/10.1111/j.1399-0004.2011.01658.x" target="_blank" rel="noopener noreferrer">https://doi.org/10.1111/j.1399-0004.2011.01658.x</a>, <a href="https://doi.org/10.1111/j.1399-0004.2011.01658.x" target="_blank" rel="noopener noreferrer">doi:10.1111/j.1399-0004.2011.01658.x</a>. This article has 118 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-roake2021tissuespecifictelomereshortening-pages-1-2"></a>(roake2021tissuespecifictelomereshortening pages 1-2): Caitlin M. Roake, Marisa Juntilla, Rajni Agarwal-Hashmi, Steven Artandi, and Christin S. Kuo. Tissue-specific telomere shortening and degenerative changes in a patient with tinf2 mutation and dyskeratosis congenita. Human Pathology: Case Reports, 25:200517, Sep 2021. URL: <a href="https://doi.org/10.1016/j.ehpc.2021.200517" target="_blank" rel="noopener noreferrer">https://doi.org/10.1016/j.ehpc.2021.200517</a>, <a href="https://doi.org/10.1016/j.ehpc.2021.200517" target="_blank" rel="noopener noreferrer">doi:10.1016/j.ehpc.2021.200517</a>. This article has 6 citations.</p>
+</li>
+<li>
+<p><a id="ref-rolles2024inheritedtelomerebiology-pages-12-14"></a>(rolles2024inheritedtelomerebiology pages 12-14): Benjamin Rolles, Mareike Tometten, Robert Meyer, Martin Kirschner, Fabian Beier, and Tim H. Brümmendorf. Inherited telomere biology disorders: pathophysiology, clinical presentation, diagnostics, and treatment. Transfusion Medicine and Hemotherapy, 51:292-309, Jul 2024. URL: <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000540109</a>, <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">doi:10.1159/000540109</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-rolles2024inheritedtelomerebiology-pages-10-12"></a>(rolles2024inheritedtelomerebiology pages 10-12): Benjamin Rolles, Mareike Tometten, Robert Meyer, Martin Kirschner, Fabian Beier, and Tim H. Brümmendorf. Inherited telomere biology disorders: pathophysiology, clinical presentation, diagnostics, and treatment. Transfusion Medicine and Hemotherapy, 51:292-309, Jul 2024. URL: <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000540109</a>, <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">doi:10.1159/000540109</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nct06817590-chunk-1"></a>(NCT06817590 chunk 1): Suneet Agarwal. Nucleoside Therapy in Patients With Telomere Biology Disorders. Suneet Agarwal. 2025. ClinicalTrials.gov Identifier: NCT06817590</p>
+</li>
+<li>
+<p><a id="ref-nct01659606-chunk-1"></a>(NCT01659606 chunk 1): Suneet Agarwal. Radiation- and Alkylator-free Bone Marrow Transplantation Regimen for Patients With Dyskeratosis Congenita. Boston Children's Hospital. 2012. ClinicalTrials.gov Identifier: NCT01659606</p>
+</li>
+<li>
+<p><a id="ref-rolles2024inheritedtelomerebiology-pages-14-15"></a>(rolles2024inheritedtelomerebiology pages 14-15): Benjamin Rolles, Mareike Tometten, Robert Meyer, Martin Kirschner, Fabian Beier, and Tim H. Brümmendorf. Inherited telomere biology disorders: pathophysiology, clinical presentation, diagnostics, and treatment. Transfusion Medicine and Hemotherapy, 51:292-309, Jul 2024. URL: <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">https://doi.org/10.1159/000540109</a>, <a href="https://doi.org/10.1159/000540109" target="_blank" rel="noopener noreferrer">doi:10.1159/000540109</a>. This article has 23 citations and is from a peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-savage2022dyskeratosiscongenitaand-pages-5-6"></a>(savage2022dyskeratosiscongenitaand pages 5-6): Sharon A. Savage. Dyskeratosis congenita and telomere biology disorders. Hematology. American Society of Hematology. Education Program, 2022 1:637-648, Dec 2022. URL: <a href="https://doi.org/10.1182/hematology.2022000394" target="_blank" rel="noopener noreferrer">https://doi.org/10.1182/hematology.2022000394</a>, <a href="https://doi.org/10.1182/hematology.2022000394" target="_blank" rel="noopener noreferrer">doi:10.1182/hematology.2022000394</a>. This article has 119 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct04959188-chunk-1"></a>(NCT04959188 chunk 1):  Needs Assessment for Individuals and Families Affected by Dyskeratosis Congenita (DC) and Related Telomere Biology Disorders (TBD). National Cancer Institute (NCI). 2021. ClinicalTrials.gov Identifier: NCT04959188</p>
+</li>
+<li>
+<p><a id="ref-carvalho2022recentadvancesin-pages-7-9"></a>(carvalho2022recentadvancesin pages 7-9): Vinicius S Carvalho, Willian R Gomes, and Rodrigo T Calado. Recent advances in understanding telomere diseases. Faculty Reviews, Oct 2022. URL: <a href="https://doi.org/10.12703/r/11-31" target="_blank" rel="noopener noreferrer">https://doi.org/10.12703/r/11-31</a>, <a href="https://doi.org/10.12703/r/11-31" target="_blank" rel="noopener noreferrer">doi:10.12703/r/11-31</a>. This article has 24 citations.</p>
+</li>
+<li>
+<p><a id="ref-nct01659606-chunk-2"></a>(NCT01659606 chunk 2): Suneet Agarwal. Radiation- and Alkylator-free Bone Marrow Transplantation Regimen for Patients With Dyskeratosis Congenita. Boston Children's Hospital. 2012. ClinicalTrials.gov Identifier: NCT01659606</p>
+</li>
+<li>
+<p><a id="ref-nct06817590-chunk-2"></a>(NCT06817590 chunk 2): Suneet Agarwal. Nucleoside Therapy in Patients With Telomere Biology Disorders. Suneet Agarwal. 2025. ClinicalTrials.gov Identifier: NCT06817590</p>
+</li>
+<li>
+<p><a id="ref-batista2011telomereshorteningand-pages-1-3"></a>(batista2011telomereshorteningand pages 1-3): Luis F. Z. Batista, Matthew F. Pech, Franklin L. Zhong, Ha Nam Nguyen, Kathleen T. Xie, Arthur J. Zaug, Sharon M. Crary, Jinkuk Choi, Vittorio Sebastiano, Athena Cherry, Neelam Giri, Marius Wernig, Blanche P. Alter, Thomas R. Cech, Sharon A. Savage, Renee A. Reijo Pera, and Steven E. Artandi. Telomere shortening and loss of self-renewal in dyskeratosis congenita ips cells. Nature, 474:399-402, May 2011. URL: <a href="https://doi.org/10.1038/nature10084" target="_blank" rel="noopener noreferrer">https://doi.org/10.1038/nature10084</a>, <a href="https://doi.org/10.1038/nature10084" target="_blank" rel="noopener noreferrer">doi:10.1038/nature10084</a>. This article has 316 citations and is from a highest quality peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nelson2018thecterminalextension-pages-30-33"></a>(nelson2018thecterminalextension pages 30-33): Nya D. Nelson, Lois M. Dodson, Laura Escudero, Ann T. Sukumar, Christopher L. Williams, Ivana Mihalek, Alessandro Baldan, Duncan M. Baird, and Alison A. Bertuch. The c-terminal extension unique to the long isoform of the shelterin component tin2 enhances its interaction with trf2 in a phosphorylation- and dyskeratosis congenita cluster-dependent fashion. Jun 2018. URL: <a href="https://doi.org/10.1128/mcb.00025-18" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/mcb.00025-18</a>, <a href="https://doi.org/10.1128/mcb.00025-18" target="_blank" rel="noopener noreferrer">doi:10.1128/mcb.00025-18</a>. This article has 34 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+<li>
+<p><a id="ref-nelson2018thecterminalextension-pages-8-10"></a>(nelson2018thecterminalextension pages 8-10): Nya D. Nelson, Lois M. Dodson, Laura Escudero, Ann T. Sukumar, Christopher L. Williams, Ivana Mihalek, Alessandro Baldan, Duncan M. Baird, and Alison A. Bertuch. The c-terminal extension unique to the long isoform of the shelterin component tin2 enhances its interaction with trf2 in a phosphorylation- and dyskeratosis congenita cluster-dependent fashion. Jun 2018. URL: <a href="https://doi.org/10.1128/mcb.00025-18" target="_blank" rel="noopener noreferrer">https://doi.org/10.1128/mcb.00025-18</a>, <a href="https://doi.org/10.1128/mcb.00025-18" target="_blank" rel="noopener noreferrer">doi:10.1128/mcb.00025-18</a>. This article has 34 citations and is from a domain leading peer-reviewed journal.</p>
+</li>
+</ol>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Revesz_Syndrome-deep-research-falcon_artifacts/artifact-00.md">Edison artifact artifact-00</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>10</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>39</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0009990</code> (5 mentions) - the report calls it "if available"; MONDO calls it <strong>Revesz syndrome</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0000784</code> (GO_0000784) (2 mentions) - replaced by <code>GO:0000781</code></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Rett_Syndrome-falcon.html">← Rett Syndrome (Falcon)</a>
+                
+                
+                <a href="RFT1-congenital_disorder_of_glycosylation-falcon.html">RFT1-congenital disorder of glycosylation (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Revesz_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Revesz_Syndrome-deep-research-falcon.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-edison" aria-current="page">Falcon</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from dismech import model_registry
 from dismech.export.models_export import (
     ModelsExporter,
     humanize_enum,
@@ -30,7 +31,10 @@ def test_humanize_enum():
 
 
 def test_repository_host_classification():
-    assert repository_host("https://www.ebi.ac.uk/biomodels/BIOMD0000000341") == "BioModels"
+    assert (
+        repository_host("https://www.ebi.ac.uk/biomodels/BIOMD0000000341")
+        == "BioModels"
+    )
     assert repository_host("https://www.vmh.life/") == "Virtual Metabolic Human"
     assert repository_host("https://github.com/jtmff/torord") == "GitHub"
     assert repository_host("https://example.org/model") == "Other"
@@ -54,7 +58,10 @@ def _entry():
                 "model_software": "Antimony/tellurium",
                 "publication": "PMID:29904633",
                 "perturbations": [
-                    {"preferred_term": "ABCG2", "term": {"id": "hgnc:74", "label": "ABCG2"}},
+                    {
+                        "preferred_term": "ABCG2",
+                        "term": {"id": "hgnc:74", "label": "ABCG2"},
+                    },
                 ],
                 "variables": [
                     {
@@ -62,7 +69,10 @@ def _entry():
                         "dataset_identifier": "U",
                         "unit": "mg/dL",
                         "mappings_list": [
-                            {"preferred_term": "Hyperuricemia", "term": {"id": "HP:0002149"}}
+                            {
+                                "preferred_term": "Hyperuricemia",
+                                "term": {"id": "HP:0002149"},
+                            }
                         ],
                     }
                 ],
@@ -121,7 +131,9 @@ def test_extract_models_flattens_and_skips_nameless():
     # Model-level and finding-level evidence are pooled and de-duplicated.
     assert urate["evidence_refs"] == ["PMID:29904633"]
     assert urate["num_evidence"] == 1
-    assert urate["page_url"].endswith("#computational-model-minimal-urate-homeostasis-model")
+    assert urate["page_url"].endswith(
+        "#computational-model-minimal-urate-homeostasis-model"
+    )
 
 
 def test_runnable_flag_tracks_local_perturb_config():
@@ -159,19 +171,18 @@ def test_runnable_models_resolve_to_committed_perturb_configs():
     runnable = [r for r in records if r["runnable"] == "Runnable in-repo"]
     assert runnable, "expected the dismech-perturb models to be flagged runnable"
     for record in runnable:
-        config = REPO_ROOT / "models" / f"{record['model_id']}.config.yaml"
+        config = model_registry.config_path(record["model_id"], REPO_ROOT / "models")
         assert config.exists(), f"{record['name']} claims runnable without {config}"
 
 
-def test_exported_data_js_is_in_sync_with_the_knowledge_base():
-    """``just gen-models-data`` output must be regenerated when the KB changes."""
-    import json
-
-    data_js = (REPO_ROOT / "app" / "models" / "data.js").read_text()
-    committed = json.loads(
-        data_js.split("window.searchData = ", 1)[1].split(";\nwindow.searchMetrics", 1)[0]
-    )
-    current = ModelsExporter(models_dir=REPO_ROOT / "models").collect_records(
-        REPO_ROOT / "kb" / "disorders", REPO_ROOT / "kb" / "modules"
-    )
-    assert committed == current, "app/models/data.js is stale — run `just gen-models-data`"
+# Deliberately NOT tested here: the committed app/models/data.js against the
+# committed KB. This file is rebuilt from every computational_models block in
+# kb/, so requiring repo state to match forced each model-curation PR to commit
+# a regenerated 2,800-line artifact — which made any two concurrent model PRs
+# conflict on it and nothing else. Nine approved PRs deadlocked that way
+# (#9104, #9119, #9122, #9140, #9142, #9145, #9263, #9324, #9325).
+#
+# It is the same invariant, and the same resolution, as the sibling app/data.js
+# index: see the note in tests/test_check_browser_data_links.py. The invariant
+# belongs to the generate-pages run, which regenerates and commits the file
+# after rendering and gates on its links, not to repo state between builds.

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4141,6 +4234,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4164,6 +4259,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4185,6 +4282,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4459,6 +4558,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hccs-holocytochrome-c-type-synthase-deficiency" data-dismech-node="HCCS Holocytochrome c-Type Synthase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">HCCS Holocytochrome c-Type Synthase Deficiency</div>
 
+
                 <div class="item-desc">Segmental Xp22 monosomy or intragenic HCCS mutation removes or inactivates the mitochondrial heme lyase that covalently attaches the prosthetic heme group to apocytochrome c. Patient alleles fail to complement a yeast strain lacking the HCCS orthologue Cyc3p, and separate alleles fail by two different routes: a missense allele reaches mitochondria but is catalytically inactive, while a C-terminal truncation fails to be sorted to mitochondria at all.</div>
 
 
@@ -4514,6 +4614,44 @@ This pathophysiological event involves HCCS (hgnc:4837). hgnc:4837 is a gene fro
 
 
 
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        holocytochrome-c synthase activity
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0004408" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0004408</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves decreased holocytochrome-c synthase activity (GO:0004408). GO:0004408 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
                 <div class="item-meta">
 
@@ -4525,11 +4663,11 @@ This pathophysiological event involves HCCS (hgnc:4837). hgnc:4837 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0005739</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0005739</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
 Relation: this pathophysiological event involves this cellular component
 This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is a cellular component from the Gene Ontology.</span>
                     </span>
@@ -4574,6 +4712,8 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4597,6 +4737,8 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4618,6 +4760,8 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4645,6 +4789,7 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-holocytochrome-c-maturation" data-dismech-node="Deficient Holocytochrome c Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Holocytochrome c Maturation</div>
 
+
                 <div class="item-desc">Loss of mature cytochrome c has two consequences because the protein has two jobs. As the mobile electron carrier between complexes III and IV it is required for oxidative phosphorylation. As the apoptosome cofactor released from mitochondria it is required for the intrinsic apoptotic pathway. HCCS deficiency therefore compromises energy metabolism and programmed cell death simultaneously.</div>
 
 
@@ -4666,11 +4811,11 @@ This pathophysiological event involves mitochondrion (GO:0005739). GO:0005739 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006119</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006119" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006119</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased oxidative phosphorylation (GO:0006119). GO:0006119 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4700,11 +4845,11 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006915</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4776,6 +4921,8 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4797,6 +4944,8 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4822,6 +4971,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diversion-of-cell-death-toward-necrosis" data-dismech-node="Diversion of Cell Death Toward Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Diversion of Cell Death Toward Necrosis</div>
 
+
                 <div class="item-desc">A proposed rather than demonstrated step. Cytochrome c-deficient cells cannot assemble the apoptosome, and the hypothesis is that they die necrotically instead, causing tissue destruction rather than orderly removal. This is the mechanistically attractive explanation for why a housekeeping mitochondrial enzyme produces destructive, sharply demarcated linear skin lesions, but no experiment has demonstrated the necrotic switch in patient tissue.</div>
 
 
@@ -4843,11 +4993,11 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006915</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0006915</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased apoptotic process (GO:0006915). GO:0006915 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4901,14 +5051,16 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17033964" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17033964" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17033964" target="_blank">PMID:17033964</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4933,6 +5085,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mosaic-tissue-loss-governed-by-x-inactivation" data-dismech-node="Mosaic Tissue Loss Governed by X-Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mosaic Tissue Loss Governed by X-Inactivation</div>
+
 
                 <div class="item-desc">The clinical phenotype is set by the interaction of the cellular defect with X-inactivation and somatic mosaicism, plus the differing ability of embryonic cell types to tolerate an OXPHOS defect. This produces both the tissue selectivity (eye and skin above all) and a spectrum from clinically normal carriers to neonatal lethality, and explains the sharply demarcated, developmentally patterned linear skin lesions.</div>
 
@@ -5025,6 +5178,8 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5046,6 +5201,8 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5093,7 +5250,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure and neurologic management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treatment of seizures and other neurologic abnormalities under a pediatric neurologist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aplasia cutis congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Linear skin defects, usually of the face and neck, present at birth and healing with age to leave minimal residual scarring. Despite naming the syndrome, these were present in only four of six patients in the largest series, and some molecularly confirmed patients have eye findings without skin defects.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001057\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement includes hypertrophic or oncocytic cardiomyopathy, septal defects and arrhythmias, and can be the cause of death.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Deficient Holocytochrome c Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of mature cytochrome c has two consequences because the protein has two jobs. As the mobile electron carrier between complexes III and IV it is required for oxidative phosphorylation. As the apoptosome cofactor released from mitochondria it is required for the intrinsic apoptotic pathway. HCCS deficiency therefore compromises energy metabolism and programmed cell death simultaneously.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"apoptotic process\"]}}, {\"id\": \"Dermatologic care for skin lesions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Routine dermatologic care for significant skin lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay as part of the central nervous system involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Developmental therapies and special education\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmental therapies and special education as indicated for developmental delay and intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diversion of Cell Death Toward Necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed rather than demonstrated step. Cytochrome c-deficient cells cannot assemble the apoptosome, and the hypothesis is that they die necrotically instead, causing tissue destruction rather than orderly removal. This is the mechanistically attractive explanation for why a housekeeping mitochondrial enzyme produces destructive, sharply demarcated linear skin lesions, but no experiment has demonstrated the necrotic switch in patient tissue.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"HCCS Holocytochrome c-Type Synthase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Segmental Xp22 monosomy or intragenic HCCS mutation removes or inactivates the mitochondrial heme lyase that covalently attaches the prosthetic heme group to apocytochrome c. Patient alleles fail to complement a yeast strain lacking the HCCS orthologue Cyc3p, and separate alleles fail by two different routes: a missense allele reaches mitochondria but is catalytically inactive, while a C-terminal truncation fails to be sorted to mitochondria at all.\", \"meta\": {\"evidence_count\": 4, \"genes\": [\"HCCS\"], \"gene_terms\": [{\"label\": \"HCCS\", \"id\": \"hgnc:4837\"}]}}, {\"id\": \"HCCS pathogenic variants and Xp22 deletions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HCCS\"], \"gene_terms\": [{\"label\": \"HCCS\", \"id\": \"hgnc:4837\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is among the reported additional manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral or bilateral microphthalmia or anophthalmia. Together with corneal involvement, this was present in every patient in the largest reported series, making it more consistent than the eponymous skin lesions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype is set by the interaction of the cellular defect with X-inactivation and somatic mosaicism, plus the differing ability of embryonic cell types to tolerate an OXPHOS defect. This produces both the tissue selectivity (eye and skin above all) and a spectrum from clinically normal carriers to neonatal lethality, and explains the sharply demarcated, developmentally patterned linear skin lesions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multidisciplinary supportive and surveillance care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy exists. Management is symptomatic and organ-based, with ophthalmological, dermatological, neurological and cardiological surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ocular prosthesis for severe microphthalmia or anophthalmia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prosthetic management under oculoplastic guidance for severe microphthalmia and anophthalmia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sclerocornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sclerocornea or corneal opacity, present alongside the microphthalmia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000647\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central nervous system involvement can include infantile seizures.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"HCCS Holocytochrome c-Type Synthase Deficiency\", \"target\": \"Deficient Holocytochrome c Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without heme lyase activity, apocytochrome c is not converted to holocytochrome c, so the mature electron carrier is not produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Holocytochrome c Maturation\", \"target\": \"Diversion of Cell Death Toward Necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells unable to complete cytochrome c-mediated apoptosis are proposed to die by necrosis instead, which is destructive to surrounding tissue in a way apoptosis is not.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deficient Holocytochrome c Maturation\", \"target\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In heterozygous females, random X-inactivation produces a mosaic of cells expressing the mutant allele, and the resulting patchy OXPHOS and cell-death defect determines which tissues are affected and how severely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diversion of Cell Death Toward Necrosis\", \"target\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Necrotic loss of mutant-expressing cell populations produces the characteristic tissue defects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular tissue is the most consistently affected, producing microphthalmia or anophthalmia.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Sclerocornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneal opacification and sclerocornea accompany the microphthalmia.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Aplasia cutis congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Linear dermal aplasia of the face and neck, present at birth and healing with age.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac involvement includes cardiomyopathy and septal defects.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nervous system involvement can include infantile seizures.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microcephaly is among the reported additional features.\"}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Aplasia cutis congenita\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular prosthesis for severe microphthalmia or anophthalmia\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dermatologic care for skin lesions\", \"target\": \"Aplasia cutis congenita\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure and neurologic management\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental therapies and special education\", \"target\": \"Developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HCCS pathogenic variants and Xp22 deletions\", \"target\": \"HCCS Holocytochrome c-Type Synthase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure and neurologic management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Treatment of seizures and other neurologic abnormalities under a pediatric neurologist.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Aplasia cutis congenita\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Linear skin defects, usually of the face and neck, present at birth and healing with age to leave minimal residual scarring. Despite naming the syndrome, these were present in only four of six patients in the largest series, and some molecularly confirmed patients have eye findings without skin defects.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001057\"}}, {\"id\": \"Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cardiac involvement includes hypertrophic or oncocytic cardiomyopathy, septal defects and arrhythmias, and can be the cause of death.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001638\"}}, {\"id\": \"Deficient Holocytochrome c Maturation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of mature cytochrome c has two consequences because the protein has two jobs. As the mobile electron carrier between complexes III and IV it is required for oxidative phosphorylation. As the apoptosome cofactor released from mitochondria it is required for the intrinsic apoptotic pathway. HCCS deficiency therefore compromises energy metabolism and programmed cell death simultaneously.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"oxidative phosphorylation\", \"apoptotic process\"]}}, {\"id\": \"Dermatologic care for skin lesions\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Routine dermatologic care for significant skin lesions.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Developmental delay\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Developmental delay as part of the central nervous system involvement.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"Developmental therapies and special education\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Developmental therapies and special education as indicated for developmental delay and intellectual disability.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Diversion of Cell Death Toward Necrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A proposed rather than demonstrated step. Cytochrome c-deficient cells cannot assemble the apoptosome, and the hypothesis is that they die necrotically instead, causing tissue destruction rather than orderly removal. This is the mechanistically attractive explanation for why a housekeeping mitochondrial enzyme produces destructive, sharply demarcated linear skin lesions, but no experiment has demonstrated the necrotic switch in patient tissue.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"apoptotic process\"]}}, {\"id\": \"HCCS Holocytochrome c-Type Synthase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Segmental Xp22 monosomy or intragenic HCCS mutation removes or inactivates the mitochondrial heme lyase that covalently attaches the prosthetic heme group to apocytochrome c. Patient alleles fail to complement a yeast strain lacking the HCCS orthologue Cyc3p, and separate alleles fail by two different routes: a missense allele reaches mitochondria but is catalytically inactive, while a C-terminal truncation fails to be sorted to mitochondria at all.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"holocytochrome-c synthase activity\"], \"genes\": [\"HCCS\"], \"gene_terms\": [{\"label\": \"HCCS\", \"id\": \"hgnc:4837\"}]}}, {\"id\": \"HCCS pathogenic variants and Xp22 deletions\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"HCCS\"], \"gene_terms\": [{\"label\": \"HCCS\", \"id\": \"hgnc:4837\"}], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Microcephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microcephaly is among the reported additional manifestations.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000252\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unilateral or bilateral microphthalmia or anophthalmia. Together with corneal involvement, this was present in every patient in the largest reported series, making it more consistent than the eponymous skin lesions.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000568\"}}, {\"id\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical phenotype is set by the interaction of the cellular defect with X-inactivation and somatic mosaicism, plus the differing ability of embryonic cell types to tolerate an OXPHOS defect. This produces both the tissue selectivity (eye and skin above all) and a spectrum from clinically normal carriers to neonatal lethality, and explains the sharply demarcated, developmentally patterned linear skin lesions.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Multidisciplinary supportive and surveillance care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No disease-modifying therapy exists. Management is symptomatic and organ-based, with ophthalmological, dermatological, neurological and cardiological surveillance.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Ocular prosthesis for severe microphthalmia or anophthalmia\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Prosthetic management under oculoplastic guidance for severe microphthalmia and anophthalmia.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Sclerocornea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sclerocornea or corneal opacity, present alongside the microphthalmia.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000647\"}}, {\"id\": \"Seizure\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Central nervous system involvement can include infantile seizures.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001250\"}}], \"edges\": [{\"source\": \"HCCS Holocytochrome c-Type Synthase Deficiency\", \"target\": \"Deficient Holocytochrome c Maturation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without heme lyase activity, apocytochrome c is not converted to holocytochrome c, so the mature electron carrier is not produced.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Holocytochrome c Maturation\", \"target\": \"Diversion of Cell Death Toward Necrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cells unable to complete cytochrome c-mediated apoptosis are proposed to die by necrosis instead, which is destructive to surrounding tissue in a way apoptosis is not.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Deficient Holocytochrome c Maturation\", \"target\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In heterozygous females, random X-inactivation produces a mosaic of cells expressing the mutant allele, and the resulting patchy OXPHOS and cell-death defect determines which tissues are affected and how severely.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Diversion of Cell Death Toward Necrosis\", \"target\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Necrotic loss of mutant-expressing cell populations produces the characteristic tissue defects.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ocular tissue is the most consistently affected, producing microphthalmia or anophthalmia.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Sclerocornea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Corneal opacification and sclerocornea accompany the microphthalmia.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Aplasia cutis congenita\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Linear dermal aplasia of the face and neck, present at birth and healing with age.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac involvement includes cardiomyopathy and septal defects.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Seizure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Central nervous system involvement can include infantile seizures.\"}, {\"source\": \"Mosaic Tissue Loss Governed by X-Inactivation\", \"target\": \"Microcephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Microcephaly is among the reported additional features.\"}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Aplasia cutis congenita\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Multidisciplinary supportive and surveillance care\", \"target\": \"Cardiomyopathy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Ocular prosthesis for severe microphthalmia or anophthalmia\", \"target\": \"Microphthalmia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Dermatologic care for skin lesions\", \"target\": \"Aplasia cutis congenita\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Antiseizure and neurologic management\", \"target\": \"Seizure\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Developmental therapies and special education\", \"target\": \"Developmental delay\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"HCCS pathogenic variants and Xp22 deletions\", \"target\": \"HCCS Holocytochrome c-Type Synthase Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5122,13 +5279,13 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Nervous System<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5157,15 +5314,18 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001638</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5185,6 +5345,8 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5208,6 +5370,8 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5256,15 +5420,18 @@ This clinical feature is Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5284,6 +5451,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5334,15 +5503,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000568</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5362,6 +5534,8 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5403,15 +5577,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000647</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000647" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000647</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sclerocornea (HP:0000647). HP:0000647 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5431,6 +5608,8 @@ This clinical feature is Sclerocornea (HP:0000647). HP:0000647 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5470,15 +5649,18 @@ This clinical feature is Sclerocornea (HP:0000647). HP:0000647 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5498,6 +5680,8 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5537,15 +5721,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0007957</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0007957</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Corneal anomalies, annotated with Corneal opacity (HP:0007957). HP:0007957 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5565,6 +5752,8 @@ This clinical feature is Corneal anomalies, annotated with Corneal opacity (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5613,15 +5802,18 @@ This clinical feature is Corneal anomalies, annotated with Corneal opacity (HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Genitourinary malformations, annotated with Abnormality of the genitourinary system (HP:0000119). HP:0000119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5641,6 +5833,8 @@ This clinical feature is Genitourinary malformations, annotated with Abnormality
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5689,15 +5883,18 @@ This clinical feature is Genitourinary malformations, annotated with Abnormality
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5717,6 +5914,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5756,15 +5955,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Facial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5784,6 +5986,8 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5815,8 +6019,107 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-aplasia-cutis-congenita" data-dismech-node="Aplasia cutis congenita" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Aplasia cutis congenita
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001057</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aplasia cutis congenita (HP:0001057). HP:0001057 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24735900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24735900" target="_blank">PMID:24735900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most consistent clinical features were microphthalmia/anophthalmia and sclerocornea/corneal opacity in all patients and congenital linear skin defects in 4/6."</div>
+
+
+                <div class="evidence-explanation">Four of six is the counted basis for the FREQUENT rather than VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"linear skin defects, usually involving the face and neck, which are present at birth and heal with age, leaving minimal residual scarring"</div>
+
+
+                <div class="evidence-explanation">Describes the distribution and natural history of the skin lesions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nail-dystrophy" data-dismech-node="Nail dystrophy" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5832,15 +6135,18 @@ This clinical feature is Facial dysmorphism, annotated with Abnormal facial shap
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5860,6 +6166,8 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5890,15 +6198,13 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-diaphragmatic-hernia" data-dismech-node="Congenital diaphragmatic hernia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        Congenital diaphragmatic hernia
 
 
 
@@ -5910,15 +6216,18 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000776</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Diaphragmatic hernia, annotated with Congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5938,6 +6247,91 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other findings can include a wide variety of other ocular abnormalities (e.g., corneal anomalies, orbital cysts, cataracts), central nervous system involvement (e.g., structural anomalies, developmental delay, infantile seizures), cardiac concerns (e.g., hypertrophic or oncocytic cardiomyopathy,..."</div>
+
+
+                <div class="evidence-explanation">Diaphragmatic hernia named in the GeneReviews clinical description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5979,10 +6373,10 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5993,6 +6387,9 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6007,6 +6404,8 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6017,273 +6416,6 @@ This clinical feature is Developmental delay, annotated with Global developmenta
 
 
                 <div class="evidence-explanation">Developmental delay named among the CNS manifestations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short stature
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other findings can include a wide variety of other ocular abnormalities (e.g., corneal anomalies, orbital cysts, cataracts), central nervous system involvement (e.g., structural anomalies, developmental delay, infantile seizures), cardiac concerns (e.g., hypertrophic or oncocytic cardiomyopathy,..."</div>
-
-
-                <div class="evidence-explanation">Short stature named in the GeneReviews clinical description.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24735900" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24735900" target="_blank">PMID:24735900</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Additional manifestations included various ocular anomalies, cardiac defects, brain imaging abnormalities, microcephaly, postnatal growth retardation, and facial dysmorphism."</div>
-
-
-                <div class="evidence-explanation">Postnatal growth retardation independently reported in the six-patient series.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-aplasia-cutis-congenita" data-dismech-node="Aplasia cutis congenita" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Aplasia cutis congenita
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001057</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aplasia cutis congenita (HP:0001057). HP:0001057 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24735900" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24735900" target="_blank">PMID:24735900</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most consistent clinical features were microphthalmia/anophthalmia and sclerocornea/corneal opacity in all patients and congenital linear skin defects in 4/6."</div>
-
-
-                <div class="evidence-explanation">Four of six is the counted basis for the FREQUENT rather than VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"linear skin defects, usually involving the face and neck, which are present at birth and heal with age, leaving minimal residual scarring"</div>
-
-
-                <div class="evidence-explanation">Describes the distribution and natural history of the skin lesions.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-diaphragmatic-hernia" data-dismech-node="Congenital diaphragmatic hernia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital diaphragmatic hernia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000776" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000776</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Diaphragmatic hernia, annotated with Congenital diaphragmatic hernia (HP:0000776). HP:0000776 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other findings can include a wide variety of other ocular abnormalities (e.g., corneal anomalies, orbital cysts, cataracts), central nervous system involvement (e.g., structural anomalies, developmental delay, infantile seizures), cardiac concerns (e.g., hypertrophic or oncocytic cardiomyopathy,..."</div>
-
-
-                <div class="evidence-explanation">Diaphragmatic hernia named in the GeneReviews clinical description.</div>
 
 
 
@@ -6329,6 +6461,9 @@ This clinical feature is Brain imaging abnormalities, annotated with Abnormal br
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6343,6 +6478,8 @@ This clinical feature is Brain imaging abnormalities, annotated with Abnormal br
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6368,6 +6505,8 @@ This clinical feature is Brain imaging abnormalities, annotated with Abnormal br
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6376,6 +6515,112 @@ This clinical feature is Brain imaging abnormalities, annotated with Abnormal br
 
 
                 <div class="evidence-explanation">CNS structural anomalies independently named in GeneReviews.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short stature" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short stature
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004322</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other findings can include a wide variety of other ocular abnormalities (e.g., corneal anomalies, orbital cysts, cataracts), central nervous system involvement (e.g., structural anomalies, developmental delay, infantile seizures), cardiac concerns (e.g., hypertrophic or oncocytic cardiomyopathy,..."</div>
+
+
+                <div class="evidence-explanation">Short stature named in the GeneReviews clinical description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24735900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24735900" target="_blank">PMID:24735900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additional manifestations included various ocular anomalies, cardiac defects, brain imaging abnormalities, microcephaly, postnatal growth retardation, and facial dysmorphism."</div>
+
+
+                <div class="evidence-explanation">Postnatal growth retardation independently reported in the six-patient series.</div>
 
 
 
@@ -6448,10 +6693,10 @@ This clinical feature is Brain imaging abnormalities, annotated with Abnormal br
                         Gene: HCCS
 
 
-    <a href="https://bioregistry.io/hgnc:4837" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:4837</a>
+    <a href="https://bioregistry.io/hgnc:4837" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:4837</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6461,6 +6706,9 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6479,6 +6727,8 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6504,6 +6754,8 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6525,6 +6777,8 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6574,7 +6828,7 @@ This disease-associated gene is HCCS (hgnc:4837). hgnc:4837 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-24">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6606,6 +6860,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists. Management is symptomatic and organ-based, with ophthalmological, dermatological, neurological and cardiological surveillance.</div>
 
 
@@ -6621,11 +6900,11 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000568</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6638,11 +6917,11 @@ This treatment targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001057</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Aplasia cutis congenita (HP:0001057). HP:0001057 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6655,11 +6934,11 @@ This treatment targets Aplasia cutis congenita (HP:0001057). HP:0001057 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6672,11 +6951,11 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001638</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001638" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001638</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6700,6 +6979,8 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6730,7 +7011,7 @@ This treatment targets Cardiomyopathy (HP:0001638). HP:0001638 is a phenotype fr
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6762,6 +7043,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prosthetic management under oculoplastic guidance for severe microphthalmia and anophthalmia.</div>
 
 
@@ -6777,11 +7083,11 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000568</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6805,6 +7111,8 @@ This treatment targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6835,7 +7143,7 @@ This treatment targets Microphthalmia (HP:0000568). HP:0000568 is a phenotype fr
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6867,6 +7175,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Routine dermatologic care for significant skin lesions.</div>
 
 
@@ -6882,11 +7215,11 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001057</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001057" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Aplasia cutis congenita (HP:0001057). HP:0001057 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6910,6 +7243,8 @@ This treatment targets Aplasia cutis congenita (HP:0001057). HP:0001057 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6940,7 +7275,7 @@ This treatment targets Aplasia cutis congenita (HP:0001057). HP:0001057 is a phe
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Therapeutic Procedure<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6972,6 +7307,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Treatment of seizures and other neurologic abnormalities under a pediatric neurologist.</div>
 
 
@@ -6987,11 +7347,11 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001250</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7015,6 +7375,8 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7045,7 +7407,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Rehabilitation<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7077,6 +7439,31 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Developmental therapies and special education as indicated for developmental delay and intellectual disability.</div>
 
 
@@ -7092,11 +7479,11 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0001263</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Developmental delay, annotated with Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7120,6 +7507,8 @@ This treatment targets Developmental delay, annotated with Global developmental 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7149,6 +7538,160 @@ This treatment targets Developmental delay, annotated with Global developmental 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-criteria-with-molecular-confirmation">
+                <div class="item-name">
+                    Clinical criteria with molecular confirmation
+
+                </div>
+
+                <div class="item-desc">The clinical diagnosis rests on two major criteria, microphthalmia/anophthalmia and linear skin defects, confirmed molecularly. Importantly, patients with a molecular diagnosis have been reported with only one of the two major criteria, so requiring both will miss cases. Molecular confirmation is by testing COX7B, HCCS or NDUFB11; this entry covers the HCCS-associated form.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301767" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301767" target="_blank">PMID:20301767</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, persons with a molecular diagnosis of MLS syndrome in whom only one of the two major criteria was present have been reported: some show characteristic skin defects without ocular abnormalities and others show eye abnormalities without skin defects."</div>
+
+
+                <div class="evidence-explanation">The explicit warning that the two-criterion clinical definition under-ascertains molecularly confirmed patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global-published-literature">
+                <div class="item-name">Global published literature</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population prevalence estimate exists. Ascertainment is complicated by the fact that clinically normal HCCS-mutation carriers occur within affected families, so the mutation is more frequent than the recognised phenotype.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24735900" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24735900" target="_blank">PMID:24735900</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, no obvious clinical sign was observed in three female carriers who were relatives of one patient."</div>
+
+
+                <div class="evidence-explanation">Documents asymptomatic carriers, which is why case counts understate carrier frequency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7329,6 +7872,12 @@ pathophysiology:
     term:
       id: GO:0005739
       label: mitochondrion
+  molecular_functions:
+  - preferred_term: holocytochrome-c synthase activity
+    term:
+      id: GO:0004408
+      label: holocytochrome-c synthase activity
+    modifier: DECREASED
   evidence:
   - reference: PMID:17033964
     reference_title: Mutations of the mitochondrial holocytochrome c-type synthase in X-linked dominant microphthalmia with linear skin defects syndrome.
@@ -7441,7 +7990,7 @@ pathophysiology:
     evidence:
     - reference: PMID:17033964
       reference_title: Mutations of the mitochondrial holocytochrome c-type synthase in X-linked dominant microphthalmia with linear skin defects syndrome.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We hypothesize that the inability of HCCS-deficient cells to undergo
@@ -7484,7 +8033,7 @@ pathophysiology:
   evidence:
   - reference: PMID:17033964
     reference_title: Mutations of the mitochondrial holocytochrome c-type synthase in X-linked dominant microphthalmia with linear skin defects syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We hypothesize that the inability of HCCS-deficient cells to undergo
@@ -8373,6 +8922,27 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry is the HCCS-anchored MLS1 entity only (MONDO:0024552). MLS is genetically heterogeneous: a molecular diagnosis can also be made in NDUFB11 (MLS2) or COX7B (MLS3), which are distinct MONDO terms and out of scope here. This matters for anyone reading the source literature, because the GeneReviews chapter and much of the clinical literature describe MLS as a single syndrome across all three genes, and a deep-research report generated for this entry mixed NDUFB11 and COX7B material in heavily (the NEC preflight flagged NDUFB11 at 54% of HCCS mentions). Every mechanistic claim curated here is anchored on an HCCS-specific source; the GeneReviews chapter is cited only for gene-agnostic clinical description and management.
+Relationship to Histiocytoid_Cardiomyopathy. That entry records that NDUFB11 is allelic with MLS syndrome and deliberately keeps the two separate. This entry preserves that boundary from the other side: the NDUFB11 arm belongs to MLS2, not here.
+The eponym understates the eye findings. Microphthalmia/anophthalmia and corneal involvement were present in all six patients of the largest series, whereas the linear skin defects that name the syndrome were present in four of six, and molecularly confirmed patients exist with eye findings and no skin defects. The frequency bands reflect the counted fractions rather than the syndrome name.
+No module conformance declared. There is no mitochondrial-OXPHOS or apoptosis-failure module in kb/modules/ at present, and the central causal step here is a proposed apoptosis-to-necrosis switch rather than an established mechanism, so declaring conformance to anything would overstate what is known.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Linear Skin Defects with Multiple Congenital Anomalies 1 (MLS/MIDAS, HCCS)</strong> · 2026-08-24T13:38:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Linear_Skin_Defects_with_Multiple_Congenital_Anomalies_1/2026-08-24T133848Z-claude-code-c87913.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of MLS1 (HCCS, MONDO:0024552) from a Perplexity sonar-deep-research report used as leads only; evidence rebuilt from PubMed. NEC preflight returned WARN with a substantive finding rather than a nuisance one: NDUFB11 was mentioned at 54 percent of the HCCS rate and COX7B at 46 percent, because MLS is genetically heterogeneous and much of the clinical literature treats all three genes as one syndrome. Acted on the warning as the tool directs - every mechanistic claim in this entry is anchored on an HCCS-specific source, and the GeneReviews chapter is cited only for gene-agnostic clinical description and management. The MLS2/NDUFB11 and MLS3/COX7B arms are named as out-of-scope boundaries in notes, preserving from the other side the separation the existing Histiocytoid_Cardiomyopathy entry already records. OMIM matched (309801). Curated the apoptosis-to-necrosis switch honestly as a proposal, not a mechanism: the source says &#39;We hypothesize&#39; and &#39;may push&#39;, so the evidence item is PARTIAL and the causal edge is INDIRECT_UNKNOWN_INTERMEDIATES, with a KNOWLEDGE_GAP recording that it has stood unresolved since 2006 and naming the experiment that would settle it. The necrosis limb is deliberately left without a GO annotation: GO has obsoleted every term for unregulated necrosis, and the only current term asserts a regulated death programme the source does not claim, so the node carries only the evidenced arm (decreased apoptotic process) and the reasoning is recorded inline. Frequency bands follow counted cohort fractions rather than the syndrome name - microphthalmia and corneal involvement were present in 6/6 patients while the eponymous linear skin defects were present in 4/6. Validation: schema clean; 29/29 snippets verified; term validation passed after replacing the obsolete GO term; all five ungated CI gates clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8667,7 +9237,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Linear Skin Defects with Multiple Congenital Anomalies 1", "mondoId": "MONDO:0024552", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Linear_Skin_Defects_with_Multiple_Congenital_Anomalies_1", "yamlRevision": "cfff7f7b49d4"};
+        const OS_CONFIG = {"diseaseName": "Linear Skin Defects with Multiple Congenital Anomalies 1", "mondoId": "MONDO:0024552", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Linear_Skin_Defects_with_Multiple_Congenital_Anomalies_1", "yamlRevision": "71480a697012"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
