@@ -108,6 +108,51 @@ def test_index_legend_omits_categories_no_module_uses(tmp_path: Path) -> None:
     assert "What do the category labels mean?" not in output_path.read_text()
 
 
+def test_index_offers_a_category_filter_over_categories_in_use(
+    tmp_path: Path,
+) -> None:
+    modules_dir = tmp_path / "kb" / "modules"
+    _write_module(
+        modules_dir / "tagged.yaml", "Tagged Module", ["TOXICOLOGY", "ONCOLOGY"]
+    )
+    _write_module(modules_dir / "untagged.yaml", "Untagged Module", None)
+
+    output_dir = tmp_path / "pages" / "modules"
+    render_all_modules(
+        input_dir=modules_dir,
+        output_dir=output_dir,
+        disorders_dir=tmp_path / "kb" / "disorders",
+    )
+    index = (output_dir / "index.html").read_text()
+
+    assert 'id="category-filter"' in index
+    assert '<option value="">All categories</option>' in index
+    assert '<option value="__uncategorized__">Uncategorized</option>' in index
+    assert '<option value="ONCOLOGY">' in index
+    assert '<option value="TOXICOLOGY">' in index
+    # Only categories some module uses become options.
+    assert '<option value="NEUROSCIENCE">' not in index
+    # Rows carry keys in enum order, the form the filter script splits on.
+    assert 'data-categories="TOXICOLOGY|||ONCOLOGY"' in index
+    assert 'data-categories=""' in index
+
+
+def test_index_omits_the_category_filter_when_nothing_is_tagged(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "index.html"
+
+    render_module_index(
+        [{"name": "Plain Module", "href": "plain.html", "categories": []}],
+        output_path,
+    )
+
+    html = output_path.read_text()
+    assert '<select class="control" id="category-filter"' not in html
+    # The script still runs; it must tolerate the missing control.
+    assert "categoryFilter ? categoryFilter.value : ''" in html
+
+
 def test_module_categories_stays_off_disorder_entries() -> None:
     """`module_categories` is schema-legal on any Disease, but is for modules.
 

@@ -1,0 +1,1381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Septicemic Plague · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Septicemic Plague</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Septicemic Plague</h1>
+                
+                <p class="report-subtitle">Septicemic Plague: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005956" target="_blank" rel="noopener noreferrer">MONDO:0005956</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Septicemic Plague: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Septicemic Plague · <strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005956" target="_blank" rel="noopener noreferrer">MONDO:0005956</a> · <strong>Category:</strong> Infectious Disease
+<strong>Causative agent:</strong> <em>Yersinia pestis</em> (NCBI:txid632) · <strong>ICD-10:</strong> A20.7 · <strong>ICD-11:</strong> 1B93.1 · <strong>MeSH:</strong> D010931 (Plague)</p>
+<hr />
+<h2>Summary</h2>
+<p>Septicemic plague is an acute, fulminant bloodstream infection caused by the gram-negative coccobacillus <em>Yersinia pestis</em>. It is the <strong>least common but most lethal</strong> of the three classical forms of plague. In a systematic review of 762 treated human cases (1937–2019), septicemic plague accounted for only <strong>5% of cases</strong> but carried a <strong>case-fatality rate (CFR) of 38%</strong>, exceeding both bubonic (17%) and pneumonic (27%) forms; untreated, it approaches <strong>~100% fatality</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32435802/">PMID: 32435802</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25643450/">PMID: 25643450</a>). It can arise as <strong>primary</strong> septicemic plague — fulminant gram-negative sepsis without a palpable bubo, often after handling infected animal tissue — or as <strong>secondary</strong> septicemic plague when untreated bubonic or pneumonic disease disseminates hematogenously.</p>
+<p>The pathophysiology is a coordinated, multi-layered virulence program that first paralyzes innate immunity to permit unchecked bacterial replication, then triggers a destructive inflammatory collapse. Temperature-dependent remodeling of LPS lipid A (from hexa-acylated at the flea's 27 °C to poorly-stimulatory tetra-acylated at the host's 37 °C) blunts TLR4 sensing; a plasmid-encoded <strong>type III secretion system (T3SS)</strong> injects <strong>Yop effectors</strong> that block phagocytosis and cytokine production; the <strong>F1/Caf1 capsule</strong> resists macrophage engulfment; and the <strong>Pla plasminogen activator</strong> enables dissemination from peripheral tissues. This "pre-inflammatory" phase of silent growth is followed by a "pro-inflammatory" phase — a delayed neutrophil influx and cytokine storm (IL-6, TNF-α, IFN-γ) that fails to control bacteria while driving disseminated intravascular coagulation (DIC), acral gangrene, septic shock, and multi-organ failure.</p>
+<p>Survival is overwhelmingly determined by <strong>time to effective antibiotics</strong>. Among 533 US patients (1942–2018), mortality was <strong>9% with high-efficacy therapy versus 51% with only limited-efficacy therapy</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">PMID: 32435801</a>). There is <strong>no heritable genetic cause</strong>, no established human susceptibility gene, and <strong>no licensed vaccine</strong> for general use, so prevention rests on rodent/flea vector control, exposure avoidance, and post-exposure chemoprophylaxis. This report synthesizes 14 confirmed findings drawn from 42 reviewed papers across all 15 requested sections.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Septicemic plague is the bloodstream-invasive manifestation of infection by <em>Yersinia pestis</em>, a gram-negative, non-motile, facultatively intracellular coccobacillus of the family <em>Enterobacteriaceae</em>. It is defined clinically by isolation of <em>Y. pestis</em> from blood in a patient <strong>without lymphadenopathy (no bubo)</strong> — distinguishing primary septicemic plague from bubonic plague — or by hematogenous dissemination of another plague form (secondary septicemic plague) (<a href="https://pubmed.ncbi.nlm.nih.gov/16943764/">PMID: 16943764</a>). The recognized clinical forms of plague are subclinical/serologic plague, plague pharyngitis, <em>pestis minor</em> (abortive bubonic), bubonic, <strong>septicemic</strong>, pneumonic, and plague meningitis (<a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>).</p>
+<blockquote>
+<p><em>"Clinical presentations include subclinical plague (positive serology without disease); plague pharyngitis; pestis minor (abortive bubonic plague); bubonic plague; septicemic plague; pneumonic plague; and plague meningitis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a></p>
+</blockquote>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005956" target="_blank" rel="noopener noreferrer">MONDO:0005956</a> (septicemic plague)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D010931 (Plague)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A20.7 (Septicaemic plague); A20 (Plague)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>1B93.1 (Septicaemic plague)</td>
+</tr>
+<tr>
+<td>NCBI Taxonomy (pathogen)</td>
+<td>txid632 (<em>Yersinia pestis</em>)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (infectious, non-Mendelian)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Plague is not a classical rare-genetic Orphanet entity</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Septicaemic plague; blood plague; <em>Yersinia pestis</em> septicemia; historically part of the "Black Death" (the acral gangrene of DIC gives the blackened appearance).</p>
+<p><strong>Data source type.</strong> Information for this report is derived from <strong>aggregated disease-level resources</strong> — systematic reviews, case series, surveillance datasets (CDC/WHO), and experimental animal-model studies — rather than individual EHR data.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor — infectious only.</strong> The sole cause is infection with <em>Yersinia pestis</em>. There is <strong>no Mendelian/genetic causation</strong> and no established human susceptibility gene; the disease is <strong>not heritable</strong> (inheritance not applicable) (<a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>).</p>
+<p><strong>Risk factors (environmental/exposure).</strong> Documented factors include residence in or travel to endemic foci; occupational and recreational animal contact (veterinarians and assistants, hunters/trappers, wildlife biologists); pet ownership and direct animal-reservoir contact (especially during hunting season); living in a household with an index case; flea bite; <strong>handling infected animal tissue</strong> (a route that can produce primary septicemic plague); and climatic conditions favoring reservoir/vector abundance (mild winters, cool moist springs, early summers) (<a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>). Cats are a notable source of respiratory (pneumonic) transmission to humans.</p>
+<blockquote>
+<p><em>"Other factors that increase risk of infection in endemic areas are occupation-veterinarians and assistants, pet ownership, direct animal-reservoir contact especially during the hunting season, living in households with an index case, and, mild winters, cool moist springs, and early summers."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a></p>
+</blockquote>
+<p><strong>Immunocompromise.</strong> HIV and other immunocompromising conditions can worsen severity/outcome; a 2024 Nigerian case report highlights the potential severity of co-infection in immunocompromised individuals (<a href="https://pubmed.ncbi.nlm.nih.gov/41263683/">PMID: 41263683</a>).</p>
+<p><strong>Genetic protective factors / gene–environment interactions.</strong> No validated human protective alleles or GxE interactions are established for plague susceptibility. (Historical hypotheses linking <em>CCR5-Δ32</em> or other loci to plague survival remain unproven.)</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Septicemic plague presents as <strong>fulminant gram-negative sepsis without a palpable bubo</strong>: high fever, chills, rigors, prostration, tachycardia, hypotension, and rapid progression to shock, DIC, and multi-organ failure. <strong>Acral necrosis/gangrene</strong> of digits and nose is a classic late sign (the basis of "Black Death") (<a href="https://pubmed.ncbi.nlm.nih.gov/16943764/">PMID: 16943764</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>).</p>
+<blockquote>
+<p><em>"Five (38%) patients had primary septicemic plague, and the remaining eight (62%) had bubonic plague."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16943764/">PMID: 16943764</a></p>
+</blockquote>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Onset / progression</th>
+<th>Frequency</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever, chills</td>
+<td>Symptom/sign</td>
+<td>Acute (1–7 d incubation), rapidly progressive</td>
+<td>Near-universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a> (Fever)</td>
+</tr>
+<tr>
+<td>Hypotension / septic shock</td>
+<td>Clinical sign</td>
+<td>Rapid</td>
+<td>Common in severe/late disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001635" target="_blank" rel="noopener noreferrer">HP:0001635</a> hypotension; <a href="http://purl.obolibrary.org/obo/HP_0031273" target="_blank" rel="noopener noreferrer">HP:0031273</a> septic shock</td>
+</tr>
+<tr>
+<td>Disseminated intravascular coagulation</td>
+<td>Lab/clinical</td>
+<td>Rapid</td>
+<td>Characteristic of severe disease</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" rel="noopener noreferrer">HP:0005521</a> (DIC)</td>
+</tr>
+<tr>
+<td>Acral gangrene / necrosis (digits, nose)</td>
+<td>Physical manifestation</td>
+<td>Late</td>
+<td>Classic but not universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100758" target="_blank" rel="noopener noreferrer">HP:0100758</a> (Gangrene)</td>
+</tr>
+<tr>
+<td>Abdominal pain, nausea, vomiting, diarrhea</td>
+<td>Symptom</td>
+<td>Early/variable</td>
+<td>Frequent in septicemic form</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a>; <a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a>; <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a></td>
+</tr>
+<tr>
+<td>Prostration / altered mental status</td>
+<td>Symptom/sign</td>
+<td>Progressive</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a> (Fatigue); <a href="http://purl.obolibrary.org/obo/HP_0001259" target="_blank" rel="noopener noreferrer">HP:0001259</a> (Coma, severe)</td>
+</tr>
+<tr>
+<td>Thrombocytopenia, leukocytosis</td>
+<td>Lab abnormality</td>
+<td>Early</td>
+<td>Frequent</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>; <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a></td>
+</tr>
+<tr>
+<td>Absence of bubo</td>
+<td>Distinguishing feature</td>
+<td>—</td>
+<td>Defining for <em>primary</em> septicemic</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity/progression.</strong> Severe and progressive; without early antibiotics, the course is fulminant and lethal within days. <strong>Quality-of-life impact:</strong> acute and life-threatening rather than chronic; survivors of DIC-associated gangrene may require amputation with long-term disability, but there is no chronic/relapsing phase.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Not applicable in the human-host sense.</strong> Septicemic plague has <strong>no causal human genes, no pathogenic germline/somatic variants, no modifier genes, no disease-specific epigenetic signature, and no chromosomal abnormalities</strong> — it is a purely infectious disease.</p>
+<p>The relevant "genetics" are those of the <strong>pathogen</strong>, whose plasmid-encoded virulence genes drive the septicemic phenotype:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Genetic element</th>
+<th>Location</th>
+<th>Product / function</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>pla</em></td>
+<td>pPCP1 (pKYP1, ~9.5 kb)</td>
+<td>Plasminogen activator (Pla): coagulase + fibrinolysin; dissemination (<a href="https://pubmed.ncbi.nlm.nih.gov/8360901/">PMID: 8360901</a>)</td>
+</tr>
+<tr>
+<td>T3SS + <em>yop</em> effectors (<em>yopH, E, O/ypkA, M, J, T</em>), <em>lcrV</em></td>
+<td>pCD1 (pYV, ~70 kb)</td>
+<td>Type III secretion; injection of anti-immune effectors (<a href="https://pubmed.ncbi.nlm.nih.gov/15847602/">PMID: 15847602</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24599533/">PMID: 24599533</a>)</td>
+</tr>
+<tr>
+<td><em>caf1M1A1</em> operon</td>
+<td>pMT1 (~100 kb)</td>
+<td>F1 (Caf1) capsular antigen; antiphagocytic (<a href="https://pubmed.ncbi.nlm.nih.gov/35358289/">PMID: 35358289</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/19103769/">PMID: 19103769</a>)</td>
+</tr>
+<tr>
+<td>lipid A biosynthesis genes</td>
+<td>chromosome</td>
+<td>Temperature-dependent lipid A acylation; TLR4 evasion (<a href="https://pubmed.ncbi.nlm.nih.gov/23745121/">PMID: 23745121</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Y. pestis</em> is a recently emerged, genetically monomorphic clone of <em>Y. pseudotuberculosis</em>. Rare naturally occurring <strong>F1-negative (caf-negative)</strong> strains remain virulent but evade F1-based diagnostics (<a href="https://pubmed.ncbi.nlm.nih.gov/35320275/">PMID: 35320275</a>).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> <em>Yersinia pestis</em> (NCBI:txid632), gram-negative coccobacillus, <em>Enterobacteriaceae</em>.</li>
+<li><strong>Environmental/ecological factors:</strong> maintenance in sylvatic rodent–flea cycles; climatic conditions promoting reservoir and flea abundance (mild winters, cool moist springs) increase spillover risk (<a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>).</li>
+<li><strong>Occupational/lifestyle exposures:</strong> hunting/trapping, veterinary work, wildlife biology, handling animal carcasses; the tissue-handling route is specifically linked to primary septicemic plague.</li>
+<li><strong>No chemical toxin, radiation, smoking, diet, or pollution</strong> etiology applies.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><em>Y. pestis</em> enters the host by <strong>flea bite</strong> or by <strong>contact with infected tissue/aerosol</strong> → deposits bacteria in skin/lymphatics or bloodstream.</li>
+<li>On shifting from 27 °C (flea) to 37 °C (host), the bacterium <strong>remodels LPS lipid A</strong> to a tetra-acylated, poorly-stimulatory form → <strong>evades TLR4/MD-2 recognition</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/23745121/">PMID: 23745121</a>) → <em>results in</em> delayed innate alarm.</li>
+<li>The bacterium assembles the <strong>T3SS</strong> and injects <strong>Yop effectors</strong> into macrophages (and later neutrophils): YopE inhibits phagocytosis; YopJ induces macrophage cytotoxicity/apoptosis and blocks proinflammatory cytokines; Yops disrupt cytoskeletal dynamics → <em>leads to</em> failure of early innate clearance and <strong>extracellular multiplication in lymphoid tissue</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/15847602/">PMID: 15847602</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/24599533/">PMID: 24599533</a>).</li>
+<li>The <strong>F1/Caf1 capsule</strong> coats the bacterium, resisting macrophage engulfment (polymer-brush effect, ~400 pN mechanical stability) → <em>reinforces</em> immune evasion (<a href="https://pubmed.ncbi.nlm.nih.gov/35358289/">PMID: 35358289</a>).</li>
+<li>Yop-mediated suppression of <strong>LTB4 synthesis</strong> delays neutrophil/macrophage inflammation → <em>prolongs</em> the silent growth window (<a href="https://pubmed.ncbi.nlm.nih.gov/39423229/">PMID: 39423229</a>).</li>
+<li>The <strong>Pla plasminogen activator</strong> (coagulase/fibrinolysin) degrades fibrin barriers → <em>enables</em> dissemination from the peripheral site into blood (<a href="https://pubmed.ncbi.nlm.nih.gov/8360901/">PMID: 8360901</a>).</li>
+<li>Bacteria disseminate hematogenously — in animal models, <strong>spleen → liver → blood</strong> — reaching high bacteremia (<a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">PMID: 19073275</a>).</li>
+<li><strong>Branch — pre-inflammatory → pro-inflammatory switch:</strong> after ~48 h the host mounts a <strong>delayed neutrophil influx and cytokine storm</strong> (IL-6, TNF-α, IFN-γ, IL-12p70, MCP-1, KC, MIP-2) that fails to control bacteria but <em>causes</em> tissue destruction (<a href="https://pubmed.ncbi.nlm.nih.gov/24098126/">PMID: 24098126</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/17101642/">PMID: 17101642</a>).</li>
+<li>Systemic inflammation + coagulopathy → <strong>DIC</strong>, microvascular thrombosis, <strong>acral gangrene</strong>, <strong>septic shock</strong>, <strong>ARDS</strong>, and <strong>multi-organ failure</strong> → <em>results in</em> death within days if untreated (<a href="https://pubmed.ncbi.nlm.nih.gov/16943764/">PMID: 16943764</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a>).</li>
+</ol>
+<h3>Biphasic model (schematic)</h3>
+<pre><code> PHASE 1 — IMMUNE EVASION (pre-inflammatory)         PHASE 2 — CYTOKINE STORM (pro-inflammatory)
+ [37°C lipid A shift -&gt; TLR4 blind]                  [~48 h: neutrophil influx]
+ [T3SS/Yops -&gt; block phagocytosis + cytokines]  ==&gt;  [IL-6, TNF-a, IFN-g surge]
+ [F1 capsule -&gt; antiphagocytic]                      [tissue destruction, DIC]
+ [Pla -&gt; dissemination]                              [septic shock, MOF, gangrene]
+ silent bacterial growth  spleen-&gt;liver-&gt;blood       host collapse
+</code></pre>
+<blockquote>
+<p><em>"Pneumonic plague progression is biphasic, with an initial pre-inflammatory phase facilitating bacterial growth in the absence of host inflammation, followed by a pro-inflammatory phase marked by extensive neutrophil influx, an inflammatory cytokine storm, and severe tissue destruction."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24098126/">PMID: 24098126</a></p>
+<p><em>"Effector Yops function to counteract multiple signaling responses in the infected host cell ... Innate and adaptive immune responses are thwarted as a consequence of Yop activities."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/15847602/">PMID: 15847602</a></p>
+</blockquote>
+<p><strong>Upstream vs downstream.</strong> Upstream = LPS remodeling, T3SS/Yops, F1 capsule, Pla (immune evasion + dissemination). Downstream = cytokine storm, DIC, shock, organ failure. Blunting the downstream inflammation (intranasal fluticasone) reduced IL-6, neutrophil infiltration, bacterial burden, and improved antibiotic-treated survival — evidence the storm itself is pathogenic (<a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a>).</p>
+<p><strong>Suggested ontology terms.</strong> <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response), <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a> (defense response to bacterium), <a href="http://purl.obolibrary.org/obo/GO_0030193" target="_blank" rel="noopener noreferrer">GO:0030193</a> (regulation of blood coagulation), <a href="http://purl.obolibrary.org/obo/GO_0006909" target="_blank" rel="noopener noreferrer">GO:0006909</a> (phagocytosis). Cell types: <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell). <a href="http://purl.obolibrary.org/obo/CHEBI_16412" target="_blank" rel="noopener noreferrer">CHEBI:16412</a> (lipopolysaccharide).</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary/secondary organs (organ level):</strong> <strong>blood/vasculature</strong> (primary site of septicemic disease, <a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a> blood; <a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> blood vessel), <strong>spleen</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>) and <strong>liver</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>) as major dissemination targets (<a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">PMID: 19073275</a>); <strong>lymph nodes</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>) in secondary-from-bubonic cases; <strong>lungs</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>) in secondary pneumonic progression; <strong>skin/acral tissue</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) in DIC gangrene; <strong>brain/meninges</strong> in plague meningitis (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a>).</li>
+<li><strong>Body systems:</strong> cardiovascular (shock, DIC), hematologic/lymphoid, hepatobiliary, respiratory (ARDS), and nervous (meningitis) systems.</li>
+<li><strong>Tissue/cell level:</strong> vascular endothelium; reticuloendothelial macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>); neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>). <em>Y. pestis</em> multiplies <strong>extracellularly</strong> in lymphoid tissue after initial macrophage interaction.</li>
+<li><strong>Subcellular level:</strong> T3SS delivers effectors into the host <strong>cytoplasm</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>); F1 acts at the bacterial <strong>cell surface/extracellular region</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005576" target="_blank" rel="noopener noreferrer">GO:0005576</a>); LPS resides in the <strong>outer membrane</strong> (<a href="http://purl.obolibrary.org/obo/GO_0009279" target="_blank" rel="noopener noreferrer">GO:0009279</a>).</li>
+<li><strong>Lateralization:</strong> systemic/bilateral; acral gangrene is typically symmetric-peripheral.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> acute, after a <strong>1–7 day incubation</strong> (often shorter — hours to a few days — for septicemic/pneumonic forms) (<a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>).</li>
+<li><strong>Progression:</strong> rapid and fulminant; untreated septicemic plague progresses to death within days (pneumonic ~6 days in models; septicemic similarly rapid). For late-stage disease, <strong>antibiotics must be given within ~24 h of symptom onset</strong> to be effective (<a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a>).</li>
+<li><strong>Course pattern:</strong> monophasic and progressive — <strong>no chronic, relapsing, or remitting phase</strong>; outcome is either death or recovery.</li>
+<li><strong>Critical period:</strong> the narrow <strong>early therapeutic window</strong> is the dominant modifiable variable (see Section 11).</li>
+</ul>
+<blockquote>
+<p><em>"Late-stage pneumonic plague is difficult to treat, as antibiotics must be delivered within 24 h after onset of symptoms to be effective."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a></p>
+</blockquote>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Epidemiology.</strong> Between 2010 and 2019 the six countries reporting the most human plague cases were <strong>Madagascar, DR Congo, Uganda, Peru, Tanzania, and the USA</strong>, totaling <strong>4,547 cases with 17% mortality (786 deaths)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40022523/">PMID: 40022523</a>). <em>Y. pestis</em> is a <strong>WHO priority pathogen with epidemic/pandemic potential</strong>, endemic in rodent reservoirs across Africa, Asia, North America, and South America; <strong>Madagascar</strong> records a large share of annual global cases (<a href="https://pubmed.ncbi.nlm.nih.gov/33264458/">PMID: 33264458</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38935608/">PMID: 38935608</a>). Septicemic plague constitutes <strong>~5%</strong> of plague cases (<a href="https://pubmed.ncbi.nlm.nih.gov/32435802/">PMID: 32435802</a>).</p>
+<blockquote>
+<p><em>"Between 2010 and 2019, the six countries with the most reported human cases of Yersinia pestis infection ... were Madagascar, the Congo, Uganda, Peru, Tanzania, and the USA, with a total of 4,547 cases with a mortality rate of 17% (786 cases)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40022523/">PMID: 40022523</a></p>
+</blockquote>
+<p><strong>Genetic etiology.</strong> <strong>Not applicable</strong> — no inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity role, or carrier frequency; the disease is infectious.</p>
+<p><strong>Population demographics.</strong> Risk tracks <strong>exposure</strong>, not ethnicity — rural residents, hunters, and animal handlers in endemic foci are over-represented. Geographic distribution follows enzootic rodent foci (western US, Madagascar, central Asia, Andean South America, sub-Saharan Africa). No strong intrinsic sex bias independent of occupational exposure; all ages are susceptible.</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p>Confirmatory diagnosis rests on three pillars — <strong>culture, PCR, and serology</strong> — supplemented by rapid antigen tests. For the <strong>septicemic form specifically</strong>, <strong>blood culture</strong> and <strong>peripheral blood smear</strong> (bipolar "safety-pin" gram-negative coccobacilli on Wright/Giemsa/Wayson stain) are central because there is no bubo to aspirate.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Target/approach</th>
+<th>Performance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bacterial culture</td>
+<td>Isolate <em>Y. pestis</em> from blood/aspirate/sputum (reference standard)</td>
+<td>~65% sensitivity</td>
+</tr>
+<tr>
+<td>PCR / qPCR</td>
+<td><em>caf1</em>, <em>pla</em>, <em>yopM</em></td>
+<td>~85% (single); triplex qPCR <strong>100% sens / 82% spec</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40705833/">PMID: 40705833</a>)</td>
+</tr>
+<tr>
+<td>Serology</td>
+<td>Anti-F1 IgG</td>
+<td>positive in ~93% of confirmed cases</td>
+</tr>
+<tr>
+<td>F1 rapid diagnostic test (F1RDT / LFI)</td>
+<td>Capsular F1 antigen, point-of-care</td>
+<td>On-site <strong>94% sens / 74% spec</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41389991/">PMID: 41389991</a>); Madagascar retrospective <strong>100% sens / 67% spec</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32000692/">PMID: 32000692</a>)</td>
+</tr>
+<tr>
+<td>Dual-antigen (F1+LcrV) LFI/ELISA</td>
+<td>Detects F1-negative strains too</td>
+<td>LoD ~1–2 ng/mL (<a href="https://pubmed.ncbi.nlm.nih.gov/35320275/">PMID: 35320275</a>)</td>
+</tr>
+<tr>
+<td>ddPCR (multi-target)</td>
+<td>ypo2088, caf1, pla</td>
+<td>Superior sensitivity for low-load samples (<a href="https://pubmed.ncbi.nlm.nih.gov/38701065/">PMID: 38701065</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"The sensitivity and specificity of on-site F1RDT were 94% (95% CI, 89.6-97.0) and 74% (95% CI, 68.2-79.3) against RS1"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41389991/">PMID: 41389991</a></p>
+</blockquote>
+<p><strong>Genetic/omics testing:</strong> not applicable to human diagnosis; pathogen genotyping (MLVA, CRISPR, SNP/WGS) is used for outbreak epidemiology, not patient diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/38935608/">PMID: 38935608</a>).</p>
+<p><strong>Differential diagnosis:</strong> other causes of gram-negative sepsis/DIC, meningococcemia, tularemia, anthrax, rickettsioses, and other hemorrhagic febrile illnesses; the epidemiologic exposure history and blood smear morphology are key discriminators. <strong>Blind spot:</strong> rare F1-negative strains evade F1-based antigen tests — hence dual-antigen assays and PCR backup.</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Mortality.</strong> Treated septicemic plague CFR is <strong>~38%</strong>; untreated it approaches <strong>~100%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32435802/">PMID: 32435802</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25643450/">PMID: 25643450</a>). The <strong>single dominant prognostic factor is time to effective antimicrobial therapy</strong>: in 533 US patients, mortality was <strong>9% with high-efficacy therapy vs 51% with limited-efficacy therapy</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">PMID: 32435801</a>).</p>
+<blockquote>
+<p><em>"Without antibacterial therapy, the disease is associated with a high case fatality rate, ranging from 40% (bubonic plague) to nearly 100% (septicemic and pneumonic plague)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/25643450/">PMID: 25643450</a></p>
+<p><em>"Mortality differed significantly among those receiving high-efficacy therapy (9%) and only limited-efficacy therapy (51%)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">PMID: 32435801</a></p>
+</blockquote>
+<p><strong>Complications.</strong> Septic shock, <strong>DIC with purpura and acral gangrene</strong> (fingers, toes, nose), ARDS, secondary pneumonic plague (with human-to-human transmission risk), plague meningitis, and multi-organ failure (<a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a>).</p>
+<p><strong>Recovery.</strong> Binary — death or recovery, with no chronic phase. Survivors of DIC-associated gangrene may require <strong>amputation</strong>, producing long-term functional disability. Other prognostic factors: delay in diagnosis, older age, immunocompromise (e.g., HIV, <a href="https://pubmed.ncbi.nlm.nih.gov/41263683/">PMID: 41263683</a>), and severity of shock/DIC at presentation.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy is the mainstay</strong> and must be started empirically on clinical suspicion — before laboratory confirmation.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Drug class</th>
+<th>Agents</th>
+<th>Notes / NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Aminoglycosides (first-line)</td>
+<td>Streptomycin, gentamicin</td>
+<td>Aminoglycoside-treated CFR ~13% vs 20% overall; streptomycin outperformed gentamicin in US data (<a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">PMID: 32435801</a>). NCIT:C540 (Gentamicin), NCIT:C839 (Streptomycin)</td>
+</tr>
+<tr>
+<td>Fluoroquinolones</td>
+<td>Ciprofloxacin, levofloxacin</td>
+<td>FDA-approved for plague; used in &gt;30% of recent patients. NCIT:C2249 (Ciprofloxacin)</td>
+</tr>
+<tr>
+<td>Tetracyclines</td>
+<td>Doxycycline</td>
+<td>Associated with increased survival; oral option. NCIT:C516 (Doxycycline)</td>
+</tr>
+<tr>
+<td>Others</td>
+<td>Chloramphenicol, sulfonamides/TMP-SMX</td>
+<td>Chloramphenicol preferred historically for plague meningitis (CNS penetration)</td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"Gentamicin use was associated with higher mortality than streptomycin, and aminoglycoside use was linked to higher mortality than for tetracyclines."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">PMID: 32435801</a></p>
+</blockquote>
+<p><strong>Intracellular caveat:</strong> during the early facultative-intracellular stage, streptomycin and ciprofloxacin retain efficacy against intracellular <em>Y. pestis</em>, whereas gentamicin and doxycycline are less effective intracellularly — relevant for agent selection (<a href="https://pubmed.ncbi.nlm.nih.gov/21628541/">PMID: 21628541</a>).</p>
+<p><strong>Supportive care:</strong> aggressive management of septic shock, fluid resuscitation, vasopressors, and DIC/coagulopathy management are essential given the fulminant sepsis physiology. <strong>Adjunctive anti-inflammatory</strong> strategies are experimental — fluticasone improved antibiotic-treated survival in a pneumonic model by dampening the cytokine storm (<a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a>). <strong>Surgery:</strong> amputation/debridement of gangrenous tissue in survivors. No gene, cell, RNA, or targeted/immuno-therapies apply. No pharmacogenomic considerations are established.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> rodent and flea <strong>vector control</strong>, insecticides, environmental sanitation, avoiding contact with sick/dead animals, and personal protective equipment when handling potentially infected tissue (<a href="https://pubmed.ncbi.nlm.nih.gov/32853251/">PMID: 32853251</a>).</li>
+<li><strong>Post-exposure prophylaxis (secondary):</strong> <strong>doxycycline or ciprofloxacin for 7 days</strong> for close contacts of pneumonic cases; isolation of pneumonic patients for the first ~48 h of therapy prevents human-to-human spread (<a href="https://pubmed.ncbi.nlm.nih.gov/29183475/">PMID: 29183475</a>).</li>
+<li><strong>Immunization:</strong> killed whole-cell and live-attenuated vaccines are no longer used (safety/efficacy). Modern subunit candidates combine the two protective antigens <strong>LcrV</strong> (T3SS needle-tip) and <strong>F1</strong> (capsule) — rF1+rV, rF1V fusion, rV10. Antibodies against LcrV and F1 interfere with T3SS injection of host cells (<a href="https://pubmed.ncbi.nlm.nih.gov/19786842/">PMID: 19786842</a>). As of 2024, <strong>&gt;20 candidates are in preclinical development, few in phase 1, and none licensed for general use</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/40022523/">PMID: 40022523</a>).</li>
+<li><strong>No genetic screening/counseling</strong> applies (non-heritable). Public-health surveillance and rapid outbreak response remain the backbone of control.</li>
+</ul>
+<blockquote>
+<p><em>"LcrV, a protein at the tip of type III secretion needles, and F1, the capsular pilus antigen, are both recognized as plague protective antigens. Antibodies against LcrV and F1 interfere with Y. pestis type III injection of host cells."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19786842/">PMID: 19786842</a></p>
+<p><em>"More than 20 candidate plague vaccines are in the preclinical phase, with few in early (phase 1) clinical trials."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40022523/">PMID: 40022523</a></p>
+</blockquote>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of hosts:</strong> <em>Y. pestis</em> infects <strong>&gt;200 mammal species</strong>. Keystone reservoirs include ground squirrels, prairie dogs, marmots, gerbils, and rats (<em>Rattus</em> spp.). Fleas — especially <em>Xenopsylla cheopis</em> — are the vectors (<a href="https://pubmed.ncbi.nlm.nih.gov/33264458/">PMID: 33264458</a>).</li>
+<li><strong>Transmission / zoonosis:</strong> maintained in <strong>sylvatic rodent–flea cycles</strong>; fleas transmit after Pla/biofilm-mediated proventricular blockage. Humans are <strong>incidental hosts</strong> infected by flea bite, handling infected animals, or respiratory spread (notably from cats) (<a href="https://pubmed.ncbi.nlm.nih.gov/8360901/">PMID: 8360901</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">PMID: 9097371</a>).</li>
+<li><strong>Natural disease / veterinary relevance:</strong> cats develop severe (often pneumonic) plague and are a documented source of human infection; wild rodents and lagomorphs suffer epizootic die-offs.</li>
+<li><strong>Comparative biology:</strong> <em>Y. pestis</em> is an evolutionarily recent clone of <em>Y. pseudotuberculosis</em>; the disease mechanisms (T3SS, F1) are conserved across mammalian hosts, underpinning the utility of animal models.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Standard models:</strong> <strong>mouse</strong> (<em>Mus musculus</em>, NCBI:txid10090) and <strong>rat</strong> (<em>Rattus norvegicus</em>, NCBI:txid10116), typically challenged with the fully virulent strain <strong>CO92</strong> by intranasal/aerosol or intradermal routes (<a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">PMID: 19073275</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31177429/">PMID: 31177429</a>).</li>
+<li><strong>Phenotype recapitulation:</strong> models reproduce the <strong>dissemination pattern relevant to septicemic spread</strong> — bacteria move from the primary site to spleen, then liver and blood, with rising serum cytokines/chemokines and histopathologic injury over 72 h. Rats are <strong>as susceptible as mice</strong> (similar LD50) and support <strong>animal-to-animal transmission</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">PMID: 19073275</a>).</li>
+</ul>
+<blockquote>
+<p><em>"Bacteria disseminated from the lungs to peripheral organs, with the largest increases in the spleen, followed by the liver and blood at 72h p.i."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">PMID: 19073275</a></p>
+<p><em>"rats were as sensitive to pneumonic plague as mice, having a similar LD(50) dose by the intranasal and aerosolized routes. Further, we showed direct transmission of plague bacteria from infected to uninfected rats."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">PMID: 19073275</a></p>
+</blockquote>
+<ul>
+<li><strong>Non-human primates</strong> are used for vaccine efficacy testing under the FDA "Animal Rule."</li>
+<li><strong>Limitations:</strong> rodent inflammatory kinetics differ from humans; anesthesia and intranasal instillation add variability (hence standardized aerosol challenge); models best capture pneumonic/systemic pathophysiology rather than the specific human primary-septicemic tissue-handling route.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>Septicemic plague is best understood as a <strong>two-act drama of immune subversion followed by immune catastrophe</strong>. In Act I, <em>Y. pestis</em> deploys a layered virulence toolkit — temperature-tuned low-TLR4 lipid A, T3SS-delivered Yop effectors, the F1 antiphagocytic capsule, and Pla-driven dissemination — that renders the early innate response blind and impotent, allowing silent exponential growth and hematogenous spread (spleen → liver → blood). In Act II, once bacterial burden is overwhelming, a <strong>delayed and futile neutrophil/cytokine storm</strong> erupts; it fails to clear the pathogen but ignites DIC, microvascular thrombosis, acral gangrene, septic shock, and multi-organ failure. This framework explains the two clinical hallmarks of the septicemic form — its <strong>fulminant tempo</strong> (silent growth means patients present already deep into dissemination) and its <strong>exceptional lethality</strong> (immune paralysis then immune-mediated tissue destruction) — and it explains why <strong>time-to-antibiotic is decisive</strong>: therapy given before the storm interrupts the cascade, while therapy given after it (&gt;24 h in late disease) cannot reverse established DIC/shock. The finding that anti-inflammatory adjuncts improve antibiotic-treated survival further supports the storm as an independently pathogenic downstream node, and points to combined antimicrobial + immunomodulatory strategies as a rational future direction.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32435802/">32435802</a></td>
+<td>Septicemic plague = 5% of cases, 38% CFR (systematic review, 762 cases)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25643450/">25643450</a></td>
+<td>Near-100% untreated fatality; <em>Y. pestis</em> etiology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40022523/">40022523</a></td>
+<td>2010–2019 global epidemiology; vaccine pipeline status</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33264458/">33264458</a></td>
+<td>Rodent-reservoir endemicity; Madagascar hotspot</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/8360901/">8360901</a></td>
+<td><em>pla</em> coagulase/fibrinolysin → dissemination/transmission</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23745121/">23745121</a></td>
+<td>Temperature-dependent lipid A → TLR4 evasion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15847602/">15847602</a></td>
+<td>Yop effectors thwart innate + adaptive immunity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24599533/">24599533</a></td>
+<td>YopE (anti-phagocytosis), YopJ (cytotoxicity); LcrV antigen</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39423229/">39423229</a></td>
+<td>Yop-mediated LTB4 suppression delays inflammation</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35358289/">35358289</a></td>
+<td>F1/Caf1 antiphagocytic capsule</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19103769/">19103769</a></td>
+<td>Anti-F1 antibodies protective; capsule operon in transmission</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16943764/">16943764</a></td>
+<td>Primary septicemic plague clinical cluster (US, 2006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9097371/">9097371</a></td>
+<td>Clinical forms; risk factors</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">32435801</a></td>
+<td>Therapy efficacy: 9% vs 51% mortality; agent comparisons</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24098126/">24098126</a></td>
+<td>Biphasic pre-/pro-inflammatory mechanism; macrophage→neutrophil switch</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17101642/">17101642</a></td>
+<td>Delayed (~48 h) cytokine/chemokine surge; named mediators</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19073275/">19073275</a></td>
+<td>Rat model; spleen→liver→blood dissemination; transmission</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">34780267</a></td>
+<td>24 h therapeutic window; fluticasone adjunct benefit</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41389991/">41389991</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/32000692/">32000692</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40705833/">40705833</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/35320275/">35320275</a></td>
+<td>Diagnostics: F1RDT, triplex qPCR, dual-antigen LFI</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19786842/">19786842</a></td>
+<td>LcrV + F1 subunit vaccine antigens</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21628541/">21628541</a></td>
+<td>Intracellular antibiotic efficacy differences</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29183475/">29183475</a></td>
+<td>Prophylaxis and isolation guidelines</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41263683/">41263683</a></td>
+<td>Fulminant plague in HIV-positive patient</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> human clinical/surveillance (systematic reviews, case series, RDT field studies), model organism (mouse/rat CO92 studies), and in vitro/molecular (T3SS, F1, Pla, lipid A mechanism papers).</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Septicemic-specific data are sparse.</strong> Much mechanistic evidence (biphasic model, cytokine storm) derives from <strong>pneumonic</strong> models; the extent to which these kinetics apply to primary septicemic plague is inferred, not directly demonstrated.</li>
+<li><strong>No human genetic/host-susceptibility data.</strong> Whether host polymorphisms modulate septicemic risk or outcome is essentially unstudied; historical protective-allele hypotheses remain unproven.</li>
+<li><strong>Comparative antibiotic effectiveness</strong> derives largely from observational US data (confounding by indication); randomized head-to-head trials in septicemic plague are lacking.</li>
+<li><strong>Diagnostic blind spots.</strong> F1-based rapid tests miss rare F1-negative strains; blood-culture sensitivity (~65%) and turnaround limit rapid confirmation in fulminant sepsis.</li>
+<li><strong>No licensed vaccine</strong>; correlates of protection in humans are incompletely defined.</li>
+<li><strong>Adjunctive immunomodulation</strong> is supported only by animal data.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Dedicated septicemic-plague models:</strong> intravenous/intradermal CO92 challenge with serial organ bacteriology and single-cell/transcriptomic profiling to confirm the biphasic evasion→storm cascade specifically for the septicemic route.</li>
+<li><strong>Adjunctive anti-inflammatory trials:</strong> evaluate corticosteroids or targeted cytokine blockade (anti-IL-6/anti-TNF) plus antibiotics in animal septicemic models, building on the fluticasone result (<a href="https://pubmed.ncbi.nlm.nih.gov/34780267/">PMID: 34780267</a>).</li>
+<li><strong>Next-generation diagnostics:</strong> deploy dual-antigen (F1+LcrV) and multi-target PCR/ddPCR point-of-care assays to close the F1-negative blind spot and shorten time-to-diagnosis in bacteremic patients (<a href="https://pubmed.ncbi.nlm.nih.gov/35320275/">PMID: 35320275</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38701065/">PMID: 38701065</a>).</li>
+<li><strong>Host-genetics study:</strong> GWAS/exome analysis of survivors vs fatal cases in endemic foci (e.g., Madagascar) to test for host modifiers of outcome.</li>
+<li><strong>Vaccine advancement:</strong> move optimized rF1V/rV10 subunit candidates through phase 1/2, defining human immune correlates (<a href="https://pubmed.ncbi.nlm.nih.gov/19786842/">PMID: 19786842</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40022523/">PMID: 40022523</a>).</li>
+<li><strong>Antibiotic-selection optimization:</strong> prospective comparative-effectiveness data (streptomycin vs gentamicin vs fluoroquinolone vs tetracycline), incorporating intracellular-efficacy considerations (<a href="https://pubmed.ncbi.nlm.nih.gov/32435801/">PMID: 32435801</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/21628541/">PMID: 21628541</a>).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 14 confirmed findings across 42 reviewed papers, covering all 15 requested disease-characteristic sections. Ontology suggestions (MONDO, HPO, GO, CL, UBERON, CHEBI, NCIT, NCBI Taxonomy) are provided inline where applicable.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Septicemic_Plague-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Septicemic_Plague-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>30</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0005521</code> (1 mention) - the report calls it "DIC"; HP calls it <strong>Disseminated intravascular coagulation</strong></li>
+<li><code>UBERON:0002097</code> (1 mention) - the report calls it "skin/acral tissue"; UBERON calls it <strong>skin of body</strong></li>
+<li><code>NCIT:C2249</code> (1 mention) - the report calls it "Ciprofloxacin"; NCIT calls it <strong>Yttrium Y 90 Monoclonal Antibody MN-14</strong></li>
+<li><code>NCIT:C516</code> (1 mention) - the report calls it "Doxycycline"; NCIT calls it <strong>Ganglioside GM2</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0005576</code> (1 mention) - the report calls it "cell surface/extracellular region"; GO calls it <strong>extracellular region</strong></li>
+<li><code>GO:0009279</code> (1 mention) - the report calls it "outer membrane"; GO calls it <strong>cell outer membrane</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Sepsis-falcon.html">← Sepsis (Falcon)</a>
+                
+                
+                <a href="SETBP1_Disorder-falcon.html">SETBP1 Haploinsufficiency Disorder (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Septicemic_Plague.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Septicemic_Plague-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

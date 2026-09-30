@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5040,6 +5079,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pharmacological-cox-1-inhibition" data-dismech-node="Pharmacological COX-1 Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Pharmacological COX-1 Inhibition</div>
 
+
                 <div class="item-desc">Aspirin and other strong COX-1 inhibitors suppress cyclooxygenase activity. This acute pharmacologic exposure triggers reactions in a susceptible airway; it does not explain the acquired chronic asthma and sinonasal disease.</div>
 
 
@@ -5117,6 +5157,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-respiratory-pge2-availability" data-dismech-node="Reduced Respiratory PGE2 Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Respiratory PGE2 Availability</div>
+
 
                 <div class="item-desc">Reduced production and/or increased catabolism lowers protective PGE2 availability in respiratory tissues. Chronic COX-2/mPGES-1 abnormalities and acute COX-1 inhibition are distinct contributors; neither complete PGE2 absence nor a single initiating lesion is established.</div>
 
@@ -5215,6 +5256,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-inflammatory-cell-ep2-abundance" data-dismech-node="Reduced Inflammatory-Cell EP2 Abundance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Inflammatory-Cell EP2 Abundance</div>
+
 
                 <div class="item-desc">A study of 12 aspirin-sensitive and 10 non-sensitive rhinosinusitis polyps found a lower fraction of inflammatory cells expressing EP2. Global mucosal EP2 staining was increased, largely in epithelial/goblet cells. Abundance is distinguished from a direct functional-response assay.</div>
 
@@ -5388,6 +5430,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-pge2-mediated-restraint" data-dismech-node="Reduced PGE2-Mediated Restraint" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced PGE2-Mediated Restraint</div>
 
+
                 <div class="item-desc">Loss of some PGE2-mediated inhibition permits greater mediator synthesis and cellular activation. This is a context-dependent signaling defect: PGE2 still suppressed anti-IgE-induced cysteinyl leukotriene release in cultured blood-progenitor-derived mast cells from AERD donors. Inhaled PGE2 also protected against aspirin challenge in a small crossover study.</div>
 
 
@@ -5545,6 +5588,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-bronchial-ltc4-synthase-positive-cells" data-dismech-node="Increased Bronchial LTC4 Synthase-Positive Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Bronchial LTC4 Synthase-Positive Cells</div>
 
+
                 <div class="item-desc">Bronchial biopsies in a small selected cohort contained more LTC4-synthase-positive cells. This is a tissue cell-count observation, not quantified per-cell enzyme expression or the proven initiating defect. Baseline BAL leukotrienes correlated with these counts; the post-challenge increment did not.</div>
 
 
@@ -5688,6 +5732,7 @@ This pathophysiological event involves increased leukotriene biosynthetic proces
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-platelet-leukocyte-adherence" data-dismech-node="Increased Platelet-Leukocyte Adherence" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Platelet-Leukocyte Adherence</div>
 
+
                 <div class="item-desc">Increased platelet attachment to circulating myeloid leukocytes and colocalization in nasal polyps are observed in AERD. The platelet-intrinsic LTC4 synthase activity was not higher than in aspirin-tolerant controls. Enhanced adhesion-receptor expression on platelet-associated cells occurred across groups, not uniquely in AERD.</div>
 
 
@@ -5817,6 +5862,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-transcellular-cysteinyl-leukotriene-synthesis" data-dismech-node="Enhanced Transcellular Cysteinyl Leukotriene Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Transcellular Cysteinyl Leukotriene Synthesis</div>
 
+
                 <div class="item-desc">Adherent platelets provide LTC4 synthase activity and augment stimulated leukotriene generation by isolated granulocytes. Trypsin removal reduced output and platelet add-back restored robust synthesis. This ex vivo contribution does not prove that adhesion is the sole source of systemic leukotriene excess or that antiplatelet therapy is effective.</div>
 
 
@@ -5911,6 +5957,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-cysteinyl-leukotriene-availability" data-dismech-node="Increased Cysteinyl Leukotriene Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Cysteinyl Leukotriene Availability</div>
+
 
                 <div class="item-desc">Airway cysteinyl leukotrienes and urinary LTE4 are increased at baseline and can rise further during COX-1-inhibitor reactions. Multiple cellular sources and altered synthesis/regulation contribute. Urinary LTE4 is a systemic readout, not a specific measure of one cell type or a stand-alone diagnostic test.</div>
 
@@ -6016,6 +6063,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cysteinyl-leukotriene-receptor-signaling" data-dismech-node="Enhanced Cysteinyl Leukotriene Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Cysteinyl Leukotriene Receptor Signaling</div>
+
 
                 <div class="item-desc">Cysteinyl leukotrienes activate CysLT1, CysLT2 and CysLT3/GPR99 pathways with differing ligand preferences. These receptors support bronchomotor, vascular and inflammatory responses. A CysLT1 antagonist does not block every leukotriene receptor or suppress synthesis.</div>
 
@@ -6132,6 +6180,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-airway-il-33-availability" data-dismech-node="Increased Airway IL-33 Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Airway IL-33 Availability</div>
+
 
                 <div class="item-desc">Full-length and smaller IL-33 protein forms are increased in AERD nasal polyps. Epithelial staining is prominent, but sorted fibroblast and endothelial preparations also contain transcript. Protein abundance and cleavage-band size do not directly measure release or biologic activity.</div>
 
@@ -6252,6 +6301,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-il-33-st2-signaling" data-dismech-node="Enhanced IL-33-ST2 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced IL-33-ST2 Signaling</div>
+
 
                 <div class="item-desc">IL-33/ST2 signaling is implicated by human polyp activation signatures and by blockade of aspirin- and LTE4-associated responses in Ptges-null mice. The experiments do not identify a necessary epithelial source or establish a mast-cell-specific ST2 requirement in patients.</div>
 
@@ -6381,6 +6431,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-tslp-signaling" data-dismech-node="Enhanced TSLP Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced TSLP Signaling</div>
 
+
                 <div class="item-desc">Increased sinonasal TSLP expression and cultured mast-cell responses implicate TSLP signaling in the inflammatory network. Human correlations do not establish that TSLP is the initiating lesion or that every patient has the same dependence.</div>
 
 
@@ -6493,6 +6544,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mast-cell-activation" data-dismech-node="Mast Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mast Cell Activation</div>
+
 
                 <div class="item-desc">Airway mast-cell activation releases lipid and granule mediators. Both innate and IgE-associated activation programs may contribute; this does not make cross-reactive COX-1-inhibitor reactions a drug-specific IgE allergy.</div>
 
@@ -6651,6 +6703,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-pgd2-production" data-dismech-node="Increased PGD2 Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased PGD2 Production</div>
 
+
                 <div class="item-desc">PGD2 output is increased in AERD and can rise during aspirin reactions despite COX-1 inhibition. It contributes bronchoconstrictor and inflammatory actions. Negative CRTH2-antagonist trials caution against equating receptor biology with established clinical benefit.</div>
 
 
@@ -6736,6 +6789,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-2-lymphoid-cell-activation" data-dismech-node="Type 2 Lymphoid Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Type 2 Lymphoid Cell Activation</div>
+
 
                 <div class="item-desc">Type 2 lymphoid cells, including ILC2s and Th2 cells, contribute cytokines to the airway network. Challenge-associated redistribution of ILC2s is observed in humans, whereas depletion-based necessity was tested in mice.</div>
 
@@ -6857,6 +6911,7 @@ This pathophysiological event involves group 2 innate lymphoid cell (CL:0001069)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-il-5-signaling" data-dismech-node="Enhanced IL-5 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced IL-5 Signaling</div>
 
+
                 <div class="item-desc">IL-5 signaling contributes to eosinophil development and survival in type 2 airway inflammation. IL5RA transcripts on additional polyp cell types do not by themselves demonstrate functional IL-5 responses in those cells.</div>
 
 
@@ -6934,6 +6989,7 @@ This pathophysiological event involves group 2 innate lymphoid cell (CL:0001069)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-il-4r-alpha-signaling" data-dismech-node="Enhanced IL-4R-Alpha Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced IL-4R-Alpha Signaling</div>
+
 
                 <div class="item-desc">IL-4 and IL-13 signal through receptors containing IL-4R-alpha. Elevated nasal cytokines and epithelial response signatures support this pathway in AERD. Its pleiotropic effects are not reduced to a single established epithelial-to-polyp sequence.</div>
 
@@ -7020,6 +7076,7 @@ This pathophysiological event involves group 2 innate lymphoid cell (CL:0001069)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eosinophilic-airway-infiltration" data-dismech-node="Eosinophilic Airway Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Eosinophilic Airway Infiltration</div>
+
 
                 <div class="item-desc">Eosinophils accumulate in airway tissue and provide mediator-producing cells. Their presence does not establish that eosinophils alone cause polyps: marked depletion in a small CRSwNP study, including AERD, did not improve polyp size or smell.</div>
 
@@ -7117,6 +7174,7 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-smooth-muscle-contraction" data-dismech-node="Airway Smooth Muscle Contraction" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Smooth Muscle Contraction</div>
+
 
                 <div class="item-desc">Contraction of bronchial smooth muscle narrows the airways during acute mediator-driven reactions. Chronic asthma has additional inflammatory and structural components.</div>
 
@@ -7245,6 +7303,7 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-airway-vascular-permeability" data-dismech-node="Increased Airway Vascular Permeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Airway Vascular Permeability</div>
 
+
                 <div class="item-desc">Cysteinyl leukotriene signaling increases vascular permeability, contributing to airway edema and upper-airway symptoms. Nasal obstruction also reflects fixed polyp burden and other inflammatory effects.</div>
 
 
@@ -7370,7 +7429,7 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(5)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(2)</span></button>
 
@@ -7379,8 +7438,6 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7863,7 +7920,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-nasal-polyposis" data-dismech-node="Nasal polyposis" data-dismech-type="phenotype">
@@ -8092,6 +8149,80 @@ This clinical feature is Nasal obstruction, annotated with Nasal congestion (HP:
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-chemosis" data-dismech-node="Chemosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Chemosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012375" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012375</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Chemosis (HP:0012375). HP:0012375 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40837856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40837856" target="_blank">PMID:40837856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The respiratory reactions to COX-1 inhibitors involve the acute onset of nasal congestion, rhinorrhea, sneezing, nasal pruritus, ocular chemosis, and/or bronchospasm within 30 min to 3 h of exposure."</div>
+
+
+                <div class="evidence-explanation">The clinical statement identifies chemosis in the specified respiratory or mixed-reaction context; it does not provide an individual-feature prevalence.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-anosmia" data-dismech-node="Anosmia" data-dismech-type="phenotype">
                     <div class="item-name">
                         Anosmia
@@ -8106,10 +8237,10 @@ This clinical feature is Nasal obstruction, annotated with Nasal congestion (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000458</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000458" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000458</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8189,10 +8320,10 @@ This clinical feature is Anosmia (HP:0000458). HP:0000458 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002099</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002099" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002099</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8265,10 +8396,10 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012042</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012042" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012042</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aspirin-induced respiratory reaction, annotated with Aspirin-induced asthma (HP:0012042). HP:0012042 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8348,10 +8479,10 @@ This clinical feature is Aspirin-induced respiratory reaction, annotated with As
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000989</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8431,10 +8562,10 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031417</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031417" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031417</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8505,10 +8636,10 @@ This clinical feature is Rhinorrhea (HP:0031417). HP:0031417 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030828</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030828" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0030828</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8579,10 +8710,10 @@ This clinical feature is Wheezing (HP:0030828). HP:0030828 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8653,10 +8784,10 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0012735</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012735</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8738,10 +8869,10 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0025095</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025095" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0025095</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sneezing, annotated with Sneeze (HP:0025095). HP:0025095 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8812,10 +8943,10 @@ This clinical feature is Sneezing, annotated with Sneeze (HP:0025095). HP:002509
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8857,89 +8988,6 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                 <div class="evidence-explanation">The clinical statement identifies abdominal pain in the specified respiratory or mixed-reaction context; it does not provide an individual-feature prevalence.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-chemosis" data-dismech-node="Chemosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Chemosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012375" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0012375</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Chemosis (HP:0012375). HP:0012375 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40837856" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40837856" target="_blank">PMID:40837856</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The respiratory reactions to COX-1 inhibitors involve the acute onset of nasal congestion, rhinorrhea, sneezing, nasal pruritus, ocular chemosis, and/or bronchospasm within 30 min to 3 h of exposure."</div>
-
-
-                <div class="evidence-explanation">The clinical statement identifies chemosis in the specified respiratory or mixed-reaction context; it does not provide an individual-feature prevalence.</div>
 
 
 

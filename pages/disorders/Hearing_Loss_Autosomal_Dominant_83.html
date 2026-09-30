@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4505,6 +4544,7 @@ A knock-in mouse carrying Ser1400Gly would settle it. None exists.</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-map1b-missense-variants-at-conserved-residues" data-dismech-node="Heterozygous MAP1B Missense Variants at Conserved Residues" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous MAP1B Missense Variants at Conserved Residues</div>
 
+
                 <div class="item-desc">Three alleles are reported: p.Ser1400Gly, p.Ile923Thr and p.Phe1838Leu, all at residues conserved across human, chimpanzee, macaque, dog, mouse and rat. Ser1400 sits in the microtubule-assembly domain at a phosphorylation site already known to be required for embryonic cortical neuron function, which is why it was the allele taken forward for functional work.
 The three alleles are not equally supported, and the entry does not pretend otherwise. The reporting group&#39;s own ACMG assessment called p.Ser1400Gly very likely deleterious and said the other two needed further exploration. Every functional result below is from p.Ser1400Gly.
 Allele class matters more here than it does for most deafness genes, because MAP1B has a second, non-auditory phenotype that separates by allele type rather than by position. Heterozygous loss-of-function alleles cause periventricular nodular heterotopia 9, a neuronal migration disorder, and a 2025 review of the MAP1B literature found that missense alleles are the ones that present with deafness alone. DFNA83 is therefore not simply the mild end of a MAP1B dosage spectrum, and treating it as haploinsufficiency would predict the wrong disease.</div>
@@ -4648,6 +4688,7 @@ This pathophysiological event involves MAP1B (hgnc:6836). hgnc:6836 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-map1b-level-and-deficient-type-i-phosphorylation" data-dismech-node="Reduced MAP1B Level and Deficient Type I Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced MAP1B Level and Deficient Type I Phosphorylation</div>
+
 
                 <div class="item-desc">In patient-derived otic sensory neuron-like cells the mutant allele reduced total MAP1B protein to 63 percent of control and type I phosphorylation, detected with SMI-31, to 69 percent. Both were restored in the CRISPR-corrected isogenic line, to 90 and 96 percent. The same phosphorylation deficit was reproduced in the brain of heterozygous Map1b knockout mice, at 69 percent of wild-type littermates, which is the observation the authors use to argue the mouse recapitulates the patient biochemistry rather than merely sharing a gene.</div>
 
@@ -4798,6 +4839,7 @@ This pathophysiological event involves decreased microtubule binding (GO:0008017
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microtubule-hyperstabilisation-in-the-growth-cone" data-dismech-node="Microtubule Hyperstabilisation in the Growth Cone" data-dismech-type="pathophysiology">
                 <div class="item-name">Microtubule Hyperstabilisation in the Growth Cone</div>
+
 
                 <div class="item-desc">The counterintuitive step. Losing a microtubule-associated protein makes the cytoskeleton more stable, not less: acetylated alpha-tubulin, a marker of stabilised microtubules, rose to 168 percent of control in mutant cells and was elevated specifically in the growth cones of developing axons, and mutant cells resisted depolymerisation by vinblastine. Phosphorylated MAP1B maintains the pool of dynamic microtubules, so losing that phosphorylation removes dynamism rather than structure. The corrected line returned to 75 percent of control.
 Growth cone steering and axon extension require microtubules that can depolymerise as well as polymerise, which is the mechanistic reason a stabilised cytoskeleton is a defect here.</div>
@@ -4978,6 +5020,7 @@ This pathophysiological event involves abnormal microtubule cytoskeleton organiz
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neurite-extension-in-spiral-ganglion-neurons" data-dismech-node="Impaired Neurite Extension in Spiral Ganglion Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neurite Extension in Spiral Ganglion Neurons</div>
+
 
                 <div class="item-desc">Neurites were 30 percent shorter in mutant patient-derived otic neurons than in control ones, and the corrected line was indistinguishable from control. Primary spiral ganglion neurons isolated from heterozygous Map1b mice showed the same thing, at roughly half the wild-type neurite length. Fewer mutant cells extended any neurite at all.</div>
 
@@ -5166,6 +5209,7 @@ This pathophysiological event involves decreased axon extension (GO:0048675). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-spiral-ganglion-neuron-excitability" data-dismech-node="Altered Spiral Ganglion Neuron Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Spiral Ganglion Neuron Excitability</div>
+
 
                 <div class="item-desc">Whole-cell patch clamp in both systems found the same pattern: reduced spike amplitude, prolonged spike width, longer latency, a raised action potential threshold, and reduced outward potassium current. In mouse spiral ganglion neurons the peak potassium current density at 60 millivolts was 48 percent of wild type. In patient-derived neurons every one of these parameters was restored by CRISPR correction of the allele.
 This is the node that most directly explains the audiogram, because a spiral ganglion neuron that fires late, small and blunt will degrade the auditory brainstem response while leaving cochlear amplification untouched.</div>
@@ -5409,6 +5453,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-auditory-nerve-signal-transmission" data-dismech-node="Failure of Auditory Nerve Signal Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Auditory Nerve Signal Transmission</div>
+
 
                 <div class="item-desc">The organ-level consequence: sound is transduced normally by the cochlea but the representation that reaches the brainstem is degraded. In the mouse this appears as raised auditory brainstem response thresholds at every frequency and age tested, with distortion product otoacoustic emissions unaffected throughout and no hair cell loss on cochlear histology. In patients it appears as sensorineural hearing loss with normal otoacoustic emissions.</div>
 
@@ -5987,6 +6032,9 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6062,7 +6110,9 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6070,6 +6120,11 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The founding allele, in the microtubule-assembly domain at a conserved phosphorylation site required for embryonic cortical neuron function. Present in all seven affected and none of thirteen unaffected members of the index pedigree, and absent from 863 unrelated hearing-impaired probands and 206 hearing-normal controls. This is the only DFNA83 allele with functional data: it reduces MAP1B protein to 63 percent of control and type I phosphorylation to 69 percent, and correcting it by CRISPR restores both. Recorded as LIKELY_PATHOGENIC because that is the reporting group&#39;s own assessment, which called it very likely deleterious rather than definitively so.</div>
@@ -6097,7 +6152,9 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6105,6 +6162,11 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Found in the SD061 pedigree, present in affected and absent from asymptomatic members and from 206 hearing-normal controls. At a conserved residue but not a phosphosite, and untested in any experimental system. The reporting group said it needed further exploration, which is why it is recorded as uncertain here rather than inheriting the founding allele&#39;s classification.</div>
@@ -6132,7 +6194,9 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -6140,6 +6204,11 @@ This disease-associated gene is MAP1B (hgnc:6836). hgnc:6836 is a gene from the 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Found in the SD234 pedigree, with the same segregation and control data and the same absence of functional testing as p.Ile923Thr.</div>

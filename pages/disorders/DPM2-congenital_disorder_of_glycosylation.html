@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4701,6 +4740,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dpm-synthase-complex-destabilization" data-dismech-node="DPM Synthase Complex Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">DPM Synthase Complex Destabilization</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">DPM synthase is a heterotrimer of DPM1 (the catalytic subunit), DPM2 (a regulatory subunit that stabilizes DPM1 and enhances dolichol-phosphate binding) and DPM3 (which tethers DPM1 to the ER membrane). Biallelic DPM2 variants — missense alleles in either transmembrane region, a nonsense allele, or a canonical splice-acceptor allele — reduce or functionally impair DPM2, destabilizing the complex. In patient fibroblasts carrying a nonsense/missense genotype, DPM2 fell to roughly 60% of control and DPM1 protein became undetectable, showing that loss of the regulatory subunit also collapses the catalytic subunit.</div>
 
 
@@ -4982,6 +5028,13 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dolichol-phosphate-mannose-depletion" data-dismech-node="Dolichol-Phosphate-Mannose Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Dolichol-Phosphate-Mannose Depletion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The destabilized complex synthesizes less dolichol-phosphate-mannose from GDP-mannose and dolichol phosphate. Dol-P-Man is flipped to the luminal face of the endoplasmic reticulum, where it serves as the sole mannosyl donor for four glycosylation pathways: lipid-linked oligosaccharide (N-glycan precursor) mannosylation, protein O-mannosylation, protein C-mannosylation, and GPI-anchor mannosylation. Depletion of this single shared donor is therefore the branch point that produces the disorder&#39;s combined CDG-plus-dystroglycanopathy phenotype.</div>
 
 
@@ -5138,6 +5191,13 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-lipid-linked-oligosaccharide-assembly-arrest" data-dismech-node="ER Lipid-Linked Oligosaccharide Assembly Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Lipid-Linked Oligosaccharide Assembly Arrest</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Without sufficient Dol-P-Man, the luminal mannosylation steps of lipid-linked oligosaccharide assembly stall. Patient fibroblasts accumulate the truncated intermediate Dol-PP-GlcNAc2-Man5 — precisely the species expected when the biosynthetic block lies at the first Dol-P-Man-dependent mannosyltransferase step — and truncated precursors are transferred to nascent protein, producing the type I CDG biochemical pattern on serum transferrin isoelectric focusing.</div>
 
@@ -5344,6 +5404,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-dystroglycan-hypo-o-mannosylation" data-dismech-node="Alpha-Dystroglycan Hypo-O-Mannosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Dystroglycan Hypo-O-Mannosylation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The POMT1/POMT2 O-mannosyltransferases use Dol-P-Man to initiate the O-mannosyl glycan on alpha-dystroglycan. Dol-P-Man depletion therefore truncates this glycan, so alpha-dystroglycan cannot be extended into its laminin-binding matriglycan. Muscle immunohistochemistry in DPM2-CDG patients showed deficient O-mannosylation, making DPM2-CDG a secondary dystroglycanopathy — the same arm demonstrated directly in the sister disorder DPM3-CDG.</div>
 
 
@@ -5539,6 +5606,13 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gpi-anchor-biosynthesis-impairment" data-dismech-node="GPI-Anchor Biosynthesis Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">GPI-Anchor Biosynthesis Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">GPI-anchor assembly requires Dol-P-Man-dependent mannosylation steps, so Dol-P-Man depletion is expected to impair GPI-anchor biosynthesis in DPM2-CDG. This arm is inferred from DPM synthase biochemistry rather than demonstrated with patient GPI-anchored-protein data; the supporting patient observations are indirect (a lipidomic shift in patient fibroblasts, and congenital heart defects of a type seen across GPI-anchor disorders). It is recorded as provisional for that reason.</div>
 
@@ -5736,6 +5810,13 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-hypoglycosylation" data-dismech-node="Protein Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Hypoglycosylation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Transfer of truncated precursors leaves many secreted and membrane client glycoproteins under-glycosylated. In DPM2-CDG this is detected clinically as a CDG type I transferrin isoelectric focusing pattern, and experimentally as reduced ICAM1, a general hypoglycosylation reporter, in cells expressing a pathogenic DPM2 allele.</div>
 
 
@@ -5912,6 +5993,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcolemmal-laminin-anchorage-failure" data-dismech-node="Sarcolemmal Laminin Anchorage Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcolemmal Laminin Anchorage Failure</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Hypoglycosylated alpha-dystroglycan loses its laminin-binding capacity, so the dystrophin-glycoprotein complex can no longer transmit force between the myofibre cytoskeleton and the basal lamina. The sarcolemma becomes mechanically fragile, myofibres degenerate with each contraction cycle, and creatine kinase leaks into serum — the congenital muscular dystrophy component of the disorder.</div>
 
 
@@ -6044,6 +6132,13 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-glycoprotein-dysfunction" data-dismech-node="Multisystem Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Glycoprotein Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Combined N-glycan, O-mannosyl and (inferred) GPI-anchor defects converge on a multisystem disease. In the severe form this is a neonatal neuromuscular-plus-epileptic encephalopathy with hypotonia, absent psychomotor development, intractable seizures, progressive microcephaly, liver involvement and coagulation abnormality, fatal between 7 months and 3 years. In the milder form the same lesion yields intellectual disability, myopathy with hyperCKemia, congenital heart defects and peripheral nerve involvement compatible with survival into adulthood.</div>
 
@@ -6247,7 +6342,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Achilles Tendon Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive equinus/tiptoe gait requiring Achilles tendon lengthening surgery in the younger Chinese sibling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001771\"}}, {\"id\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The POMT1/POMT2 O-mannosyltransferases use Dol-P-Man to initiate the O-mannosyl glycan on alpha-dystroglycan. Dol-P-Man depletion therefore truncates this glycan, so alpha-dystroglycan cannot be extended into its laminin-binding matriglycan. Muscle immunohistochemistry in DPM2-CDG patients showed deficient O-mannosylation, making DPM2-CDG a secondary dystroglycanopathy \\u2014 the same arm demonstrated directly in the sister disorder DPM3-CDG.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"protein O-linked glycosylation via mannose\"]}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures in the severe form are intractable. In the pooled CDG early-onset epileptic encephalopathy series that included DPM2-CDG patients, seizures became recurrent and drug-resistant despite antiepileptic treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DPM Synthase Complex Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DPM synthase is a heterotrimer of DPM1 (the catalytic subunit), DPM2 (a regulatory subunit that stabilizes DPM1 and enhances dolichol-phosphate binding) and DPM3 (which tethers DPM1 to the ER membrane). Biallelic DPM2 variants \\u2014 missense alleles in either transmembrane region, a nonsense allele, or a canonical splice-acceptor allele \\u2014 reduce or functionally impair DPM2, destabilizing the complex. In patient fibroblasts carrying a nonsense/missense genotype, DPM2 fell to roughly 60% of control and DPM1 protein became undetectable, showing that loss of the regulatory subunit also collapses the catalytic subunit.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"molecular_functions\": [\"dolichyl-phosphate beta-D-mannosyltransferase activity\"], \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"role\": \"trigger\", \"locations\": [\"endoplasmic reticulum membrane\"]}}, {\"id\": \"DPM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"frequency\": \"All reported patients (biallelic in every case)\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"Dolichol-Phosphate-Mannose Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destabilized complex synthesizes less dolichol-phosphate-mannose from GDP-mannose and dolichol phosphate. Dol-P-Man is flipped to the luminal face of the endoplasmic reticulum, where it serves as the sole mannosyl donor for four glycosylation pathways: lipid-linked oligosaccharide (N-glycan precursor) mannosylation, protein O-mannosylation, protein C-mannosylation, and GPI-anchor mannosylation. Depletion of this single shared donor is therefore the branch point that produces the disorder\u0027s combined CDG-plus-dystroglycanopathy phenotype.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"endoplasmic reticulum membrane\"]}}, {\"id\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without sufficient Dol-P-Man, the luminal mannosylation steps of lipid-linked oligosaccharide assembly stall. Patient fibroblasts accumulate the truncated intermediate Dol-PP-GlcNAc2-Man5 \\u2014 precisely the species expected when the biosynthetic block lies at the first Dol-P-Man-dependent mannosyltransferase step \\u2014 and truncated precursors are transferred to nascent protein, producing the type I CDG biochemical pattern on serum transferrin isoelectric focusing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\", \"protein N-linked glycosylation\"]}}, {\"id\": \"GPI-Anchor Biosynthesis Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPI-anchor assembly requires Dol-P-Man-dependent mannosylation steps, so Dol-P-Man depletion is expected to impair GPI-anchor biosynthesis in DPM2-CDG. This arm is inferred from DPM synthase biochemistry rather than demonstrated with patient GPI-anchored-protein data; the supporting patient observations are indirect (a lipidomic shift in patient fibroblasts, and congenital heart defects of a type seen across GPI-anchor disorders). It is recorded as provisional for that reason.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"GPI anchor biosynthetic process\"]}}, {\"id\": \"Intractable Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drug-resistant seizures are the defining neurological feature of the severe form and give the disorder its Orphanet name. Onset is early; semiology in the CDG early-onset epileptic encephalopathy series included myoclonic, clonic and focal seizures at onset, evolving to tonic-clonic seizures, infantile spasms and myoclonic seizures.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined N-glycan, O-mannosyl and (inferred) GPI-anchor defects converge on a multisystem disease. In the severe form this is a neonatal neuromuscular-plus-epileptic encephalopathy with hypotonia, absent psychomotor development, intractable seizures, progressive microcephaly, liver involvement and coagulation abnormality, fatal between 7 months and 3 years. In the milder form the same lesion yields intellectual disability, myopathy with hyperCKemia, congenital heart defects and peripheral nerve involvement compatible with survival into adulthood.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Skeletal muscle fiber\", \"Hepatocyte\"]}}, {\"id\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele carried in trans with p.Gly58Asp in the adult (fourth-reported) patient. Neither allele had been reported previously; patient fibroblasts showed DPM2 expression at about 60% of control with no quantifiable DPM1 protein, so the pair behaves as a hypomorphic rather than a complete-null genotype - consistent with that patient\u0027s milder-than-infantile course.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"NONSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in trans with the p.Arg47Ter nonsense allele in the adult (fourth-reported) patient, predicted deleterious by multiple in-silico algorithms.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the second domain region, found in two Chinese siblings with the mild phenotype. Functional testing showed increased DPM2 protein but reduced ICAM1 glycosylation, indicating impaired function rather than reduced abundance.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.4-1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-acceptor variant found in compound heterozygosity with p.Tyr23Cys in the first reported family.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"SPLICE_SITE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele in the first transmembrane region, found homozygously in one Italian family and in compound heterozygosity with the c.4-1G\u003eC splice allele in another. Associated with the severe, infantile-lethal phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Orthopedic Surgical Correction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Achilles tendon lengthening was performed for equinus contracture in one patient, after which walking posture improved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transfer of truncated precursors leaves many secreted and membrane client glycoproteins under-glycosylated. In DPM2-CDG this is detected clinically as a CDG type I transferrin isoelectric focusing pattern, and experimentally as reduced ICAM1, a general hypoglycosylation reporter, in cells expressing a pathogenic DPM2 allele.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Fibroblast\"], \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Sarcolemmal Laminin Anchorage Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypoglycosylated alpha-dystroglycan loses its laminin-binding capacity, so the dystrophin-glycoprotein complex can no longer transmit force between the myofibre cytoskeleton and the basal lamina. The sarcolemma becomes mechanically fragile, myofibres degenerate with each contraction cycle, and creatine kinase leaks into serum \\u2014 the congenital muscular dystrophy component of the disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"]}}], \"edges\": [{\"source\": \"DPM Synthase Complex Destabilization\", \"target\": \"Dolichol-Phosphate-Mannose Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"GPI-Anchor Biosynthesis Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"target\": \"Protein Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"target\": \"Sarcolemmal Laminin Anchorage Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GPI-Anchor Biosynthesis Impairment\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Laminin Anchorage Failure\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Intractable Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgical Correction\", \"target\": \"Achilles Tendon Contracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DPM2\", \"target\": \"DPM Synthase Complex Destabilization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.4-1G\u003eC\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Achilles Tendon Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive equinus/tiptoe gait requiring Achilles tendon lengthening surgery in the younger Chinese sibling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001771\"}}, {\"id\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The POMT1/POMT2 O-mannosyltransferases use Dol-P-Man to initiate the O-mannosyl glycan on alpha-dystroglycan. Dol-P-Man depletion therefore truncates this glycan, so alpha-dystroglycan cannot be extended into its laminin-binding matriglycan. Muscle immunohistochemistry in DPM2-CDG patients showed deficient O-mannosylation, making DPM2-CDG a secondary dystroglycanopathy \\u2014 the same arm demonstrated directly in the sister disorder DPM3-CDG.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"protein O-linked glycosylation via mannose\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures in the severe form are intractable. In the pooled CDG early-onset epileptic encephalopathy series that included DPM2-CDG patients, seizures became recurrent and drug-resistant despite antiepileptic treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DPM Synthase Complex Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DPM synthase is a heterotrimer of DPM1 (the catalytic subunit), DPM2 (a regulatory subunit that stabilizes DPM1 and enhances dolichol-phosphate binding) and DPM3 (which tethers DPM1 to the ER membrane). Biallelic DPM2 variants \\u2014 missense alleles in either transmembrane region, a nonsense allele, or a canonical splice-acceptor allele \\u2014 reduce or functionally impair DPM2, destabilizing the complex. In patient fibroblasts carrying a nonsense/missense genotype, DPM2 fell to roughly 60% of control and DPM1 protein became undetectable, showing that loss of the regulatory subunit also collapses the catalytic subunit.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"molecular_functions\": [\"dolichyl-phosphate beta-D-mannosyltransferase activity\"], \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"role\": \"trigger\", \"locations\": [\"endoplasmic reticulum membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"DPM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"frequency\": \"All reported patients (biallelic in every case)\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"Dolichol-Phosphate-Mannose Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destabilized complex synthesizes less dolichol-phosphate-mannose from GDP-mannose and dolichol phosphate. Dol-P-Man is flipped to the luminal face of the endoplasmic reticulum, where it serves as the sole mannosyl donor for four glycosylation pathways: lipid-linked oligosaccharide (N-glycan precursor) mannosylation, protein O-mannosylation, protein C-mannosylation, and GPI-anchor mannosylation. Depletion of this single shared donor is therefore the branch point that produces the disorder\u0027s combined CDG-plus-dystroglycanopathy phenotype.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"endoplasmic reticulum membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without sufficient Dol-P-Man, the luminal mannosylation steps of lipid-linked oligosaccharide assembly stall. Patient fibroblasts accumulate the truncated intermediate Dol-PP-GlcNAc2-Man5 \\u2014 precisely the species expected when the biosynthetic block lies at the first Dol-P-Man-dependent mannosyltransferase step \\u2014 and truncated precursors are transferred to nascent protein, producing the type I CDG biochemical pattern on serum transferrin isoelectric focusing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\", \"protein N-linked glycosylation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"GPI-Anchor Biosynthesis Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPI-anchor assembly requires Dol-P-Man-dependent mannosylation steps, so Dol-P-Man depletion is expected to impair GPI-anchor biosynthesis in DPM2-CDG. This arm is inferred from DPM synthase biochemistry rather than demonstrated with patient GPI-anchored-protein data; the supporting patient observations are indirect (a lipidomic shift in patient fibroblasts, and congenital heart defects of a type seen across GPI-anchor disorders). It is recorded as provisional for that reason.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"GPI anchor biosynthetic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intractable Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drug-resistant seizures are the defining neurological feature of the severe form and give the disorder its Orphanet name. Onset is early; semiology in the CDG early-onset epileptic encephalopathy series included myoclonic, clonic and focal seizures at onset, evolving to tonic-clonic seizures, infantile spasms and myoclonic seizures.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined N-glycan, O-mannosyl and (inferred) GPI-anchor defects converge on a multisystem disease. In the severe form this is a neonatal neuromuscular-plus-epileptic encephalopathy with hypotonia, absent psychomotor development, intractable seizures, progressive microcephaly, liver involvement and coagulation abnormality, fatal between 7 months and 3 years. In the milder form the same lesion yields intellectual disability, myopathy with hyperCKemia, congenital heart defects and peripheral nerve involvement compatible with survival into adulthood.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Skeletal muscle fiber\", \"Hepatocyte\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele carried in trans with p.Gly58Asp in the adult (fourth-reported) patient. Neither allele had been reported previously; patient fibroblasts showed DPM2 expression at about 60% of control with no quantifiable DPM1 protein, so the pair behaves as a hypomorphic rather than a complete-null genotype - consistent with that patient\u0027s milder-than-infantile course.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"NONSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in trans with the p.Arg47Ter nonsense allele in the adult (fourth-reported) patient, predicted deleterious by multiple in-silico algorithms.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the second domain region, found in two Chinese siblings with the mild phenotype. Functional testing showed increased DPM2 protein but reduced ICAM1 glycosylation, indicating impaired function rather than reduced abundance.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.4-1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-acceptor variant found in compound heterozygosity with p.Tyr23Cys in the first reported family.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"SPLICE_SITE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele in the first transmembrane region, found homozygously in one Italian family and in compound heterozygosity with the c.4-1G\u003eC splice allele in another. Associated with the severe, infantile-lethal phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Orthopedic Surgical Correction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Achilles tendon lengthening was performed for equinus contracture in one patient, after which walking posture improved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transfer of truncated precursors leaves many secreted and membrane client glycoproteins under-glycosylated. In DPM2-CDG this is detected clinically as a CDG type I transferrin isoelectric focusing pattern, and experimentally as reduced ICAM1, a general hypoglycosylation reporter, in cells expressing a pathogenic DPM2 allele.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Fibroblast\"], \"biological_processes\": [\"protein N-linked glycosylation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Sarcolemmal Laminin Anchorage Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypoglycosylated alpha-dystroglycan loses its laminin-binding capacity, so the dystrophin-glycoprotein complex can no longer transmit force between the myofibre cytoskeleton and the basal lamina. The sarcolemma becomes mechanically fragile, myofibres degenerate with each contraction cycle, and creatine kinase leaks into serum \\u2014 the congenital muscular dystrophy component of the disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"DPM Synthase Complex Destabilization\", \"target\": \"Dolichol-Phosphate-Mannose Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"GPI-Anchor Biosynthesis Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"target\": \"Protein Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"target\": \"Sarcolemmal Laminin Anchorage Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GPI-Anchor Biosynthesis Impairment\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Laminin Anchorage Failure\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Intractable Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgical Correction\", \"target\": \"Achilles Tendon Contracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DPM2\", \"target\": \"DPM Synthase Complex Destabilization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.4-1G\u003eC\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -9070,6 +9165,9 @@ This disease-associated gene is DPM2 (hgnc:3006). hgnc:3006 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9145,6 +9243,7 @@ This disease-associated gene is DPM2 (hgnc:3006). hgnc:3006 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9164,11 +9263,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent missense allele in the first transmembrane region, found homozygously in one Italian family and in compound heterozygosity with the c.4-1G&gt;C splice allele in another. Associated with the severe, infantile-lethal phenotype.</div>
@@ -9231,6 +9336,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9250,11 +9356,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SPLICE SITE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-acceptor variant found in compound heterozygosity with p.Tyr23Cys in the first reported family.</div>
@@ -9317,6 +9429,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9336,11 +9449,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense allele in the second domain region, found in two Chinese siblings with the mild phenotype. Functional testing showed increased DPM2 protein but reduced ICAM1 glycosylation, indicating impaired function rather than reduced abundance.</div>
@@ -9403,6 +9522,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9422,11 +9542,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense allele carried in trans with p.Gly58Asp in the adult (fourth-reported) patient. Neither allele had been reported previously; patient fibroblasts showed DPM2 expression at about 60% of control with no quantifiable DPM1 protein, so the pair behaves as a hypomorphic rather than a complete-null genotype - consistent with that patient&#39;s milder-than-infantile course.</div>
@@ -9489,6 +9615,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9508,11 +9635,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense allele in trans with the p.Arg47Ter nonsense allele in the adult (fourth-reported) patient, predicted deleterious by multiple in-silico algorithms.</div>

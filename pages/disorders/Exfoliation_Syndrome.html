@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4818,6 +4857,7 @@ The distinction that organises this entry is the same one used for pigment dispe
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loxl1-susceptibility-genotype" data-dismech-node="LOXL1 Susceptibility Genotype" data-dismech-type="pathophysiology">
                 <div class="item-name">LOXL1 Susceptibility Genotype</div>
 
+
                 <div class="item-desc">The genetic root of the entry, and deliberately a susceptibility rather than a lesion. Two common coding variants in exon 1 of LOXL1 (rs1048661 p.Arg141Leu, rs3825942 p.Gly153Asp) and the intronic rs2165241 were found by the original Icelandic and Swedish genome-wide search to explain essentially all of the association at 15q24.1, with the highest-risk haplotype homozygous in a quarter of the population. The coding variants are not the functional ones: the risk allele at rs3825942 is reversed in black South Africans and at rs1048661 in Japanese and Koreans, which no simple protein-altering model survives, and the functional signal has since been located in noncoding regulatory sequence spanning introns 1 and 2, where rs11638944 alters RXR-alpha binding and LOXL1 splicing and where risk alleles modulate the promoter of the antisense lncRNA LOXL1-AS1. A rare coding allele, p.Phe407, is strongly protective. What the genotype changes is therefore how much LOXL1 a cell makes and how it responds to stress, not whether the enzyme works.</div>
 
 
@@ -5030,6 +5070,7 @@ This pathophysiological event involves LOXL1 lysyl oxidase activity, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta1-excess-and-oxidative-stress-in-the-anterior-segment" data-dismech-node="TGF-beta1 Excess and Oxidative Stress in the Anterior Segment" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta1 Excess and Oxidative Stress in the Anterior Segment</div>
+
 
                 <div class="item-desc">The milieu in which the matrix disorder unfolds, and the node where age and environment enter. The aqueous humour of affected eyes carries significantly more total and active TGF-beta1 than control eyes, while TGF-beta2 is unchanged; TGF-beta1, LTBP-1 and LTBP-2 are overexpressed in anterior-segment tissue, most strongly in the nonpigmented ciliary epithelium; antioxidant defence in the aqueous is reduced; and interleukin-6 and -8 run about threefold above controls. Ultraviolet light, hypoxia and homocysteine have each been proposed as drivers of this state, and the epidemiology of lifetime sunlight exposure supports at least the first. Latitude and reflected light are recorded as an environmental entry that acts on this node.</div>
 
@@ -5293,6 +5334,7 @@ This pathophysiological event occurs in anterior segment of the eye, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-loxl1-expression-and-elastic-microfibril-cross-linking" data-dismech-node="Dysregulated LOXL1 Expression and Elastic Microfibril Cross-Linking" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated LOXL1 Expression and Elastic Microfibril Cross-Linking</div>
+
 
                 <div class="item-desc">LOXL1 is the cross-linking enzyme specifically required for elastic fibre formation and stabilisation, and in this disease it is regulated in the wrong direction at the wrong time. Ocular LOXL1 expression is significantly increased in early disease and decreased in advanced disease regardless of genotype, LOXL1 protein is a major component of the fibrillar aggregates in both intraocular and extraocular sites, and it co-localises with elastic fibre components on the fibrils. The working model is that excess LOXL1 during the initial fibrogenic phase participates in cross-linking elastic microfibrillar components (fibrillin-1, fibulins, tropoelastin) into abnormal aggregates, and that inadequate LOXL1 later promotes elastotic degeneration of existing elastic tissue. The N-terminal domain of LOXL1 is intrinsically disordered and misfolding-prone, with the risk residue 153 at the point of maximal disorder, which is the basis of the proteopathy reading of the disease.</div>
 
@@ -5577,6 +5619,7 @@ This pathophysiological event involves dysregulated LOXL1 lysyl oxidase activity
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-chaperone-deficiency-and-impaired-proteostasis" data-dismech-node="Extracellular Chaperone Deficiency and Impaired Proteostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular Chaperone Deficiency and Impaired Proteostasis</div>
 
+
                 <div class="item-desc">The failure of the cell&#39;s protective machinery, the third leg of the consensus model. Clusterin, a highly efficient extracellular chaperone, is transcriptionally downregulated in every anterior-segment tissue of affected eyes and reduced in their aqueous humour, yet binds prominently to every deposit, which is what a chaperone overwhelmed by its substrate looks like. Inside the cell, patient-derived Tenon fibroblasts show defective lysosomal positioning, microtubule organisation, autophagic flux and mitochondrial health, and a substantial fraction of their LOXL1 is routed to autophagic degradation, which is why the disease has been proposed as an aggregopathy in the same family as the neurodegenerative proteinopathies.</div>
 
 
@@ -5804,6 +5847,7 @@ This pathophysiological event involves decreased autophagic clearance, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exfoliation-material-fibrillogenesis-and-deposition" data-dismech-node="Exfoliation Material Fibrillogenesis and Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Exfoliation Material Fibrillogenesis and Deposition</div>
+
 
                 <div class="item-desc">The lesion that gives the disease its name. Abnormal fibrillar extracellular material, made of microfibrils coated with amorphous material and containing fibrillin-1, LTBP-1 and -2, latent TGF-beta1, LOXL1, clusterin, fibulins and basement-membrane components, is produced by the pre-equatorial lens epithelium, the nonpigmented ciliary epithelium, the iris pigment epithelium, the corneal and trabecular endothelium and most iris stromal cell types, and accumulates on the anterior lens capsule in the classic pattern of a central disc, a clear intermediate zone and a granular peripheral ring, on the pupillary border, on the zonules and in the trabecular meshwork. It is insoluble and it is not cleared. Everything downstream is what this material does mechanically to the structures it lands on.</div>
 
@@ -6147,6 +6191,7 @@ This pathophysiological event occurs in anterior segment of the eye, annotated w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zonular-degradation-and-lens-instability" data-dismech-node="Zonular Degradation and Lens Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Zonular Degradation and Lens Instability</div>
 
+
                 <div class="item-desc">The first of the three mechanical consequences. Exfoliation material separates the zonular bundles from the disrupted basement membrane of the nonpigmented epithelium at their origin, infiltrates them alongside the ciliary processes to the point of rupture, and lifts and ruptures the zonular lamella at the lens capsule; lysosomal enzymes within the aggregates indicate that proteolysis assists the disintegration. The lens then moves: phacodonesis, subluxation and frank dislocation follow, and the same weakness is why zonular dehiscence, capsular rupture and vitreous loss complicate cataract surgery many times more often than in other eyes. Zonular laxity also lets the lens-iris diaphragm move forward, which is the accepted basis for the angle-closure predisposition of this disease.</div>
 
 
@@ -6309,6 +6354,7 @@ This pathophysiological event occurs in zonular fibres, annotated with suspensor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iris-pigment-epithelial-degeneration-and-pigment-dispersion" data-dismech-node="Iris Pigment Epithelial Degeneration and Pigment Dispersion" data-dismech-type="pathophysiology">
                 <div class="item-name">Iris Pigment Epithelial Degeneration and Pigment Dispersion</div>
+
 
                 <div class="item-desc">The second mechanical consequence, and the point of contact with pigment dispersion syndrome. Deposition at the pupillary margin degrades the iris pigment epithelium of the sphincter region, producing peripupillary transillumination defects and releasing pigment that settles on the anterior chamber structures and, on gonioscopy, as patchy trabecular hyperpigmentation with a wavy pigment line anterior to Schwalbe&#39;s line (Sampaolesi line). Iris stromal and sphincter involvement is why the pupil dilates poorly, a small point with large surgical consequences. Unlike pigment dispersion syndrome the liberation is degenerative rather than mechanical, and the transillumination is peripupillary rather than mid-peripheral.</div>
 
@@ -6489,6 +6535,7 @@ This pathophysiological event occurs in iris (UBERON:0001769). UBERON:0001769 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trabecular-meshwork-obstruction-by-exfoliation-material-and-pigment" data-dismech-node="Trabecular Meshwork Obstruction by Exfoliation Material and Pigment" data-dismech-type="pathophysiology">
                 <div class="item-name">Trabecular Meshwork Obstruction by Exfoliation Material and Pigment</div>
+
 
                 <div class="item-desc">The third mechanical consequence and the one that matters most. Exfoliation material and iris pigment carried by aqueous flow deposit in the trabecular meshwork and juxtacanalicular tissue, physically obstruct the outflow pathway and raise resistance; in older eyes the age-related narrowing of the outflow channels to the inner wall of Schlemm&#39;s canal makes the load harder to clear. This is the disorder-specific substitution into the glaucoma module: the trabecular dysfunction here is obstruction by deposited material rather than the intrinsic juxtacanalicular pathology of primary open-angle glaucoma, and unlike pigment dispersion syndrome the material is not phagocytosable debris but insoluble cross-linked fibrils.</div>
 
@@ -6684,6 +6731,7 @@ This pathophysiological event occurs in trabecular meshwork, annotated with eye 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-intraocular-pressure" data-dismech-node="Elevated Intraocular Pressure" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Intraocular Pressure</div>
 
+
                 <div class="item-desc">Sustained rise in intraocular pressure as outflow resistance outstrips compensation. The pressure in exfoliation eyes is characteristically higher, more labile and more prone to spikes than in primary open-angle glaucoma, so that a single office reading underestimates the exposure; in newly diagnosed high-pressure exfoliation patients the untreated 24-hour mean pressure sits above 30 mmHg. It is the node that carries the chain to the optic nerve and the only one current treatment acts on.</div>
 
 
@@ -6838,6 +6886,7 @@ This pathophysiological event occurs in trabecular meshwork, annotated with eye 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lamina-cribrosa-elastosis" data-dismech-node="Lamina Cribrosa Elastosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Lamina Cribrosa Elastosis</div>
 
+
                 <div class="item-desc">The node that is specific to this disease within the glaucoma arm. The connective tissue of the lamina cribrosa in exfoliation glaucoma shows marked, widespread elastosis, with large irregular elastin-positive aggregates interspersed with microfibrils and without typical exfoliation fibres, and the elastosis is greater than in primary open-angle glaucoma and absent from the retrolaminar nerve. It is the leading structural explanation for why these optic nerves progress faster at a given pressure, but that step, from elastotic lamina to heightened pressure vulnerability, is an inference and is curated as one.</div>
 
 
@@ -6959,6 +7008,7 @@ This pathophysiological event occurs in lamina cribrosa, annotated with scleral 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-apoptosis" data-dismech-node="Retinal Ganglion Cell Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell Apoptosis</div>
+
 
                 <div class="item-desc">Pressure-related stress at the optic nerve head drives apoptotic loss of retinal ganglion cells, the conserved effector step of every glaucoma. The entry adds nothing disease-specific at this node beyond the two upstream inputs, higher and more labile pressure and an elastotic lamina; the cellular biology is the module&#39;s.</div>
 
@@ -7107,6 +7157,7 @@ This pathophysiological event involves increased retinal ganglion cell apoptosis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exfoliation-glaucoma-optic-neuropathy" data-dismech-node="Exfoliation Glaucoma Optic Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Exfoliation Glaucoma Optic Neuropathy</div>
+
 
                 <div class="item-desc">The point at which the diagnosis changes name. Exfoliation glaucoma is the commonest identifiable cause of secondary open-angle glaucoma worldwide, accounting for roughly a quarter of open-angle glaucoma, and it is a worse disease than primary open-angle glaucoma: pressures are higher, medical control is poorer, laser and surgery are needed more often, and the visual field deteriorates faster. Conversion is substantial but far from universal, which is what makes the syndrome a risk state rather than a glaucoma: about 44% of newly diagnosed patients in a community cohort reached treatment within 15 years, and among ocular hypertensives the syndrome doubled the conversion rate to perimetric glaucoma at matched pressure.</div>
 
@@ -7285,6 +7336,7 @@ This pathophysiological event involves retinal ganglion cell (CL:0000740). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-elastosis" data-dismech-node="Systemic Elastosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Elastosis</div>
+
 
                 <div class="item-desc">Aggregates consistent with exfoliation material are present in the lung, heart, liver, gallbladder and skin of affected people, in fibrovascular septa adjacent to elastic and oxytalan fibres, staining for elastin and amyloid P like the ocular deposits. This is the histological basis for calling the syndrome systemic, and it explains why the systemic associations were looked for. Whether it produces disease outside the eye is a different question: the cardiovascular, cerebrovascular, hearing and pelvic-floor associations recorded below are epidemiological, are susceptible to the confounding of an elderly population, and are curated as associations with the gap left open.</div>
 
@@ -7501,11 +7553,11 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(11)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
 
@@ -7647,112 +7699,6 @@ This clinical feature is Cardiovascular and cerebrovascular disease (association
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Digestive
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-organ-prolapse" data-dismech-node="Pelvic organ prolapse" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pelvic organ prolapse
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0031607</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pelvic organ prolapse (association), annotated with Pelvic organ prolapse (HP:0031607). HP:0031607 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27632406" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27632406" target="_blank">PMID:27632406</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pelvic organ prolapse was associated with a 1.56-fold increased risk of exfoliation syndrome in Medicare beneficiaries (OR, 1.56; 95% CI, 1.42-1.72) in substudy A."</div>
-
-
-                <div class="evidence-explanation">The cross-sectional association.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27632406" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27632406" target="_blank">PMID:27632406</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Systemic conditions with altered ECM metabolism, such as pelvic organ prolapse, may share common biological pathways with exfoliation syndrome."</div>
-
-
-                <div class="evidence-explanation">The authors&#39; interpretation, hedged as a shared pathway rather than a cause.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
                     <span class="cat-count">1</span>
                 </summary>
@@ -7771,10 +7717,10 @@ This clinical feature is Pelvic organ prolapse (association), annotated with Pel
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing loss (association), annotated with Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7856,7 +7802,7 @@ This clinical feature is Sensorineural hearing loss (association), annotated wit
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
@@ -7879,10 +7825,10 @@ This clinical feature is Sensorineural hearing loss (association), annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0012627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exfoliation material on the anterior lens capsule and pupillary border, annotated with Pseudoexfoliation (HP:0012627). HP:0012627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7976,10 +7922,10 @@ This clinical feature is Exfoliation material on the anterior lens capsule and p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012805" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012805</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012805" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012805</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripupillary iris transillumination defect, annotated with Iris transillumination defect (HP:0012805). HP:0012805 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8073,10 +8019,10 @@ This clinical feature is Peripupillary iris transillumination defect, annotated 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0012631</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012631" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0012631</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Trabecular hyperpigmentation with Sampaolesi line, annotated with Pigment deposition in the trabecular meshwork (HP:0012631). HP:0012631 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8145,10 +8091,10 @@ This clinical feature is Trabecular hyperpigmentation with Sampaolesi line, anno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007906</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0007906</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8244,10 +8190,10 @@ This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012108</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012108</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exfoliation glaucoma, annotated with Open angle glaucoma (HP:0012108). HP:0012108 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8368,10 +8314,10 @@ This clinical feature is Exfoliation glaucoma, annotated with Open angle glaucom
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012109</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012109" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012109</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Angle closure glaucoma (HP:0012109). HP:0012109 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8442,10 +8388,10 @@ This clinical feature is Angle closure glaucoma (HP:0012109). HP:0012109 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007854" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0007854</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007854" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007854</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glaucomatous visual field defect (HP:0007854). HP:0007854 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8539,10 +8485,10 @@ This clinical feature is Glaucomatous visual field defect (HP:0007854). HP:00078
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8611,10 +8557,10 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012629</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0012629</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Phacodonesis, annotated with Phakodonesis (HP:0012629). HP:0012629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8683,10 +8629,10 @@ This clinical feature is Phacodonesis, annotated with Phakodonesis (HP:0012629).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001132</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001132" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001132</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lens subluxation or dislocation, annotated with Lens subluxation (HP:0001132). HP:0001132 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8780,10 +8726,10 @@ This clinical feature is Lens subluxation or dislocation, annotated with Lens su
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nuclear cataract, annotated with Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8848,6 +8794,112 @@ This clinical feature is Nuclear cataract, annotated with Cataract (HP:0000518).
 
 
                 <div class="evidence-explanation">The quantitative excess of nuclear cataract; OTHER because the sentence is the paper&#39;s background synthesis of a cited cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pelvic-organ-prolapse" data-dismech-node="Pelvic organ prolapse" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pelvic organ prolapse
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0031607</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pelvic organ prolapse (association), annotated with Pelvic organ prolapse (HP:0031607). HP:0031607 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27632406" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27632406" target="_blank">PMID:27632406</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pelvic organ prolapse was associated with a 1.56-fold increased risk of exfoliation syndrome in Medicare beneficiaries (OR, 1.56; 95% CI, 1.42-1.72) in substudy A."</div>
+
+
+                <div class="evidence-explanation">The cross-sectional association.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27632406" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27632406" target="_blank">PMID:27632406</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Systemic conditions with altered ECM metabolism, such as pelvic organ prolapse, may share common biological pathways with exfoliation syndrome."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; interpretation, hedged as a shared pathway rather than a cause.</div>
 
 
 
@@ -9026,6 +9078,9 @@ This disease-associated gene is LOXL1 (hgnc:6665). hgnc:6665 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -9150,6 +9205,9 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9202,6 +9260,9 @@ This disease-associated gene is CACNA1A (hgnc:1388). hgnc:1388 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -9274,6 +9335,9 @@ This disease-associated gene is CYP39A1 (hgnc:17449). hgnc:17449 is a gene from 
 
 
                 </div>
+
+
+
 
 
 

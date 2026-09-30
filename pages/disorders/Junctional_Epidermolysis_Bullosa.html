@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Junctional%20Epidermolysis%20Bullosa"
@@ -3869,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Junctional epidermolysis bullosa (JEB) is caused by mutations in genes encoding components of the dermal-epidermal junction at the lamina lucida, including laminin-332 (LAMA3, LAMB3, LAMC2), type XVII collagen (COL17A1), and integrin alpha-6-beta-4 (ITGA6, ITGB4). All forms are autosomal recessive. JEB severe (Herlitz) carries near-90% first-year mortality, while JEB intermediate is a chronic but survivable blistering disorder.
+                Junctional epidermolysis bullosa (JEB) is caused by mutations in genes encoding components of the dermal-epidermal junction at the lamina lucida, including laminin-332 (LAMA3, LAMB3, LAMC2), type XVII collagen (COL17A1), integrin alpha-6-beta-4 (ITGA6, ITGB4), and integrin alpha-3-beta-1 (ITGA3). All forms are autosomal recessive. JEB severe (Herlitz) carries near-90% first-year mortality, while JEB intermediate is a chronic but survivable blistering disorder. Two subtypes sit apart from that severity axis: LOC syndrome, in which only the LAMA3A transcript is affected and granulation tissue dominates, and ILNEB, in which nephrotic syndrome and interstitial lung disease dominate and the skin is only mildly fragile.
             </p>
 
         </header>
@@ -4001,7 +4040,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -4022,7 +4061,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4031,7 +4070,7 @@
             <a class="stat-link" href="#genetic">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧬</div>
-                <div class="stat-value">6</div>
+                <div class="stat-value">7</div>
                 <div class="stat-label">Genes</div>
             </div>
             </a>
@@ -4050,7 +4089,7 @@
             <a class="stat-link" href="#subtypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">◆</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Subtypes</div>
             </div>
             </a>
@@ -4080,7 +4119,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">16</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4398,8 +4437,16 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
                 <h2 class="card-title">Subtypes</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
+
+
+
+
+
+
+
+
 
 
 
@@ -4430,7 +4477,17 @@
                 <div class="item-box subtype-box anchor-target" id="subtype-jeb-severe-herlitz">
 
                     <div class="item-name">
-                        JEB Severe (Herlitz)
+                        JEB, generalized severe (formerly Herlitz)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009182" target="_blank">MONDO:0009182</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030747" target="_blank">MONDO:0030747</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030749" target="_blank">MONDO:0030749</a>
 
 
 
@@ -4438,6 +4495,71 @@
                     <div class="subtype-meta">
 
 
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMB3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:6490</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMA3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6483</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMC2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6493</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030747" target="_blank">MONDO MONDO:0030747</a>
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030749" target="_blank">MONDO MONDO:0030749</a>
 
 
 
@@ -4450,6 +4572,70 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19945616" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19945616" target="_blank">PMID:19945616</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332"</div>
+
+
+                <div class="evidence-explanation">Binds all three laminin-332 chain genes to this row and sources the homozygous-null mechanism it describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301304" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Broad classification of JEB includes JEB generalized severe and JEB generalized intermediate."</div>
+
+
+                <div class="evidence-explanation">Sources the current severe/intermediate nomenclature recorded in this row&#39;s display_name, alongside the Herlitz eponym it replaced.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
                 </div>
 
@@ -4459,7 +4645,25 @@
                 <div class="item-box subtype-box anchor-target" id="subtype-jeb-intermediate-non-herlitz-generalized-atrophic-benign-eb">
 
                     <div class="item-name">
-                        JEB Intermediate (Non-Herlitz / Generalized Atrophic Benign EB)
+                        JEB, generalized intermediate (formerly non-Herlitz, GABEB)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009180" target="_blank">MONDO:0009180</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030746" target="_blank">MONDO:0030746</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030748" target="_blank">MONDO:0030748</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030750" target="_blank">MONDO:0030750</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030768" target="_blank">MONDO:0030768</a>
 
 
 
@@ -4470,14 +4674,185 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                COL17A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:2194</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMB3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:6490</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMA3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:6483</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMC2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:6493</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                ITGB4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:6158</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030746" target="_blank">MONDO MONDO:0030746</a>
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030748" target="_blank">MONDO MONDO:0030748</a>
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030750" target="_blank">MONDO MONDO:0030750</a>
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030768" target="_blank">MONDO MONDO:0030768</a>
+
+
+
                     </div>
 
-                    <div class="item-desc">Caused by COL17A1 mutations or hypomorphic laminin-332 mutations. Chronic but survivable blistering disorder with generalized skin fragility, nail dystrophy, enamel hypoplasia, and alopecia. Blistering improves with age in some patients.
+                    <div class="item-desc">Caused by COL17A1 mutations or hypomorphic laminin-332 mutations, and less often by ITGB4 mutations without pyloric atresia. Chronic but survivable blistering disorder with generalized skin fragility, nail dystrophy, enamel hypoplasia, and alopecia. Blistering improves with age in some patients.
 </div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301304" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2"</div>
+
+
+                <div class="evidence-explanation">Sources the five genes bound to this row as the JEB diagnostic panel, biallelic in each case.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301304" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301304" target="_blank">PMID:20301304</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In JEB generalized intermediate, the phenotype may be mild with blistering localized to hands, feet, knees, and elbows with or without renal or ureteral involvement."</div>
+
+
+                <div class="evidence-explanation">Sources the milder, survivable clinical picture this row records, under the current nomenclature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4488,7 +4863,13 @@
                 <div class="item-box subtype-box anchor-target" id="subtype-jeb-with-pyloric-atresia">
 
                     <div class="item-name">
-                        JEB with Pyloric Atresia
+                        JEB with pyloric atresia (JEB-PA)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009183" target="_blank">MONDO:0009183</a>
+
+
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0859233" target="_blank">MONDO:0859233</a>
 
 
 
@@ -4499,14 +4880,122 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                ITGB4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6158</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+                            <span class="subtype-gene-tag">
+                                ITGA6
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:6142</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ITGA6 (hgnc:6142). hgnc:6142 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                            <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0859233" target="_blank">MONDO MONDO:0859233</a>
+
+
+
                     </div>
 
-                    <div class="item-desc">Caused by mutations in ITGA6 or ITGB4 encoding integrin alpha-6-beta-4. Presents with congenital pyloric atresia in addition to generalized skin blistering. Often lethal in infancy, though milder cases survive with surgical correction.
+                    <div class="item-desc">Caused by mutations in ITGA6 or ITGB4 encoding integrin alpha-6-beta-4. Presents with congenital pyloric atresia in addition to generalized skin blistering. Often lethal in infancy, though milder cases survive with surgical correction. Biallelic PLEC variants also cause epidermolysis bullosa with pyloric atresia, but PLEC encodes plectin, a component of the inner hemidesmosomal plaque rather than of the lamina lucida, and it is not curated as a junctional gene in this entry; it is bound in the Epidermolysis_Bullosa_Simplex entry.
 </div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301336" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301336" target="_blank">PMID:20301336</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of EB-PA is established in a proband with characteristic clinical findings by identification of biallelic pathogenic variants in ITGA6, ITGB4, or PLEC."</div>
+
+
+                <div class="evidence-explanation">Binds ITGA6 and ITGB4 to this row, and sources the PLEC caveat that keeps the plectin route out of the junctional category.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301336" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301336" target="_blank">PMID:20301336</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The course of EB-PA is usually severe and most often lethal in the neonatal period."</div>
+
+
+                <div class="evidence-explanation">Sources the infantile lethality this row records.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4517,13 +5006,38 @@
                 <div class="item-box subtype-box anchor-target" id="subtype-jeb-late-onset">
 
                     <div class="item-name">
-                        JEB Late Onset
+                        JEB, late onset
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0019309" target="_blank">MONDO:0019309</a>
 
 
 
                     </div>
                     <div class="subtype-meta">
 
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                COL17A1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:2194</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
 
 
 
@@ -4536,6 +5050,364 @@
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30761300" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30761300" target="_blank">PMID:30761300</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinically, p.R1303Q is associated with a mild, Kindler-syndrome-like phenotype, manifesting with late onset skin blistering, progressive skin atrophy and sclerosis, loss of dermatoglyphics, scarring, and nail anomalies."</div>
+
+
+                <div class="evidence-explanation">Binds COL17A1 to this row through a specific residual-function allele, and sources the late onset and milder phenotype it records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30761300" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30761300" target="_blank">PMID:30761300</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients with acral or late onset JEB, like our cases 61 and 66, have limited disease burden and can be treated symptomatically."</div>
+
+
+                <div class="evidence-explanation">Sources the limited disease burden that distinguishes this row from the severe and intermediate forms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-loc-syndrome">
+
+                    <div class="item-name">
+                        Laryngo-onycho-cutaneous syndrome (LAMA3A-specific)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009513" target="_blank">MONDO:0009513</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                LAMA3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:6483</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A junctional EB subtype caused by mutations confined to the LAMA3A-specific exon, so only the laminin alpha-3a transcript is affected and the alpha-3b1 and alpha-3b2 isoforms are spared. Laminin-332 immunostaining at the dermal-epidermal junction is of normal intensity, which separates this entity mechanistically from the severe laminin-332-null forms. The dominant clinical feature is exuberant vascular granulation tissue in conjunctiva and larynx, with cutaneous erosions and nail dystrophy; the granulation tissue can cause laryngeal obstruction and blindness. The original founder mutation is not a null allele: it is rescued by an alternative downstream translation start, leaving an N-terminally truncated laminin alpha-3a.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23869449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23869449" target="_blank">PMID:23869449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Laryngo-onycho-cutaneous (LOC) syndrome is a subtype of autosomal recessive junctional epidermolysis bullosa in which there is prominent skin and mucosal granulation tissue that can lead to delayed wound healing, laryngeal obstruction and blindness."</div>
+
+
+                <div class="evidence-explanation">Establishes LOC syndrome as a junctional EB subtype rather than a separate entity, which is why it is a row here, and sources the granulation-tissue phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23869449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23869449" target="_blank">PMID:23869449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"normal intensity laminin-332 immunostaining at the dermal-epidermal junction, and autosomal recessive mutations in the LAMA3A-specific exon"</div>
+
+
+                <div class="evidence-explanation">Sources both the isoform specificity and the preserved laminin-332 staining that distinguish this row from the severe laminin-332-null forms.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12915477" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12915477" target="_blank">PMID:12915477</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The condition is characterized by cutaneous erosions, nail dystrophy and exuberant vascular granulation tissue in certain epithelia, especially conjunctiva and larynx."</div>
+
+
+                <div class="evidence-explanation">Sources the cutaneous, nail, and conjunctival/laryngeal features named in this row.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-jeb-ilneb">
+
+                    <div class="item-name">
+                        JEB with interstitial lung disease and nephrotic syndrome (ILNEB)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013881" target="_blank">MONDO:0013881</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                ITGA3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:6139" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:6139</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in ITGA3 (hgnc:6139). hgnc:6139 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">A junctional EB subtype caused by biallelic ITGA3 mutations that prevent biosynthesis of functional integrin alpha-3-beta-1. Unlike the other junctional subtypes, the dominant clinical features are extracutaneous: congenital nephrotic syndrome and interstitial lung disease, with the lung involvement accounting for the lethal course. Skin fragility is mild and is the finding that points to the diagnosis. Integrin alpha-3 partners integrin beta-1, not the beta-4 subunit of the hemidesmosomal receptor mutated in JEB with pyloric atresia, and the lesion is in basement-membrane assembly across kidney, lung, and skin rather than in hemidesmosome assembly.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42285338" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42285338" target="_blank">PMID:42285338</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic ITGA3 variants cause a rare subtype of junctional epidermolysis bullosa named interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa"</div>
+
+
+                <div class="evidence-explanation">Establishes ILNEB as a junctional EB subtype caused by biallelic ITGA3 variants, which is the basis for curating it as a row here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22512483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22512483" target="_blank">PMID:22512483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified three patients with homozygous mutations in the integrin α(3) gene that were associated with disrupted basement-membrane structures and compromised barrier functions in kidney, lung, and skin."</div>
+
+
+                <div class="evidence-explanation">Sources the three-organ basement-membrane lesion this row records.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22512483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22512483" target="_blank">PMID:22512483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The renal and respiratory features predominated, and the lung involvement accounted for the lethal course of the disease. Although skin fragility was mild, it provided clues to the diagnosis."</div>
+
+
+                <div class="evidence-explanation">Sources the claim that the extracutaneous features dominate and that mild skin fragility is the diagnostic clue.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4559,11 +5431,12 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-laminin-332-deficiency" data-dismech-node="Laminin-332 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Laminin-332 Deficiency</div>
+
 
                 <div class="item-desc">Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).
 </div>
@@ -4580,11 +5453,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000312</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4622,11 +5495,11 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
         LAMB3
 
 
-    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6490</a>
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:6490</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4661,11 +5534,11 @@ This pathophysiological event involves LAMB3 (hgnc:6490). hgnc:6490 is a gene fr
         LAMA3
 
 
-    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:6483</a>
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:6483</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4700,11 +5573,11 @@ This pathophysiological event involves LAMA3 (hgnc:6483). hgnc:6483 is a gene fr
         LAMC2
 
 
-    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:6493</a>
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:6493</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4742,11 +5615,11 @@ This pathophysiological event involves LAMC2 (hgnc:6493). hgnc:6493 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0031589</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell-substrate adhesion (GO:0031589). GO:0031589 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4776,11 +5649,11 @@ This pathophysiological event involves decreased cell-substrate adhesion (GO:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0030198</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030198" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0030198</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal extracellular matrix organization (GO:0030198). GO:0030198 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4895,6 +5768,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col17a1-bp180-deficiency" data-dismech-node="COL17A1 (BP180) Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">COL17A1 (BP180) Deficiency</div>
 
+
                 <div class="item-desc">Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.
 </div>
 
@@ -4910,11 +5784,11 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000312</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4952,11 +5826,11 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
         COL17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:2194</a>
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:2194</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4994,11 +5868,11 @@ This pathophysiological event involves COL17A1 (hgnc:2194). hgnc:2194 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0031589</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031589" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0031589</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell-substrate adhesion (GO:0031589). GO:0031589 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5113,6 +5987,7 @@ This pathophysiological event involves decreased cell-substrate adhesion (GO:003
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-integrin-alpha-6-beta-4-deficiency" data-dismech-node="Integrin Alpha-6-Beta-4 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Integrin Alpha-6-Beta-4 Deficiency</div>
 
+
                 <div class="item-desc">Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.
 </div>
 
@@ -5128,11 +6003,11 @@ This pathophysiological event involves decreased cell-substrate adhesion (GO:003
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000312</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-23">CL:0000312</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5158,11 +6033,11 @@ This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000192</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000192</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves smooth muscle cell (CL:0000192). CL:0000192 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5200,11 +6075,11 @@ This pathophysiological event involves smooth muscle cell (CL:0000192). CL:00001
         ITGA6
 
 
-    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:6142</a>
+    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6142</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves ITGA6 (hgnc:6142). hgnc:6142 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5239,11 +6114,11 @@ This pathophysiological event involves ITGA6 (hgnc:6142). hgnc:6142 is a gene fr
         ITGB4
 
 
-    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:6158</a>
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6158</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5281,11 +6156,11 @@ This pathophysiological event involves ITGB4 (hgnc:6158). hgnc:6158 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0007229</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007229" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-27">GO:0007229</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased integrin-mediated signaling pathway (GO:0007229). GO:0007229 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5315,11 +6190,11 @@ This pathophysiological event involves decreased integrin-mediated signaling pat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0007160</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-28">GO:0007160</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5406,8 +6281,363 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 	            </div>
 
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-integrin-alpha-3-beta-1-deficiency" data-dismech-node="Integrin Alpha-3-Beta-1 Deficiency" data-dismech-type="pathophysiology">
+                <div class="item-name">Integrin Alpha-3-Beta-1 Deficiency</div>
+
+
+                <div class="item-desc">Mutations in ITGA3 prevent biosynthesis of functional integrin alpha-3-beta-1, a laminin-binding receptor distinct from the alpha-6-beta-4 hemidesmosomal receptor. The consequence is disrupted basement-membrane structure and compromised barrier function in kidney, lung, and skin, so the cutaneous lesion sits alongside congenital nephrotic syndrome and interstitial lung disease rather than alone.
+</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        keratinocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-29">CL:0000312</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves keratinocyte (CL:0000312). CL:0000312 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-cell">
+                        podocyte
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000653" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-30">CL:0000653</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves podocyte (CL:0000653). CL:0000653 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        ITGA3
+
+
+    <a href="https://bioregistry.io/hgnc:6139" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:6139</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves ITGA3 (hgnc:6139). hgnc:6139 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        basement membrane organization
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0071711" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-32">GO:0071711</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves abnormal basement membrane organization (GO:0071711). GO:0071711 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⚠ ABNORMAL
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    <span class="tag tag-bio">
+                        cell-matrix adhesion
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0007160" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-33">GO:0007160</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased cell-matrix adhesion (GO:0007160). GO:0007160 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        laminin binding
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0043236" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-34">GO:0043236</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Gene Ontology (GO)
+Relation: this pathophysiological event involves this molecular function
+This pathophysiological event involves laminin binding (GO:0043236), qualified as loss of function. GO:0043236 is a molecular function from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇓ LOSS OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Loss of Lamina Lucida Adhesion</span>
+
+	                            <span class="crosslink-desc">Loss of functional integrin alpha-3-beta-1 disrupts basement-membrane structure at the dermal-epidermal junction, giving the mild skin fragility that points to the diagnosis.
+</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22512483" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22512483" target="_blank">PMID:22512483</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified three patients with homozygous mutations in the integrin α(3) gene that were associated with disrupted basement-membrane structures and compromised barrier functions in kidney, lung, and skin."</div>
+
+
+                <div class="evidence-explanation">Sources the basement-membrane organization defect bound to this node and its three-organ distribution.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23114595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23114595" target="_blank">PMID:23114595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The laminin-binding integrin α3β1 is expressed at high levels in lung epithelium and in kidney podocytes."</div>
+
+
+                <div class="evidence-explanation">Sources the beta-1 partner subunit, the laminin-binding adhesion function, and the podocyte cell type bound to this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23114595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23114595" target="_blank">PMID:23114595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, these findings uncover a gain-of-glycosylation mutation in ITGA3 that prevents the biosynthesis of functional α3β1, causing a fatal multiorgan disorder."</div>
+
+
+                <div class="evidence-explanation">Sources the claim that the lesion is failure to produce a functional heterodimer rather than loss of a hemidesmosomal component.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+	            </div>
+
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-lamina-lucida-adhesion" data-dismech-node="Loss of Lamina Lucida Adhesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Lamina Lucida Adhesion</div>
+
 
                 <div class="item-desc">The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.
 </div>
@@ -5424,11 +6654,11 @@ This pathophysiological event involves decreased cell-matrix adhesion (GO:000716
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000362" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-16">CL:0000362</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000362" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-35">CL:0000362</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves epidermal cell (CL:0000362). CL:0000362 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5465,11 +6695,11 @@ This pathophysiological event involves epidermal cell (CL:0000362). CL:0000362 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007155</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007155" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-36">GO:0007155</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:0007155 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5584,6 +6814,7 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exuberant-granulation-tissue-formation" data-dismech-node="Exuberant Granulation Tissue Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Exuberant Granulation Tissue Formation</div>
 
+
                 <div class="item-desc">A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response — it reflects a specific loss of laminin-332&#39;s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.
 </div>
 
@@ -5599,11 +6830,11 @@ This pathophysiological event involves decreased cell adhesion (GO:0007155). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000057</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-37">CL:0000057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5640,11 +6871,11 @@ This pathophysiological event involves fibroblast (CL:0000057). CL:0000057 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0042060</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042060" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-38">GO:0042060</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0042060 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5768,6 +6999,7 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enamel-hypoplasia-from-ameloblast-bmz-defects" data-dismech-node="Enamel Hypoplasia from Ameloblast-BMZ Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Enamel Hypoplasia from Ameloblast-BMZ Defects</div>
 
+
                 <div class="item-desc">Laminin-332 and type XVII collagen are expressed in the ameloblast basement membrane zone. Their deficiency disrupts ameloblast function during tooth development, resulting in generalized enamel hypoplasia with pitting and susceptibility to dental caries. This is a consistent feature across JEB subtypes.
 </div>
 
@@ -5783,11 +7015,11 @@ This pathophysiological event involves abnormal wound healing (GO:0042060). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-20">CL:0000059</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000059" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-39">CL:0000059</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves ameloblast (CL:0000059). CL:0000059 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5824,11 +7056,11 @@ This pathophysiological event involves ameloblast (CL:0000059). CL:0000059 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-21">GO:0042476</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042476" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-40">GO:0042476</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal odontogenesis (GO:0042476). GO:0042476 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5924,7 +7156,7 @@ This pathophysiological event involves abnormal odontogenesis (GO:0042476). GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}], \"association\": \"Causative\"}}, {\"id\": \"COL17A1 (BP180) Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\"], \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}]}}, {\"id\": \"Exuberant Granulation Tissue Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response \\u2014 it reflects a specific loss of laminin-332\u0027s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGA6\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}], \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}], \"association\": \"Causative\"}}, {\"id\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"smooth muscle cell\"], \"biological_processes\": [\"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"], \"genes\": [\"ITGA6\", \"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}, {\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}]}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA3\"], \"gene_terms\": [{\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LAMB3\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}], \"association\": \"Causative\"}}, {\"id\": \"Laminin-332 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\", \"extracellular matrix organization\"], \"genes\": [\"LAMB3\", \"LAMA3\", \"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}, {\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}, {\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}]}}, {\"id\": \"Loss of Lamina Lucida Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell adhesion\"]}}], \"edges\": [{\"source\": \"Laminin-332 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or defective laminin-332 eliminates anchoring filament function at the lamina lucida, leading to tissue separation between the epidermis and dermis.\\n\"}, {\"source\": \"COL17A1 (BP180) Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective type XVII collagen disrupts hemidesmosome transmembrane linkage, leading to separation at the lamina lucida.\\n\"}, {\"source\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective integrin alpha-6-beta-4 impairs hemidesmosome assembly and adhesion to the basement membrane.\\n\"}, {\"source\": \"Loss of Lamina Lucida Adhesion\", \"target\": \"Exuberant Granulation Tissue Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wound healing response to persistent tissue separation leads to exuberant granulation tissue, a distinctive feature of JEB.\\n\"}, {\"source\": \"LAMB3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"COL17A1 (BP180) Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"COL17A1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}], \"association\": \"Causative\"}}, {\"id\": \"COL17A1 (BP180) Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane hemidesmosome component that links the intracellular cytoskeleton to the extracellular basement membrane. Deficiency disrupts hemidesmosome-mediated adhesion at the lamina lucida, causing JEB intermediate or JEB late onset.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\"], \"genes\": [\"COL17A1\"], \"gene_terms\": [{\"label\": \"COL17A1\", \"id\": \"hgnc:2194\"}]}}, {\"id\": \"Exuberant Granulation Tissue Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A distinctive pathological feature of JEB, particularly the severe (Herlitz) subtype. Exuberant granulation tissue develops prominently in periorificial areas (perioral, perinasal) and at wound sites. This is NOT simply a chronic wound healing response \\u2014 it reflects a specific loss of laminin-332\u0027s SIGNALING function in regulating mesenchymal responses during wound healing. The N-terminal domain of the laminin alpha3a chain is a key regulator of the granulation tissue response. Evidence from laryngo-onycho-cutaneous (LOC) syndrome demonstrates this: an N-terminal deletion of laminin alpha3a (specific to basal keratinocytes of stratified epithelia) produces the same exuberant granulation tissue without generalized blistering, indicating that the granulation tissue phenotype results from disrupted keratinocyte-mesenchymal communication rather than chronic wounds per se.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"fibroblast\"], \"biological_processes\": [\"wound healing\"]}}, {\"id\": \"ITGA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"ITGA3\"], \"gene_terms\": [{\"label\": \"ITGA3\", \"id\": \"hgnc:6139\"}], \"subtypes\": [\"JEB-ILNEB\"], \"association\": \"Causative\"}}, {\"id\": \"ITGA6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGA6\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}], \"subtypes\": [\"JEB with Pyloric Atresia\"], \"association\": \"Causative\"}}, {\"id\": \"ITGB4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}], \"association\": \"Causative\"}}, {\"id\": \"Integrin Alpha-3-Beta-1 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA3 prevent biosynthesis of functional integrin alpha-3-beta-1, a laminin-binding receptor distinct from the alpha-6-beta-4 hemidesmosomal receptor. The consequence is disrupted basement-membrane structure and compromised barrier function in kidney, lung, and skin, so the cutaneous lesion sits alongside congenital nephrotic syndrome and interstitial lung disease rather than alone.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"keratinocyte\", \"podocyte\"], \"biological_processes\": [\"basement membrane organization\", \"cell-matrix adhesion\"], \"molecular_functions\": [\"laminin binding\"], \"genes\": [\"ITGA3\"], \"gene_terms\": [{\"label\": \"ITGA3\", \"id\": \"hgnc:6139\"}]}}, {\"id\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer, a critical hemidesmosome receptor that mediates adhesion between basal keratinocytes and the basement membrane. Loss of function impairs hemidesmosome-ECM adhesion in skin and also affects pyloric smooth muscle, causing pyloric atresia in the JEB-PA subtype.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"keratinocyte\", \"smooth muscle cell\"], \"biological_processes\": [\"integrin-mediated signaling pathway\", \"cell-matrix adhesion\"], \"genes\": [\"ITGA6\", \"ITGB4\"], \"gene_terms\": [{\"label\": \"ITGA6\", \"id\": \"hgnc:6142\"}, {\"label\": \"ITGB4\", \"id\": \"hgnc:6158\"}]}}, {\"id\": \"LAMA3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA3\"], \"gene_terms\": [{\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LAMB3\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}], \"association\": \"Causative\"}}, {\"id\": \"LAMC2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}], \"association\": \"Causative\"}}, {\"id\": \"Laminin-332 Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential anchoring filament component of the dermal-epidermal basement membrane zone. Null mutations cause complete absence of laminin-332 (JEB severe/Herlitz), while missense or splice-site mutations may allow residual protein production (JEB intermediate).\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"keratinocyte\"], \"biological_processes\": [\"cell-substrate adhesion\", \"extracellular matrix organization\"], \"genes\": [\"LAMB3\", \"LAMA3\", \"LAMC2\"], \"gene_terms\": [{\"label\": \"LAMB3\", \"id\": \"hgnc:6490\"}, {\"label\": \"LAMA3\", \"id\": \"hgnc:6483\"}, {\"label\": \"LAMC2\", \"id\": \"hgnc:6493\"}]}}, {\"id\": \"Loss of Lamina Lucida Adhesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The common downstream consequence of all JEB-causing mutations. Defective anchoring filaments and hemidesmosome components lead to tissue separation at the lamina lucida of the basement membrane zone, producing characteristic blistering with minimal mechanical trauma.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"epidermal cell\"], \"biological_processes\": [\"cell adhesion\"]}}], \"edges\": [{\"source\": \"Laminin-332 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Absent or defective laminin-332 eliminates anchoring filament function at the lamina lucida, leading to tissue separation between the epidermis and dermis.\\n\"}, {\"source\": \"COL17A1 (BP180) Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective type XVII collagen disrupts hemidesmosome transmembrane linkage, leading to separation at the lamina lucida.\\n\"}, {\"source\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective integrin alpha-6-beta-4 impairs hemidesmosome assembly and adhesion to the basement membrane.\\n\"}, {\"source\": \"Integrin Alpha-3-Beta-1 Deficiency\", \"target\": \"Loss of Lamina Lucida Adhesion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of functional integrin alpha-3-beta-1 disrupts basement-membrane structure at the dermal-epidermal junction, giving the mild skin fragility that points to the diagnosis.\\n\"}, {\"source\": \"Loss of Lamina Lucida Adhesion\", \"target\": \"Exuberant Granulation Tissue Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic wound healing response to persistent tissue separation leads to exuberant granulation tissue, a distinctive feature of JEB.\\n\"}, {\"source\": \"LAMB3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA3\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMC2\", \"target\": \"Laminin-332 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"COL17A1\", \"target\": \"COL17A1 (BP180) Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA6\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGB4\", \"target\": \"Integrin Alpha-6-Beta-4 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ITGA3\", \"target\": \"Integrin Alpha-3-Beta-1 Deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5986,10 +7218,10 @@ This pathophysiological event involves abnormal odontogenesis (GO:0042476). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001903</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001903</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6119,10 +7351,10 @@ This clinical feature is anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004399</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004399" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0004399</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is congenital pyloric atresia (HP:0004399). HP:0004399 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6229,10 +7461,10 @@ This clinical feature is congenital pyloric atresia (HP:0004399). HP:0004399 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000795" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000795</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000795" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000795</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is abnormality of the urethra (HP:0000795). HP:0000795 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6312,10 +7544,10 @@ This clinical feature is abnormality of the urethra (HP:0000795). HP:0000795 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0006297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0006297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6413,10 +7645,10 @@ This clinical feature is enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000670</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000670" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000670</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is dental caries, annotated with Carious teeth (HP:0000670). HP:0000670 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6514,10 +7746,10 @@ This clinical feature is dental caries, annotated with Carious teeth (HP:0000670
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0004552</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004552" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0004552</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is scarring alopecia, annotated with Scarring alopecia of scalp (HP:0004552). HP:0004552 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6601,10 +7833,10 @@ This clinical feature is scarring alopecia, annotated with Scarring alopecia of 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0008066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6698,10 +7930,10 @@ This clinical feature is abnormal blistering of the skin (HP:0008066). HP:000806
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:6000956</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:6000956</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is exuberant granulation tissue (HP:6000956). HP:6000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6772,10 +8004,10 @@ This clinical feature is exuberant granulation tissue (HP:6000956). HP:6000956 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6857,10 +8089,10 @@ This clinical feature is nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0002093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6969,10 +8201,10 @@ This clinical feature is respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001609</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001609" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001609</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is hoarse cry, annotated with Hoarse voice (HP:0001609). HP:0001609 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7077,10 +8309,10 @@ This clinical feature is hoarse cry, annotated with Hoarse voice (HP:0001609). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7198,7 +8430,7 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
             <div class="card-header">
                 <div class="card-icon" style="background: #dbeafe; color: #2563eb;">🧬</div>
                 <h2 class="card-title">Genetic Associations</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-lamb3" data-dismech-node="LAMB3" data-dismech-type="genetic">
@@ -7219,10 +8451,10 @@ This clinical feature is failure to thrive (HP:0001508). HP:0001508 is a phenoty
                         Gene: LAMB3
 
 
-    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:6490</a>
+    <a href="https://bioregistry.io/hgnc:6490" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:6490</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LAMB3 (hgnc:6490). hgnc:6490 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7230,6 +8462,9 @@ This disease-associated gene is LAMB3 (hgnc:6490). hgnc:6490 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7322,10 +8557,10 @@ This disease-associated gene is LAMB3 (hgnc:6490). hgnc:6490 is a gene from the 
                         Gene: LAMA3
 
 
-    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:6483</a>
+    <a href="https://bioregistry.io/hgnc:6483" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:6483</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LAMA3 (hgnc:6483). hgnc:6483 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7333,6 +8568,9 @@ This disease-associated gene is LAMA3 (hgnc:6483). hgnc:6483 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7400,10 +8638,10 @@ This disease-associated gene is LAMA3 (hgnc:6483). hgnc:6483 is a gene from the 
                         Gene: LAMC2
 
 
-    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:6493</a>
+    <a href="https://bioregistry.io/hgnc:6493" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:6493</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is LAMC2 (hgnc:6493). hgnc:6493 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7411,6 +8649,9 @@ This disease-associated gene is LAMC2 (hgnc:6493). hgnc:6493 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7478,10 +8719,10 @@ This disease-associated gene is LAMC2 (hgnc:6493). hgnc:6493 is a gene from the 
                         Gene: COL17A1
 
 
-    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-37">hgnc:2194</a>
+    <a href="https://bioregistry.io/hgnc:2194" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-56">hgnc:2194</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is COL17A1 (hgnc:2194). hgnc:2194 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7489,6 +8730,9 @@ This disease-associated gene is COL17A1 (hgnc:2194). hgnc:2194 is a gene from th
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7606,10 +8850,10 @@ This disease-associated gene is COL17A1 (hgnc:2194). hgnc:2194 is a gene from th
                         Gene: ITGA6
 
 
-    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:6142</a>
+    <a href="https://bioregistry.io/hgnc:6142" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-57">hgnc:6142</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7617,6 +8861,9 @@ This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7633,15 +8880,17 @@ This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32973163" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:20301336" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32973163" target="_blank">PMID:32973163</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301336" target="_blank">PMID:20301336</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
 
@@ -7649,10 +8898,10 @@ This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the 
 
                 </div>
 
-                <div class="evidence-snippet">"pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion"</div>
+                <div class="evidence-snippet">"The diagnosis of EB-PA is established in a proband with characteristic clinical findings by identification of biallelic pathogenic variants in ITGA6, ITGB4, or PLEC."</div>
 
 
-                <div class="evidence-explanation">EB consensus classification recognizes 16+ causative genes including ITGA6 encoding integrin alpha-6, part of the alpha6-beta4 heterodimer critical for hemidesmosome function.</div>
+                <div class="evidence-explanation">Establishes ITGA6 as a diagnostic gene for epidermolysis bullosa with pyloric atresia, biallelic in inheritance.</div>
 
 
 
@@ -7684,10 +8933,10 @@ This disease-associated gene is ITGA6 (hgnc:6142). hgnc:6142 is a gene from the 
                         Gene: ITGB4
 
 
-    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:6158</a>
+    <a href="https://bioregistry.io/hgnc:6158" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-58">hgnc:6158</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is ITGB4 (hgnc:6158). hgnc:6158 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -7695,6 +8944,9 @@ This disease-associated gene is ITGB4 (hgnc:6158). hgnc:6158 is a gene from the 
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7744,6 +8996,143 @@ This disease-associated gene is ITGB4 (hgnc:6158). hgnc:6158 is a gene from the 
 
             </div>
 
+            <div class="item-box genetic-box anchor-target" id="genetic-itga3" data-dismech-node="ITGA3" data-dismech-type="genetic">
+                <div class="item-name">
+                    ITGA3
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+                    <span class="tag" style="background: #dbeafe; color: #1e40af;">
+                        Gene: ITGA3
+
+
+    <a href="https://bioregistry.io/hgnc:6139" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-59">hgnc:6139</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this disease-associated gene is this gene
+This disease-associated gene is ITGA3 (hgnc:6139). hgnc:6139 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                    </span>
+
+
+
+                </div>
+
+
+
+
+
+                <div class="item-meta">
+
+                    <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42285338" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42285338" target="_blank">PMID:42285338</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Biallelic ITGA3 variants cause a rare subtype of junctional epidermolysis bullosa named interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa"</div>
+
+
+                <div class="evidence-explanation">Establishes ITGA3 as a junctional EB gene and names the subtype it causes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42285338" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42285338" target="_blank">PMID:42285338</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we identified a hitherto unrecognized direct interaction between ITGA3 and ITGB4"</div>
+
+
+                <div class="evidence-explanation">Sources the ITGA3-ITGB4 interaction recorded in these notes as a modifier of ILNEB severity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23114595" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23114595" target="_blank">PMID:23114595</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thus, these findings uncover a gain-of-glycosylation mutation in ITGA3 that prevents the biosynthesis of functional α3β1, causing a fatal multiorgan disorder."</div>
+
+
+                <div class="evidence-explanation">Sources the beta-1 partner subunit and the failure-of-biosynthesis mechanism recorded in these notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+            </div>
+
         </div>
 
 
@@ -7770,7 +9159,7 @@ This disease-associated gene is ITGB4 (hgnc:6158). hgnc:6158 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">wound care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-60">wound care<span class="pill-tip" role="tooltip" id="pill-tip-60">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is wound care, annotated with Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7896,7 +9285,7 @@ This treatment is wound care, annotated with Supportive Care (NCIT:C15747). NCIT
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-61">Nutritional Support<span class="pill-tip" role="tooltip" id="pill-tip-61">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7996,7 +9385,7 @@ This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical i
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-42">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-62">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-62">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8108,7 +9497,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-63">gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-63">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8272,7 +9661,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">birch triterpenes topical gel<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-64">birch triterpenes topical gel<span class="pill-tip" role="tooltip" id="pill-tip-64">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is birch triterpenes topical gel, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8398,7 +9787,7 @@ This treatment is birch triterpenes topical gel, annotated with Pharmacotherapy 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-65">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-65">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8499,7 +9888,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-66">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-66">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -8949,11 +10338,11 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0008066</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0008066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets skin blistering, annotated with Abnormal blistering of the skin (HP:0008066). HP:0008066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9025,11 +10414,11 @@ This clinical trial targets skin blistering, annotated with Abnormal blistering 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0001058</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001058" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001058</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Wound healing impairment, annotated with Poor wound healing (HP:0001058). HP:0001058 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9106,9 +10495,13 @@ description: &gt;-
   Junctional epidermolysis bullosa (JEB) is caused by mutations in genes
   encoding components of the dermal-epidermal junction at the lamina lucida,
   including laminin-332 (LAMA3, LAMB3, LAMC2), type XVII collagen (COL17A1),
-  and integrin alpha-6-beta-4 (ITGA6, ITGB4). All forms are autosomal
-  recessive. JEB severe (Herlitz) carries near-90% first-year mortality, while
-  JEB intermediate is a chronic but survivable blistering disorder.
+  integrin alpha-6-beta-4 (ITGA6, ITGB4), and integrin alpha-3-beta-1 (ITGA3).
+  All forms are autosomal recessive. JEB severe (Herlitz) carries near-90%
+  first-year mortality, while JEB intermediate is a chronic but survivable
+  blistering disorder. Two subtypes sit apart from that severity axis: LOC
+  syndrome, in which only the LAMA3A transcript is affected and granulation
+  tissue dominates, and ILNEB, in which nephrotic syndrome and interstitial lung
+  disease dominate and the skin is only mildly fragile.
 parents:
 - Dermatological Disease
 - Genetic Disease
@@ -9154,6 +10547,33 @@ classifications:
       explanation: Supports classification of JEB as a hereditary disease because the disorder is explicitly inherited.
 has_subtypes:
 - name: JEB Severe (Herlitz)
+  display_name: JEB, generalized severe (formerly Herlitz)
+  subtype_term:
+    preferred_term: junctional epidermolysis bullosa, generalized severe
+    term:
+      id: MONDO:0009182
+      label: junctional epidermolysis bullosa Herlitz type
+  mappings:
+    mondo_mappings:
+    - term:
+        id: MONDO:0030747
+        label: epidermolysis bullosa, junctional 2B, severe
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: &gt;-
+        OMIM and MONDO split generalized severe JEB by which laminin-332 chain is
+        affected. MONDO:0009182 carries MONDO&#39;s LAMB3 association and is bound here
+        because the row is named for it; MONDO:0030747 is the LAMA3 route to the same
+        clinical picture. Recorded as a close match rather than an exact or narrow one,
+        which would retire an uncurated concept from the curation queue.
+    - term:
+        id: MONDO:0030749
+        label: epidermolysis bullosa, junctional 3B, severe
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: &gt;-
+        The LAMC2 route to generalized severe JEB, mapped on the same basis as the
+        LAMA3 term above.
   description: &gt;
     Caused by homozygous null mutations in LAMB3, LAMA3, or LAMC2 leading to
     complete absence of laminin-332. Presents with generalized severe mucocutaneous
@@ -9162,22 +10582,345 @@ has_subtypes:
     entire gastrointestinal, genitourinary, and respiratory tracts. Mortality
     approaches 87-90% in the first year; the principal causes of death are failure
     to thrive, respiratory failure, and sepsis.
+  genes:
+  - preferred_term: LAMB3
+    term:
+      id: hgnc:6490
+      label: LAMB3
+  - preferred_term: LAMA3
+    term:
+      id: hgnc:6483
+      label: LAMA3
+  - preferred_term: LAMC2
+    term:
+      id: hgnc:6493
+      label: LAMC2
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:19945616
+    reference_title: &#34;Herlitz junctional epidermolysis bullosa.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;this devastating condition is most often caused by homozygous null mutations in the genes LAMA3, LAMB3, or LAMC2, each encoding for 1 of the 3 chains of the heterotrimer laminin-332&#34;
+    explanation: Binds all three laminin-332 chain genes to this row and sources the homozygous-null mechanism it describes.
+  - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Broad classification of JEB includes JEB generalized severe and JEB generalized intermediate.&#34;
+    explanation: Sources the current severe/intermediate nomenclature recorded in this row&#39;s display_name, alongside the Herlitz eponym it replaced.
 - name: JEB Intermediate (Non-Herlitz / Generalized Atrophic Benign EB)
+  display_name: JEB, generalized intermediate (formerly non-Herlitz, GABEB)
+  subtype_term:
+    preferred_term: junctional epidermolysis bullosa, generalized intermediate
+    term:
+      id: MONDO:0009180
+      label: junctional epidermolysis bullosa, non-Herlitz type
+  mappings:
+    mondo_mappings:
+    - term:
+        id: MONDO:0030746
+        label: epidermolysis bullosa, junctional 2A, intermediate
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: &gt;-
+        The LAMA3 route to generalized intermediate JEB. MONDO:0009180 carries the
+        LAMB3 association and the generalized-atrophic-benign synonym this row is named
+        for, so it is the bound term; the gene-specific siblings are close matches so
+        that binding one clinical row does not retire the others from the curation queue.
+    - term:
+        id: MONDO:0030748
+        label: epidermolysis bullosa, junctional 3A, intermediate
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: The LAMC2 route to generalized intermediate JEB.
+    - term:
+        id: MONDO:0030750
+        label: epidermolysis bullosa, junctional 4, intermediate
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: The COL17A1 route to generalized intermediate JEB.
+    - term:
+        id: MONDO:0030768
+        label: epidermolysis bullosa, junctional 5A, intermediate
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: &gt;-
+        The ITGB4 route to generalized intermediate JEB, that is, ITGB4 disease without
+        pyloric atresia.
   description: &gt;
-    Caused by COL17A1 mutations or hypomorphic laminin-332 mutations. Chronic but
-    survivable blistering disorder with generalized skin fragility, nail dystrophy,
-    enamel hypoplasia, and alopecia. Blistering improves with age in some patients.
+    Caused by COL17A1 mutations or hypomorphic laminin-332 mutations, and less often
+    by ITGB4 mutations without pyloric atresia. Chronic but survivable blistering
+    disorder with generalized skin fragility, nail dystrophy, enamel hypoplasia, and
+    alopecia. Blistering improves with age in some patients.
+  genes:
+  - preferred_term: COL17A1
+    term:
+      id: hgnc:2194
+      label: COL17A1
+  - preferred_term: LAMB3
+    term:
+      id: hgnc:6490
+      label: LAMB3
+  - preferred_term: LAMA3
+    term:
+      id: hgnc:6483
+      label: LAMA3
+  - preferred_term: LAMC2
+    term:
+      id: hgnc:6493
+      label: LAMC2
+  - preferred_term: ITGB4
+    term:
+      id: hgnc:6158
+      label: ITGB4
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
+    explanation: Sources the five genes bound to this row as the JEB diagnostic panel, biallelic in each case.
+  - reference: PMID:20301304
+    reference_title: &#34;Junctional Epidermolysis Bullosa.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;In JEB generalized intermediate, the phenotype may be mild with blistering localized to hands, feet, knees, and elbows with or without renal or ureteral involvement.&#34;
+    explanation: Sources the milder, survivable clinical picture this row records, under the current nomenclature.
 - name: JEB with Pyloric Atresia
+  display_name: JEB with pyloric atresia (JEB-PA)
+  subtype_term:
+    preferred_term: junctional epidermolysis bullosa with pyloric atresia
+    term:
+      id: MONDO:0009183
+      label: junctional epidermolysis bullosa with pyloric atresia
+  mappings:
+    mondo_mappings:
+    - term:
+        id: MONDO:0859233
+        label: epidermolysis bullosa, junctional 6, with pyloric atresia
+      mapping_predicate: skos:closeMatch
+      mapping_source: MONDO
+      mapping_justification: &gt;-
+        The ITGA6 route to JEB with pyloric atresia. MONDO:0009183 carries the ITGB4
+        association and is bound here; the ITGA6 term is a close match because both
+        subunits of the same integrin heterodimer give the same clinical entity.
   description: &gt;
     Caused by mutations in ITGA6 or ITGB4 encoding integrin alpha-6-beta-4.
     Presents with congenital pyloric atresia in addition to generalized skin
     blistering. Often lethal in infancy, though milder cases survive with
-    surgical correction.
+    surgical correction. Biallelic PLEC variants also cause epidermolysis bullosa
+    with pyloric atresia, but PLEC encodes plectin, a component of the inner
+    hemidesmosomal plaque rather than of the lamina lucida, and it is not curated as
+    a junctional gene in this entry; it is bound in the Epidermolysis_Bullosa_Simplex
+    entry.
+  genes:
+  - preferred_term: ITGB4
+    term:
+      id: hgnc:6158
+      label: ITGB4
+  - preferred_term: ITGA6
+    term:
+      id: hgnc:6142
+      label: ITGA6
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:20301336
+    reference_title: &#34;Epidermolysis Bullosa with Pyloric Atresia.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The diagnosis of EB-PA is established in a proband with characteristic clinical findings by identification of biallelic pathogenic variants in ITGA6, ITGB4, or PLEC.&#34;
+    explanation: Binds ITGA6 and ITGB4 to this row, and sources the PLEC caveat that keeps the plectin route out of the junctional category.
+  - reference: PMID:20301336
+    reference_title: &#34;Epidermolysis Bullosa with Pyloric Atresia.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The course of EB-PA is usually severe and most often lethal in the neonatal period.&#34;
+    explanation: Sources the infantile lethality this row records.
 - name: JEB Late Onset
+  display_name: JEB, late onset
+  subtype_term:
+    preferred_term: late-onset junctional epidermolysis bullosa
+    term:
+      id: MONDO:0019309
+      label: late-onset junctional epidermolysis bullosa
   description: &gt;
     Caused by COL17A1 mutations with residual protein function. Adult-onset
     blistering, often localized, with milder phenotype. May present as
     late-onset generalized skin fragility.
+  evidence:
+  - reference: PMID:30761300
+    reference_title: &#34;Junctional Epidermolysis Bullosa: Allelic Heterogeneity and Mutation Stratification for Precision Medicine.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Clinically, p.R1303Q is associated with a mild, Kindler-syndrome-like phenotype, manifesting with late onset skin blistering, progressive skin atrophy and sclerosis, loss of dermatoglyphics, scarring, and nail anomalies.&#34;
+    explanation: Binds COL17A1 to this row through a specific residual-function allele, and sources the late onset and milder phenotype it records.
+  - reference: PMID:30761300
+    reference_title: &#34;Junctional Epidermolysis Bullosa: Allelic Heterogeneity and Mutation Stratification for Precision Medicine.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Patients with acral or late onset JEB, like our cases 61 and 66, have limited disease burden and can be treated symptomatically.&#34;
+    explanation: Sources the limited disease burden that distinguishes this row from the severe and intermediate forms.
+  genes:
+  - preferred_term: COL17A1
+    term:
+      id: hgnc:2194
+      label: COL17A1
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+- name: LOC Syndrome
+  display_name: Laryngo-onycho-cutaneous syndrome (LAMA3A-specific)
+  subtype_term:
+    preferred_term: laryngo-onycho-cutaneous syndrome
+    term:
+      id: MONDO:0009513
+      label: laryngo-onycho-cutaneous syndrome
+  description: &gt;
+    A junctional EB subtype caused by mutations confined to the LAMA3A-specific
+    exon, so only the laminin alpha-3a transcript is affected and the alpha-3b1 and
+    alpha-3b2 isoforms are spared. Laminin-332 immunostaining at the dermal-epidermal
+    junction is of normal intensity, which separates this entity mechanistically from
+    the severe laminin-332-null forms. The dominant clinical feature is exuberant
+    vascular granulation tissue in conjunctiva and larynx, with cutaneous erosions and
+    nail dystrophy; the granulation tissue can cause laryngeal obstruction and
+    blindness. The original founder mutation is not a null allele: it is rescued by an
+    alternative downstream translation start, leaving an N-terminally truncated
+    laminin alpha-3a.
+  genes:
+  - preferred_term: LAMA3
+    term:
+      id: hgnc:6483
+      label: LAMA3
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:23869449
+    reference_title: &#34;A new homozygous nonsense mutation in LAMA3A underlying laryngo-onycho-cutaneous syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Laryngo-onycho-cutaneous (LOC) syndrome is a subtype of autosomal recessive junctional epidermolysis bullosa in which there is prominent skin and mucosal granulation tissue that can lead to delayed wound healing, laryngeal obstruction and blindness.&#34;
+    explanation: Establishes LOC syndrome as a junctional EB subtype rather than a separate entity, which is why it is a row here, and sources the granulation-tissue phenotype.
+  - reference: PMID:23869449
+    reference_title: &#34;A new homozygous nonsense mutation in LAMA3A underlying laryngo-onycho-cutaneous syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;normal intensity laminin-332 immunostaining at the dermal-epidermal junction, and autosomal recessive mutations in the LAMA3A-specific exon&#34;
+    explanation: Sources both the isoform specificity and the preserved laminin-332 staining that distinguish this row from the severe laminin-332-null forms.
+  - reference: PMID:12915477
+    reference_title: &#34;An unusual N-terminal deletion of the laminin alpha3a isoform leads to the chronic granulation tissue disorder laryngo-onycho-cutaneous syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The condition is characterized by cutaneous erosions, nail dystrophy and exuberant vascular granulation tissue in certain epithelia, especially conjunctiva and larynx.&#34;
+    explanation: Sources the cutaneous, nail, and conjunctival/laryngeal features named in this row.
+  - reference: PMID:12915477
+    reference_title: &#34;An unusual N-terminal deletion of the laminin alpha3a isoform leads to the chronic granulation tissue disorder laryngo-onycho-cutaneous syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Surprisingly, the 151insG mutation does not result in nonsense-mediated mRNA decay due to rescue of the transcript by an alternative translation start site 6 exons downstream.&#34;
+    explanation: Sources the claim that the founder allele is not a null and leaves an N-terminally truncated protein.
+  review_notes: &gt;-
+    The 2003 report describes LOC syndrome as confined to the Punjabi Muslim
+    population, but a later pedigree from Iran carries a different LAMA3A-specific
+    mutation, so ancestry restriction is not curated here as a current feature.
+- name: JEB-ILNEB
+  display_name: JEB with interstitial lung disease and nephrotic syndrome (ILNEB)
+  subtype_term:
+    preferred_term: junctional epidermolysis bullosa with interstitial lung disease and nephrotic syndrome
+    term:
+      id: MONDO:0013881
+      label: epidermolysis bullosa, junctional 7, with interstitial lung disease and nephrotic syndrome
+  description: &gt;
+    A junctional EB subtype caused by biallelic ITGA3 mutations that prevent
+    biosynthesis of functional integrin alpha-3-beta-1. Unlike the other junctional
+    subtypes, the dominant clinical features are extracutaneous: congenital nephrotic
+    syndrome and interstitial lung disease, with the lung involvement accounting for
+    the lethal course. Skin fragility is mild and is the finding that points to the
+    diagnosis. Integrin alpha-3 partners integrin beta-1, not the beta-4 subunit of
+    the hemidesmosomal receptor mutated in JEB with pyloric atresia, and the lesion is
+    in basement-membrane assembly across kidney, lung, and skin rather than in
+    hemidesmosome assembly.
+  genes:
+  - preferred_term: ITGA3
+    term:
+      id: hgnc:6139
+      label: ITGA3
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:42285338
+    reference_title: &#34;An ITGB4 variant modifies the severity of ITGA3-associated interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa (ILNEB).&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Biallelic ITGA3 variants cause a rare subtype of junctional epidermolysis bullosa named interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa&#34;
+    explanation: Establishes ILNEB as a junctional EB subtype caused by biallelic ITGA3 variants, which is the basis for curating it as a row here.
+  - reference: PMID:22512483
+    reference_title: &#34;Integrin α3 mutations with kidney, lung, and skin disease.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We identified three patients with homozygous mutations in the integrin α(3) gene that were associated with disrupted basement-membrane structures and compromised barrier functions in kidney, lung, and skin.&#34;
+    explanation: Sources the three-organ basement-membrane lesion this row records.
+  - reference: PMID:22512483
+    reference_title: &#34;Integrin α3 mutations with kidney, lung, and skin disease.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The renal and respiratory features predominated, and the lung involvement accounted for the lethal course of the disease. Although skin fragility was mild, it provided clues to the diagnosis.&#34;
+    explanation: Sources the claim that the extracutaneous features dominate and that mild skin fragility is the diagnostic clue.
+  - reference: PMID:23114595
+    reference_title: &#34;Gain of glycosylation in integrin α3 causes lung disease and nephrotic syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The laminin-binding integrin α3β1 is expressed at high levels in lung epithelium and in kidney podocytes.&#34;
+    explanation: Sources the beta-1 partner subunit and the lung and kidney expression that explain the extracutaneous organ distribution.
 inheritance:
 - name: Autosomal recessive
   evidence:
@@ -9229,6 +10972,7 @@ prevalence:
 pathophysiology:
 - name: Laminin-332 Deficiency
   conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
+  biological_scale: MOLECULAR
   description: &gt;
     Mutations in LAMB3, LAMA3, or LAMC2 genes abrogate or reduce production of
     the laminin-332 heterotrimer (alpha-3, beta-3, gamma-2 chains), an essential
@@ -9286,6 +11030,7 @@ pathophysiology:
     explanation: Confirms laminin-332 is essential for dermal-epidermal adhesion.
 - name: COL17A1 (BP180) Deficiency
   conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
+  biological_scale: MOLECULAR
   description: &gt;
     Mutations in COL17A1 encoding type XVII collagen (BP180), a transmembrane
     hemidesmosome component that links the intracellular cytoskeleton to the
@@ -9327,6 +11072,7 @@ pathophysiology:
     explanation: Confirms EB is caused by mutations in genes encoding adhesion proteins.
 - name: Integrin Alpha-6-Beta-4 Deficiency
   conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Basement Membrane Zone Attachment Component Defect&#34;
+  biological_scale: MOLECULAR
   description: &gt;
     Mutations in ITGA6 or ITGB4 encoding the alpha-6-beta-4 integrin heterodimer,
     a critical hemidesmosome receptor that mediates adhesion between basal
@@ -9374,6 +11120,80 @@ pathophysiology:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms ITGB4 as a causative gene for JEB.
+- name: Integrin Alpha-3-Beta-1 Deficiency
+  biological_scale: MOLECULAR
+  description: &gt;
+    Mutations in ITGA3 prevent biosynthesis of functional integrin alpha-3-beta-1, a
+    laminin-binding receptor distinct from the alpha-6-beta-4 hemidesmosomal receptor.
+    The consequence is disrupted basement-membrane structure and compromised barrier
+    function in kidney, lung, and skin, so the cutaneous lesion sits alongside
+    congenital nephrotic syndrome and interstitial lung disease rather than alone.
+  genes:
+  - preferred_term: ITGA3
+    term:
+      id: hgnc:6139
+      label: ITGA3
+  biological_processes:
+  - preferred_term: basement membrane organization
+    modifier: ABNORMAL
+    term:
+      id: GO:0071711
+      label: basement membrane organization
+  - preferred_term: cell-matrix adhesion
+    modifier: DECREASED
+    term:
+      id: GO:0007160
+      label: cell-matrix adhesion
+  molecular_functions:
+  - preferred_term: laminin binding
+    modifier: LOSS_OF_FUNCTION
+    term:
+      id: GO:0043236
+      label: laminin binding
+  cell_types:
+  - preferred_term: keratinocyte
+    term:
+      id: CL:0000312
+      label: keratinocyte
+  - preferred_term: podocyte
+    term:
+      id: CL:0000653
+      label: podocyte
+  downstream:
+  - target: Loss of Lamina Lucida Adhesion
+    description: &gt;
+      Loss of functional integrin alpha-3-beta-1 disrupts basement-membrane structure
+      at the dermal-epidermal junction, giving the mild skin fragility that points to
+      the diagnosis.
+  evidence:
+  - reference: PMID:22512483
+    reference_title: &#34;Integrin α3 mutations with kidney, lung, and skin disease.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We identified three patients with homozygous mutations in the integrin α(3) gene that were associated with disrupted basement-membrane structures and compromised barrier functions in kidney, lung, and skin.&#34;
+    explanation: Sources the basement-membrane organization defect bound to this node and its three-organ distribution.
+  - reference: PMID:23114595
+    reference_title: &#34;Gain of glycosylation in integrin α3 causes lung disease and nephrotic syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The laminin-binding integrin α3β1 is expressed at high levels in lung epithelium and in kidney podocytes.&#34;
+    explanation: Sources the beta-1 partner subunit, the laminin-binding adhesion function, and the podocyte cell type bound to this node.
+  - reference: PMID:23114595
+    reference_title: &#34;Gain of glycosylation in integrin α3 causes lung disease and nephrotic syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thus, these findings uncover a gain-of-glycosylation mutation in ITGA3 that prevents the biosynthesis of functional α3β1, causing a fatal multiorgan disorder.&#34;
+    explanation: Sources the claim that the lesion is failure to produce a functional heterodimer rather than loss of a hemidesmosomal component.
+  - reference: PMID:30761300
+    reference_title: &#34;Junctional Epidermolysis Bullosa: Allelic Heterogeneity and Mutation Stratification for Precision Medicine.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Junctional epidermolysis bullosa (JEB) is a hereditary blistering disease caused by reduced dermal-epidermal adhesion due to deficiencies of one of the proteins, laminin-332, type XVII collagen, integrin α6β4 or integrin α3.&#34;
+    explanation: Places integrin alpha-3 alongside the three proteins this entry already models as a separate JEB-causing deficiency, which is why it is a fourth node rather than an addition to the alpha-6-beta-4 node.
 - name: Loss of Lamina Lucida Adhesion
   conforms_to: &#34;dermal_epidermal_junction_adhesion_failure#Loss of Adhesive Integrity at a Defined Cleavage Plane&#34;
   description: &gt;
@@ -10170,6 +11990,7 @@ genetic:
     snippet: &#34;Revertant mosaicism represents a way of natural gene therapy&#34;
     explanation: Revertant patches represent natural somatic correction but remain localized and do not expand to correct the whole epidermis.
 - name: ITGA6
+  subtype: JEB with Pyloric Atresia
   gene_term:
     preferred_term: ITGA6
     term:
@@ -10186,18 +12007,19 @@ genetic:
       snippet: &#34;JEB is inherited in an autosomal recessive manner&#34;
       explanation: GeneReviews confirms autosomal recessive inheritance for ITGA6.
   notes: &gt;
-    Encodes integrin alpha-6 subunit. Mutations cause JEB with pyloric
-    atresia (JEB-PA). ITGA6 is less commonly mutated than ITGB4 in JEB-PA
-    and was not listed in the GeneReviews diagnostic gene panel but is a
-    recognized cause based on functional studies of the integrin alpha6-beta4
-    heterodimer.
+    Encodes the integrin alpha-6 subunit. Mutations cause JEB with pyloric atresia
+    (JEB-PA). ITGA6 is absent from the JEB GeneReviews chapter&#39;s diagnostic gene
+    panel, which lists COL17A1, ITGB4, LAMA3, LAMB3, and LAMC2; it is named instead
+    by the separate GeneReviews chapter on epidermolysis bullosa with pyloric
+    atresia, cited below, which is the source bound here.
   evidence:
-  - reference: PMID:32973163
-    reference_title: &#34;Epidermolysis bullosa.&#34;
+  - reference: PMID:20301336
+    reference_title: &#34;Epidermolysis Bullosa with Pyloric Atresia.&#34;
     supports: SUPPORT
+    directness: DIRECT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;pathogenetic mutations in 16 distinct genes have been implicated in EB, encoding proteins influencing cellular integrity and adhesion&#34;
-    explanation: EB consensus classification recognizes 16+ causative genes including ITGA6 encoding integrin alpha-6, part of the alpha6-beta4 heterodimer critical for hemidesmosome function.
+    snippet: &#34;The diagnosis of EB-PA is established in a proband with characteristic clinical findings by identification of biallelic pathogenic variants in ITGA6, ITGB4, or PLEC.&#34;
+    explanation: Establishes ITGA6 as a diagnostic gene for epidermolysis bullosa with pyloric atresia, biallelic in inheritance.
 - name: ITGB4
   gene_term:
     preferred_term: ITGB4
@@ -10224,6 +12046,51 @@ genetic:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The diagnosis of JEB is established in a proband with characteristic clinical findings by molecular genetic testing that identifies biallelic pathogenic variants in one of the genes associated with JEB: COL17A1, ITGB4, LAMA3, LAMB3, or LAMC2&#34;
     explanation: Confirms ITGB4 as a causative gene for JEB.
+- name: ITGA3
+  subtype: JEB-ILNEB
+  gene_term:
+    preferred_term: ITGA3
+    term:
+      id: hgnc:6139
+      label: ITGA3
+  association: Causative
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  notes: &gt;
+    Encodes the integrin alpha-3 subunit, which partners integrin beta-1 rather than
+    the beta-4 subunit mutated in JEB with pyloric atresia. Biallelic mutations
+    prevent biosynthesis of functional alpha-3-beta-1 and cause the ILNEB subtype, in
+    which congenital nephrotic syndrome and interstitial lung disease dominate and
+    skin fragility is mild. A monoallelic ITGB4 variant has been reported to modify
+    ILNEB severity through a direct ITGA3-ITGB4 interaction, so the two integrin
+    routes into this entry are not entirely independent.
+  evidence:
+  - reference: PMID:42285338
+    reference_title: &#34;An ITGB4 variant modifies the severity of ITGA3-associated interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa (ILNEB).&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Biallelic ITGA3 variants cause a rare subtype of junctional epidermolysis bullosa named interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa&#34;
+    explanation: Establishes ITGA3 as a junctional EB gene and names the subtype it causes.
+  - reference: PMID:42285338
+    reference_title: &#34;An ITGB4 variant modifies the severity of ITGA3-associated interstitial lung disease, nephrotic syndrome, and epidermolysis bullosa (ILNEB).&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: IN_VITRO
+    snippet: &#34;we identified a hitherto unrecognized direct interaction between ITGA3 and ITGB4&#34;
+    explanation: Sources the ITGA3-ITGB4 interaction recorded in these notes as a modifier of ILNEB severity.
+  - reference: PMID:23114595
+    reference_title: &#34;Gain of glycosylation in integrin α3 causes lung disease and nephrotic syndrome.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Thus, these findings uncover a gain-of-glycosylation mutation in ITGA3 that prevents the biosynthesis of functional α3β1, causing a fatal multiorgan disorder.&#34;
+    explanation: Sources the beta-1 partner subunit and the failure-of-biosynthesis mechanism recorded in these notes.
 datasets:
 - accession: geo:GSE75838
   title: Absence of integrin α3 modulates the integrin landscape of human keratinocytes
@@ -10255,7 +12122,35 @@ datasets:
     evidence_source: IN_VITRO
     snippet: &#34;Here we employed authentic human keratinocytes bearing a naturally occurring integrin α3 loss-of-function mutation as a prototype&#34;
     explanation: Confirms this is a patient-derived human keratinocyte resource for dissecting adhesion defects relevant to junctional EB.
+notes: &gt;-
+  The has_subtypes rows are the clinical subtypes, not one row per gene. Three of the
+  six span several genes, because the same gene reaches more than one severity class:
+  homozygous null mutations in any of the three laminin-332 chain genes give the
+  severe form, while MONDO records LAMB3, LAMA3, LAMC2, COL17A1 and ITGB4 routes into
+  the intermediate form. The GeneReviews diagnostic panel is correspondingly a single
+  five-gene list for JEB as a whole rather than one gene per severity class. Where
+  MONDO splits a clinical subtype into gene-specific terms, the row binds one and
+  records the siblings as skos:closeMatch, which deliberately does not retire them
+  from the curation queue.
+
+  For the same reason genetic[].subtype is set only where a gene maps to exactly one
+  row - ITGA6 to JEB with pyloric atresia and ITGA3 to ILNEB. The slot is
+  single-valued, so setting it on LAMB3, LAMA3, LAMC2, COL17A1, or ITGB4 would assert
+  an exclusivity none of them has; the reciprocal link for those genes is the
+  has_subtypes genes list.
+
+  LOC syndrome and ILNEB are curated as rows here rather than as separate entries
+  because both sources cited for them call the condition a subtype of junctional
+  epidermolysis bullosa. Epidermolysis bullosa with pyloric atresia can also be caused
+  by biallelic PLEC variants; plectin sits in the inner hemidesmosomal plaque rather
+  than in the lamina lucida, and PLEC is bound in the Epidermolysis_Bullosa_Simplex
+  entry, so it is not curated as a junctional gene here.
 references:
+- reference: PMID:20301336
+  title: &#34;Epidermolysis Bullosa with Pyloric Atresia.&#34;
+  tags:
+  - GeneReviews
+  findings: []
 - reference: PMID:20301304
   title: &#34;Junctional Epidermolysis Bullosa.&#34;
   tags:
@@ -10430,7 +12325,24 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">16</span>
+                    <span class="card-count">17</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301336" target="_blank">PMID:20301336</a>
+                            </div>
+
+                            <div class="reference-title">Epidermolysis Bullosa with Pyloric Atresia.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
                 </div>
 
                 <div class="reference-entry">
@@ -11711,7 +13623,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Junctional Epidermolysis Bullosa", "mondoId": "MONDO:0017612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Junctional_Epidermolysis_Bullosa", "yamlRevision": "dd4373af94d9"};
+        const OS_CONFIG = {"diseaseName": "Junctional Epidermolysis Bullosa", "mondoId": "MONDO:0017612", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Junctional_Epidermolysis_Bullosa", "yamlRevision": "5a8f4dfefb98"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

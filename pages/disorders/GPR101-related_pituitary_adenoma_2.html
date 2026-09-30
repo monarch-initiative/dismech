@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4440,6 +4479,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gpr101-copy-number-gain" data-dismech-node="GPR101 copy-number gain" data-dismech-type="pathophysiology">
                 <div class="item-name">GPR101 copy-number gain</div>
 
+
                 <div class="item-desc">GPR101 is the explicit gene-level entry point for PITA2. Germline or post-zygotic Xq26.3 copy-number gain increases GPR101 dosage and is the established causal route for X-linked acrogigantism.</div>
 
 
@@ -4601,6 +4641,8 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE_AND_SOMATIC</span>
 
 
@@ -4615,6 +4657,9 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">GPR101 is affected by germline or somatic dosage gain in X-linked acrogigantism.</div>
 
@@ -4759,6 +4804,13 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reported-gpr101-p-e308d-variant-association" data-dismech-node="Reported GPR101 p.E308D variant association" data-dismech-type="pathophysiology">
                 <div class="item-name">Reported GPR101 p.E308D variant association</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The GPR101 p.E308D missense variant was reported in a subset of acromegaly cases and showed activity in GH3 cell assays, but a later cohort did not find increased prevalence in acromegaly. It is therefore retained as a provisional association rather than used as the main PITA2 causal entry point.</div>
 
 
@@ -4852,6 +4904,8 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE_AND_SOMATIC</span>
 
 
@@ -4866,6 +4920,9 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Reported p.E308D observations include tumor and constitutive DNA contexts, but population enrichment and clinical causality remain unresolved.</div>
 
@@ -4948,6 +5005,7 @@ This genetic context concerns GPR101 (hgnc:14963). hgnc:14963 is a gene from the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gpr101-driven-adenylate-cyclase-activating-gpcr-signaling" data-dismech-node="GPR101-driven adenylate cyclase-activating GPCR signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">GPR101-driven adenylate cyclase-activating GPCR signaling</div>
+
 
                 <div class="item-desc">GPR101 encodes a GPCR that can couple to stimulatory G protein signaling, providing a gene-explicit route into adenylate cyclase activation and cAMP pathway overactivation.</div>
 
@@ -5269,6 +5327,7 @@ This pathophysiological event involves increased adenylate cyclase activator act
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-camp-pka-signaling-in-somatotrophs" data-dismech-node="Increased cAMP/PKA signaling in somatotrophs" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased cAMP/PKA signaling in somatotrophs</div>
 
+
                 <div class="item-desc">GPR101 activation converges on the shared somatotroph cAMP/PKA signaling module, matching the downstream segment also reached by GNAS activation and AIP loss through different entry points.</div>
 
 
@@ -5424,6 +5483,7 @@ This pathophysiological event involves increased cAMP/PKA signal transduction (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-growth-hormone-secretion" data-dismech-node="Increased growth hormone secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased growth hormone secretion</div>
+
 
                 <div class="item-desc">Somatotroph-lineage cells release excess growth hormone downstream of GPR101-driven cAMP/PKA pathway activation.</div>
 
@@ -5607,6 +5667,7 @@ This pathophysiological event involves increased growth hormone secretion (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatotroph-lactotroph-pituitary-hyperplasia-or-adenoma" data-dismech-node="Somatotroph/lactotroph pituitary hyperplasia or adenoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatotroph/lactotroph pituitary hyperplasia or adenoma</div>
+
 
                 <div class="item-desc">GPR101-related disease produces pituitary macroadenomas or pituitary hyperplasia, often with somatotroph and mammotroph lineage features.</div>
 
@@ -5814,7 +5875,7 @@ This pathophysiological event occurs in pituitary gland (UBERON:0000007). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Extensive pituitary surgery for local control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"X-LAG frequently requires surgery for pituitary macroadenoma or hyperplasia, but extensive resection can produce permanent hypopituitarism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GPR101\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"association\": \"Xq26.3 copy-number gain including GPR101 causes X-linked acrogigantism. Recurrent GPR101 p.E308D variants were reported in acromegaly, but later cohort data did not support increased prevalence, so point-variant causality is modeled as provisional rather than as the core PITA2 mechanism.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"GPR101 copy-number gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 is the explicit gene-level entry point for PITA2. Germline or post-zygotic Xq26.3 copy-number gain increases GPR101 dosage and is the established causal route for X-linked acrogigantism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"GPR101 is affected by germline or somatic dosage gain in X-linked acrogigantism.\", \"allelic_events\": [\"COPY_NUMBER_GAIN\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"trigger\", \"locations\": [\"pituitary gland\"]}}, {\"id\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 encodes a GPCR that can couple to stimulatory G protein signaling, providing a gene-explicit route into adenylate cyclase activation and cAMP pathway overactivation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"adenylate cyclase-activating GPCR signaling\"], \"molecular_functions\": [\"GPR101 G protein-coupled receptor activity\", \"adenylate cyclase activator activity\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"role\": \"upstream_effector\"}}, {\"id\": \"Growth hormone excess\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000845\"}}, {\"id\": \"Increased cAMP/PKA signaling in somatotrophs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 activation converges on the shared somatotroph cAMP/PKA signaling module, matching the downstream segment also reached by GNAS activation and AIP loss through different entry points.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"cAMP/PKA signal transduction\"], \"role\": \"central_effector\"}}, {\"id\": \"Increased growth hormone secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatotroph-lineage cells release excess growth hormone downstream of GPR101-driven cAMP/PKA pathway activation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"growth hormone secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Pegvisomant-based GH receptor blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pegvisomant can control IGF1/GH action in X-LAG when surgery and somatostatin analogs are insufficient, often as part of combination therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"growth hormone receptor antagonist\", \"pegvisomant\"]}}, {\"id\": \"Pituitary macroadenoma or hyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025693\"}}, {\"id\": \"Reported GPR101 p.E308D variant association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GPR101 p.E308D missense variant was reported in a subset of acromegaly cases and showed activity in GH3 cell assays, but a later cohort did not find increased prevalence in acromegaly. It is therefore retained as a provisional association rather than used as the main PITA2 causal entry point.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Reported p.E308D observations include tumor and constitutive DNA contexts, but population enrichment and clinical causality remain unresolved.\", \"allelic_events\": [\"MISSENSE_VARIANT\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"provisional_trigger\"}}, {\"id\": \"Somatostatin analog therapy with limited control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatostatin analogs may be used for GH excess but are often insufficient as sole therapy in X-LAG, despite SSTR2 expression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101-related disease produces pituitary macroadenomas or pituitary hyperplasia, often with somatotroph and mammotroph lineage features.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"consequence\", \"locations\": [\"pituitary gland\"]}}], \"edges\": [{\"source\": \"GPR101 copy-number gain\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased GPR101 dosage or activity increases GPCR signaling capacity upstream of cAMP production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"target\": \"Increased cAMP/PKA signaling in somatotrophs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adenylate cyclase-activating GPCR signaling increases cAMP availability and PKA signaling in somatotroph-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling increases secretory drive in somatotroph-lineage pituitary cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling supports proliferation and adenoma or hyperplasia formation in GH/PRL-lineage pituitary tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Pituitary macroadenoma or hyperplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pegvisomant-based GH receptor blockade\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101 copy-number gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"Reported GPR101 p.E308D variant association\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Extensive pituitary surgery for local control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"X-LAG frequently requires surgery for pituitary macroadenoma or hyperplasia, but extensive resection can produce permanent hypopituitarism.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"GPR101\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"association\": \"Xq26.3 copy-number gain including GPR101 causes X-linked acrogigantism. Recurrent GPR101 p.E308D variants were reported in acromegaly, but later cohort data did not support increased prevalence, so point-variant causality is modeled as provisional rather than as the core PITA2 mechanism.\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE_AND_SOMATIC\"}}, {\"id\": \"GPR101 copy-number gain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 is the explicit gene-level entry point for PITA2. Germline or post-zygotic Xq26.3 copy-number gain increases GPR101 dosage and is the established causal route for X-linked acrogigantism.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"GPR101 is affected by germline or somatic dosage gain in X-linked acrogigantism.\", \"allelic_events\": [\"COPY_NUMBER_GAIN\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"trigger\", \"locations\": [\"pituitary gland\"]}}, {\"id\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 encodes a GPCR that can couple to stimulatory G protein signaling, providing a gene-explicit route into adenylate cyclase activation and cAMP pathway overactivation.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"adenylate cyclase-activating GPCR signaling\"], \"molecular_functions\": [\"GPR101 G protein-coupled receptor activity\", \"adenylate cyclase activator activity\"], \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\", \"modifier\": \"INCREASED\"}], \"role\": \"upstream_effector\"}}, {\"id\": \"Growth hormone excess\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000845\"}}, {\"id\": \"Increased cAMP/PKA signaling in somatotrophs\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101 activation converges on the shared somatotroph cAMP/PKA signaling module, matching the downstream segment also reached by GNAS activation and AIP loss through different entry points.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"cAMP/PKA signal transduction\"], \"role\": \"central_effector\"}}, {\"id\": \"Increased growth hormone secretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Somatotroph-lineage cells release excess growth hormone downstream of GPR101-driven cAMP/PKA pathway activation.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"somatotroph\"], \"biological_processes\": [\"growth hormone secretion\"], \"role\": \"consequence\"}}, {\"id\": \"Pegvisomant-based GH receptor blockade\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pegvisomant can control IGF1/GH action in X-LAG when surgery and somatostatin analogs are insufficient, often as part of combination therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"growth hormone receptor antagonist\", \"pegvisomant\"]}}, {\"id\": \"Pituitary macroadenoma or hyperplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0025693\"}}, {\"id\": \"Reported GPR101 p.E308D variant association\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The GPR101 p.E308D missense variant was reported in a subset of acromegaly cases and showed activity in GH3 cell assays, but a later cohort did not find increased prevalence in acromegaly. It is therefore retained as a provisional association rather than used as the main PITA2 causal entry point.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"GPR101\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE_AND_SOMATIC\", \"functional_impact_category\": \"UNKNOWN\", \"description\": \"Reported p.E308D observations include tumor and constitutive DNA contexts, but population enrichment and clinical causality remain unresolved.\", \"allelic_events\": [\"MISSENSE_VARIANT\"], \"gene_terms\": [{\"label\": \"GPR101\", \"id\": \"hgnc:14963\"}]}, \"role\": \"provisional_trigger\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Somatostatin analog therapy with limited control\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Somatostatin analogs may be used for GH excess but are often insufficient as sole therapy in X-LAG, despite SSTR2 expression.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPR101-related disease produces pituitary macroadenomas or pituitary hyperplasia, often with somatotroph and mammotroph lineage features.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"somatotroph\", \"mammotroph\"], \"biological_processes\": [\"cell population proliferation\"], \"role\": \"consequence\", \"locations\": [\"pituitary gland\"]}}], \"edges\": [{\"source\": \"GPR101 copy-number gain\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased GPR101 dosage or activity increases GPCR signaling capacity upstream of cAMP production.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"target\": \"Increased cAMP/PKA signaling in somatotrophs\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Adenylate cyclase-activating GPCR signaling increases cAMP availability and PKA signaling in somatotroph-lineage cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling increases secretory drive in somatotroph-lineage pituitary cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Increased cAMP/PKA signaling in somatotrophs\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Increased cAMP/PKA signaling supports proliferation and adenoma or hyperplasia formation in GH/PRL-lineage pituitary tissue.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Somatotroph/lactotroph pituitary hyperplasia or adenoma\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Extensive pituitary surgery for local control\", \"target\": \"Pituitary macroadenoma or hyperplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Increased growth hormone secretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Somatostatin analog therapy with limited control\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Pegvisomant-based GH receptor blockade\", \"target\": \"Growth hormone excess\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101 copy-number gain\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"GPR101-driven adenylate cyclase-activating GPCR signaling\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"GPR101\", \"target\": \"Reported GPR101 p.E308D variant association\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6221,6 +6282,9 @@ This disease-associated gene is GPR101 (hgnc:14963). hgnc:14963 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE_AND_SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

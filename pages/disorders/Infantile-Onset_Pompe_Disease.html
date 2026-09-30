@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4720,6 +4759,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-near-complete-acid-alpha-glucosidase-deficiency" data-dismech-node="Near-complete acid alpha-glucosidase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Near-complete acid alpha-glucosidase deficiency</div>
 
+
                 <div class="item-desc">Biallelic fully deleterious GAA variants abolish acid alpha-glucosidase activity, leaving typically less than 1% of control activity in fibroblasts or muscle. This is the quantitative distinction from late-onset disease, where residual activity is higher and the phenotype correspondingly milder and non-cardiac.
 </div>
 
@@ -4933,6 +4973,7 @@ This pathophysiological event involves decreased glucosidase activity (GO:001592
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-glycogen-accumulation" data-dismech-node="Lysosomal glycogen accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal glycogen accumulation</div>
+
 
                 <div class="item-desc">Undegraded glycogen accumulates progressively within lysosomes of cardiac, skeletal, respiratory, and smooth muscle, and of the central nervous system. In IOPD the accumulation is early and massive because essentially no residual enzyme is available.
 </div>
@@ -5172,6 +5213,7 @@ This pathophysiological event involves decreased Glycogen catabolic process (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-glycogen-storage-and-progressive-hypertrophic-remodeling" data-dismech-node="Cardiomyocyte glycogen storage and progressive hypertrophic remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte glycogen storage and progressive hypertrophic remodeling</div>
 
+
                 <div class="item-desc">Massive cardiomyocyte glycogen storage produces cardiomegaly and hypertrophic cardiomyopathy that is usually already identifiable in the first weeks of life and progresses to left ventricular outflow obstruction and diminished lung volume. Glycogen deposition in conduction tissue shortens the PR interval. This node is the principal mechanistic difference between IOPD and late-onset Pompe disease, which lacks significant cardiac involvement.
 </div>
 
@@ -5399,6 +5441,7 @@ This pathophysiological event involves increased Cardiac muscle hypertrophy (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-and-respiratory-myofiber-injury" data-dismech-node="Skeletal and respiratory myofiber injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal and respiratory myofiber injury</div>
 
+
                 <div class="item-desc">Lysosomal glycogen storage in skeletal, respiratory, and bulbar muscle injures myofibers, producing the floppy-infant presentation: generalized hypotonia, severely delayed motor development, feeding difficulty with poor growth, and respiratory distress.
 </div>
 
@@ -5584,6 +5627,7 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiopulmonary-insufficiency-of-infancy" data-dismech-node="Cardiopulmonary insufficiency of infancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiopulmonary insufficiency of infancy</div>
 
+
                 <div class="item-desc">The convergence of hypertrophic cardiomyopathy with outflow obstruction and respiratory muscle failure produces cardiopulmonary insufficiency. In the pre-treatment natural history, symptoms began at a median age of 1.6 months and the median age of death was 6-7.7 months, with only 5-8% of infants surviving beyond one year.
 </div>
 
@@ -5660,6 +5704,7 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-immunologically-detectable-gaa-protein-crim-negative-status" data-dismech-node="Absence of immunologically detectable GAA protein (CRIM-negative status)" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of immunologically detectable GAA protein (CRIM-negative status)</div>
+
 
                 <div class="item-desc">CRIM (cross-reactive immunologic material) status asks a different question from enzyme activity: not whether GAA works, but whether any GAA protein is made at all. Patients with two null alleles produce no GAA protein detectable by Western blot and are CRIM-negative; patients producing a catalytically inactive protein are CRIM-positive. Because a CRIM-negative infant has never been immunologically tolerized to GAA, recombinant human GAA is a foreign antigen. Roughly 20-25% of classic infantile patients are CRIM-negative, and CRIM status is largely predictable from the GAA genotype.
 </div>
@@ -5809,6 +5854,7 @@ This pathophysiological event involves decreased GAA (hgnc:4065). hgnc:4065 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-sustained-anti-rhgaa-antibody-response" data-dismech-node="High sustained anti-rhGAA antibody response" data-dismech-type="pathophysiology">
                 <div class="item-name">High sustained anti-rhGAA antibody response</div>
 
+
                 <div class="item-desc">Sustained high-titer neutralizing IgG against recombinant human GAA blocks the therapeutic benefit of enzyme replacement therapy. This is a treatment-conditioned mechanism with no counterpart in late-onset disease, and it is the reason CRIM status must be determined before the first infusion.
 </div>
 
@@ -5924,6 +5970,7 @@ This pathophysiological event involves increased humoral immune response mediate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enzyme-replacement-therapy-failure-and-clinical-decline" data-dismech-node="Enzyme replacement therapy failure and clinical decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Enzyme replacement therapy failure and clinical decline</div>
 
+
                 <div class="item-desc">In the absence of immune tolerance induction, CRIM-negative infants on ERT decline despite treatment: cardiac function and gross motor development improve significantly less than in CRIM-positive infants, and by roughly 27 months all CRIM-negative patients in the original series were dead or invasively ventilated.
 </div>
 
@@ -6010,6 +6057,7 @@ This pathophysiological event involves increased humoral immune response mediate
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-productive-autophagy-and-autophagic-buildup" data-dismech-node="Failure of productive autophagy and autophagic buildup" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of productive autophagy and autophagic buildup</div>
+
 
                 <div class="item-desc">Autophagy is lysosome-dependent, so the storage lesion disables it. Autophagic vesicles accumulate in type II-rich muscle fibers, disrupting the contractile apparatus. Critically for IOPD, the autophagic buildup also acts as a sink for infused recombinant enzyme and prevents its efficient delivery to lysosomes - a second, non-immune route to poor ERT response that runs in parallel to the CRIM-negative antibody arm.
 </div>
@@ -6202,6 +6250,7 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-glycogen-storage-and-progressive-white-matter-abnormality" data-dismech-node="Central nervous system glycogen storage and progressive white matter abnormality" data-dismech-type="pathophysiology">
                 <div class="item-name">Central nervous system glycogen storage and progressive white matter abnormality</div>
+
 
                 <div class="item-desc">Intravenous rhGAA does not cross the blood-brain barrier, so CNS glycogen storage is untreated. As ERT enables survival into later childhood and adulthood, slowly progressive symmetric white-matter abnormalities emerge - periventricular white matter and centrum semiovale from about age 2, then corpus callosum, capsules and subcortical areas after age 8, and brainstem from age 11 - with variable neuropsychological consequences. This is an ERT-era emerging phenotype rather than part of the classical untreated natural history.
 </div>
@@ -8667,6 +8716,9 @@ This disease-associated gene is GAA (hgnc:4065). hgnc:4065 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -11071,10 +11123,10 @@ This treatment targets Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a
 
                 </div>
 
-                <div class="evidence-snippet">"Multiple covariate analysis confirmed that early symptom onset increased risk of early death"</div>
+                <div class="evidence-snippet">"To characterize the natural progression of infantile-onset Pompe disease. ... Retrospective chart reviews of 168 patients with documented acid alpha-glucosidase deficiency and symptom onset by 12 months of age; ... The median age at symptom onset was 2.0 months (range 0 to 12 months), 4.7 months..."</div>
 
 
-                <div class="evidence-explanation">Establishes age at symptom onset as a determinant of survival in the untreated course.</div>
+                <div class="evidence-explanation">Reports infantile-onset Pompe natural-history mortality and survival in a retrospective cohort. The excerpt does not explicitly distinguish enzyme-replacement-naive patients from other therapeutic interventions.</div>
 
 
 
@@ -12945,8 +12997,20 @@ progression:
     reference_title: &#34;A retrospective, multinational, multicenter study on the natural history of infantile-onset Pompe disease.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Multiple covariate analysis confirmed that early symptom onset increased risk of early death&#34;
-    explanation: Establishes age at symptom onset as a determinant of survival in the untreated course.
+    snippet: &gt;-
+      To characterize the natural progression of infantile-onset Pompe disease. ... Retrospective
+      chart reviews of 168 patients with documented acid alpha-glucosidase deficiency and symptom
+      onset by 12 months of age; ... The median age at symptom onset was 2.0 months (range 0 to 12
+      months), 4.7 months at diagnosis (range: prenatal to 4.2 months), 5.9 months at first
+      ventilator support (range 0.1 to 31.1 months), and 8.7 months at death (range 0.3 to 73.4
+      months). Survival rates at 12 months of age were 25.7% overall and 16.9% ventilator-free; at
+      18 months 12.3% and 6.7%. ... Multiple covariate analysis confirmed that early symptom onset
+      increased risk of early death. CONCLUSION: Despite frequent therapeutic interventions,
+      infantile-onset Pompe disease remains lethal.
+    explanation: &gt;-
+      Reports infantile-onset Pompe natural-history mortality and survival in a retrospective
+      cohort. The excerpt does not explicitly distinguish enzyme-replacement-naive patients from
+      other therapeutic interventions.
   - reference: PMID:16737883
     reference_title: &#34;A retrospective, multinational, multicenter study on the natural history of infantile-onset Pompe disease.&#34;
     supports: SUPPORT
@@ -17538,7 +17602,7 @@ short-PR/WPW                    respiratory failure           dysarthria, hearin
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Infantile-Onset Pompe Disease", "mondoId": "MONDO:0017694", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infantile-Onset_Pompe_Disease", "yamlRevision": "29fe2d70b7ea"};
+        const OS_CONFIG = {"diseaseName": "Infantile-Onset Pompe Disease", "mondoId": "MONDO:0017694", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Infantile-Onset_Pompe_Disease", "yamlRevision": "b74ca5dd3966"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

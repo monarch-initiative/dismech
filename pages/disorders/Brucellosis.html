@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4031,6 +4070,14 @@
             </a>
 
 
+            <a class="stat-link" href="#subtypes">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">◆</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Subtypes</div>
+            </div>
+            </a>
+
 
 
             <a class="stat-link" href="#datasets">
@@ -4276,6 +4323,92 @@
 
 
         <!-- Subtypes -->
+
+        <div class="card" id="subtypes">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">◆</div>
+                <h2 class="card-title">Subtypes</h2>
+                <span class="card-count">1</span>
+            </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-box subtype-box anchor-target" id="subtype-brucella-melitensis-brucellosis">
+
+                    <div class="item-name">
+                        Brucella melitensis brucellosis
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0001972" target="_blank">MONDO:0001972</a>
+
+
+
+                    </div>
+                    <div class="subtype-meta">
+
+
+
+
+
+                    </div>
+
+                    <div class="item-desc">Human brucellosis caused by B. melitensis, the small-ruminant-associated Brucella species that predominates in many culture-confirmed human brucellosis series.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1017/S0950268824000803" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1017/S0950268824000803" target="_blank">DOI:10.1017/S0950268824000803</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brucella melitensis was the dominant species (99.6%)."</div>
+
+
+                <div class="evidence-explanation">This national culture-confirmed series supports B. melitensis as a named, epidemiologically important species stratum of human brucellosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                </div>
+
+
+        </div>
 
 
         <!-- Comorbidities -->
@@ -4780,6 +4913,7 @@ This experiment is of type controlled perturbation experiment.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zoonotic-acquisition-and-inoculation" data-dismech-node="Zoonotic acquisition and inoculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Zoonotic acquisition and inoculation</div>
 
+
                 <div class="item-desc">Entry of Brucella into the human host from infected animals or their products. Acquisition is occupational for breeders, veterinarians, abattoir and laboratory workers through direct contact with animals, birth products and aerosols, and food-borne for the general public through raw milk and unpasteurized dairy. Human-to-human transmission is anecdotal, so essentially every human case begins at an animal reservoir. This is the proximal step the rest of this entry assumes: every other pathophysiology node here is downstream of established infection.</div>
 
 
@@ -4905,6 +5039,7 @@ This experiment is of type controlled perturbation experiment.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracellular-macrophage-survival" data-dismech-node="Intracellular macrophage survival" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracellular macrophage survival</div>
+
 
                 <div class="item-desc">Brucella can survive inside macrophages, establishing an intracellular niche that supports persistence and immune evasion.</div>
 
@@ -5053,6 +5188,7 @@ This pathophysiological event involves dysregulated defense response to Gram-neg
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mhc-i-surface-down-modulation" data-dismech-node="MHC-I surface down-modulation" data-dismech-type="pathophysiology">
                 <div class="item-name">MHC-I surface down-modulation</div>
+
 
                 <div class="item-desc">Brucella abortus RNA reduces IFN-gamma-induced surface MHC-I expression in epithelial, endothelial, and monocyte/macrophage contexts.</div>
 
@@ -5317,6 +5453,7 @@ This pathophysiological event involves decreased antigen processing and presenta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pro-inflammatory-cytokine-induction-in-epithelial-and-endothelial-cells" data-dismech-node="Pro-inflammatory cytokine induction in epithelial and endothelial cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Pro-inflammatory cytokine induction in epithelial and endothelial cells</div>
 
+
                 <div class="item-desc">Brucella abortus RNA can increase IL-8 and IL-6 secretion in epithelial and endothelial cell models.</div>
 
 
@@ -5529,6 +5666,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-multisystem-infection" data-dismech-node="Persistent multisystem infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent multisystem infection</div>
 
+
                 <div class="item-desc">Brucellosis involves difficult-to-clear infection requiring prolonged combination therapy to clear infection and prevent relapse.</div>
 
 
@@ -5650,6 +5788,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-constitutional-illness" data-dismech-node="Systemic constitutional illness" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic constitutional illness</div>
+
 
                 <div class="item-desc">Human brucellosis commonly manifests as a systemic febrile illness with fatigue, malaise, sweats, musculoskeletal pain, headache, and weight loss.</div>
 
@@ -5783,6 +5922,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-dissemination" data-dismech-node="Hematogenous dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous dissemination</div>
 
+
                 <div class="item-desc">Brucella bacteraemia distributes organisms from the persistent systemic reservoir to distant tissues.</div>
 
 
@@ -5907,6 +6047,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoarticular-seeding" data-dismech-node="Osteoarticular seeding" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoarticular seeding</div>
 
+
                 <div class="item-desc">Focal osteoarticular infection affects peripheral joints, sacroiliac joints, or vertebral structures.</div>
 
 
@@ -5964,6 +6105,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-valve-seeding" data-dismech-node="Cardiac valve seeding" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac valve seeding</div>
 
+
                 <div class="item-desc">Focal Brucella infection of cardiac valves produces endocarditis.</div>
 
 
@@ -6004,6 +6146,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-invasion" data-dismech-node="Central nervous system invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Central nervous system invasion</div>
+
 
                 <div class="item-desc">Focal neurologic infection produces neurobrucellosis.</div>
 
@@ -6046,6 +6189,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genitourinary-seeding" data-dismech-node="Genitourinary seeding" data-dismech-type="pathophysiology">
                 <div class="item-name">Genitourinary seeding</div>
 
+
                 <div class="item-desc">Focal genitourinary infection affects the epididymis and testis.</div>
 
 
@@ -6086,6 +6230,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-infection" data-dismech-node="Placental infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental infection</div>
+
 
                 <div class="item-desc">Maternal brucellosis can compromise pregnancy through placental involvement.</div>
 
@@ -6135,6 +6280,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reticuloendothelial-organ-seeding" data-dismech-node="Reticuloendothelial organ seeding" data-dismech-type="pathophysiology">
                 <div class="item-name">Reticuloendothelial organ seeding</div>
+
 
                 <div class="item-desc">Focal infection of liver and spleen produces organ enlargement.</div>
 
@@ -6193,6 +6339,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abdominal-organ-involvement" data-dismech-node="Abdominal organ involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Abdominal organ involvement</div>
 
+
                 <div class="item-desc">Disseminated abdominal involvement produces abdominal pain.</div>
 
 
@@ -6233,6 +6380,7 @@ This pathophysiological event involves dysregulated defense response to bacteriu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-facultative-intracellular-niche-cell-penetrant-drug-requirement" data-dismech-node="Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)" data-dismech-type="pathophysiology">
                 <div class="item-name">Facultative Intracellular Niche (Cell-Penetrant Drug Requirement)</div>
+
 
                 <div class="item-desc">Brucella is a facultative intracellular pathogen that survives and replicates within host phagocytes (chiefly macrophages). This intracellular lifestyle shields the organism from antibodies and complement and, critically for therapy, from antibiotics that cannot accumulate inside eukaryotic cells — notably the beta-lactams. Effective treatment is therefore restricted to cell-penetrant agents (doxycycline, aminoglycosides that concentrate at the site, rifampicin), and cure requires prolonged combination therapy to reach and clear the protected intracellular reservoir. This is the lifestyle-gating principle that constrains drug choice beyond any single molecular target.</div>
 
@@ -6403,6 +6551,7 @@ This pathophysiological event involves Biological Process Involved in Interactio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-requirement-for-cell-penetrant-antimicrobials" data-dismech-node="Requirement for Cell-Penetrant Antimicrobials" data-dismech-type="pathophysiology">
                 <div class="item-name">Requirement for Cell-Penetrant Antimicrobials</div>
 
+
                 <div class="item-desc">Efficacy against the intracellular Brucella reservoir tracks the intracellular concentration a drug achieves, not merely its in vitro MIC. Doxycycline, rifampicin, and aminoglycosides accumulate within (or otherwise reach) infected cells, whereas beta-lactams do not — so the mainstay regimens are built from cell-penetrant agents given in prolonged combination. This is the cell-penetrant-drug requirement that the brucellosis treatments target.</div>
 
 
@@ -6498,6 +6647,7 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-ribosomal-translation-tetracycline-aminoglycoside-target" data-dismech-node="Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial Ribosomal Translation (Tetracycline/Aminoglycoside Target)</div>
 
+
                 <div class="item-desc">Brucella, like other bacteria, depends on 70S-ribosome translation of its mRNA. Doxycycline (a tetracycline) binds the 30S subunit and blocks aminoacyl-tRNA delivery, and the aminoglycosides streptomycin and gentamicin also target the 30S ribosome — the shared molecular target that anchors the doxycycline-plus-aminoglycoside brucellosis regimens. This is a bacterial target absent from the beta-lactam-inaccessible host cytoplasm, complementing the intracellular-niche gating node.</div>
 
 
@@ -6592,6 +6742,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-rna-polymerase-rifamycin-target" data-dismech-node="Bacterial RNA Polymerase (Rifamycin Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial RNA Polymerase (Rifamycin Target)</div>
+
 
                 <div class="item-desc">Rifampicin, a component of the classic WHO-recommended doxycycline-rifampicin regimen, binds the beta subunit of bacterial DNA-dependent RNA polymerase and blocks nascent-transcript elongation. Because rifamycins are cell- and tissue-penetrant, this target is reachable in the intracellular Brucella reservoir; single rpoB point mutations confer high-level resistance, which is part of why rifampicin is used in combination rather than alone.</div>
 
@@ -9449,8 +9600,6 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
 
 
-                <div class="item-desc">Issue #8302 asked for an explicit decision on the Research Square preprint cited here rather than letting it stand by default. Decision: keep it, demoted to PARTIAL and no longer the primary support, with the peer-reviewed One Health review (PMID:37630630) carrying the claim. Its snippet does verify against the cached document; the objection was to its epistemic status, not its accuracy.</div>
-
 
                 <div class="item-desc">Livestock-dependent regions have higher exposure opportunity for zoonotic Brucella transmission.</div>
 
@@ -9478,10 +9627,10 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
 
                 </div>
 
-                <div class="evidence-snippet">"brucellosis is considered a severe problem in animals and humans in Asia, the Middle East, Africa and Ibero-America"</div>
+                <div class="evidence-snippet">"Brucellosis is the name given to a group of highly contagious zoonotic infections caused by members of the genus Brucella. ... Humans contract the disease from infected animals and their products, and human-to-human transmission is only anecdotic. Thus, risk groups are breeders and their..."</div>
 
 
-                <div class="evidence-explanation">Peer-reviewed support for the geographic concentration of brucellosis in the regions where livestock husbandry is economically dominant.</div>
+                <div class="evidence-explanation">Names brucellosis, animal contact, livestock-related risk groups and unpasteurized dairy as the zoonotic exposure pathway. These support the exposure opportunities associated with livestock dependence without directly comparing economies. Ellipses mark omitted text in source order.</div>
 
 
 
@@ -9508,7 +9657,7 @@ This treatment uses hydroxychloroquine (CHEBI:5801). CHEBI:5801 is a therapeutic
                 <div class="evidence-snippet">"Human brucellosis caused by various Brucella species is a significant global health concern, particularly in livestock-dependent regions."</div>
 
 
-                <div class="evidence-explanation">Names livestock-dependent regions directly, which no peer-reviewed source cited here does in those words. Downgraded from SUPPORT to PARTIAL because this is a Research Square preprint that has not been peer reviewed; it is retained as corroboration rather than as the item the claim rests on.</div>
+                <div class="evidence-explanation">This Research Square preprint explicitly names livestock-dependent regions. Retained as corroborating evidence after citation review (issue 8302); the peer-reviewed One Health review supplies the primary evidence for animal-contact and dairy transmission. The preprint snippet verifies against the cached text, but its publication status limits the weight placed on it.</div>
 
 
 
@@ -10909,6 +11058,29 @@ synonyms:
 - undulant fever
 - Malta fever
 - Mediterranean flaccid fever
+has_subtypes:
+- name: Brucella melitensis brucellosis
+  display_name: Brucella melitensis brucellosis
+  classification: etiologic_species
+  curated_in: Brucella_Melitensis_Brucellosis
+  description: &gt;-
+    Human brucellosis caused by B. melitensis, the small-ruminant-associated
+    Brucella species that predominates in many culture-confirmed human
+    brucellosis series.
+  subtype_term:
+    preferred_term: Brucella melitensis brucellosis
+    term:
+      id: MONDO:0001972
+      label: Brucella melitensis brucellosis
+  evidence:
+  - reference: DOI:10.1017/S0950268824000803
+    reference_title: &#34;National epidemiology of culture-confirmed brucellosis in Israel, 2004-2022&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Brucella melitensis was the dominant species (99.6%).&#34;
+    explanation: &gt;-
+      This national culture-confirmed series supports B. melitensis as a named,
+      epidemiologically important species stratum of human brucellosis.
 prevalence:
 - population: Global literature meta-analysis
   measure_type: POINT_PREVALENCE
@@ -12052,26 +12224,29 @@ environmental:
     reference_title: &#34;Brucellosis and One Health: Inherited and Future Challenges&#34;
     supports: SUPPORT
     evidence_source: OTHER
-    snippet: &#34;brucellosis is considered a severe problem in animals and humans in Asia, the Middle East, Africa and Ibero-America&#34;
+    snippet: &gt;-
+      Brucellosis is the name given to a group of highly contagious zoonotic infections caused by
+      members of the genus Brucella. ... Humans contract the disease from infected animals and their
+      products, and human-to-human transmission is only anecdotic. Thus, risk groups are breeders
+      and their families, veterinarians, laboratory personnel and dairy and slaughterhouse workers.
+      The general public is mainly affected by consuming raw milk and unpasteurized dairy products
+      and, to a lesser extent, raw viscera, blood and offal ... brucellosis is considered a severe
+      problem in animals and humans in Asia, the Middle East, Africa and Ibero-America
     explanation: &gt;-
-      Peer-reviewed support for the geographic concentration of brucellosis in the
-      regions where livestock husbandry is economically dominant.
+      Names brucellosis, animal contact, livestock-related risk groups and unpasteurized dairy as
+      the zoonotic exposure pathway. These support the exposure opportunities associated with
+      livestock dependence without directly comparing economies. Ellipses mark omitted text in
+      source order.
   - reference: DOI:10.21203/rs.3.rs-4929733/v1
     reference_title: &#34;Global prevalence of human brucellosis: A systematic review and meta-analysis&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Human brucellosis caused by various Brucella species is a significant global health concern, particularly in livestock-dependent regions.&#34;
     explanation: &gt;-
-      Names livestock-dependent regions directly, which no peer-reviewed source cited
-      here does in those words. Downgraded from SUPPORT to PARTIAL because this is a
-      Research Square preprint that has not been peer reviewed; it is retained as
-      corroboration rather than as the item the claim rests on.
-  notes: &gt;-
-    Issue #8302 asked for an explicit decision on the Research Square preprint cited
-    here rather than letting it stand by default. Decision: keep it, demoted to
-    PARTIAL and no longer the primary support, with the peer-reviewed One Health
-    review (PMID:37630630) carrying the claim. Its snippet does verify against the
-    cached document; the objection was to its epistemic status, not its accuracy.
+      This Research Square preprint explicitly names livestock-dependent regions. Retained as
+      corroborating evidence after citation review (issue 8302); the peer-reviewed One Health review
+      supplies the primary evidence for animal-contact and dairy transmission. The preprint snippet
+      verifies against the cached text, but its publication status limits the weight placed on it.
 - name: Maternal livestock exposure
   presence: risk factor
   exposure_term:
@@ -13601,7 +13776,7 @@ A 2024 global prevalence review also lists common manifestations (fever/fatigue/
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Brucellosis", "mondoId": "MONDO:0005683", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brucellosis", "yamlRevision": "12f78b075ddf"};
+        const OS_CONFIG = {"diseaseName": "Brucellosis", "mondoId": "MONDO:0005683", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Brucellosis", "yamlRevision": "069c1b180e30"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

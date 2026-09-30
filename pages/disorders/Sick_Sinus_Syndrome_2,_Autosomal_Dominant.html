@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5044,6 +5083,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hcn4-loss-of-function-variant" data-dismech-node="HCN4 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">HCN4 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A heterozygous loss-of-function variant in HCN4 alters the pore-forming subunit of the cardiac pacemaker channel. Reported disease alleles cluster in three structural regions with three corresponding biophysical consequences: pore-domain missense changes (G480R, G482R) that impair channel synthesis, trafficking, and gating; C-linker and cyclic-nucleotide-binding-domain changes (S672R, K530N) that shift activation gating; and C-terminal truncations (573X, 695X) that delete the cyclic-nucleotide-binding domain. All are heterozygous, and most act dominant-negatively on wild-type subunits within the heterotetramer.</div>
 
 
@@ -5361,6 +5401,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-funny-current-and-slowed-diastolic-depolarization" data-dismech-node="Reduced Funny Current and Slowed Diastolic Depolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Funny Current and Slowed Diastolic Depolarization</div>
 
+
                 <div class="item-desc">The funny current I_f is the hyperpolarization-activated inward cation current that drives the early phase of spontaneous diastolic depolarization in sinoatrial node pacemaker cells. Mutant HCN4 channels activate at more negative voltages than wild-type channels, so at the diastolic potentials actually reached by a pacemaker cell less inward current flows. The diastolic depolarization slope falls, the interval to threshold lengthens, and the intrinsic firing rate of the node drops. The biophysical change has been described as mimicking mild vagal stimulation — a permanent, genetically imposed version of a physiological brake.</div>
 
 
@@ -5671,6 +5712,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-camp-dependent-rate-modulation" data-dismech-node="Loss of cAMP-Dependent Rate Modulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of cAMP-Dependent Rate Modulation</div>
 
+
                 <div class="item-desc">Beta-adrenergic stimulation raises intracellular cAMP, which binds the cyclic-nucleotide-binding domain of HCN4 and shifts activation to more positive voltages, accelerating diastolic depolarization; vagal tone does the reverse. Truncating HCN4 alleles such as 573X delete this domain entirely, so the residual current is insensitive to cAMP. This is the proposed mechanistic basis of chronotropic incompetence in SSS2 — a failure of rate adaptation that is separable from the resting bradycardia. The corresponding mouse model shows that cAMP sensitivity of I_f sets basal and maximal heart rate while relative rate regulation during exercise is partially preserved by other mechanisms.</div>
 
 
@@ -5932,6 +5974,7 @@ This pathophysiological event involves decreased regulation of SA node cell acti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sinoatrial-node-automaticity-failure" data-dismech-node="Sinoatrial Node Automaticity Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinoatrial Node Automaticity Failure</div>
+
 
                 <div class="item-desc">Depressed pacemaker-cell firing translates into failure of the sinoatrial node to generate and deliver impulses at an appropriate rate: sinus bradycardia at rest, intermittent sinus pauses or arrest, and an inadequate rate response to demand. Because the node also anchors atrial activation, chronic bradycardia and the associated atrial electrical and structural remodeling raise susceptibility to atrial fibrillation, giving the tachycardia-bradycardia pattern that is unusually common in HCN4 carriers.</div>
 
@@ -6227,6 +6270,7 @@ This pathophysiological event occurs in sinoatrial node (UBERON:0002351). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ventricular-trabecular-compaction" data-dismech-node="Impaired Ventricular Trabecular Compaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ventricular Trabecular Compaction</div>
 
+
                 <div class="item-desc">HCN4 is expressed during cardiac development, and in several independent pedigrees the same segregating HCN4 allele produces both bradycardia and left ventricular noncompaction — a myocardium with a persistently trabeculated, poorly compacted layer and deep intertrabecular recesses. This developmental arm is what distinguishes the HCN4 form of familial sick sinus syndrome from the sodium-channel forms, in which no structural abnormality is found. It is curated here as a parallel branch of the same genetic lesion rather than as maladaptive remodeling secondary to the arrhythmia: the noncompaction is present from childhood and does not follow a preceding phase of cardiomyocyte injury and neurohormonal activation. Some pedigrees additionally show dilation of the ascending aorta.</div>
 
 
@@ -6453,6 +6497,7 @@ This pathophysiological event occurs in heart left ventricle (UBERON:0002084). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-syncope-and-sudden-cardiac-death" data-dismech-node="Syncope and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope and Sudden Cardiac Death</div>
+
 
                 <div class="item-desc">Severe bradycardia or a prolonged sinus pause transiently abolishes effective cardiac output, producing presyncope and syncope from cerebral hypoperfusion; an unterminated pause carries a risk of asystolic sudden death. This is the shared clinical endpoint with the other inherited arrhythmia syndromes, reached in SSS2 through bradyarrhythmia rather than ventricular tachyarrhythmia. Prognosis is variable and allele-dependent: the G480R pore-domain family remained asymptomatic with normal exercise capacity throughout long-term follow-up and required no pacemaker.</div>
 
@@ -7737,6 +7782,9 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7835,6 +7883,7 @@ This disease-associated gene is HCN4 (hgnc:16882). hgnc:16882 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7856,7 +7905,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense change near the cyclic-nucleotide-binding site, identified in a large familial sinus bradycardia pedigree. Mutant channels retain a normal response to cAMP but activate at more negative voltages than wild-type, reducing the inward diastolic current.</div>
@@ -7943,6 +7998,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7964,7 +8020,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous single-base deletion in exon 5 producing a C-terminally truncated subunit that lacks the cyclic-nucleotide-binding domain. Trafficking is normal, but the resulting current is cAMP-insensitive and the subunit exerts a dominant-negative effect on wild-type channels.</div>
@@ -8097,6 +8159,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8118,7 +8181,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal truncating allele reported in a family with the combined sinus node dysfunction and noncompaction phenotype, in the same series that described G482R and P883R. It is grouped with 573X as a truncation, but unlike 573X it has not been characterised electrophysiologically in the cited work, so its consequence is inferred from the variant class and the family phenotype rather than measured.</div>
@@ -8205,6 +8274,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8226,7 +8296,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pore-domain missense change segregating with autosomal dominant isolated sinus node dysfunction in a 16-member family. Reduces channel synthesis and membrane trafficking and shifts activation to more negative voltages, yet carries a benign long-term course.</div>
@@ -8313,6 +8389,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8334,7 +8411,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Pore-domain missense change segregating with the combined sinus node dysfunction and biventricular noncompaction phenotype. Mutant subunits are nonfunctional and dominant-negative on wild-type current.</div>
@@ -8442,6 +8525,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8463,7 +8547,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-linker missense change identified by screening 422 patients with tachyarrhythmias. Homomeric mutant channels behave almost like wild-type; the loss of function appears only in heteromeric mutant/wild-type channels, which show a hyperpolarizing shift of half-maximal activation — the biophysical situation of a heterozygous carrier.</div>
@@ -8550,6 +8640,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8571,7 +8662,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense change in the C-linker region that reduces the amount of channel reaching the membrane. It is the worked example of the trafficking class of HCN4 allele, and it acts dominant-negatively on the wild-type subunit rather than by simple loss of one copy. The index carrier had recurrent syncope with a prolonged QT interval and torsade de pointes as well as sinus node dysfunction, so this allele&#39;s reported phenotype reaches repolarisation and ventricular arrhythmia as well as impulse generation.</div>
@@ -8706,6 +8803,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8727,7 +8825,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">C-terminal missense change that does not fit the loss-of-function pattern the rest of these alleles follow. It segregated with the combined sinus node dysfunction and noncompaction phenotype in one proband, but when characterised functionally it shifted activation to more depolarised potentials and, co-expressed with wild-type subunits as in a heterozygote, produced higher rather than lower current density. It is also common enough (minor allele frequency around 0.9%) that it cannot be a fully penetrant cause on its own. The authors of the functional study read it as a modifier acting with a common KCNE1 variant to favour atrial fibrillation and tachycardia-induced cardiomyopathy, rather than as an SSS2 allele. Both readings stand in the literature and neither has been withdrawn.</div>
@@ -8864,6 +8968,7 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8885,7 +8990,13 @@ This variant is in HCN4 (hgnc:16882). hgnc:16882 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-donor variant segregating in a large bradycardia family with a two-point LOD score of 4.87. Its interest is that the family was characterised by Holter and exercise testing rather than by patch clamp, so it supplies the quantitative human chronotropic phenotype: carriers reach lower peak heart rates, have a reduced heart rate reserve, and show increased short-term heart rate variability even after normalisation for rate.</div>
