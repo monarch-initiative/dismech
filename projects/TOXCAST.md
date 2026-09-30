@@ -113,6 +113,12 @@ The panel names 496 distinct gene targets: 433 human and 63 ortholog-only.
 So 39% of the panel's targets are on the pathograph, 7% are known to dismech
 without being on it, and 54% are not bound in any disease entry.
 
+The third row is empty in this snapshot, not broken: every panel target that
+any entry binds sits either on a node or in a `genetic:` record. The row
+exists because a gene can be bound in other places, such as a treatment's
+`target_gene` or a subtype's gene list, and a target found only there would
+land in it.
+
 The panel is very uneven, and so is the pathograph, in different places. 247
 targets appear in exactly one endpoint and twelve appear in ten or more. Of
 those twelve, nine are on a node: ESR1, AR, PPARG, NR3C1, ESR2, THRA, THRB,

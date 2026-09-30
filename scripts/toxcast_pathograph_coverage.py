@@ -284,6 +284,9 @@ class Coverage:
     modules: KBIndex
     retrieved: str = ""
     kb_commit: str = ""
+    #: The nodes each endpoint reaches, filled on first use. Every count below
+    #: is a fold over this, so it is computed once per endpoint.
+    _nodes_by_aeid: dict[int, set[Node]] = field(default_factory=dict, repr=False)
 
     # --- genes ---
 
@@ -303,7 +306,11 @@ class Coverage:
         return found
 
     def nodes_for(self, endpoint: AssayEndpoint) -> set[Node]:
-        return self.candidate_nodes(endpoint_keys(endpoint))
+        if endpoint.aeid not in self._nodes_by_aeid:
+            self._nodes_by_aeid[endpoint.aeid] = self.candidate_nodes(
+                endpoint_keys(endpoint)
+            )
+        return self._nodes_by_aeid[endpoint.aeid]
 
     # --- endpoints ---
 
