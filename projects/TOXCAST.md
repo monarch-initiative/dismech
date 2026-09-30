@@ -7,6 +7,9 @@ description: >-
   some pathophysiology node names, and those nodes sit in about a tenth of the
   disease entries. A shared gene is a candidate for a mapping, not a mapping.
 tags: [NAM, ENVIRONMENTAL_EXPOSURE, PATHOPHYSIOLOGY, FEASIBILITY_ANALYSIS]
+diseases:
+- Generalized_Resistance_to_Thyroid_Hormone
+- Resistance_to_Thyroid_Hormone_Alpha
 ---
 
 # ToxCast Assay Coverage of the Pathograph
@@ -174,6 +177,184 @@ node asserts that it drives that mechanism in that disease.
 - **Modules.** Mechanism modules are counted apart from diseases: 12 of the
   898 module nodes name a panel target, across 9 modules.
 
+## Worked example: one THRB endpoint against the thyroid-hormone-resistance entries
+
+The counts above say how many candidates exist. This says what writing one down
+costs, using the endpoint #12858 names for the purpose.
+
+**The endpoint.** `TOX21_TRB_COA_Antagonist_Followup_ratio`, EPA assay endpoint
+2247. A GST-tagged TR-beta ligand-binding domain, a terbium-labelled anti-GST
+antibody and a fluorescein-labelled SRC-2 coactivator peptide report coactivator
+recruitment by resonance energy transfer, normalized against DMSO-only and T3
+control wells. EPA annotates the target as human THRB, the direction as loss,
+and the format as **cell-free**; a hit is a chemical that reduces recruitment.
+Its method paper is PMID:31566444, which describes the reaction as 5.0 nM of
+GST-tagged TR-beta ligand-binding domain with a 200 nM coactivator peptide — no
+cell of any kind.
+
+**The node the gene join offers.** THRB is named by exactly one pathophysiology
+node in the corpus: `THRB Dominant-Negative Receptor Formation`, the trigger
+node of Generalized_Resistance_to_Thyroid_Hormone. It is `MOLECULAR`, and its
+`genetic_context` records `functional_impact_category: DOMINANT_NEGATIVE` with a
+missense allele.
+
+**The node the join cannot offer, and which the assay actually matches.** The
+next node down that chain is `Impaired Corepressor Release at Thyroid Hormone
+Response Elements`. Its molecular function is `GO:0001222` transcription
+corepressor binding and its description says the mutant receptor "fails to
+release the nuclear receptor corepressor complex (NCoR/SMRT) ... and
+correspondingly fails to recruit coactivators". Failure to recruit coactivators
+is precisely what endpoint 2247 measures. That node names no gene, so the gene
+join is blind to it.
+
+This is a limit on candidate *discovery*, not on the mapping vocabulary. This
+entry names THRB once, on the trigger node, and describes the consequences
+downstream without repeating it, so the join reaches the lesion and not the
+state. How general that is has not been measured, and it is not universal —
+only 64 of the 452 candidate nodes carry a `genetic_context` at all. But where
+it holds, the count on this page and the mapping a curator would actually want
+point at different nodes.
+
+### The record the schema requires
+
+Written out in full, against the trigger node the join proposes. This block
+validates: schema, ontology terms, and the quoted snippet against the cached
+method paper.
+
+```yaml
+experimental_models:
+- name: TOX21_TRB_COA_Antagonist_Followup_ratio
+  experimental_model_type: OTHER
+  description: >-
+    EPA ToxCast/Tox21 assay endpoint 2247. A cell-free TR-FRET assay in which a
+    GST-tagged TR-beta ligand-binding domain, a terbium-labelled anti-GST
+    antibody and a fluorescein-labelled SRC-2 coactivator peptide together
+    report coactivator recruitment by the receptor, with the signal normalized
+    to DMSO-only wells for 0% and T3 wells for 100% activity. EPA annotates the
+    intended target as human THRB, the format as cell-free, the function type
+    as a ratio and the signal direction as loss, so a hit is a chemical that
+    reduces recruitment.
+  organism:
+    preferred_term: human
+    term:
+      id: NCBITaxon:9606
+      label: Homo sapiens
+  culture_system: Cell-free TR-FRET reaction; no cultured cells
+  publication: PMID:31566444
+  modeled_mechanisms:
+  - target: THRB Dominant-Negative Receptor Formation
+    relationship: MEASURES
+    fidelity: LOW
+    model_scale: MOLECULAR
+    description: >-
+      The endpoint reads transcriptional output of TR-beta in the same
+      direction the node's mechanism produces, so a hit is informative about
+      the receptor's coactivator-recruitment capacity.
+    limitations: >-
+      The assay reads a wild-type receptor ligand-binding domain whose
+      coactivator recruitment has been reduced by a chemical. The node names a
+      heterozygous missense allele whose product keeps DNA binding and RXR
+      heterodimerization while failing to release corepressor. Target gene and
+      signal direction agree; the mechanism does not.
+    divergences:
+    - divergence_type: CAUSE_UNREPRESENTED
+      materiality: INVALIDATING
+      description: >-
+        The node's lesion is a heterozygous missense THRB allele. There is no
+        allele in this assay: the reduction in coactivator recruitment is
+        imposed pharmacologically on a recombinant wild-type ligand-binding
+        domain.
+    - divergence_type: BOUNDARY_OMISSION
+      materiality: INVALIDATING
+      description: >-
+        The node's mechanism requires a co-expressed wild-type receptor to
+        compete with, thyroid hormone response elements to occupy and an
+        NCoR/SMRT corepressor complex to retain. The assay contains one
+        receptor ligand-binding domain, a coactivator peptide and an antibody:
+        no second allele, no DNA and no corepressor.
+    evidence:
+    - reference: PMID:31566444
+      reference_title: "Limited Chemical Structural Diversity Found to Modulate Thyroid Hormone Receptor in the Tox21 Chemical Library."
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: "were used to determine TR activity in a cell-free functional assay"
+      explanation: >-
+        Establishes that the endpoint is a cell-free biochemical measurement of
+        receptor activity rather than a cellular or organismal model.
+```
+
+Four things about that block are worth reading closely.
+
+**The vocabulary does fit, and it fits well.** `MEASURES` says the assay reads
+the node without modelling the disease. `CAUSE_UNREPRESENTED` is defined as the
+lesion not being encoded, with "the mechanism is imposed phenomenologically
+instead of arising from the allele" — a taxonomy derived from the
+computational-model caveats already in the corpus, extending here unchanged.
+`BOUNDARY_OMISSION` carries the rest. #12858's claim that dismech already
+has the words for this holds up.
+
+**Both divergences come out `INVALIDATING`.** Neither is a caveat on an
+otherwise usable link; each says on its own that the claim should not transfer.
+The dominant-negative mechanism is a claim about two alleles competing in one
+nucleus. No endpoint in the panel expresses a disease allele — ToxCast screens
+chemicals against wild-type receptors — so the third node in the chain,
+`Dominant-Negative Inhibition of Wild-Type Receptor Transcription`, is
+unreachable from any of THRB's 13 endpoints, cell-based or not.
+
+**The scale audit reports no gap, and that is not reassurance.** The link's
+`model_scale` is `MOLECULAR` and the node's `biological_scale` is `MOLECULAR`,
+so `just model-scale-audit` sees nothing to flag. CLAUDE.md's instruction to
+read an aligned result as "no *scale* gap" and never as "good model" has a live
+instance here.
+
+**`ExperimentalModel` has little to say about this assay.** The class describes
+a cultured system. #12858 proposes four correspondences onto it — `organism`,
+`tissue`, `cellShortName` and the citation PMID — and for this endpoint two of
+them carry nothing, because `tissue` and `cellShortName` are both `NA`.
+`experimental_model_type` is not among those four and has no value that fits
+either: a cell-free reaction falls to `OTHER`, which records nothing, and
+#12858 already flags that 481 of the panel's endpoints are biochemical or
+cell-free. Its sibling endpoint 2240,
+`TOX21_TRB_BLA_Antagonist_Followup_ratio`, is the same receptor in the same
+direction from the same paper, and is cell-based in HEK293T cells, so it fills
+all four and types as `CELL_LINE`. Two endpoints a curator would reach for
+together need different treatment — and the tissue the cell-based one records
+is kidney, which appears nowhere in this disease.
+
+### What it costs to say it twice
+
+`ModelMechanismLink.target` resolves only within one disease file, and an
+`ExperimentalModel` is nested inside one `Disease`. So the record above lives in
+Generalized_Resistance_to_Thyroid_Hormone and nothing else in the repository
+knows the endpoint exists.
+
+The paralogs make the cost concrete. THRB has 13 endpoints and THRA has 13, and
+**four are the same four**: `TOX21_TR_LUC_GH3_Agonist`,
+`TOX21_TR_LUC_GH3_Antagonist` and their two followups each name THRA and THRB
+together in rat GH3 pituitary cells, so a hit there does not say which paralog
+it acted through. Those two dismech entries exist to separate the paralogs —
+Generalized_Resistance_to_Thyroid_Hormone for THRB, and
+Resistance_to_Thyroid_Hormone_Alpha, whose own trigger node is `THRA
+Dominant-Negative Receptor Variant`. Writing a paralog-blind endpoint into both
+means two records that each look paralog-specific, with no shared identity, and
+nothing that could later correct them together.
+
+Species compounds it. Of THRB's 13 endpoints, 11 name the human gene; two
+(`ATG_zfTRb_XSP1` and `ATG_zfTRb_XSP2`) name zebrafish `thrb` while running in
+human cells, so they join to this node only because the upper-cased symbol
+collides.
+
+Resistance_to_Thyroid_Hormone_Alpha already carries a real `ExperimentalModel`:
+primary erythroid progenitors from 11 genotyped RTH-alpha patients, linked
+`PARTIALLY_RECAPITULATES` at `HIGH` fidelity to the erythroid node. Put the
+ToxCast record beside it and the class is being asked to hold two different
+kinds of thing — a patient-derived culture carrying the patients' own variants,
+and a purified receptor domain with a chemical on it.
+
+**Nothing from this example is committed to `kb/`.** The block above validates
+but every divergence on it is `INVALIDATING`, and whether a link like it belongs
+in dismech at all is the next deliverable's question, not this one's.
+
 ## How this compares with the figures in #12858
 
 The issue reported 170 targets on 368 nodes at commit `fc510ecca0`. This page
@@ -205,11 +386,9 @@ misleads.
 
 ## Still to come on this page
 
-Issue #12858 asks for more than the measurement above. Each of these is its
-own piece of work and none is started here:
+Issue #12858 asks for more than the measurement and the example above. Each of
+these is its own piece of work and none is started here:
 
-- one worked example of fitting an assay into the schema's existing
-  model-to-mechanism vocabulary;
 - an evaluation of whether assay-to-node mappings should be added to dismech
   at all;
 - an evaluation of the AOP-Wiki Key Event links the API itself publishes for
