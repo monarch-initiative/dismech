@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--limit",
         type=int,
-        help="stop after N normalized rows",
+        help="stop after the first N normalized rows fetched",
     )
     parser.add_argument(
         "--format",
