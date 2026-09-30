@@ -2315,6 +2315,74 @@ Beyond genes, the same shape applies to any descriptor where `preferred_term`
 names the entity and `term` binds it. Genes are the sharpest case because the
 label is usually an exact symbol.
 
+### Gene-Disease Validity Is Copied, Never Assigned (dismech#10179)
+
+`relationship_type` says what *kind* of gene-disease relationship is claimed
+(`CAUSATIVE`, `RISK_FACTOR`, ...). How *well established* it is goes in
+`Genetic.gene_disease_validity`, a list of `GeneDiseaseValidityAssertion`
+objects. Each records one external classification: the tier
+(`validity_classification`, the GenCC harmonised ladder from `DEFINITIVE` to
+`REFUTED`), **who assigned it** (`classified_by`, required), and the source's
+identifier for it (`external_id`).
+
+```yaml
+genetic:
+- name: HGD variants
+  gene_disease_validity:
+  - validity_classification: DEFINITIVE
+    classified_by: CLINGEN
+    external_id: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+    evidence:
+    - reference: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: "HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive"
+```
+
+Rules for filling it:
+
+- **Copy a tier from a source; never assign one.** There is no `DISMECH` or
+  `CURATOR` value for `classified_by`, on purpose. When no external body has
+  classified the pair (a gene surfaced by one cohort, IVNS1ABP at posterior
+  probability 0.33), leave the slot absent and say what the evidence is in
+  `Genetic.notes`. Absent means "not classified", which is not
+  `NO_KNOWN_DISEASE_RELATIONSHIP`.
+- **One assertion per source record.** ClinGen classifies each mode of
+  inheritance separately (JPH2 in dilated cardiomyopathy is Strong AR and
+  Limited AD), so a gene can carry several. Where an entry's subtypes are
+  separate ClinGen diseases, set `subtype` to the `has_subtypes[].name`.
+- **The assertion must be for this entry's disease.** A ClinGen record counts
+  only when its MONDO term is the entry's `disease_term`, a `has_subtypes`
+  term, or an `exactMatch` MONDO mapping. A broader ClinGen lumping (generic
+  hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
+- **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
+  scale, not a weak rating.
+- **Record it on the claim ClinGen classified.** An entry can carry a
+  causative row and a susceptibility row for the same gene; a ClinGen
+  Definitive AR tier belongs on the causative one only. The audit attributes
+  an assertion to the record whose own evidence cites it.
+- **Quote the source row as evidence**, as with any structured-source citation.
+
+```bash
+just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
+just list-gene-validity --format tsv --kind backfill  # the mechanical worklist
+just list-gene-validity kb/disorders/MyDisease.yaml
+```
+
+Only `conflict` fails: a recorded `CLINGEN` assertion whose cached `CGGV:`
+record carries a different tier or a different gene. The report classes are
+`unsourced` (a `CLINGEN` tier with no `CGGV:` identifier), `backfill` (a cited
+same-disease ClinGen assertion not yet recorded on the record that cites it),
+`other_disease` (ClinGen classified the gene only for a different MONDO
+disease: decide whether the entities are the same before copying), `unplaced`
+(an assertion cited outside `genetic[]` for a gene with several records, so the
+audit cannot tell which claim it describes),
+`overstated` (`relationship_type: CAUSATIVE`, which the schema defines as
+Definitive or Strong, on a gene ClinGen rates lower for this disease), and
+`uncached`. Only ClinGen is checked, because it is the one source cached per
+record. The audit never edits `kb/`; a bulk backfill would collide with every
+open curation PR.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
@@ -2347,6 +2415,44 @@ phenotype_term:
 
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
+
+### Gene Classifications (`kb/gene_classifications/`)
+
+Transcriptions of external systems that classify **genes** (as opposed to
+diseases), validating against `GeneClassificationCollection`. Provenance sits
+once in the file header; rows carry an HGNC-bound gene plus a multivalued
+`values` list.
+
+```bash
+just fetch-nmd-gene-table          # regenerate the NMD gene table collection
+just validate-gene-classifications # validate every collection
+```
+
+**`values` is multivalued by design.** A gene appears once per clinically
+distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy, and a
+motoneuron-disease presentation). That is a true fact about TTN, and putting it
+on the gene is exactly why this axis exists; it becomes unmodellable if forced
+onto a disease entry's `classifications`.
+
+Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
+[Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
+Note this is a **gene catalogue**, not an expert nosology in the ISDS sense;
+there is no whole-domain nosology for neuromuscular disease. It is nuclear-genome
+and monogenic only, so mtDNA disease and acquired neuromuscular disease
+(myasthenia gravis, the inflammatory myopathies, Guillain-Barré) are simply
+absent rather than assigned to a catch-all.
+
+**Never hand-edit a collection** — regenerate with its script. Adding a new
+source means: a new enum module under `src/dismech/schema/classifications/`, a
+fetch script, and an entry in `SYSTEM_ENUMS` in
+`tests/test_gene_classifications.py` so its values are checked against that enum.
+
+Distinct from `gene_sets:`, which references flat, typically
+experimentally-derived sets (signatures, perturbation results) consumed as
+enrichment inputs. A gene classification is a curated, authoritative assertion
+about which genes cause disease in a domain. See
+[`docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md`](docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md).
 
 ### Gain/Loss of Function: which slot?
 
