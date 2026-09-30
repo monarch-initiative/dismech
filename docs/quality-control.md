@@ -385,6 +385,57 @@ lowering it, and `null` there silently disables the gate. The sibling
 *A resolving target is not a connected phenotype* carries the current figure and
 how to read a failure; this page deliberately does not restate it.
 
+
+## Granularity ladder: `just check-granularity`
+
+Design decisions §3e fixes how finely an infectious disease is split — the
+default entry is the named clinical entity, strata below it are `has_subtypes`
+only when documented to differ, promotion to a separate entry needs two
+differentiating axes, and a phase is never an entry. Some of those rules are
+judgement and some are not, and the check draws that line rather than blurring
+it:
+
+```bash
+just check-granularity                          # census + worklist, exit 0
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry (the computed columns)
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on any deterministic finding
+just check-granularity --fail-on TAXON_LUMP     # gate on one class, advisory or not
+just check-granularity --scope all              # cross-entry classes over every entry
+```
+
+| Class | Rule | Gates under `--strict` |
+|---|---|---|
+| `MISSING_AGENT`, `UNBOUND_AGENT`, `MISSING_TRANSMISSION` | R25 — every microbial entry names a NCBITaxon-bound agent and a transmission route | yes |
+| `ROOT_AS_ENTRY` | R2 — anchored to *infectious disease* or one of its four kingdom-level children | yes |
+| `DOUBLE_MODELLED`, `DANGLING_POINTER` | R20 — a subtype that is also another entry carries `curated_in`, and the pointer resolves | yes |
+| `DUPLICATE_ANCHOR` | R18/R28 — two entries on one `disease_term` with no `skos:narrowMatch` | yes |
+| `PATHOTYPE_COLLAPSE` | R15 — two agents bound to the same taxon | yes |
+| `TAXON_LUMP` → `LUMP_RECORDED` | R7–R9 — three or more agents, no subtypes, and no `Deliberately lumped.` paragraph in `review_notes` | no |
+| `UNBOUND_SUBTYPE`, `UNBOUND_AGENT_STRATUM` | R12 — may have no honest term to bind | no |
+| `NO_PROGRESSION` | R21 — only matters where the disease has phases | no |
+| `MISSING_LIFECYCLE` | R26 — heuristic: transmission text names a vector or reservoir | no |
+| `POINTER_TERM_MISMATCH` | R20 — a pointer resolves, but its `subtype_term` disagrees with the target's `disease_term` | no |
+| `POINTER` | informational — a pointer subtype, working as designed | no |
+
+**Report-only, and the advisory half is not a number to drive up.** An
+undifferentiated lump is the ladder's default state under R9, so `TAXON_LUMP`
+means "no decision recorded", and the right output of looking at one is as
+likely a recorded lump as a new subtype. It runs inside `just qc` at exit 0;
+`--strict` exists for when the deterministic backlog (the `infectious_agent`
+and `transmission` backfills on #10115) is cleared.
+
+**Scope follows the ladder's own exclusions.** A carcinoma with an HPV agent
+block is a cancer whose pathogen is an annotation (R23); a Mendelian
+susceptibility disorder, a post-infectious sequela and a mycotoxicosis are
+likewise not microbial entries. They are counted in the summary and not
+assessed. The cross-entry classes (`DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`) are
+the mechanical half of #10113 and #10116 as much as of this ladder; `--scope
+all` runs them KB-wide, where the umbrella-entry pattern (`Epilepsy` listing
+`Juvenile Myoclonic Epilepsy`, which has its own entry) makes them a backlog in
+the hundreds.
+
 ## Adding a new computed metric
 
 1. Implement a class with an `evaluate(self, data, config) -> list[AggregatedPathScore]`
