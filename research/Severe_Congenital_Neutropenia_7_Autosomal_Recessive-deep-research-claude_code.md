@@ -1,6 +1,71 @@
-# Citations for Research Query
+---
+provider: claude_code
+model: claude-haiku-4-5-20251001, claude-sonnet-5-5
+cached: false
+start_time: '2026-09-29T21:56:45.665531'
+end_time: '2026-09-29T21:58:17.194106'
+duration_seconds: 91.53
+template_file: templates/disease_pathophysiology_research.md
+template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
+template_variables:
+  disease_name: Severe Congenital Neutropenia 7, Autosomal Recessive
+  mondo_id: MONDO:0014865
+  category: Mendelian
+provider_config:
+  timeout: 1800
+  max_retries: 3
+  parameters:
+    allowed_domains: []
+    claude_executable: claude
+    skip_permissions: false
+    allowed_tools:
+    - WebSearch
+    - WebFetch
+    add_dirs: []
+    timeout: 1800
+    min_report_chars: 200
+    extra_args: []
+run_metadata:
+  models_used:
+  - claude-haiku-4-5-20251001
+  - claude-sonnet-5-5
+  web_search_requests: 5
+  num_turns: 11
+  total_cost_usd: 0.9452969999999997
+  session_id: 70c7a523-9294-5481-860a-3eabfc5c8c41
+  stop_reason: end_turn
+  assistant_text_blocks: 1
+citation_count: 8
+reference_validation:
+  total_references: 10
+  verified: 10
+  not_found: 0
+  unverifiable: 0
+  confabulation_rate: 0.0
+  quotes_checked: 2
+  quotes_valid: 0
+  quotes_unsupported: 2
+  unsupported_quote_references:
+  - PMID:24753537
+  - PMID:34778134
+  relevance_assessed: 10
+  on_topic: 9
+  needs_review: true
+  validator_version: 0.3.0rc3
+term_validation:
+  total_terms: 9
+  verified: 9
+  not_found: 0
+  obsolete: 0
+  unverifiable: 0
+  confabulation_rate: 0.0
+  adapter: 'ols:'
+  validator_version: 0.4.5
+---
 
-**Query:** # Disease Characteristics Research Template
+## Question
+
+# Disease Characteristics Research Template
 
 ## Target Disease
 - **Disease Name:** Severe Congenital Neutropenia 7, Autosomal Recessive
@@ -456,23 +521,224 @@ This report will be used to populate a disease knowledge base entry with:
 - Epidemiology, prognosis, diagnostic, and prevention information
 - Animal model descriptions with phenotype recapitulation details
 
-**Provider:** openscientist
-**Generated:** 2026-09-29T21:12:36.537278
 
-1. PMID:25129144
-2. PMID:41751872
-3. PMID:33206996
-4. PMID:38739706
-5. PMID:42685351
-6. PMID:39775668
-7. PMID:37120535
-8. PMID:39286252
-9. PMID:20456363
-10. PMID:21072829
-11. PMID:17389229
-12. PMID:28381427
-13. PMID:36932646
-14. PMID:32783652
-15. PMID:25129145
-16. PMID:38600884
-17. PMID:16497969
+## Output
+
+Still researching. I have the Triot 2014 paper, the Zhou 2021 case report and review, and the mouse knockout, so I'm writing the report now.
+
+# Severe Congenital Neutropenia 7, Autosomal Recessive (SCN7): research report
+
+**Verification status.** Everything cited below with a PMID or URL was seen in this session's searches, except the items in the closing "Unverified" list. I did not open the ClinGen, gnomAD, OMIM, OMIA or MGI records. Values there are marked "not verified" and need a lookup before curation. CURIEs were not looked up in OAK, so treat all suggested ontology terms as leads only.
+
+## 1. Disease information
+
+**Overview.** SCN7 is an autosomal recessive primary immunodeficiency caused by biallelic loss-of-function variants in *CSF3R*, which encodes the G-CSF receptor. It presents in infancy or early childhood with recurrent bacterial infections and profound peripheral neutropenia. Bone marrow shows full myeloid maturation, and neutropenia is typically refractory to recombinant human G-CSF (rhG-CSF). Some patients respond to GM-CSF.
+- Sources: [LOVD disease entry](https://databases.lovd.nl/shared/diseases/06009); [NORD/MONDO entry](https://rarediseases.org/mondo-disease/autosomal-recessive-severe-congenital-neutropenia-due-to-csf3r-deficiency/); [Triot 2014, PMID:24753537](https://pmc.ncbi.nlm.nih.gov/articles/PMC4055927/).
+
+**Identifiers.**
+- OMIM #617014 (per [LOVD](https://databases.lovd.nl/shared/diseases/06009)).
+- The template gives MONDO:0014865. The search hit for that ID returned the NORD page titled "autosomal recessive severe congenital neutropenia due to CSF3R deficiency". The label match is plausible but I did not confirm the ID-to-label pairing in MONDO itself. Check it with OAK before binding.
+- DOID:0112129, "severe congenital neutropenia 7" ([Glycosmos](https://glycosmos.org/diseases/DOID:0112129)).
+- Orphanet, ICD-10/11 and MeSH: not verified.
+
+**Synonyms.** SCN7; neutropenia, severe congenital, 7, autosomal recessive; autosomal recessive SCN due to CSF3R deficiency; G-CSFR-deficient congenital neutropenia.
+
+**Data source.** The evidence is aggregated, published case and family reports (about 13 biallelic cases per the 2021 review). It is not EHR-derived.
+
+## 2. Etiology
+
+- **Cause.** Recessively inherited biallelic *CSF3R* variants (homozygous or compound heterozygous). "We describe a novel genetic SCN type in 2 unrelated families associated with recessively inherited biallelic CSF3R mutations." (PMID:24753537)
+- **Heterozygous carriers.** Parents of probands had normal ANCs (Family A father 5780 and mother 7080/µL; Family B father 3000 and mother 3900/µL) (PMID:24753537).
+- **Related but distinct.** Heterozygous germline *CSF3R* variants have been discussed as risk alleles for hematologic malignancy (Trottier 2020, PMID:33108454). Acquired somatic *CSF3R* truncating mutations in the cytoplasmic domain are a separate mechanism, associated with secondary AML in G-CSF-treated SCN patients (Klimiankou 2016, PMID:27270496). Both are out of scope for the SCN7 entry except as differential or context.
+- **Environmental, protective and gene-environment factors.** None documented. Infection burden is the main environmental modifier of clinical course.
+- **Modifier genes.** None established. Milder, hypomorphic alleles exist (see Section 4).
+
+## 3. Phenotypes
+
+Frequencies are qualitative because n≈13 in the literature. Suggested HP terms are leads, not verified.
+
+| Phenotype | Notes | Suggested HP |
+|---|---|---|
+| Severe neutropenia | ANC <0.5×10⁹/L; onset in infancy (birth to 5 months in reported cases). Family A ANC ranged 420–2180/µL; Family B 200–1000/µL. Present in all affected. | Neutropenia; Severe congenital neutropenia |
+| Recurrent bacterial infections | Pneumonia, otitis media, urinary tract infection, suppurative tonsillitis (15–30 episodes between ages 1 and 2 on rhG-CSF in one patient, PMID:34778134) | Recurrent bacterial infections; Recurrent pneumonia; Recurrent otitis media |
+| Fever | Multiple hospitalizations (PMID:24753537) | Fever |
+| Normal bone marrow maturation | "all patients had morphologic evidence of full myeloid cell maturation in bone marrow" | No specific term; describe in text |
+| Death in infancy | One patient died at 3 months of suspected aspiration pneumonia (PMID:24753537) | Death in infancy |
+| Dextrocardia | One patient. Likely incidental and not established as part of the disease. | Dextrocardia |
+
+Phenotype range: "from severe neutropenia unresponsive to high-dose rhG-CSF treatment… to mild neutropenia that does not require active treatment" (PMID:34778134). A homozygous p.R440* patient was reported untreated with a mild phenotype (PMID:34778134). Quality-of-life data: none found.
+
+## 4. Genetic and molecular information
+
+**Gene.** *CSF3R* (G-CSF receptor) at 1p34.3. The HGNC ID was not verified; look it up, using the lowercase `hgnc:` form.
+
+**Reported variants.**
+
+| Variant | Genotype | Consequence and response | Source |
+|---|---|---|---|
+| c.922C>T, p.Arg308Cys | Homozygous (Family A, Turkish, consanguineous) | Altered N-glycosylation, ER retention, reduced STAT3/STAT5 phosphorylation; refractory to rhG-CSF | PMID:24753537 |
+| c.948_963del (p.Gly316fsTer322) plus c.1245del (p.Gly415fsTer432) | Compound heterozygous (Family B, Spanish) | Frameshift, premature stop; refractory to rhG-CSF | PMID:24753537 |
+| c.690delC (p.Met231Cysfs*32) plus c.64+5G>A | Compound heterozygous | Refractory to rhG-CSF; responded to low-dose GM-CSF | PMID:34778134 |
+| c.998-2A>T plus p.W547* | Compound heterozygous | Unresponsive to G-CSF up to 110 µg/kg/d; GM-CSF response sustained for 12 years | Review in PMID:34778134 |
+| c.610-611delinsAG (p.Q204R) | Homozygous | Unresponsive to G-CSF; GM-CSF responsive | Review in PMID:34778134; PMID:30499904 |
+| c.1318C>T (p.R440*) | Homozygous | Mild phenotype, untreated | Review in PMID:34778134 |
+
+A hypomorphic biallelic allele responding to G-CSF has also been reported (PMID:30028820; title only, not read).
+
+**Functional consequence.** Loss of function, with partial function retained for p.Arg308Cys. ClinVar/ACMG classification and gnomAD frequencies: not verified. Origin is germline. Epigenetic and chromosomal abnormalities: none reported.
+
+**Compensation.** Heterozygous parents showed elevated *CSF3R* mRNA with normal protein levels, which the authors interpret as a genetic compensation mechanism rather than nonsense-mediated decay (PMID:34778134).
+
+## 5. Environmental information
+
+No environmental or lifestyle factors are established. The pathogen exposure that matters is opportunistic and ordinary bacterial flora (organisms were not systematically reported in the sources I read). No specific infectious agent defines the disease, so an `infectious_agent` block is not applicable.
+
+## 6. Mechanism and pathophysiology
+
+**Causal chain.**
+1. Biallelic *CSF3R* variants (missense affecting folding, or frameshift/splice/nonsense truncations) reduce functional G-CSFR. *Demonstrated.*
+2. For p.Arg308Cys: abnormal N-glycosylation (EndoH-sensitive, unlike wild type), retention around the nucleus co-localizing with calnexin (ER), and no proper plasma-membrane localization. *Demonstrated in vitro.* Leads to reduced cell-surface receptor.
+3. Reduced receptor number or function lowers G-CSF-driven STAT3/STAT5 phosphorylation. "Cells expressing the mutant receptor showed reduced phosphorylation of STAT3 and STAT5, but signal transduction was not completely abrogated." *Demonstrated in vitro.*
+4. Impaired G-CSF signaling results in reduced neutrophil output or release and survival. Mouse data support this: G-CSFR-deficient mice have "decreased numbers of phenotypically normal circulating neutrophils", decreased marrow progenitors, and impaired expansion and terminal differentiation (Liu 1996, Immunity 5:491; MGI/RIKEN PMID 8934575, seen via search snippet only). *Inferred for humans.*
+5. Maturation still proceeds, so bone marrow appears morphologically normal while circulating neutrophils are low. This distinguishes SCN7 from maturation-arrest forms of SCN (*ELANE*, *HAX1*). *Demonstrated morphologically; the mechanism of peripheral deficit is inferred.*
+6. Neutropenia leads to impaired innate antibacterial defense, then recurrent bacterial infections, and in the worst cases death in infancy. *Clinical observation.*
+7. **Branch on treatment.** rhG-CSF cannot act through a defective receptor and fails even at high dose ("up to 110 μg/kg/day", PMID:34778134). GM-CSF acts through CSF2R, bypassing G-CSFR, and can raise neutrophils ("granulocyte stimulation by GM-CSF and the activation of CSF2R"). *Demonstrated in case reports.*
+
+**Cell types (CL leads).** Granulocyte-monocyte progenitor, myeloid progenitor, neutrophil (CL:0000775), hematopoietic stem cell.
+**GO leads.** Granulocyte colony-stimulating factor signaling pathway; neutrophil differentiation / granulocyte differentiation; STAT3/STAT5-mediated signaling; positive regulation of neutrophil apoptotic process (regulation of survival). Protein processing in the ER and glycosylation are relevant for the missense allele.
+**Cellular components.** ER (calnexin co-localization), plasma membrane.
+**Immune involvement.** Isolated neutrophil-lineage immunodeficiency. Omics, single-cell, and functional-genomics data: none found.
+
+## 7. Anatomical structures affected
+
+- **Primary.** Bone marrow (UBERON:0002371) and blood, through the neutrophil lineage.
+- **Secondary (infection sites).** Lungs, middle ear, tonsils, urinary tract.
+- **Cells.** Myeloid progenitors and neutrophils.
+- **Laterality.** Not applicable.
+
+## 8. Temporal development
+
+- **Onset.** Neonatal to early childhood. In reported cases, from birth to about 2.5 years at diagnosis (PMID:24753537); the Chinese patient had ANC <0.5×10⁹/L from 5 months (PMID:34778134).
+- **Course.** Chronic lifelong neutropenia with episodic infections. Severity is variable, with mild neutropenia reported in some homozygous nonsense cases. No spontaneous remission reported.
+- **Critical period.** Infancy, when infections can be fatal.
+- **Malignant transformation.** Not reported in biallelic SCN7. Risk of secondary leukemia in classical SCN is tied to somatic *CSF3R* truncations under long-term G-CSF exposure (PMID:27270496). Because SCN7 patients do not respond to G-CSF, this has not been assessed here.
+
+## 9. Inheritance and population
+
+- **Inheritance.** Autosomal recessive (HP:0000007). Parents were unaffected carriers with normal ANCs.
+- **Consanguinity.** Family A was consanguineous.
+- **Prevalence, incidence, founder effects, carrier frequency and sex ratio.** Not available; only about 13 biallelic cases are reported. Ancestries reported so far: Turkish, Spanish, Chinese.
+- Anticipation and germline mosaicism: not applicable or not reported.
+
+## 10. Diagnostics
+
+- **Laboratory.** Repeated CBC with ANC <0.5×10⁹/L. Bone marrow aspirate shows normal granulocyte maturation.
+- **Genetic.** *CSF3R* sequencing, gene panel, or exome. Full sequencing is needed because variants are spread across the gene and include splice-site and frameshift changes.
+- **Functional.** Optional: receptor glycosylation, surface expression, and STAT3/5 signaling assays.
+- **Trial of G-CSF.** Failure to respond is a diagnostic clue.
+- **Differential.** *ELANE*-SCN, *HAX1* (Kostmann; the p.W44X variant is the most common cause of congenital neutropenia in Turkey, PMID:31321910), *G6PC3*, *WAS*, cyclic neutropenia, and acquired neutropenias.
+- **Screening.** No newborn screening program was identified.
+
+## 11. Outcome and prognosis
+
+- **Survival.** Not quantified. One infant death at 3 months (suspected aspiration pneumonia); others survived with recurrent infections. Survival data are limited to case reports.
+- **Complications.** Serious bacterial infections.
+- **Prognostic factors.** Genotype (hypomorphic or truncating-late alleles are milder) and responsiveness to GM-CSF or G-CSF.
+
+## 12. Treatment
+
+- **G-CSF (rhG-CSF).** Standard for other SCN forms. Refractory in most SCN7 patients (5–110 µg/kg/d tested). NCIT leads: Pharmacotherapy `NCIT:C15986`; therapeutic agent filgrastim (look up a code).
+- **GM-CSF (rhGM-CSF).** Effective in case reports:
+  - Low dose 3 µg/kg/d once weekly, no infections over 6 months (PMID:34778134).
+  - A 12-year course in one patient without adverse events (as summarized in PMID:34778134).
+  - A patient with p.Q204R managed with GM-CSF (PMID:30499904).
+  - Off-label. Modality would be `PROTEIN_REPLACEMENT` or `SMALL_MOLECULE`, and the classification needs a curator decision.
+- **Supportive care.** Antibiotic treatment of infections; prophylaxis is a clinical practice question, not sourced here. NCIT leads: Supportive Care `NCIT:C15747`.
+- **HSCT.** Curative in principle (NCIT:C15431 Hematopoietic cell transplantation). No SCN7-specific outcomes were found.
+- **Gene therapy, clinical trials (NCT), and pharmacogenomics.** None found.
+- **Adverse events.** No GM-CSF adverse events were reported in the cases above.
+
+## 13. Prevention
+
+- Genetic counseling with recurrence risk of 25% for carrier parents (`NCIT:C15240`).
+- Prenatal or preimplantation testing is possible once the familial variants are known.
+- Early diagnosis and prompt treatment of infections.
+- No vaccine or environmental strategy specific to the disease.
+
+## 14. Other species
+
+Orthologs exist in mouse and other vertebrates (a zebrafish gene page appeared in search results; not verified). No naturally occurring animal disease was found; OMIA was not checked.
+
+## 15. Model organisms
+
+- **Mouse *Csf3r* knockout** (Liu 1996, PMID 8934575, from search snippet). Findings:
+  - Decreased circulating neutrophils that are phenotypically normal.
+  - Decreased marrow progenitors.
+  - Impaired expansion and terminal differentiation of granulocyte progenitors.
+  - Increased neutrophil apoptosis.
+  - Fidelity is moderate to high for the neutropenia. Limitations: full null versus human hypomorphic or partial alleles, and species differences in neutrophil biology.
+- **Cell models.** Heterologous expression of the wild-type and Arg308Cys receptor (PMID:24753537). Patient iPSC/organoid models: none found.
+- Suggested `modeled_mechanisms` target: the neutrophil production deficit node, `RECAPITULATES` or `PARTIALLY_RECAPITULATES`.
+
+## Unverified items to check before curation
+
+- The MONDO:0014865 label and ID pairing.
+- The HGNC ID for *CSF3R*.
+- ClinVar/ClinGen classification.
+- The Liu 1996 quote (verify it against the PubMed abstract for PMID 8934575).
+- The Orphanet/ICD/MeSH mappings.
+- The PMID:30028820 hypomorphic-allele case, which I saw only as a title.
+- The 12-year GM-CSF patient details, which come from a secondary review table.
+- The quotes marked as coming from PMID:34778134 came from a summarizer of the PMC full text, so re-verify them with `just fetch-reference` and `just count-verified-snippets`.
+
+## Sources
+
+- [Triot et al. 2014, Blood, PMID:24753537](https://pmc.ncbi.nlm.nih.gov/articles/PMC4055927/)
+- [Zhou et al. 2021, Front Pediatr, PMID:34778134](https://pmc.ncbi.nlm.nih.gov/articles/PMC8585998/)
+- [Yilmaz Karapinar et al. 2020, PMID:30499904](https://pubmed.ncbi.nlm.nih.gov/30499904/)
+- [Hypomorphic CSF3R patient responding to G-CSF, PMID:30028820](https://pubmed.ncbi.nlm.nih.gov/30028820/)
+- Klimiankou 2016, PMID:27270496; Trottier 2020, PMID:33108454 (PubMed search listing only)
+- [LOVD SCN7 disease record](https://databases.lovd.nl/shared/diseases/06009)
+- [NORD/MONDO entry](https://rarediseases.org/mondo-disease/autosomal-recessive-severe-congenital-neutropenia-due-to-csf3r-deficiency/)
+- [Glycosmos DOID:0112129](https://glycosmos.org/diseases/DOID:0112129)
+- [MGI/RIKEN record for PMID 8934575](https://metadb.riken.jp/metadb/db/mgi_rdf/http://rdf.ncbi.nlm.nih.gov/pubmed/8934575)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 10 |
+| Resolved | 10 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| Quoted claims checked | 2 |
+| Quoted claims found in source | 0 |
+| Quoted claims **not** found in source | 2 |
+| References weighed for topical relevance | 10 |
+| On topic | 9 |
+| Off topic | 0 |
+
+### Quotes not found in the cited source
+
+Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:
+
+- `PMID:24753537`: "We describe a novel genetic SCN type in 2 unrelated families associated with recessively inherited biallelic CSF3R mutations."
+  - closest text in source: "We describe a novel genetic SCN type in 2 unrelated families associated with recessively inherited loss-of-function mutations in CSF3R, encoding the granulocyte colony-stimulating factor (G-CSF) receptor"
+- `PMID:34778134`: "from severe neutropenia unresponsive to high-dose rhG-CSF treatment… to mild neutropenia that does not require active treatment"
+  - closest text in source: "The phenotype of SCN7 ranged from severe neutropenia unresponsive to high-dose rhG-CSF treatment (c.998-2A>T and p.W547* compound heterozygous) (7) to mild neutropenia that does not require active treatment (p.R440* homozygous) (14)"
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 9 |
+| Resolved | 9 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+
+Every term resolved, and every label the report gave matched.
