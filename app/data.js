@@ -330334,7 +330334,8 @@ window.searchData = [
     "subtypes": [
       "Glandular form",
       "Ulceroglandular",
-      "Oculoglandular"
+      "Oculoglandular",
+      "Typhoidal"
     ],
     "description": "Tularemia is a highly infectious zoonotic disease caused by the intracellular Gram-negative bacterium Francisella tularensis. Humans acquire infection through arthropod (tick or mosquito) bites, direct contact with infected animals (especially rabbits, hares, and rodents), ingestion of contaminated food or water, or inhalation of infectious aerosols; person-to-person transmission has not been reported. After uptake by macrophages, F. tularensis escapes the phagosome into the cytosol via the Francisella Pathogenicity Island-encoded type VI secretion system, where it replicates and triggers caspase-1 inflammasome activation and granulomatous inflammation. The route of inoculation determines the clinical form: ulceroglandular, glandular, oculoglandular, oropharyngeal, pneumonic, and typhoidal tularemia. F. tularensis requires as few as 10 organisms to cause disease and is classified as a Category A bioterrorism agent.\n",
     "pathophysiology": [
@@ -331159,6 +331160,111 @@ window.searchData = [
     "num_genes": 0,
     "num_treatments": 2,
     "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Typhoidal Tularemia",
+    "disease_id": "MONDO:0000321",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tularemia"
+    ],
+    "creation_date": "2026-09-25T16:02:46Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Typhoidal tularemia is the systemic bacteremic form of Francisella tularensis infection: intracellular bacterial replication in macrophages occurs without a dominant primary cutaneous, ocular, pharyngeal, or pulmonary localizing lesion, and systemic inflammatory spread produces fever, chills, malaise, myalgia, and severe sepsis-like illness.",
+    "pathophysiology": [
+      "Systemic Francisella tularensis Inoculation",
+      "Macrophage Phagosomal Escape and Cytosolic Replication",
+      "AIM2 Inflammasome Host Response",
+      "Reticuloendothelial Dissemination and Cytopenic Organ Disease",
+      "Granulomatous Tularemic Tissue Inflammation",
+      "Bacteremic Systemic Inflammation",
+      "Francisella Ribosomal Translation",
+      "Francisella DNA Gyrase and Topoisomerase IV",
+      "Cell-Penetrant Antimicrobial Requirement"
+    ],
+    "cell_types": [
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "symbiont-mediated suppression of host phagosome maturation",
+      "inflammasome-mediated signaling pathway",
+      "granuloma formation",
+      "inflammatory response",
+      "translation",
+      "DNA topological change",
+      "response to antibiotic"
+    ],
+    "phenotypes": [
+      "Fever",
+      "Chills",
+      "Myalgia",
+      "Malaise",
+      "Weight Loss",
+      "Sepsis",
+      "Headache",
+      "Pancytopenia",
+      "Hepatosplenomegaly",
+      "Elevated hepatic transaminases",
+      "Pericarditis",
+      "Pneumonia"
+    ],
+    "phenotype_categories": [
+      "Constitutional",
+      "Musculoskeletal",
+      "Growth",
+      "Neurologic",
+      "Hematologic",
+      "Gastrointestinal",
+      "Laboratory",
+      "Cardiovascular",
+      "Pulmonary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001945",
+      "HP:0025143",
+      "HP:0003326",
+      "HP:0033834",
+      "HP:0001824",
+      "HP:0100806",
+      "HP:0002315",
+      "HP:0001876",
+      "HP:0001433",
+      "HP:0002910",
+      "HP:0001701",
+      "HP:0002090"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Gentamicin for severe tularemia",
+      "Fluoroquinolone therapy",
+      "Doxycycline alternative therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Typhoidal_Tularemia.yaml",
+    "page_url": "../pages/disorders/Typhoidal_Tularemia.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -347101,17 +347207,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3261,
-  "total_subtypes": 4489,
-  "total_disorders_and_subtypes": 7750,
-  "total_unique_evidence_sources": 47950,
-  "total_unique_publications": 44934,
+  "total_disorder_pages": 3262,
+  "total_subtypes": 4490,
+  "total_disorders_and_subtypes": 7752,
+  "total_unique_evidence_sources": 47959,
+  "total_unique_publications": 44943,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3257,
-  "total_unique_pathological_events": 20893,
+  "total_pathographs": 3258,
+  "total_unique_pathological_events": 20898,
   "total_modules": 180,
-  "total_research_reports": 3377,
+  "total_research_reports": 3378,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
