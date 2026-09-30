@@ -14,6 +14,7 @@ diseases:
 - ER_Positive_Breast_Cancer
 - Endometrial_Carcinoma
 - Endometrial_Endometrioid_Adenocarcinoma
+- Estrogen_Resistance_Syndrome
 - Heart_Failure
 - Lymphangioleiomyomatosis
 - Osteoporosis
@@ -39,22 +40,23 @@ almost no presence in the dismech pathograph. This project closes that gap, and
 this page is the scope and worklist for it.
 
 The measurement behind that claim is
-[the coverage census](../docs/reports/estrogen-signalling-coverage-census-2026-09-26.md),
+[the coverage census](../docs/reports/estrogen-signalling-coverage-census-2026-09-29.md),
 regenerated with `just estrogen-census`. The numbers below move with every
 curation PR, so read the report for current figures rather than trusting a
 number quoted here.
 
 ## What the census found
 
-Six tiers over `kb/disorders/`, loosest to strictest. Of roughly 3,200 entries,
-115 mention estrogen somewhere and 57 build a pathophysiology node around it,
-but only 12 bind `GO:0030520` *estrogen receptor signaling pathway*, and exactly
-one puts a receptor gene on a pathograph node.
+Six tiers over `kb/disorders/`, loosest to strictest. When the gap was first
+measured, 115 entries mentioned estrogen somewhere and 57 built a
+pathophysiology node around it, but only 12 bound `GO:0030520` *estrogen
+receptor signaling pathway*, and exactly **one** put a receptor gene on a
+pathograph node.
 
-The gap is between those last two. Eleven of those entries (twelve nodes)
-annotate the pathway on a mechanism node while naming no gene, so the pathway is
-recorded and the receptor driving it is not. That is what the ToxCast mapping needs and what this project
-is mostly about.
+The gap was between those last two: the pathway was recorded and the receptor
+driving it was not. That is what the ToxCast mapping needs and what this project
+was mostly about. The pathograph worklist below closed it, and the node-bound
+count has moved off one. Read the census report for current figures.
 
 ## Scope
 
@@ -65,9 +67,10 @@ In scope:
 - Wiring the receptor into the pathograph for entries that bind it in `genetic:`
   only.
 - Curating estrogen resistance syndrome (MONDO:0014148), the one disease where
-  the receptor sits on a mechanism node by definition, and which has no entry and
-  no stub.
+  the receptor sits on a mechanism node by definition. Curated as
+  Estrogen_Resistance_Syndrome; its stub was added and retired in the same PR.
 - Deciding whether estrogen receptor signalling needs its own mechanism module.
+  This is the one item still open; everything above it is worked.
 
 Not in scope, and deliberately left to the issues that already own them: the
 estrogen-adjacent findings listed under *Related issues* below.
@@ -94,43 +97,54 @@ Three traps apply throughout:
 
 ### Nodes binding the pathway with no gene
 
-| Entry | Node | Note on the claim |
-| --- | --- | --- |
-| ER_Positive_Breast_Cancer | ESR1 Mutation-Driven Endocrine Resistance | The node name states the gene and nothing binds it. Take this one first. |
-| ER_Positive_Breast_Cancer | Estrogen Receptor Activation | |
-| Breast_Carcinoma | ER and HER2 Receptor Heterogeneity | |
-| Breast_Fibroadenoma | Dysregulated Stromal Estrogen Signaling and ECM Organization | |
-| PIK3CA_Mutant_Breast_Cancer | Endocrine Resistance | |
-| Triple_Negative_Breast_Cancer | Loss of Hormone Receptor Signaling | A loss-of-signalling claim. |
-| Endometrial_Carcinoma | Unopposed Estrogen Signaling | |
-| Endometrial_Endometrioid_Adenocarcinoma | Unopposed Estrogen Signaling | |
-| Aromatase_Deficiency | Estrogen Deficiency and Androgen Excess | A ligand-supply defect, not a receptor defect. |
-| Heart_Failure | Loss of Myocardial Oestrogen Receptor Signalling | A loss-of-signalling claim. |
-| Lymphangioleiomyomatosis | Estrogen-Driven LAM Cell Survival and Dissemination | |
-| Testicular_Sex_Cord_Stromal_Neoplasm | Estrogen-Mediated Clinical Manifestations | May be ligand excess acting on a normal receptor. |
+All twelve rows are worked. Six took a receptor binding and six are recorded
+declines; each decline carries its reason and the searches run in the node's
+`notes`.
 
-The list is a worklist, not a verdict. Not every row should end in an ESR1
-descriptor.
+| Entry | Node | Outcome | PR |
+| --- | --- | --- | --- |
+| ER_Positive_Breast_Cancer | ESR1 Mutation-Driven Endocrine Resistance | ESR1 bound | #13116 |
+| ER_Positive_Breast_Cancer | Estrogen Receptor Activation | ESR1 bound | #13116 |
+| Breast_Carcinoma | ER and HER2 Receptor Heterogeneity | declined, three receptors would belong equally | #13128 |
+| Breast_Fibroadenoma | Dysregulated Stromal Estrogen Signaling and ECM Organization | declined, MED12 is the causal gene | #13128 |
+| PIK3CA_Mutant_Breast_Cancer | Endocrine Resistance | declined, PIK3CA acts on the receptor | #13128 |
+| Triple_Negative_Breast_Cancer | Loss of Hormone Receptor Signaling | declined, the receptor is not expressed | #13128 |
+| Endometrial_Carcinoma | Unopposed Estrogen Signaling | ESR1 bound | #13132 |
+| Endometrial_Endometrioid_Adenocarcinoma | Unopposed Estrogen Signaling | ESR1 bound | #13132 |
+| Aromatase_Deficiency | Estrogen Deficiency and Androgen Excess | declined, ligand-supply defect | #13151 |
+| Heart_Failure | Loss of Myocardial Oestrogen Receptor Signalling | ESR1 and ESR2 bound | #13151 |
+| Lymphangioleiomyomatosis | Estrogen-Driven LAM Cell Survival and Dissemination | ESR1 bound | #13151 |
+| Testicular_Sex_Cord_Stromal_Neoplasm | Estrogen-Mediated Clinical Manifestations | declined, ligand excess on two unlocalized tissues | #13151 |
+
+The `46_XX_Gonadal_Dysgenesis` row the issue also listed was not gene-less: it
+already carried `genes: PSMC3IP`, and that correction is recorded in #13132.
+
+The six declines are exactly the six rows the census still reports as binding
+the pathway with no receptor gene on any node. That table is a record of
+decisions taken, not of work outstanding.
 
 ### Bound in `genetic:` only
 
-Five entries bind ESR1 without the gene reaching any mechanism node:
-Breast_Carcinoma, ER_Positive_Breast_Cancer, Osteoporosis,
-Premenstrual_Dysphoric_Disorder, Skeletal_Fluorosis. Several record an ESR1
-polymorphism as a susceptibility signal, which may legitimately stop short of a
-mechanism: a genotype-association paper does not by itself support a causal
-edge, and saying so in `notes` is the right outcome where the literature stops
-there.
+Five entries bound ESR1 without the gene reaching any mechanism node, and all
+five are now dispositioned.
 
-Note that Breast_Carcinoma and ER_Positive_Breast_Cancer appear in both lists
-above. Each should be edited once, covering both jobs, rather than in two PRs
-that would collide.
+| Entry | Outcome | PR |
+| --- | --- | --- |
+| ER_Positive_Breast_Cancer | wired by the receptor bindings above | #13116 |
+| Breast_Carcinoma | not wired; the pathophysiology models dissemination and carries no hormone-driven node | #13128 |
+| Osteoporosis | ESR1 wired on RANKL/OPG Dysregulation | #13159 |
+| Premenstrual_Dysphoric_Disorder | not wired; a preliminary intron-4 association, and the target node binds the generic steroid pathway | #13159 |
+| Skeletal_Fluorosis | not wired; a single unreplicated protective allele and no estrogen-dependent mechanism in the entry | #13159 |
+
+A genotype-association paper does not by itself support a causal edge, so
+three of the five stop at a recorded reason rather than an edge. That was the
+expected outcome for this half of the worklist.
 
 ### Already on the pathograph
 
-46_XX_Gonadal_Dysgenesis is the single entry that binds a receptor gene on a
-pathophysiology node, via ESR2. It is the pattern the rest of this worklist is
-trying to reach.
+46_XX_Gonadal_Dysgenesis was the single entry binding a receptor gene on a
+pathophysiology node, via ESR2, when this project started. It was the pattern
+the rest of the worklist was trying to reach, and it is no longer alone.
 
 ## Modules
 
@@ -174,6 +188,15 @@ without binding the receptor. Whether that argues for a new module, for widening
 an existing one, or for neither is a curation call to make after the worklist
 above has been worked, since that is what shows whether these mechanisms cluster
 or are one-offs.
+
+**The worklist is now worked, so the question is answerable.** What it produced:
+three non-proliferative receptor bindings in different tissues (myocardium in
+Heart_Failure, bone lining cells in Osteoporosis, and the systemic
+loss-of-signalling state in Estrogen_Resistance_Syndrome), against four
+proliferative ones that already have `sex_steroid_driven_proliferation` as a
+home. Whether three tissues and one monogenic receptor disease cluster into a
+module, or argue for widening `osteoporosis_bone_resorption`, or neither, is
+the remaining decision on this project. It is not settled here.
 
 ## Related issues
 
