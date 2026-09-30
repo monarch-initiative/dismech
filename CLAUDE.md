@@ -210,7 +210,12 @@ record points at. `src/dismech/model_registry.py` is the only place that
 resolves these paths; route a new consumer through it rather than globbing.
 `tests/test_model_registry.py` gates the layout, so a branch still adding a
 flat `models/<id>.config.yaml` fails with a message. `just
-check-authored-models` runs every `run.py --check`. See `models/README.md`.
+check-authored-models` runs every `run.py --check`. Every folder gets a derived
+page, `pages/models/<model_id>.html` (`src/dismech/model_pages.py`, written by
+the page build), and an authored folder may add `run.js`, a browser port the
+page inlines so the model runs there. A `run.js` must reproduce `results.json`
+exactly, so a rule change goes into `run.py` first and then into `run.js`, and
+the parity test fails until they agree. See `models/README.md`.
 
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
