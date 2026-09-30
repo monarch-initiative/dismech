@@ -137,8 +137,16 @@ def test_a_target_is_human_only_through_a_human_gene_object(cov):
 
 
 def test_gene_less_endpoints_contribute_no_target(cov):
-    assert set(cov.targets) == {"AR", "ESR1", "ESR2", "TTR"}
-    assert {e.aeid for e in cov.with_gene()} == {2, 725, 744, 1816, 3089}
+    assert set(cov.targets) == {"AR", "ESR1", "ESR2", "THRB", "TTR"}
+    assert {e.aeid for e in cov.with_gene()} == {2, 725, 744, 1816, 2240, 2247, 3089}
+
+
+def test_a_target_no_entry_binds_is_ABSENT_and_reaches_nothing(cov):
+    """The THRB pair declares a gene, and no node, `genetic:` record or any
+    other slot in this KB names it — so both endpoints are non-candidates."""
+    assert cov.tier("THRB") == "ABSENT"
+    assert cov.targets["THRB"].aeids == {2240, 2247}
+    assert cov.candidate_nodes(["THRB"]) == set()
 
 
 # ----- the dismech side -----
@@ -219,16 +227,16 @@ def test_modules_are_indexed_apart_from_disorders(cov):
 
 def test_summary_carries_the_headline_figures(cov):
     figures = coverage.summary(cov)
-    assert figures["endpoints"] == 7
-    assert figures["endpoints_with_gene"] == 5
+    assert figures["endpoints"] == 9
+    assert figures["endpoints_with_gene"] == 7
     assert figures["candidate_endpoints"] == 3
     assert figures["candidate_endpoints_human_gene"] == 2
-    assert figures["targets"] == 4
+    assert figures["targets"] == 5
     assert figures["targets_by_tier"] == {
         "ON_NODE": 1,
         "GENETIC_ONLY": 1,
         "ELSEWHERE_ONLY": 1,
-        "ABSENT": 1,
+        "ABSENT": 2,
     }
     assert figures["candidate_nodes"] == 3
     assert figures["candidate_nodes_with_genetic_context"] == 1
@@ -248,9 +256,9 @@ def test_markdown_states_that_a_candidate_is_not_a_mapping(cov):
 @pytest.mark.parametrize(
     ("table", "header", "rows"),
     [
-        ("targets", "symbol\thuman_gene\ttier", 4),
+        ("targets", "symbol\thuman_gene\ttier", 5),
         ("nodes", "entry\tnode\tbiological_scale", 3),
-        ("endpoints", "aeid\tname\tgenes", 7),
+        ("endpoints", "aeid\tname\tgenes", 9),
         ("diseases", "entry\tcandidate_nodes\ttargets", 2),
     ],
 )
