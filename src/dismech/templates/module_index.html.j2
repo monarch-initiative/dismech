@@ -145,7 +145,7 @@
 
         <section aria-labelledby="all-modules-heading">
             <h2 class="section-heading" id="all-modules-heading">All modules</h2>
-            <p class="section-intro">Search names and descriptions, or narrow the registry to a curated collection.</p>
+            <p class="section-intro">Search names and descriptions, or narrow the registry to a curated collection or a study-area category.</p>
             <div class="controls">
                 <input class="control" id="module-search" type="search" placeholder="Search modules…" aria-label="Search modules">
                 <select class="control" id="collection-filter" aria-label="Filter by module collection">
@@ -153,11 +153,18 @@
                     {% for collection in collections %}<option value="{{ collection.name }}">{{ collection.display_name or collection.name }}</option>{% endfor %}
                     <option value="__unclassified__">Not yet in a collection</option>
                 </select>
+                {% if category_legend %}
+                <select class="control" id="category-filter" aria-label="Filter by module category">
+                    <option value="">All categories</option>
+                    {% for category in category_legend %}<option value="{{ category.key }}">{{ category.label }}</option>{% endfor %}
+                    <option value="__uncategorized__">Uncategorized</option>
+                </select>
+                {% endif %}
             </div>
             <p class="section-intro" id="result-count" aria-live="polite">{{ modules | length }} modules</p>
             <div class="module-list" id="module-list">
                 {% for module in modules %}
-                <article class="module-row" data-module-row data-search="{{ module.name }} {{ module.id }} {{ module.description or '' }}{% for collection in module.collections %} {{ collection.name }}{% endfor %}" data-collections="{% for collection in module.collections %}{% if not loop.first %}|||{% endif %}{{ collection.name }}{% endfor %}">
+                <article class="module-row" data-module-row data-search="{{ module.name }} {{ module.id }} {{ module.description or '' }}{% for collection in module.collections %} {{ collection.name }}{% endfor %}" data-collections="{% for collection in module.collections %}{% if not loop.first %}|||{% endif %}{{ collection.name }}{% endfor %}" data-categories="{% for category in module.categories %}{% if not loop.first %}|||{% endif %}{{ category.key }}{% endfor %}">
                     <div>
                         <a class="module-name" href="{{ module.href }}">{{ module.name }}</a>
                         <span class="module-id">{{ module.id }}</span>
@@ -188,18 +195,23 @@
         (() => {
             const search = document.getElementById('module-search');
             const filter = document.getElementById('collection-filter');
+            // Absent when no rendered module carries a category.
+            const categoryFilter = document.getElementById('category-filter');
             const rows = [...document.querySelectorAll('[data-module-row]')];
             const count = document.getElementById('result-count');
             const empty = document.getElementById('empty-state');
             const update = () => {
                 const query = search.value.trim().toLocaleLowerCase();
                 const selected = filter.value;
+                const selectedCategory = categoryFilter ? categoryFilter.value : '';
                 let visible = 0;
                 rows.forEach((row) => {
                     const collections = row.dataset.collections ? row.dataset.collections.split('|||') : [];
                     const collectionMatch = !selected || (selected === '__unclassified__' ? collections.length === 0 : collections.includes(selected));
+                    const categories = row.dataset.categories ? row.dataset.categories.split('|||') : [];
+                    const categoryMatch = !selectedCategory || (selectedCategory === '__uncategorized__' ? categories.length === 0 : categories.includes(selectedCategory));
                     const searchMatch = !query || row.dataset.search.toLocaleLowerCase().includes(query);
-                    row.hidden = !(collectionMatch && searchMatch);
+                    row.hidden = !(collectionMatch && categoryMatch && searchMatch);
                     if (!row.hidden) visible += 1;
                 });
                 count.textContent = `${visible} module${visible === 1 ? '' : 's'}`;
@@ -207,6 +219,7 @@
             };
             search.addEventListener('input', update);
             filter.addEventListener('change', update);
+            if (categoryFilter) categoryFilter.addEventListener('change', update);
         })();
     </script>
 </body>

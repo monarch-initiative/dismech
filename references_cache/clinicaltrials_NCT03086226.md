@@ -1,7 +1,8 @@
 ---
-reference_id: "clinicaltrials:NCT03086226"
+reference_id: clinicaltrials:NCT03086226
 title: "A Randomized, Double Blind Phase II Proof-of-Concept Superiority Trial of Fosravuconazole 200 mg or 300 mg Weekly Dose Versus Itraconazole 400 mg Daily, All Three Arms in Combination With Surgery, in Patients With Eumycetoma in Sudan"
 content_type: summary
+full_text_attempted: true
 ---
 
 # A Randomized, Double Blind Phase II Proof-of-Concept Superiority Trial of Fosravuconazole 200 mg or 300 mg Weekly Dose Versus Itraconazole 400 mg Daily, All Three Arms in Combination With Surgery, in Patients With Eumycetoma in Sudan
