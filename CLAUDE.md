@@ -3095,6 +3095,65 @@ states it as a possibility, and a hypothesized uptake route is not a targeting
 claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
 [`docs/delivery-systems.md`](docs/delivery-systems.md).
 
+### Treatment Effect Differs by Subgroup (`effect_modifiers`)
+
+When a source reports that a treatment works differently in one patient
+subgroup than another, record it as a `TreatmentEffectModifier` under the
+treatment's `effect_modifiers`, not only in its `description`:
+
+```yaml
+  effect_modifiers:
+  - effect_modifier_type: SEX            # AGE, SEX, REPRODUCTIVE_STATUS, BASELINE_SEVERITY,
+                                         # GENOTYPE, BIOMARKER, COMORBIDITY, ANCESTRY,
+                                         # CONCOMITANT_TREATMENT, OTHER
+    stratum: women over 65               # the subgroup, in the source's terms
+    comparator_stratum: men over 65
+    modified_outcome: knee extensor maximal torque
+    effect_in_stratum: SMALLER_EFFECT    # LARGER_EFFECT, SMALLER_EFFECT, NO_EFFECT,
+                                         # OPPOSITE_EFFECT, NO_DIFFERENCE
+    modification_analysis: CROSS_STRATUM_COMPARISON
+    interaction_tested: true
+    evidence:
+    - reference: PMID:27354538
+      ...
+```
+
+Rules for filling it:
+
+- **One entry per stratum, outcome and source.** A subgroup can show a larger
+  effect on one outcome and none on another; do not merge them.
+- **Record tested nulls.** `NO_DIFFERENCE` (compared, no difference) is a
+  finding, and it is what stops a reader assuming a subgroup effect. Use
+  `NO_EFFECT` when the stratum showed no benefit while the comparator did.
+- **Say how it was established.** `modification_analysis` runs from
+  `PRESPECIFIED_SUBGROUP` and `META_ANALYSIS_SUBGROUP` down to
+  `POST_HOC_SUBGROUP`, `CROSS_STRATUM_COMPARISON` (strata compared within one
+  study with no separate control) and `CROSS_STUDY_COMPARISON` (separate studies
+  in different populations; the weakest basis). Set `interaction_tested` only
+  when the source says whether a treatment-by-subgroup interaction test was run;
+  omit it otherwise.
+- **Never set `effect_in_stratum` from your own reading of two numbers.** The
+  source has to state the difference, or report a formal interaction. Two
+  overlapping confidence intervals read side by side are not a subgroup
+  finding.
+- **Conflicting studies get separate entries.** Do not average them into one.
+  Name the conflict in each entry's `description`, and consider a
+  `KNOWLEDGE_GAP` discussion attached to the treatment.
+- **Effect modification is not a mechanism.** If a mechanism explains the
+  difference (older muscle's blunted mTORC1 response to load explains the age
+  gradient), record it as a pathophysiology node and name that node in
+  `description`.
+- **Population first.** A subgroup result from a different population (a
+  sex-difference meta-analysis in 18-45-year-olds cited for a geriatric
+  disease) belongs in the treatment's `evidence`, with the caveat in its
+  `explanation`, not in `effect_modifiers`.
+
+`SEX` and `REPRODUCTIVE_STATUS` are separate on purpose, because menopausal
+status varies within one sex. Worked example: `Sarcopenia` → Progressive
+Resistance Exercise Training, which carries age, sex, menopausal-status and
+baseline-function modifiers, including two sex findings that point in opposite
+directions.
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
