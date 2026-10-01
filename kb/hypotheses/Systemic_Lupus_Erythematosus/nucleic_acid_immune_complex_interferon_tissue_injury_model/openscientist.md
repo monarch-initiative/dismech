@@ -118,61 +118,61 @@ artifacts:
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist final report
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_comparison.md
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_comparison.md
+- filename: comparison.md
+  path: openscientist_artifacts/comparison.md
   media_type: text/markdown
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist comparison
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_correlations.csv
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_correlations.csv
+- filename: correlations.csv
+  path: openscientist_artifacts/correlations.csv
   media_type: text/csv
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist correlations
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_gene_results.csv
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_gene_results.csv
+- filename: gene_results.csv
+  path: openscientist_artifacts/gene_results.csv
   media_type: text/csv
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist gene results
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_methods.md
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_methods.md
+- filename: methods.md
+  path: openscientist_artifacts/methods.md
   media_type: text/markdown
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist methods
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_correlations.csv
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_correlations.csv
+- filename: replay/correlations.csv
+  path: openscientist_artifacts/replay/correlations.csv
   media_type: text/csv
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist correlations
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_gene_results.csv
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_gene_results.csv
+- filename: replay/gene_results.csv
+  path: openscientist_artifacts/replay/gene_results.csv
   media_type: text/csv
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist gene results
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_methods.md
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_methods.md
+- filename: replay/methods.md
+  path: openscientist_artifacts/replay/methods.md
   media_type: text/markdown
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist methods
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_samples.csv
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_replay_output_samples.csv
+- filename: replay/samples.csv
+  path: openscientist_artifacts/replay/samples.csv
   media_type: text/csv
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist samples
-- filename: kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_samples.csv
-  path: openscientist_artifacts/kb_hypotheses_Systemic_Lupus_Erythematosus_nucleic_acid_immune_complex_interferon_tissue_injury_model_openscientist_artifacts_samples.csv
+- filename: samples.csv
+  path: openscientist_artifacts/samples.csv
   media_type: text/csv
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist samples
-artifact_manifest_sha256: sha256:3ac5eda4ef0ad119062a96f73ac913b4dd9fe08fac2cc16dee41ec8c16bf9d44
+artifact_manifest_sha256: sha256:b1889b3b0ded16081e5d818907446b543ed1911678cbc96fa8862d4510e772aa
 ---
 
 ## Question
