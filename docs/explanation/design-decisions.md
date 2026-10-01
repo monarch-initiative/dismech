@@ -687,6 +687,11 @@ subtype must be a stratum a patient belongs to.
 those. New modules are added per mechanism (barrier breakdown, axonal injury) so they
 are reusable outside trauma, not as one trauma-specific "secondary injury" module.
 
+**Worked example.** `Traumatic_Brain_Injury`, with the modules
+`blood_brain_barrier_breakdown` and `focal_axonal_injury_wallerian_degeneration`, and
+conformance from `Post-Traumatic_Epilepsy`. Its finite-element head model is the first
+`BIOMECHANICAL` computational model.
+
 **Still open.** Whether injury entries need their own `check-granularity`-style audit,
 or §3e's checks are enough to copy. Decide after the pilot.
 

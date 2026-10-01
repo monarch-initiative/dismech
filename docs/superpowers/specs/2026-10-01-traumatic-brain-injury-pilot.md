@@ -1,7 +1,7 @@
 # Traumatic brain injury pilot: scoping
 
-**Status:** scoped, decisions settled, no KB content written yet. This tests the
-injury granularity rule in design decisions §3f
+**Status:** built (2026-10-01); see *Outcome* at the end. This tests the injury
+granularity rule in design decisions §3f
 ([`design-decisions.md`](../../explanation/design-decisions.md#3f-injury-and-trauma-granularity-2026-10-01))
 on one case before it is applied more widely.
 
@@ -65,8 +65,8 @@ against the literature before a node is written:
 | Step | Home |
 |---|---|
 | Primary mechanical tissue disruption | The entry's own root node (trauma-specific, not a module) |
-| Blood-brain barrier breakdown | **New module**, working name `blood_brain_barrier_breakdown`. Reusable for ischaemic stroke, sepsis-associated encephalopathy, and the existing `Post-Traumatic_Epilepsy` barrier node |
-| Diffuse axonal injury | **New module**, working name `traumatic_axonal_injury`. Check scope against `peripheral_axonal_degeneration` and `corticospinal_tract_axonopathy` first; if one of them can be widened instead, do that |
+| Blood-brain barrier breakdown | **New module** `blood_brain_barrier_breakdown`. Reusable for ischaemic stroke, sepsis-associated encephalopathy, and the existing `Post-Traumatic_Epilepsy` barrier node |
+| Diffuse axonal injury | **New module** `focal_axonal_injury_wallerian_degeneration`. Neither `peripheral_axonal_degeneration` nor `corticospinal_tract_axonopathy` could be widened: both model length-dependent dying-back of long axons, not acute injury at one point followed by degeneration of the distal axon |
 | Ionic flux, glutamate release, calcium overload, excitotoxic death | Existing `glutamate_excitotoxicity` |
 | Mitochondrial failure | Existing `mitochondrial_dysfunction` |
 | Neuroinflammation | Existing `neuroinflammation_glial_activation` |
@@ -81,7 +81,7 @@ stating complementarity with sibling modules in the module `description`.
   `neuroinflammation_glial_activation`; its epileptogenesis nodes keep their existing
   conformance.
 - `Chronic_Traumatic_Encephalopathy`: repetitive mild injury is mostly axonal, so a link
-  from its trauma node to `traumatic_axonal_injury` is the candidate. Its tau node stays
+  from its trauma node to the axonal injury module is the candidate. Its tau node stays
   unconformed until a tau module exists.
 
 ## Decisions (2026-10-01)
@@ -96,7 +96,31 @@ stating complementarity with sibling modules in the module `description`.
 
 ## Build order
 
-1. `blood_brain_barrier_breakdown` and `traumatic_axonal_injury` modules.
+1. `blood_brain_barrier_breakdown` and `focal_axonal_injury_wallerian_degeneration` modules.
 2. `Traumatic_Brain_Injury` entry conforming to them and to the existing modules.
 3. Conformance edits to `Post-Traumatic_Epilepsy` and `Chronic_Traumatic_Encephalopathy`.
 4. The finite-element model link, if a citable model is found.
+
+## Outcome (2026-10-01)
+
+Built as planned, with three departures.
+
+- **Post-Traumatic_Epilepsy's inflammation node** conforms to the existing
+  `nlrp3_inflammasome_activation` module rather than `neuroinflammation_glial_activation`:
+  the node is about IL-1 beta and NLRP3, which is that module's central step. Its barrier
+  node conforms to the barrier module's extravasation node, not its central node, because
+  it is about albumin entering the neuropil and acting on astrocytes.
+- **Chronic_Traumatic_Encephalopathy was not conformed to the axonal module.** None of its
+  nodes describes axonal injury; its mechanism is tau and TDP-43 pathology. Instead its
+  trauma-to-tau edge gained the finite-element evidence that impact strain is greatest at
+  the sulcal depths where CTE pathology sits. Conforming it properly needs an axonal node
+  in the entry, or a tau module.
+- **Brain swelling is not drawn from barrier disruption** in Traumatic_Brain_Injury. The
+  human diffusion MRI studies cited there find post-traumatic swelling predominantly
+  cellular, and the barrier module scopes itself to vasogenic oedema.
+
+The biomechanics part of §3f worked without a schema change beyond one enum value: the
+schema had no model type for a finite-element model, so `BIOMECHANICAL` was added to
+`ComputationalModelTypeEnum`. The head model links to the mechanical root node at equal
+scale and to diffuse axonal injury with a `PROXY_QUANTITY` divergence (strain standing in
+for axonal damage), which is the pattern §3f predicted.
