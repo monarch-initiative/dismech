@@ -3331,11 +3331,6 @@ ncit-edges-list limit="20":
 ncit-p302-audit *args="":
     uv run python scripts/ncit_p302_audit.py {{args}}
 
-# Build the first InterPro/Pfam DUF-family worklist.
-[group('Research')]
-duf-puf-worklist *args="":
-    uv run python scripts/duf_puf_worklist.py {{args}}
-
 # Census how many references_cache/PMID_*.md files cached abstract_only are
 # actually recoverable full text under the JATS extractor fix from #10876
 # (issue #10878). --phase idconv|recoverability|missing-tables|summarize|all;
