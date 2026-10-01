@@ -2534,7 +2534,7 @@ window.searchData = [
     "num_findings": 4,
     "evidence_refs": [],
     "num_evidence": 0,
-    "notes": "Spec models/neuronal_migration_abm/spec.yaml, runner models/neuronal_migration_abm/run.py, committed results models/neuronal_migration_abm/results.json. Regenerate with `uv run python models/neuronal_migration_abm/run.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic (every draw comes from a string-seeded random.Random), uses only the standard library and PyYAML, and finishes in about two seconds. NOT wired to dismech-perturb and deliberately given no models/neuronal_migration_abm/config.yaml: that runner executes SBML through tellurium and cannot run an agent-based simulation, so the model is correctly reported as not runnable in-repo by the models browser. The variables' mappings_list binds three readouts to HPO terms the conforming disorder entries already use, with threshold values that are placeholders from the runner's pattern classifier rather than fitted values; the runner evaluates the same mappings (spec phenotype_mappings) and records the phenotypes each scenario activates in results.json, and a test keeps the two in step. The spec's rules are written in the shape of a PhysiCell cell-behaviour rule (cell type, signal, direction, behaviour) so they could be ported to that engine; no PhysiCell rules file is committed because the half-max and Hill parameters such a file requires would have to be invented. The axon guidance branch of this module is outside the model on purpose. The four biological_scale tags on this module's pathophysiology nodes were added with the model so that the model-scale audit can compare the model's CELLULAR observations with each target.",
+    "notes": "Scope is the radial-migration branch; the axon-guidance branch of this module is deliberately outside the model. Not runnable through dismech-perturb, which executes SBML and cannot run an agent-based simulation, so the models browser reports it as reference-only. Run it with `uv run python models/neuronal_migration_abm/run.py`, where `--check` verifies the committed results and `--print` summarises them. The rules are written in the shape of a PhysiCell cell-behaviour rule (cell type, signal, direction, behaviour) so they could be ported to that engine; no PhysiCell rules file is committed, because the half-max and Hill parameters such a file needs would have to be invented.",
     "creation_date": "2026-06-10T03:26:29Z",
     "page_url": "../../pages/modules/microtubule_dependent_neuronal_migration_failure.html#computational-model-microtubule-dependent-radial-neuronal-migration-agent-based-model",
     "source_file": "kb/modules/microtubule_dependent_neuronal_migration_failure.yaml"
@@ -2771,6 +2771,51 @@ window.searchData = [
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-multi-level-dynamical-modelling-of-scc-in-fa",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
+  },
+  {
+    "model_key": "Sarcopenia--computational-model-multiscale-kinetic-model-of-leucine-stimulated-muscle-protein-metabolism--0",
+    "name": "Multiscale kinetic model of leucine-stimulated muscle protein metabolism",
+    "description": "A mechanistic kinetic model linking leucine ingestion and absorption, insulin secretion, intracellular mTORC1-p70S6K signalling, and muscle protein synthesis and breakdown in human skeletal muscle. It was extended to represent anabolic resistance: the ageing-related impairments were parameterised individually and in combination, and a virtual population was classified as anabolic-sensitive or anabolic-resistant. The model was then used to simulate single-target and multi-target interventions.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "MATLAB",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "https://doi.org/10.5281/zenodo.19413844",
+    "repository_host": "Other",
+    "publication": "PMID:42464764",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Sarcopenia",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "Musculoskeletal Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Anabolic Resistance"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "No single age-related impairment reproduced the reduced protein synthesis of older adults; the anabolic-resistant phenotype appeared only when several impairments acted together.",
+      "Restoring protein synthesis when all impairments were present required coordinated multi-target interventions; single targets proximal to mTORC1 were sufficient only against isolated impairments."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:42464764"
+    ],
+    "num_evidence": 1,
+    "notes": "The stimulus represented is protein feeding. Resistance exercise and mechanical loading are not in the model, so it says nothing directly about the Blunted Load-Induced mTORC1 Signalling node; the authors note that exercise enhances muscle sensitivity to protein feeding, which is the interaction a loading extension would need to capture.",
+    "creation_date": "2026-08-31T00:00:00Z",
+    "page_url": "../../pages/disorders/Sarcopenia.html#computational-model-multiscale-kinetic-model-of-leucine-stimulated-muscle-protein-metabolism",
+    "source_file": "kb/disorders/Sarcopenia.yaml"
   },
   {
     "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
@@ -5945,10 +5990,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 123,
-  "total_source_entries": 51,
+  "total_models": 124,
+  "total_source_entries": 52,
   "total_model_types": 10,
   "total_runnable": 4,
-  "total_with_repository": 54
+  "total_with_repository": 55
 };
 window.dispatchEvent(new Event('searchDataReady'));
