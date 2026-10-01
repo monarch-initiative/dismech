@@ -172995,6 +172995,110 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Ichthyosis Vulgaris",
+    "disease_id": "MONDO:0007810",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited Ichthyosis"
+    ],
+    "creation_date": "2026-09-30T19:45:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Mild IV",
+      "Severe IV"
+    ],
+    "description": "Ichthyosis vulgaris is the most common inherited disorder of keratinization, caused by loss-of-function variants in FLG, which encodes profilaggrin, the main protein of epidermal keratohyalin granules. Inheritance is semidominant: homozygous or compound heterozygous carriers of FLG null alleles have moderate to severe disease with near-complete loss of filaggrin, whereas heterozygous carriers have a mild phenotype with incomplete penetrance. Loss of filaggrin reduces keratohyalin granules, disturbs corneocyte and lamellar lipid formation, and removes the filaggrin-derived amino acids that make up much of the stratum corneum natural moisturizing factor, producing a gene-dose-dependent permeability barrier defect with reduced hydration and increased transepidermal water loss. Clinically this appears as xerosis and fine scaling on the extensor surfaces of the limbs with flexural sparing, keratosis pilaris and palmar and plantar hyperlinearity; symptoms worsen in cold, dry weather and improve in summer and with age. The same barrier defect permits percutaneous allergen penetration and type 2 sensitization, so ichthyosis vulgaris is strongly associated with atopic dermatitis, asthma occurring with eczema, allergic rhinitis and peanut allergy. FLG null alleles are common in European and Asian populations and rarer in darkly pigmented populations. Treatment is symptomatic, with regular emollients and urea- or lactate-containing keratolytic moisturizers.",
+    "pathophysiology": [
+      "FLG Loss-of-Function Variants",
+      "Profilaggrin and Filaggrin Deficiency",
+      "Reduced Keratohyalin Granules and Defective Corneocyte Formation",
+      "Reduced Natural Moisturizing Factor",
+      "Reduced Stratum Corneum Hydration",
+      "Stratum Corneum Permeability Barrier Failure",
+      "Retention Hyperkeratosis",
+      "Increased Percutaneous Allergen and Irritant Penetration",
+      "Type 2 Allergic Sensitization"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "corneocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0002153"
+    ],
+    "biological_processes": [
+      "keratinocyte differentiation",
+      "cornified envelope assembly",
+      "intermediate filament organization",
+      "establishment of skin barrier",
+      "keratinization",
+      "type 2 immune response",
+      "isotype switching to IgE isotypes"
+    ],
+    "phenotypes": [
+      "Dry skin",
+      "Fine scaling of the skin",
+      "Keratosis pilaris",
+      "Palmar hyperlinearity",
+      "Pruritus",
+      "Atopic dermatitis",
+      "Asthma",
+      "Allergic rhinitis",
+      "Peanut allergy",
+      "Contact dermatitis"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Immunologic",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000958",
+      "HP:0040189",
+      "HP:0032152",
+      "HP:0033252",
+      "HP:0000989",
+      "HP:0001047",
+      "HP:0002099",
+      "HP:0003193",
+      "HP:0500093",
+      "HP:0032282"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "FLG",
+      "STS"
+    ],
+    "treatments": [
+      "Topical urea",
+      "Regular emollient therapy",
+      "Ammonium lactate lotion"
+    ],
+    "environmental": [
+      "Low ambient humidity and cold season"
+    ],
+    "biochemical": [],
+    "source_file": "Ichthyosis_Vulgaris.yaml",
+    "page_url": "../pages/disorders/Ichthyosis_Vulgaris.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Ichthyotic_Keratoderma_Spasticity_Hypomyelination_And_Dysmorphic_Facial_Features",
     "disease_id": "MONDO:0032798",
     "category": "Disease",
@@ -173089,6 +173193,119 @@ window.searchData = [
     "num_treatments": 0,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "Idiopathic Gastroparesis",
+    "disease_id": "MONDO:0034150",
+    "category": "Complex",
+    "parents": [
+      "Gastroparesis"
+    ],
+    "creation_date": "2026-09-30T19:45:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Post-infectious",
+      "Chronic idiopathic"
+    ],
+    "description": "Idiopathic gastroparesis is a chronic gastric neuromuscular disorder in which upper gastrointestinal symptoms (cardinally nausea and vomiting, with early satiation, postprandial fullness, bloating and abdominal pain) occur with objectively delayed gastric emptying of a solid meal, in the absence of mechanical obstruction and after exclusion of diabetes, prior gastric surgery, medications and other identifiable causes. It is the largest etiological category of gastroparesis in referral series and predominantly affects young and middle-aged women. Full-thickness gastric biopsies show loss and ultrastructural injury of interstitial cells of Cajal, reduced nitrergic (nNOS) innervation, loss of anti-inflammatory CD206+ muscularis macrophages with a pro-inflammatory immune signature, and altered smooth muscle contractile gene expression, although how consistently these lesions explain delayed emptying or symptoms in the idiopathic form is unsettled. A subgroup begins acutely after a viral-like illness and usually improves over months; most other cases run a chronic course. Clinical and pathological features overlap extensively with functional dyspepsia, and treatment is largely symptomatic (dietary modification, metoclopramide or erythromycin, antiemetics, and gastric electrical stimulation or pyloric interventions for refractory disease). Diabetic gastroparesis, which shares the ICC and macrophage lesions, is outside the scope of this entry.",
+    "pathophysiology": [
+      "Muscularis Macrophage Phenotype Shift",
+      "Loss of Heme Oxygenase-1 Cytoprotection and Oxidative Stress",
+      "Interstitial Cell of Cajal Loss and Injury",
+      "Nitrergic Enteric Neuron Loss",
+      "Smooth Muscle Contractile Protein and PDGFRA+ Cell Loss",
+      "Impaired Gastric Neuromuscular Function",
+      "Delayed Gastric Emptying"
+    ],
+    "cell_types": [
+      "CD206+ anti-inflammatory muscularis macrophage",
+      "pro-inflammatory muscularis macrophage",
+      "interstitial cell of Cajal",
+      "nitrergic myenteric neuron",
+      "gastric smooth muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000890",
+      "CL:0000863",
+      "CL:0002088",
+      "CL:0020058",
+      "CL:4047034"
+    ],
+    "biological_processes": [
+      "macrophage activation",
+      "response to oxidative stress",
+      "nitric oxide biosynthetic process",
+      "gastric motility",
+      "gastric emptying"
+    ],
+    "phenotypes": [
+      "Delayed gastric emptying on scintigraphy",
+      "Nausea",
+      "Vomiting",
+      "Early satiety",
+      "Postprandial fullness",
+      "Abdominal pain",
+      "Bloating",
+      "Poor appetite",
+      "Weight loss",
+      "Anxiety",
+      "Depression"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Psychiatric"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002578",
+      "HP:0002018",
+      "HP:0002013",
+      "HP:0033842",
+      "HP:0033843",
+      "HP:0002027",
+      "HP:0003270",
+      "HP:0004396",
+      "HP:0001824",
+      "HP:0000739",
+      "HP:0000716"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Dietary Modification",
+      "Metoclopramide",
+      "Erythromycin",
+      "Domperidone",
+      "Tradipitant",
+      "Nortriptyline",
+      "Intrapyloric Botulinum Toxin Injection",
+      "Gastric Electrical Stimulation",
+      "Gastric Peroral Endoscopic Pyloromyotomy (G-POEM)"
+    ],
+    "environmental": [
+      "Antecedent acute viral illness"
+    ],
+    "biochemical": [],
+    "source_file": "Idiopathic_Gastroparesis.yaml",
+    "page_url": "../pages/disorders/Idiopathic_Gastroparesis.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 9,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Idiopathic Hypereosinophilic Syndrome",
@@ -267752,6 +267969,119 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Platelet-type Bleeding Disorder 16",
+    "disease_id": "MONDO:0008552",
+    "category": "Mendelian",
+    "parents": [
+      "Inherited bleeding disorder, platelet-type",
+      "Inherited blood coagulation disorder",
+      "Congenital macrothrombocytopenia"
+    ],
+    "creation_date": "2026-09-30T19:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Platelet-type bleeding disorder 16 (BDPLT16, OMIM #187800) is an autosomal dominant congenital macrothrombocytopenia with platelet anisocytosis and a mild to moderate, sometimes absent, mucocutaneous bleeding tendency, caused by heterozygous activating variants in ITGA2B, the gene encoding the alphaIIb subunit of the platelet fibrinogen receptor integrin alphaIIbbeta3. The clinical literature also calls it the dominant or variant form of Glanzmann thrombasthenia, or Glanzmann thrombasthenia-like syndrome, but the mechanism runs in the opposite direction to classic Glanzmann thrombasthenia.\nIn classic Glanzmann thrombasthenia biallelic loss-of-function variants remove or disable the integrin, platelet count and size are normal, and aggregation to every physiological agonist is absent. In BDPLT16 a single variant in the membrane-proximal part of alphaIIb, most often at Arg995 in the conserved GFFKR motif (Arg1026 in HGVS numbering), weakens the inner membrane clasp: the salt bridge between alphaIIb Arg995 and beta3 Asp723 that holds the receptor in its bent resting conformation. A fraction of the receptor pool then sits in the ligand-binding conformation without any inside-out signal, binding the activation-dependent antibody PAC-1 and fibrinogen on resting platelets that have not themselves been activated.\nTwo consequences follow from that single lesion. In megakaryocytes, permanent integrin outside-in signalling disturbs cytoskeletal remodelling, and proplatelets form with fewer and larger tips, so fewer and larger platelets are released. In circulating platelets the constitutively engaged receptor is internalised, surface alphaIIbbeta3 falls to roughly half of normal, and agonist-induced aggregation is reduced rather than abolished. The resulting bleeding is milder than in classic thrombasthenia and reflects the reduced platelet count together with the impaired platelet function.\nHeterozygous activating variants in ITGB3 produce a clinically indistinguishable phenotype, and MONDO's definition of this term still names both genes, but OMIM curates the ITGB3 form separately as BDPLT24. This entry is therefore scoped to the ITGA2B form, and cites the shared mechanistic literature only where a source states its conclusion for activating alphaIIbbeta3 variants as a class.\n",
+    "pathophysiology": [
+      "ITGA2B Membrane-Proximal Activating Variants",
+      "Disruption of the alphaIIb-beta3 Inner Membrane Clasp",
+      "Constitutive Partial alphaIIbbeta3 Activation",
+      "Persistent alphaIIbbeta3 Outside-In Signalling",
+      "Abnormal Proplatelet Formation by Megakaryocytes",
+      "Receptor Internalisation and Reduced Surface alphaIIbbeta3",
+      "Arrested Platelet Cytoskeletal Remodelling",
+      "Reduced Output of Enlarged Circulating Platelets",
+      "Impaired Agonist-Induced Platelet Aggregation",
+      "Failure of Primary Hemostatic Plug Formation",
+      "Mucocutaneous Bleeding Diathesis"
+    ],
+    "cell_types": [
+      "platelet",
+      "megakaryocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000233",
+      "CL:0000556"
+    ],
+    "biological_processes": [
+      "integrin activation",
+      "integrin-mediated signaling pathway",
+      "platelet formation",
+      "actin cytoskeleton organization",
+      "receptor internalization",
+      "actin filament polymerization",
+      "platelet aggregation"
+    ],
+    "phenotypes": [
+      "Macrothrombocytopenia",
+      "Platelet Anisocytosis",
+      "Increased Mean Platelet Volume",
+      "Giant Platelets",
+      "Decreased Platelet Surface Glycoprotein IIb-IIIa",
+      "Impaired Platelet Aggregation",
+      "Abnormal Platelet Alpha-Granules",
+      "Bruising Susceptibility",
+      "Epistaxis",
+      "Gingival Bleeding",
+      "Menometrorrhagia",
+      "Post-Partum Hemorrhage",
+      "Prolonged Bleeding After Surgery",
+      "Prolonged Bleeding After Dental Extraction"
+    ],
+    "phenotype_categories": [
+      "Hematologic",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Genitourinary",
+      "Head and Neck",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0040185",
+      "HP:0032438",
+      "HP:0011877",
+      "HP:0001902",
+      "HP:0001975",
+      "HP:0003540",
+      "HP:0012483",
+      "HP:0000978",
+      "HP:0000421",
+      "HP:0000225",
+      "HP:0400008",
+      "HP:0011891",
+      "HP:0004846",
+      "HP:0006298"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ITGA2B"
+    ],
+    "treatments": [
+      "Desmopressin",
+      "Tranexamic Acid",
+      "Platelet Transfusion"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Platelet surface alphaIIbbeta3 expression by flow cytometry",
+      "Immature platelet fraction"
+    ],
+    "source_file": "Platelet-type_Bleeding_Disorder_16.yaml",
+    "page_url": "../pages/disorders/Platelet-type_Bleeding_Disorder_16.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Platelet-type bleeding disorder 18",
     "disease_id": "MONDO:0014386",
     "category": "Mendelian",
@@ -285142,6 +285472,124 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Retinitis Pigmentosa 59",
+    "disease_id": "MONDO:0013468",
+    "category": "Mendelian",
+    "parents": [
+      "Retinitis pigmentosa",
+      "Inherited Retinal Dystrophy"
+    ],
+    "creation_date": "2026-09-30T19:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Retinitis pigmentosa 59 (RP59, DHDDS-related retinal degeneration) is an autosomal recessive rod-cone dystrophy caused by biallelic hypomorphic variants in DHDDS, which encodes the catalytic subunit of the cis-prenyltransferase complex that, together with NgBR (NUS1), synthesizes the polyprenyl backbone of dolichol, the lipid carrier for protein N-glycosylation. Almost all reported patients carry the founder missense variant c.124A>G (p.Lys42Glu, K42E), homozygously or in trans with p.Thr206Ala or another allele; the variant is concentrated in the Ashkenazi Jewish population, where DHDDS is one of the two commonest causes of recessive RP. Symptoms of night blindness and peripheral field loss typically begin in the second decade, electroretinographic responses are usually nondetectable by the time patients are examined, and macular involvement and loss of central photoreceptors occur earlier than in other common recessive forms. Patients show a characteristic shift of plasma and urinary dolichols toward shorter chain lengths (dolichol-18 replacing dolichol-19 as the dominant species), while serum transferrin glycosylation is generally normal, so the disease is usually non-syndromic despite the ubiquitous requirement for dolichol. How a partial loss of cis-prenyltransferase activity produces retina-restricted degeneration is unresolved: rod-specific Dhdds ablation and K42E knock-in mice degenerate or become dysfunctional without detectable loss of retinal protein N-glycosylation, and knock-in mice point to an inner-retinal synaptic defect rather than primary photoreceptor loss. A single adult K42E homozygote with a late-onset multisystem type 1 congenital disorder of glycosylation phenotype has been reported. No disease-specific therapy exists.",
+    "pathophysiology": [
+      "DHDDS Cis-Prenyltransferase Partial Loss of Function",
+      "Dolichol Chain-Length Shortening",
+      "Impaired Photoreceptor Protein N-Glycosylation",
+      "Rod Photoreceptor Degeneration",
+      "Secondary Cone Degeneration and Outer Retinal Thinning",
+      "Photoreceptor-to-Bipolar Cell Synaptic Transmission Defect",
+      "Inner Nuclear Layer Thinning with Bipolar and Amacrine Cell Loss",
+      "Retinal Pigment Epithelium Dysfunction",
+      "Systemic Protein Hypoglycosylation"
+    ],
+    "cell_types": [
+      "rod photoreceptor cell",
+      "cone photoreceptor cell",
+      "retinal bipolar neuron",
+      "amacrine cell",
+      "retinal pigment epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000604",
+      "CL:0000573",
+      "CL:0000748",
+      "CL:0000561",
+      "CL:0002586"
+    ],
+    "biological_processes": [
+      "dolichyl diphosphate biosynthesis",
+      "protein N-linked glycosylation",
+      "photoreceptor cell maintenance",
+      "photoreceptor outer segment organization",
+      "neuron apoptotic process",
+      "chemical synaptic transmission"
+    ],
+    "phenotypes": [
+      "Nyctalopia",
+      "Rod-cone dystrophy",
+      "Constriction of peripheral visual field",
+      "Undetectable electroretinogram",
+      "Spicular pigmentation of the retina",
+      "Attenuation of retinal blood vessels",
+      "Optic disc pallor",
+      "Reduced visual acuity",
+      "Photoreceptor layer loss on macular OCT",
+      "Abnormal fundus autofluorescence imaging",
+      "Cystoid macular edema",
+      "Seizure",
+      "Ataxia",
+      "Tremor",
+      "Titubation",
+      "Protein-losing enteropathy"
+    ],
+    "phenotype_categories": [
+      "Ophthalmologic",
+      "Neurological",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000662",
+      "HP:0000510",
+      "HP:0001133",
+      "HP:0000550",
+      "HP:0007737",
+      "HP:0007843",
+      "HP:0000543",
+      "HP:0007663",
+      "HP:0030609",
+      "HP:0030602",
+      "HP:0011505",
+      "HP:0001250",
+      "HP:0001251",
+      "HP:0001337",
+      "HP:0030187",
+      "HP:0002243"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DHDDS",
+      "ALG6 F304S modifier variant"
+    ],
+    "treatments": [
+      "Acetazolamide",
+      "Carbonic anhydrase inhibitors for RP-associated cystoid macular edema"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Increased plasma and urinary dolichol-18 to dolichol-19 ratio",
+      "Serum transferrin glycosylation"
+    ],
+    "source_file": "Retinitis_Pigmentosa_59.yaml",
+    "page_url": "../pages/disorders/Retinitis_Pigmentosa_59.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 9,
+    "num_genes": 2,
+    "num_treatments": 2,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Retinitis Pigmentosa With or Without Situs Inversus",
@@ -347534,17 +347982,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3264,
-  "total_subtypes": 4511,
-  "total_disorders_and_subtypes": 7775,
-  "total_unique_evidence_sources": 48074,
-  "total_unique_publications": 45038,
+  "total_disorder_pages": 3268,
+  "total_subtypes": 4515,
+  "total_disorders_and_subtypes": 7783,
+  "total_unique_evidence_sources": 48176,
+  "total_unique_publications": 45140,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3260,
-  "total_unique_pathological_events": 20919,
+  "total_pathographs": 3264,
+  "total_unique_pathological_events": 20951,
   "total_modules": 181,
-  "total_research_reports": 3380,
+  "total_research_reports": 3384,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
