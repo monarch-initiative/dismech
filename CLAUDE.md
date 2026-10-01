@@ -3151,8 +3151,10 @@ Rules for filling it:
 `SEX` and `REPRODUCTIVE_STATUS` are separate on purpose, because menopausal
 status varies within one sex. Worked example: `Sarcopenia` → Progressive
 Resistance Exercise Training, which carries age, sex, menopausal-status and
-baseline-function modifiers, including two sex findings that point in opposite
-directions.
+baseline-function modifiers. It also shows what stays out: SPRINTT reported a
+grip and lean-mass benefit in women and none in men, but from separate
+within-sex results with no interaction test and for a multicomponent programme,
+so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
 
 ### Subtype Naming Conventions
 
