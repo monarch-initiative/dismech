@@ -607,6 +607,75 @@ turns on transmission route and vector, so a bound slot is a prerequisite for en
 rung 4, tracked in §12; and whether `Subtype.classification` should become an enum now that
 it carries the rung-3a axis.
 
+### 3f. Injury and trauma granularity (2026-10-01)
+
+**Status: PROPOSED, not enacted.** Drafted at maintainer request (`@cmungall`) as a
+starting point for discussion. Nothing in the KB has been changed to follow it. The
+scoping for its first test case is in the
+[traumatic brain injury pilot](../superpowers/specs/2026-10-01-traumatic-brain-injury-pilot.md).
+
+**Problem.** §1 puts exposure-related disease in scope but says nothing about physical
+injury, and the KB has handled it only implicitly. There is no entry for an injury itself
+(no traumatic brain injury, spinal cord injury, burn, fracture or crush injury), while the
+diseases that follow injury are curated with the trauma as their cause:
+`Post-Traumatic_Epilepsy` and `Chronic_Traumatic_Encephalopathy` each carry the head
+trauma as an `environmental:` record. That is a sound default, but it cannot represent
+the cases where the tissue's response to the injury is itself the disease being studied
+and treated, nor the biomechanics of the injury.
+
+**Proposed rule: the entry sits where most of the mechanism is.**
+
+| Situation | Represent as | Examples |
+|---|---|---|
+| The injury is a one-off trigger and the disease then runs on its own mechanism | An entry for the **sequela**; the injury is an `environmental:` record linked with `influences_mechanisms` (`TRIGGERS`) and, where the entry models it, a root pathophysiology node | post-traumatic epilepsy, chronic traumatic encephalopathy, post-traumatic stress disorder |
+| The tissue response to the injury is the clinical entity managed as a unit, with its own phases and treatment window | An entry for the **injury**, its phases (primary injury, secondary injury, chronic) in `progression:` | traumatic brain injury, spinal cord injury, crush syndrome |
+| A response cascade recurs across several injuries or sequelae | A **mechanism module** that both injury and sequela entries conform to | secondary injury after neurotrauma, ischemia-reperfusion injury |
+| An anatomical or mechanical category with no single mechanism | A `GROUPING`, or an `OUT_OF_SCOPE` stub | *injury*, *head injury*, *bone fracture* as a class |
+
+This mirrors §3e: a phase is never an entry, and a sequela is its own entry. A module
+holds the shared injury biology once, so curating the sequela and modelling the injury in
+detail do not compete.
+
+**Biomechanics.** The pathograph starts at biology, and mechanical load sits upstream of
+every GO, CL or HP term. Proposed handling, with no schema change:
+
+- The mechanical event is a root pathophysiology node at `TISSUE` or `ORGANISM`
+  `biological_scale`, with `locations` bound to UBERON. `Post-Traumatic_Epilepsy`'s
+  `Traumatic Brain Injury` node already has this shape.
+- Quantitative biomechanics (finite-element tissue-strain models, injury-threshold
+  models) goes in `computational_models:`, linked with `modeled_mechanisms`. The scale
+  gap between a tissue-strain model and an axonal or cellular node is what §3b's
+  `model_scale` records, and strain standing in for tissue damage is a `PROXY_QUANTITY`
+  divergence under §3c.
+
+**MONDO constraint.** MONDO files injuries under `MONDO:0021178` *injury*, a root that
+is **not** a subclass of `MONDO:0000001` *disease*, and `DiseaseTerm` admits only
+descendants of `disease` and `inherited disease susceptibility`. Of the 23 descendants
+of *injury* checked against OLS on 2026-10-01, those reachable from *disease* through a
+second parent validate as a `disease_term` (`MONDO:0858950` traumatic brain injury,
+`MONDO:0043797` spinal cord injury, `MONDO:0015796` acute lung injury, `MONDO:0043510`
+brain injury); those under *injury* alone do not (`MONDO:0043519` burn, `MONDO:0800177`
+frostbite, `MONDO:0005315` bone fracture and its children, `MONDO:0005203` ischemia
+reperfusion injury, `MONDO:0043458` radiation injury, `MONDO:0800482` head injury).
+Whether to add `MONDO:0021178` as a third `DiseaseTerm` source node is part of this
+decision, not a detail of it: it is a one-line schema change, but it admits every
+fracture and ankle injury as a candidate entry.
+
+**ECTO constraint.** ECTO has no term for mechanical or traumatic injury exposure:
+searches of the local build on 2026-10-01 for `l~injur`, `l~trauma`, `l~concuss`,
+`l~impact`, `l~crush`, `l~collision`, `l~acceleration` and `l~force` returned nothing.
+`ExposureTerm` also admits XCO, which does have injury terms (`XCO:0000968` experimental
+traumatic brain injury, `XCO:0001041` experimental spinal cord contusion), but those
+describe experimental procedures on animals and are wrong for a human exposure; they fit
+`animal_models:` context only. Until an ECTO term exists, a human trauma exposure is left
+unbound with the searches recorded in `notes`, which is the state of both existing
+entries.
+
+**Open questions for sign-off.** (1) Whether *injury* becomes a `DiseaseTerm` source
+node. (2) Whether an ECTO term request for mechanical injury exposure should be filed.
+(3) Whether injury entries need their own `check-granularity`-style audit, or §3e's
+checks are enough to copy.
+
 ## 4. Ontology constraints
 
 **Decision.** Term validation is restricted to an explicit, curated set of ontologies.
