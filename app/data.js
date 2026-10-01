@@ -36517,15 +36517,19 @@ window.searchData = [
     "creation_date": "2026-09-28T20:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNA9 is an autosomal dominant, adult-onset, progressive sensorineural hearing loss with variable vestibular dysfunction, caused by heterozygous missense or in-frame variants in COCH. COCH encodes cochlin, a secreted extracellular matrix protein with an N-terminal LCCL domain and two von Willebrand factor A (vWFA) domains; it is the most abundant protein detected in the inner ear and is made by the fibrocytes of the spiral ligament and spiral limbus and by the stroma beneath the vestibular sensory epithelium.\nDominant variants misfold the domain they sit in. Depending on the allele, mutant cochlin is either retained inside the cell as dimers and aggregates or secreted but fails to integrate normally into the extracellular matrix. Affected temporal bones show loss of the COCH-expressing fibrocytes and acellular eosinophilic deposits that immunostain for cochlin, in the cochlear and vestibular labyrinths and also in the middle ear. The principal histological correlate of hearing loss in the one bone examined before profound deafness was degeneration of the spiral ganglion dendrites in the osseous spiral lamina. Heterozygous Coch-null mice hear normally and a heterozygous human truncating variant did not segregate with hearing loss, so the dominant disease is not haploinsufficiency; biallelic loss-of-function variants instead cause a separate recessive, prelingual disorder (DFNB110).\nHearing loss typically begins in the third to fifth decade, is often most marked at high frequencies early, and progresses to severe or profound loss. Vestibular function declines alongside it, reaching bilateral vestibulopathy with oscillopsia and instability in the dark; earlier p.Pro51Ser studies found vestibular decline starting first, while a larger 2021 series found hearing decline starting first in female carriers. Meni\u00e8re-like attacks of vertigo, tinnitus and aural fullness occur in a substantial minority. The p.Pro51Ser founder allele is a frequent cause in the Dutch/Belgian population, and COCH was the commonest non-idiopathic cause in a three-centre bilateral vestibulopathy series. Management is amplification followed by cochlear implantation, which gives outcomes comparable to other postlingual implant recipients; allele-specific antisense knockdown of the p.Pro51Ser transcript has been demonstrated only in cultured cells.",
+    "description": "DFNA9 is an autosomal dominant, usually adult-onset progressive sensorineural hearing loss with variable vestibular dysfunction caused by heterozygous COCH variants. Most are missense or in-frame variants, but a terminal frameshift associated with abnormal cochlin multimer formation has also been reported. Childhood and occasionally prelingual presentations occur in some families. Cochlin is a secreted extracellular matrix protein with an LCCL domain and two von Willebrand factor A domains. Variant-dependent abnormalities include altered folding, oligomerization with recruitment of wild-type cochlin, intracellular retention, defective proteolytic processing, abnormal matrix deposition and cytotoxicity. These findings come largely from recombinant proteins and cultured cells; no single mechanism has been demonstrated for every allele. Human temporal bones show cochlin-containing deposits, fibrocyte loss and cochlear or vestibular neural degeneration. Biallelic loss-of-function variants cause the distinct recessive disorder DFNB110. Hearing aids and cochlear implantation provide auditory rehabilitation. Vestibular implants are investigational, and allele-specific antisense knockdown of p.Pro51Ser has been demonstrated in cultured cells.",
     "pathophysiology": [
-      "Heterozygous COCH Missense or In-Frame Variant",
+      "Heterozygous COCH Variant",
       "Cochlin Domain Misfolding",
-      "Intracellular Retention and Aggregation of Mutant Cochlin",
+      "Abnormal Cochlin Dimerization and Oligomerization",
+      "Intracellular Retention of Mutant Cochlin",
+      "Impaired Cochlin Proteolytic Processing",
+      "Mutant Cochlin Cytotoxicity",
       "Defective Cochlin Incorporation into the Extracellular Matrix",
       "Cochlin Aggregate Deposition in the Ear",
       "Loss of Spiral Ligament and Spiral Limbus Fibrocytes",
       "Degeneration of Spiral Ganglion Dendrites in the Osseous Spiral Lamina",
+      "Vestibular Neural Degeneration",
       "Vestibular End-Organ Dysfunction"
     ],
     "cell_types": [
@@ -36538,14 +36542,17 @@ window.searchData = [
     ],
     "biological_processes": [
       "protein folding",
+      "protein complex oligomerization",
       "protein secretion",
-      "extracellular matrix organization",
-      "equilibrioception"
+      "protein processing",
+      "extracellular matrix organization"
     ],
     "phenotypes": [
       "Adult-onset progressive sensorineural hearing loss",
+      "Childhood or prelingual sensorineural hearing loss",
       "High-frequency predominant hearing loss",
       "Profound hearing loss in late disease",
+      "Impaired speech discrimination",
       "Progressive bilateral vestibular hypofunction",
       "Vestibular areflexia",
       "Oscillopsia",
@@ -36570,8 +36577,10 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0008615",
+      "HP:0000407",
       "HP:0001757",
       "HP:0011476",
+      "HP:0001963",
       "HP:0001756",
       "HP:0008568",
       "HP:0034773",
@@ -36590,18 +36599,23 @@ window.searchData = [
     "treatments": [
       "Hearing aids",
       "Cochlear implantation",
-      "Allele-specific antisense oligonucleotide knockdown of p.Pro51Ser COCH"
+      "Allele-specific antisense oligonucleotide knockdown of p.Pro51Ser COCH",
+      "Meclizine for episodic vertigo",
+      "Hydrochlorothiazide for episodic vertigo",
+      "Diazepam for episodic vertigo",
+      "Balance rehabilitation and environmental adaptations",
+      "Investigational combined vestibular and cochlear implantation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Nonsyndromic_Hearing_Loss_9.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_9.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 15,
+    "num_pathophysiology": 12,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 8,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Autosomal Dominant Optic Atrophy",
@@ -47263,10 +47277,11 @@ window.searchData = [
     "creation_date": "2026-09-28T12:50:16Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Bart-Pumphrey syndrome is a rare autosomal dominant genodermatosis combining knuckle pads, leukonychia, palmoplantar keratoderma and sensorineural hearing loss, with considerable variability in which features an affected relative shows. It is one of the dominant connexin 26 (GJB2) disorders of skin and hearing: the molecularly confirmed families carry heterozygous missense variants in the first extracellular loop of connexin 26 (p.Asn54Lys, and p.Gly59Ser, an allele also reported in classic Vohwinkel syndrome). In cultured cells the p.Asn54Lys protein is retained intracellularly and acts transdominantly on co-expressed connexins, which is the current mechanistic explanation for the skin phenotype; the cochlear mechanism has not been studied in patient tissue.",
+    "description": "Bart-Pumphrey syndrome is a rare autosomal dominant genodermatosis characterized by knuckle pads, leukonychia, palmoplantar keratoderma and hearing loss, usually sensorineural. Features vary within families; neither all four features nor a fixed hearing severity is obligatory. Heterozygous GJB2 missense variants p.Asn54Lys and p.Gly59Ser are reported, with overlap between Bart-Pumphrey and other dominant connexin 26 skin-hearing disorders. Experimental p.Asn54Lys shows trafficking defects and dominant or transdominant inhibition of connexin channel function, with effects that depend on the cell system and coexpressed connexin. The steps connecting these cell defects to patient skin and cochlear disease remain incompletely established.",
     "pathophysiology": [
       "Heterozygous GJB2 First Extracellular Loop Missense Variant",
       "Connexin 26 Intracellular Retention",
+      "Mutant Connexin 26 Gap Junction Channel Dysfunction",
       "Transdominant Inhibition of Co-expressed Epidermal Connexins",
       "Keratinocyte Gap Junctional Communication Deficit",
       "Cochlear Gap Junction Network Dysfunction"
@@ -47285,7 +47300,11 @@ window.searchData = [
       "Knuckle pads",
       "Leukonychia",
       "Palmoplantar keratoderma",
-      "Sensorineural hearing impairment"
+      "Sensorineural hearing impairment",
+      "Congenital sensorineural hearing impairment",
+      "Severe sensorineural hearing impairment",
+      "Keratosis pilaris",
+      "Mixed hearing impairment"
     ],
     "phenotype_categories": [
       "Dermatologic",
@@ -47300,25 +47319,32 @@ window.searchData = [
       "HP:0032541",
       "HP:0001820",
       "HP:0000982",
-      "HP:0000407"
+      "HP:0000407",
+      "HP:0032152",
+      "HP:0000410"
     ],
     "frequencies": [],
     "genes": [
       "GJB2"
     ],
     "treatments": [
-      "Keratolytic and systemic retinoid therapy for keratoderma"
+      "Mechanical reduction of hyperkeratosis",
+      "Topical keratolytics",
+      "Systemic retinoids",
+      "Hearing aids",
+      "Cochlear implantation",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Bart-Pumphrey_Syndrome.yaml",
     "page_url": "../pages/disorders/Bart-Pumphrey_Syndrome.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 6,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Barth syndrome",
@@ -48777,33 +48803,32 @@ window.searchData = [
     "creation_date": "2026-07-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Behr syndrome is a rare, early-childhood-onset neurodegenerative disorder originally defined by Carl Behr in 1909 as the association of infantile bilateral optic atrophy with progressive neurological features \u2014 ataxia, pyramidal signs (spasticity), peripheral neuropathy, posterior-column sensory loss, and variable intellectual disability. It is now recognized as a clinically defined, genetically heterogeneous mitochondrial-neurodegenerative phenotype rather than a single-gene disease. In its molecularly resolved core form (OMIM 210000), Behr syndrome is caused by biallelic (recessive) pathogenic variants in OPA1, the same nuclear gene whose heterozygous mutations cause autosomal dominant optic atrophy; the severe recessive/compound-heterozygous state produces the syndromic \"Behr-like\" optic-atrophy-plus picture. Additional genes producing an overlapping Behr phenotype include OPA3 (Costeff optic atrophy syndrome / 3-methylglutaconic aciduria type III, a close differential rather than a strict synonym), C12orf65 (MTRFR) and C19orf12 (otherwise causing MPAN, a form of neurodegeneration with brain iron accumulation), all converging on impaired mitochondrial bioenergetics. OPA1 encodes a dynamin-related inner-mitochondrial-membrane GTPase required for mitochondrial inner-membrane fusion, cristae architecture, and mitochondrial DNA maintenance; loss of function causes bioenergetic failure and selective degeneration of retinal ganglion cells and central/peripheral neurons.\n",
+    "description": "Behr syndrome is an early-onset syndromic optic neuropathy with variable ataxia, peripheral neuropathy, pyramidal signs and cognitive involvement. This entry describes the OPA1-related disorder mapped to MONDO:0008858 and OMIM:210000, particularly biallelic disease. The historical Behr phenotype is genetically heterogeneous: OPA3/Costeff, MTRFR and C19orf12 disorders are documented molecular differentials. OPA1 disease can combine a severe allele with a hypomorphic allele, or arise from homozygous missense variants. Optic atrophy may be subtle or recognized after neurological symptoms; intellectual disability, spasticity and cerebellar atrophy are not obligatory. Patient studies demonstrate reduced OPA1 abundance, mitochondrial fragmentation and genotype-dependent bioenergetic abnormalities, with progressive optic and peripheral nerve dysfunction.",
     "pathophysiology": [
-      "Biallelic OPA1 Loss of Function",
-      "Impaired Inner-Membrane Fusion and Cristae Disruption",
-      "Mitochondrial DNA Instability and Multiple mtDNA Deletions",
-      "Bioenergetic Failure and Oxidative Phosphorylation Deficiency",
+      "Biallelic OPA1 Variants",
+      "Aberrant OPA1 Splicing",
+      "OPA1 Transcript Decay",
+      "Reduced OPA1 Protein Abundance",
+      "Mitochondrial Network Fragmentation",
+      "Oxidative Phosphorylation Deficiency",
+      "Reduced Mitochondrial DNA Content",
       "Retinal Ganglion Cell Degeneration",
-      "Cerebellar Degeneration",
-      "Corticospinal Tract Degeneration",
-      "Peripheral Sensory Axon and Dorsal Column Degeneration"
+      "Cerebellar Involvement",
+      "Pyramidal Tract Dysfunction",
+      "Peripheral Axonal Degeneration"
     ],
     "cell_types": [
-      "Retinal ganglion cell",
-      "Purkinje cell",
-      "Sensory neuron"
+      "retinal ganglion cell"
     ],
     "cell_type_ids": [
-      "CL:0000740",
-      "CL:0000121",
-      "CL:0000101"
+      "CL:0000740"
     ],
     "biological_processes": [
-      "Mitochondrial inner membrane fusion",
-      "Cristae formation",
-      "Mitochondrial DNA maintenance",
-      "Oxidative phosphorylation",
-      "Neuron apoptotic process"
+      "mRNA splicing, via spliceosome",
+      "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay",
+      "mitochondrion organization",
+      "oxidative phosphorylation",
+      "mitochondrial DNA metabolic process"
     ],
     "phenotypes": [
       "Optic Atrophy",
@@ -48817,13 +48842,23 @@ window.searchData = [
       "Stroke-Like Episodes",
       "Tremor",
       "Basal Ganglia Signal Abnormality",
-      "Progressive Cerebellar Involvement",
+      "Cerebellar Atrophy",
       "Impaired proprioception",
       "Ophthalmoplegia",
       "Developmental cataract",
-      "Sensorineural hearing loss",
+      "Hearing Impairment",
       "Gastrointestinal dysmotility",
-      "Motor delay"
+      "Motor delay",
+      "Pes Cavus",
+      "Areflexia",
+      "Distal Amyotrophy",
+      "Ptosis",
+      "Exotropia",
+      "Cervical Spinal Cord Atrophy",
+      "Developmental Regression",
+      "Elevated Brain Lactate",
+      "Dysphagia",
+      "Distal Muscle Weakness"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -48835,6 +48870,7 @@ window.searchData = [
       "Digestive",
       "Ear",
       "Eye",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -48849,44 +48885,55 @@ window.searchData = [
       "HP:0001250",
       "HP:0002401",
       "HP:0001337",
-      "HP:0002134",
+      "HP:0012751",
       "HP:0001272",
       "HP:0010831",
       "HP:0000602",
       "HP:0000519",
-      "HP:0000407",
+      "HP:0000365",
       "HP:0002579",
-      "HP:0001270"
+      "HP:0001270",
+      "HP:0001761",
+      "HP:0001284",
+      "HP:0003693",
+      "HP:0000508",
+      "HP:0000577",
+      "HP:0010873",
+      "HP:0002376",
+      "HP:0012707",
+      "HP:0002015",
+      "HP:0002460"
     ],
     "frequencies": [],
     "genes": [
-      "OPA1",
-      "OPA3",
-      "C12orf65",
-      "C19orf12"
+      "OPA1"
     ],
     "treatments": [
       "Supportive and Multidisciplinary Care",
       "Genetic Counseling",
       "Low-Vision Rehabilitation",
-      "Physical Therapy for Spasticity and Ataxia",
+      "Physical, Occupational and Speech Rehabilitation",
       "Antiseizure Management",
-      "Idebenone (Experimental / Class-Extrapolated)",
-      "Gene-Based Therapy (Investigational)"
+      "Idebenone (Limited Biallelic Case Evidence)",
+      "OPA1 Gene Augmentation (Preclinical)",
+      "OPA1 Expression Modulation (Investigational)",
+      "Intravenous Arginine (Unsuccessful Case Trial)",
+      "Ketogenic Diet (Unsuccessful Case Trial)",
+      "Feeding Support"
     ],
     "environmental": [],
     "biochemical": [
-      "Elevated Lactate",
+      "Increased Circulating Lactate in a Severe Biallelic Presentation",
       "Cytochrome c oxidase (COX) deficiency"
     ],
     "source_file": "Behr_Syndrome.yaml",
     "page_url": "../pages/disorders/Behr_Syndrome.html",
-    "num_phenotypes": 18,
-    "num_pathophysiology": 8,
-    "num_genes": 4,
-    "num_treatments": 7,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "6"
+    "num_phenotypes": 28,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 11,
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Bejel",
@@ -49262,15 +49309,18 @@ window.searchData = [
       "Horizontal Canal",
       "Anterior Canal"
     ],
-    "description": "Benign paroxysmal positional vertigo (BPPV) is the commonest peripheral vestibular end-organ disorder and the single commonest cause of vertigo. Its mechanism is biomechanical rather than molecular: calcium carbonate crystals (otoconia), normally embedded in the otolithic membrane of the utricular macula, degenerate and detach, migrate through the non-ampullated end of a semicircular canal, and there render the canal inappropriately responsive to gravity. Free-floating debris in the canal lumen (canalithiasis) drags endolymph and deflects the cupula when the head moves; debris adherent to the cupula itself (cupulolithiasis) makes the cupula a gravity sensor that stays deflected. Either way the affected canal reports an angular velocity that the head is not experiencing, and the resulting mismatch against vision and proprioception is perceived as spinning while the vestibulo-ocular reflex drives a characteristic positional nystagmus. Because the defect is the position of a particle rather than the state of a tissue, BPPV is one of the few disorders whose definitive treatment is a mechanical manoeuvre: canalith repositioning returns the debris to the utricle and abolishes the signal. \"Benign\" denotes only the absence of a progressive central lesion; recurrence is common and the falls risk in older adults is substantial.",
+    "description": "Benign paroxysmal positional vertigo (BPPV) is a common peripheral vestibular disorder caused by inappropriate stimulation of a semicircular canal by displaced otoconial debris. Gravity-driven movement of free particles (canalithiasis) explains most cases. Cupular loading and canalith entrapment are proposed explanations for some persistent positional responses; nystagmus direction alone does not distinguish them. Abnormal canal signals produce positional vertigo and nystagmus, often with nausea or residual imbalance. Most cases are idiopathic, while trauma and other inner-ear disorders can precede secondary BPPV. Canal-specific repositioning is effective for many patients, but spontaneous remission, persistent symptoms and recurrence all occur. Familial and common-variant associations indicate susceptibility without establishing one Mendelian cause of typical BPPV.",
     "pathophysiology": [
-      "Otoconial Degeneration and Detachment from the Utricular Macula",
+      "Otoconial Degeneration",
+      "Utricular Otoconial Detachment",
       "Otoconial Debris Entry into a Semicircular Canal",
       "Canalithiasis",
       "Cupulolithiasis",
-      "Aberrant Cupular Deflection and False Angular Velocity Signal",
+      "Canalith Jam",
+      "Abnormal Cupular Deflection",
+      "Abnormal Vestibular Afferent Signaling",
       "Vestibulo-Ocular Reflex Driven Positional Nystagmus",
-      "Vestibular-Visual-Somatosensory Mismatch"
+      "Illusory Motion Perception"
     ],
     "cell_types": [
       "vestibular hair cell"
@@ -49283,7 +49333,8 @@ window.searchData = [
       "Paroxysmal positional vertigo",
       "Positional nystagmus",
       "Nausea",
-      "Gait imbalance"
+      "Gait imbalance",
+      "Vomiting"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -49299,20 +49350,31 @@ window.searchData = [
       "HP:0010532",
       "HP:0000639",
       "HP:0002018",
-      "HP:0002141"
+      "HP:0002141",
+      "HP:0002013"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "FREQUENT"
+    "frequencies": [],
+    "genes": [
+      "PCDHGA10",
+      "ZNF91",
+      "OTOGL",
+      "Chromosome 4 susceptibility locus near OTOP1 and TMEM128"
     ],
-    "genes": [],
     "treatments": [
       "Canalith Repositioning Maneuver",
       "Semont Liberatory Maneuver",
       "Barbecue Roll Maneuver",
       "Vitamin D and Calcium Supplementation",
-      "Semicircular Canal Occlusion"
+      "Semicircular Canal Occlusion",
+      "Gufoni maneuver",
+      "Anterior canal repositioning",
+      "Semont-plus maneuver",
+      "Vitamin D supplementation without calcium",
+      "Head-shaking for persistent posterior-canal BPPV",
+      "Vestibular rehabilitation",
+      "Observation with follow-up",
+      "Safety and recurrence counseling",
+      "Selective relief of maneuver-associated nausea"
     ],
     "environmental": [
       "Head trauma",
@@ -49324,12 +49386,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Benign_Paroxysmal_Positional_Vertigo.yaml",
     "page_url": "../pages/disorders/Benign_Paroxysmal_Positional_Vertigo.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 7,
-    "num_genes": 0,
-    "num_treatments": 5,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "6"
+    "num_phenotypes": 5,
+    "num_pathophysiology": 10,
+    "num_genes": 4,
+    "num_treatments": 14,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Benign Prostatic Hyperplasia",
@@ -49813,27 +49875,27 @@ window.searchData = [
     "creation_date": "2025-12-19T01:18:09Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A rare autosomal recessive lysosomal storage disorder caused by deficiency of lysosomal beta-mannosidase enzyme, leading to accumulation of mannose-containing oligosaccharides in tissues and body fluids. Clinical manifestations include intellectual disability, hearing loss, and variable neurological involvement.\n",
+    "description": "Beta-mannosidosis is an autosomal recessive lysosomal disorder caused by biallelic pathogenic MANBA variants and deficient beta-mannosidase activity. Incomplete N-linked glycoprotein degradation leads to oligosaccharide accumulation and excretion. Hearing impairment, developmental or intellectual disability and behavioral abnormalities are prominent, with variable skin, infectious, motor and white-matter findings. Severity varies markedly, including among relatives, and is not reliably predicted by genotype or residual enzyme activity. Care is mainly supportive; biochemical correction after transplantation in one reported patient did not establish durable neurological benefit.",
     "pathophysiology": [
       "MANBA lysosomal beta-mannosidase deficiency",
+      "Impaired terminal N-glycan degradation",
       "Glycoprotein-derived oligosaccharide storage",
-      "Auditory involvement",
-      "Neurodevelopmental and behavioral involvement",
-      "Abnormal brain myelination and neuroimaging",
-      "Recurrent infection involvement",
-      "Cutaneous involvement"
+      "Lysosomal vacuolation",
+      "Impaired CNS myelination",
+      "Esophageal dysmotility"
     ],
     "cell_types": [
-      "neuron",
-      "oligodendrocyte"
+      "keratinocyte",
+      "fibroblast",
+      "endothelial cell"
     ],
     "cell_type_ids": [
-      "CL:0000540",
-      "CL:0000128"
+      "CL:0000312",
+      "CL:0000057",
+      "CL:0000115"
     ],
     "biological_processes": [
       "glycoprotein catabolic process",
-      "oligosaccharide metabolic process",
       "myelination"
     ],
     "phenotypes": [
@@ -49847,11 +49909,27 @@ window.searchData = [
       "Delayed myelination",
       "Recurrent respiratory infections",
       "Seizures",
-      "Angiokeratoma"
+      "Angiokeratoma",
+      "CNS hypomyelination",
+      "Ataxia",
+      "Hypotonia",
+      "Peripheral neuropathy",
+      "Erythromelalgia",
+      "Hyperactivity",
+      "Compulsive behaviors",
+      "Aggressive behavior",
+      "Autistic behavior",
+      "Coarse facial features",
+      "Spasticity",
+      "Delayed speech and language development",
+      "Visceromegaly",
+      "Hydrocephalus",
+      "Scoliosis"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Digestive",
       "Ear",
       "Head and Neck",
@@ -49872,31 +49950,58 @@ window.searchData = [
       "HP:0012448",
       "HP:0002205",
       "HP:0001250",
-      "HP:0001014"
+      "HP:0001014",
+      "HP:0003429",
+      "HP:0001251",
+      "HP:0001252",
+      "HP:0009830",
+      "HP:0032147",
+      "HP:0000752",
+      "HP:0000722",
+      "HP:0000718",
+      "HP:0000729",
+      "HP:0000280",
+      "HP:0001257",
+      "HP:0000750",
+      "HP:0003271",
+      "HP:0000238",
+      "HP:0002650"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "FREQUENT",
       "OCCASIONAL"
     ],
     "genes": [
-      "MANBA gene mutations"
+      "MANBA"
     ],
     "treatments": [
-      "Supportive care"
+      "Developmental and educational support",
+      "Physical and occupational rehabilitation",
+      "Hearing rehabilitation",
+      "Treatment of recurrent infections",
+      "Feeding and nutritional support",
+      "Seizure management",
+      "Hydrocephalus treatment",
+      "Behavioral and psychiatric care",
+      "Surveillance and transition to adult care",
+      "Genetic counseling and family evaluation",
+      "Hematopoietic cell transplantation"
     ],
     "environmental": [],
     "biochemical": [
       "Urinary free oligosaccharides",
-      "Beta-mannosidase activity"
+      "Beta-mannosidase activity",
+      "Urinary NeuMan2GlcNAc2 peak"
     ],
     "source_file": "Beta_Mannosidosis.yaml",
     "page_url": "../pages/disorders/Beta_Mannosidosis.html",
-    "num_phenotypes": 11,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 26,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 11,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Beta Thalassemia",
@@ -347336,12 +347441,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3263,
   "total_subtypes": 4511,
   "total_disorders_and_subtypes": 7774,
-  "total_unique_evidence_sources": 47989,
-  "total_unique_publications": 44973,
+  "total_unique_evidence_sources": 48036,
+  "total_unique_publications": 45006,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
   "total_pathographs": 3259,
-  "total_unique_pathological_events": 20904,
+  "total_unique_pathological_events": 20913,
   "total_modules": 180,
   "total_research_reports": 3379,
   "total_classifications": 21,
