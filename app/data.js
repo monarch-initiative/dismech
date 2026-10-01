@@ -51515,10 +51515,11 @@ window.searchData = [
     "creation_date": "2026-09-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Bjornstad syndrome is a rare autosomal recessive disorder defined by the combination of pili torti \u2014 hair shafts that are flattened and twisted about their own axis, making them brittle and short \u2014 with bilateral sensorineural hearing loss. Both features are present from early childhood: the hair is sparse, dry and easily broken, and the hearing loss is usually moderate to severe and can be progressive. The disorder is caused by biallelic missense variants in BCS1L, which encodes an AAA-family ATPase that inserts the catalytic Rieske iron-sulfur protein into mitochondrial respiratory chain complex III. BCS1L is unusual among mitochondrial disease genes in the width of its phenotypic range: the same gene causes neonatally lethal GRACILE syndrome and severe isolated complex III deficiency at one end, and Bjornstad syndrome \u2014 in which cognition, growth, liver and kidney are spared \u2014 at the other. The variants that produce the Bjornstad phenotype affect residues involved in protein-protein interaction rather than ATP binding, and the resulting assembly defect raises reactive oxygen species production without the increase in mitochondrial content seen in the severe forms. Why the consequences are restricted to the cochlea and the hair follicle, two tissues with high and sustained oxidative demand, is the central unexplained feature of the disorder.",
+    "description": "Bjornstad syndrome is a predominantly hair-and-hearing presentation of autosomal recessive BCS1L-related mitochondrial disease, characterized by pili torti, hair fragility and sensorineural hearing loss. Onset and hearing severity vary. BCS1L assists delivery of the folded Rieske iron-sulfur protein to respiratory complex III; pathogenic genotypes can impair assembly and alter cellular redox metabolism. The mechanisms determining cochlear and follicular vulnerability remain incompletely established. Most recognized cases have a restricted phenotype, but additional findings, including intellectual disability, have been reported. Severe multisystem BCS1L disorders overlap genetically and require a broader clinical assessment.",
     "pathophysiology": [
       "BCS1L Rieske Protein Insertion Failure",
       "Complex III Assembly Defect",
+      "Reduced respiratory electron transfer",
       "Excess Reactive Oxygen Species Production",
       "Cochlear Oxidative Injury",
       "Hair Shaft Keratin Assembly Failure"
@@ -51538,23 +51539,24 @@ window.searchData = [
       "mitochondrial respiratory chain complex III assembly",
       "respiratory electron transport chain",
       "reactive oxygen species metabolic process",
-      "response to oxidative stress",
-      "response to reactive oxygen species"
+      "response to oxidative stress"
     ],
     "phenotypes": [
       "Pili torti",
       "Sensorineural hearing impairment",
       "Brittle hair",
       "Incomplete partition of the cochlea type I",
-      "Speech and language delay"
+      "Sparse scalp hair",
+      "Intellectual disability"
     ],
     "phenotype_categories": [
       "Integumentary",
       "Auditory",
-      "Neurological"
+      "Neurodevelopmental"
     ],
     "phenotype_hpo_categories": [
       "Ear",
+      "Head and Neck",
       "Integument",
       "Nervous System"
     ],
@@ -51563,28 +51565,29 @@ window.searchData = [
       "HP:0000407",
       "HP:0002299",
       "HP:0011374",
-      "HP:0000750"
+      "HP:0002209",
+      "HP:0001249"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "BCS1L"
     ],
     "treatments": [
-      "Hearing amplification and cochlear implantation",
+      "Cochlear implantation for profound hearing loss",
       "Modified Atkins (mild ketogenic) diet",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Hearing aids and audiologic follow-up",
+      "Gentle hair care"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Bjornstad_Syndrome.yaml",
     "page_url": "../pages/disorders/Bjornstad_Syndrome.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "11",
+    "num_treatments": 5,
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "7"
   },
   {
@@ -297708,6 +297711,7 @@ window.searchData = [
       "Chronic Low-Grade Inflammation",
       "Muscle Satellite Cell Exhaustion",
       "Declining Anabolic Hormone Signalling",
+      "Blunted Load-Induced mTORC1 Signalling",
       "Anabolic Resistance",
       "Myostatin and Activin Receptor Signalling",
       "Ubiquitin-Proteasome Myofibrillar Proteolysis",
@@ -297737,6 +297741,8 @@ window.searchData = [
       "positive regulation of NF-kappaB signalling",
       "skeletal muscle satellite cell proliferation",
       "skeletal muscle tissue regeneration",
+      "cellular response to mechanical stimulus",
+      "load-induced TORC1 signaling",
       "TORC1 signaling",
       "proteasome-mediated ubiquitin-dependent protein catabolic process",
       "skeletal muscle atrophy",
@@ -297814,10 +297820,10 @@ window.searchData = [
     "source_file": "Sarcopenia.yaml",
     "page_url": "../pages/disorders/Sarcopenia.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 16,
+    "num_pathophysiology": 17,
     "num_genes": 4,
     "num_treatments": 21,
-    "causal_graph_edges": "72",
+    "causal_graph_edges": "77",
     "causal_graph_longest_path": "9"
   },
   {
@@ -347441,13 +347447,13 @@ window.searchMetrics = {
   "total_disorder_pages": 3263,
   "total_subtypes": 4511,
   "total_disorders_and_subtypes": 7774,
-  "total_unique_evidence_sources": 48036,
-  "total_unique_publications": 45006,
+  "total_unique_evidence_sources": 48064,
+  "total_unique_publications": 45028,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
   "total_pathographs": 3259,
-  "total_unique_pathological_events": 20913,
-  "total_modules": 180,
+  "total_unique_pathological_events": 20915,
+  "total_modules": 181,
   "total_research_reports": 3379,
   "total_classifications": 21,
   "total_comorbidities": 51,
