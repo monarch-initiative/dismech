@@ -378,6 +378,27 @@ prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for
 finding new nominations, but they are no longer the answer to "what should I
 curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
 
+### Gene Pages (`kb/genes/` → `pages/genes/`)
+
+A gene page merges three layers; see [`docs/gene-pages.md`](docs/gene-pages.md).
+
+- **Ingest** (`kb/genes/ingest/*.tsv`): HGNC identity plus the ai-gene-review
+  function summary, joined on UniProt. **Dropped and reloaded, never
+  hand-edited**: `just genes-ingest-refresh [--repin]` then
+  `just genes-ingest-build`, pinned by `data/hgnc/` and `data/ai-gene-review/`.
+  ai-gene-review content is AI-generated: show it, never cite it as KB evidence.
+- **KB slice** (`dismech.genes.slice`): every structural HGNC descriptor in
+  `kb/`, computed at build time and never committed. `just gene-slice hgnc:<n>`.
+- **Curated summary** (`kb/genes/curated/hgnc_<n>.md`): agent-written Markdown
+  whose checkable statements are provedown spans calling
+  `dismech.genes.claims`. `just genes-verify` re-runs them; a summary that no
+  longer matches the KB is shown as stale on its page. A summary may only say
+  what the KB or ingest layer says; a missing fact goes into the disease entry,
+  not the summary. The verifier refuses to execute any code beyond
+  `from dismech.genes.claims import gene`, `g = gene("hgnc:<n>")`, and method
+  calls on `g` with literal arguments. Lists use `data-compare="names"`,
+  semicolon-separated, because names contain commas.
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:

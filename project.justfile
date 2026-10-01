@@ -2064,6 +2064,35 @@ gen-comorbidity-pages:
 gen-project-page file:
     uv run python -m dismech.render --project {{file}}
 
+# A page per gene named by 2+ disorders (or with a curated summary), plus the
+# index; re-verifies curated summaries. See docs/gene-pages.md.
+# Generate pages/genes/ (gene pages and gene index)
+[group('Pages')]
+gen-gene-pages *ARGS:
+    uv run python -m dismech.genes render {{ARGS}}
+
+# --repin accepts a new upstream release and rewrites the manifest.
+# Fetch the pinned HGNC file and ai-gene-review commit into data/
+[group('Genes')]
+genes-ingest-refresh *ARGS:
+    uv run python -m dismech.genes ingest-refresh {{ARGS}}
+
+# Rewrite kb/genes/ingest/*.tsv for every gene the KB names (never hand-edit)
+[group('Genes')]
+genes-ingest-build:
+    uv run python -m dismech.genes ingest-build
+
+# Report-only by default; --strict exits 1 on a stale or refused summary.
+# Re-run every provedown claim in kb/genes/curated/*.md against the KB
+[group('Genes')]
+genes-verify *ARGS:
+    uv run python -m dismech.genes verify {{ARGS}}
+
+# What the KB says about a gene, e.g. `just gene-slice hgnc:9588 --format tsv`
+[group('Genes')]
+gene-slice *ARGS:
+    uv run python -m dismech.genes slice {{ARGS}}
+
 # Generate all curation-project pages plus the project index
 [group('Pages')]
 gen-project-pages:
