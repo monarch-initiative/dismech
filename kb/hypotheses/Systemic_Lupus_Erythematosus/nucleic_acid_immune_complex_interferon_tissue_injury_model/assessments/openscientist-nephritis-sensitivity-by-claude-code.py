@@ -10,8 +10,10 @@ Usage (from this directory):
   python openscientist-nephritis-sensitivity-by-claude-code.py \
       --artifact-dir ../openscientist_artifacts --output nephritis_sensitivity.csv
 """
-import argparse, importlib.util, os, sys
-import numpy as np, pandas as pd
+import argparse
+import importlib.util
+import os
+import pandas as pd
 
 ap = argparse.ArgumentParser()
 ap.add_argument("--artifact-dir", required=True)
@@ -19,7 +21,8 @@ ap.add_argument("--output", required=True)
 args = ap.parse_args()
 
 spec = importlib.util.spec_from_file_location("prov", os.path.join(args.artifact_dir, "analysis.py"))
-prov = importlib.util.module_from_spec(spec); spec.loader.exec_module(prov)
+prov = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(prov)
 raw = os.path.join(args.artifact_dir, "raw")
 sym2probes = prov.load_annotation(os.path.join(raw, prov.ANNOT_FILE))
 prov.TARGET_PROBES_GLOBAL = [p for g in prov.ALL_TARGET_GENES for p in sym2probes.get(g, [])]
@@ -32,7 +35,7 @@ gene = {}
 for g in prov.ALL_TARGET_GENES:
     probes = [p for p in sym2probes.get(g, []) if p in expr.index]
     means = expr.loc[probes, inc_ids].mean(axis=1)
-    gene[g] = expr.loc[sorted(means[means == means.max()].index)[0]]
+    gene[g] = expr.loc[min(means[means == means.max()].index)]
 gene = pd.DataFrame(gene)
 fv = samples[samples.first_visit]
 healthy = fv.index[fv.disease_state == "Healthy"]
