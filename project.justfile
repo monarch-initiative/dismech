@@ -680,6 +680,21 @@ check-groupings *args="":
 grouping-anchor-audit *args="":
     uv run python scripts/grouping_module_anchor_audit.py {{args}}
 
+# Check each grouping's MONDO mapping predicate against its own members, by
+# resolving every member's MONDO term to its ANCESTORS and looking the mapped
+# class up in that set (dismech#11299 territory, but no local build needed).
+# This is the inverted form of the descendant-closure check: bounded by the
+# member list rather than by the ontology, and the OLS REST endpoint serves
+# ancestors even though the ols:mondo OAK adapter serves neither direction.
+# Needs network. Report-only; --strict exits 1 when a grouping declares
+# exactMatch/narrowMatch while holding members outside the mapped class.
+# Distinct from scripts/grouping_mondo_gaps.py, which finds MONDO descendants
+# with NO dismech entry -- irreducibly a descendant query, still needs the
+# ~588 MB local MONDO build.
+[group('QC')]
+grouping-mondo-consistency *args="":
+    uv run python scripts/grouping_mondo_consistency.py {{args}}
+
 # Report the declared grouping-of-grouping tree plus undeclared member-set
 # containments between groupings (advisory; a containment is a lead, not a ruling)
 [group('QC')]
@@ -907,7 +922,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -950,6 +965,17 @@ knowledge-gap-audit *args="":
 [group('QC')]
 check-knowledge-gap-targets *files:
     uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
+
+# Census of how far estrogen signalling is curated, in six tiers from "mentions
+# estrogen anywhere" down to "binds ESR1/ESR2 on a pathophysiology node". The
+# gap it measures is between binding GO:0030520 on a node and putting the
+# receptor driving it on that node. Offline, report-only, exits 0. See #12925.
+#   just estrogen-census
+#   just estrogen-census --format tsv
+#   just estrogen-census --out docs/reports/estrogen-signalling-coverage-census-<date>.md
+[group('QC')]
+estrogen-census *args="":
+    uv run python scripts/estrogen_signalling_census.py "$@"
 
 # Census of has_subtypes usage (how many subtypes are ever referenced by a
 # subtype: foreign key) plus the deterministic subtype-gene wiring check: a
@@ -1015,6 +1041,22 @@ immune-antigen-audit *args="":
 [group('QC')]
 variant-mechanism-audit *args="":
     uv run python scripts/audit_variant_mechanism.py {{args}}
+
+# Ratchet on genetic[].mechanism_activity_grounding: a gene wired into the
+# pathograph whose landing node names no molecular function. Grandfathers
+# against origin/main in CI (GENE_ACTIVITY_BASELINE_REF), else against
+# tests/gene_activity_grounding_baseline.txt.
+# Fail on genes newly landing on a node with no molecular_functions
+[group('QC')]
+check-gene-activity-grounding *args="":
+    uv run python scripts/check_gene_activity_grounding.py {{args}}
+
+# Only ever to REMOVE fixed entries, or to grandfather a node that genuinely
+# has no single molecular function -- say which in the PR.
+# Rewrite tests/gene_activity_grounding_baseline.txt from the current tree
+[group('QC')]
+update-gene-activity-baseline:
+    uv run python scripts/check_gene_activity_grounding.py --update-baseline
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1176,6 +1218,19 @@ alias validate-references := validate-kb-references
 [group('QC')]
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
+
+# Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
+# A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
+# re-checks them: the trial registry is the one live-API reference source with no
+# `*-refresh` recipe, and its cache records carry no retrieval timestamp, so drift
+# is not measurable offline. Reports only -- never edits the KB, since a trial
+# moving to COMPLETED/TERMINATED usually wants its description/evidence revisited
+# too. Network-dependent and therefore advisory: deliberately NOT part of `just qc`.
+# Pass --strict to gate, --only-drift for just the worklist, --format json|markdown.
+# See docs/clinical-trial-status.md.
+[group('QC')]
+clinicaltrials-status-audit *args:
+    uv run python -m dismech.clinical_trial_status {{args}}
 
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
@@ -1425,6 +1480,17 @@ update-causal-target-baseline:
 list-disconnected-phenotypes *args="":
     uv run python scripts/check_disconnected_phenotypes.py {{args}}
 
+# Infectious-disease entries against the granularity ladder (design decisions
+# §3e, issue #10115): deterministic classes (missing/unbound agent, missing
+# transmission, rung-0 anchor, double modelling, shared anchor, pathotype
+# collapse, dangling `curated_in` pointer) and advisory ones (undecided lumps,
+# unbound subtypes, no progression, lifecycle prompts). Report-only, exit 0;
+# `--strict` gates the deterministic classes, `--scope all` runs the
+# cross-entry classes KB-wide. See docs/quality-control.md.
+[group('QC')]
+check-granularity *args="":
+    uv run python scripts/check_granularity.py {{args}}
+
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
 # carrying `genetic_context.variant_origin: SOMATIC` is where the transforming
@@ -1499,6 +1565,18 @@ list-qualifier-terms *files:
 [group('QC')]
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
+
+# #10179. unsourced / backfill / other_disease / unplaced / overstated / uncached are
+# reported; exit 1 only when a recorded ClinGen tier contradicts its CGGV: record.
+# Compare Genetic.gene_disease_validity with the ClinGen CGGV: assertions it cites.
+[group('QC')]
+check-gene-validity *files:
+    uv run python scripts/check_gene_validity.py "$@"
+
+# Census of the same, exit 0. `--format tsv --kind backfill` is the worklist.
+[group('QC')]
+list-gene-validity *args:
+    uv run python scripts/check_gene_validity.py --report "$@"
 
 # Report gene bindings whose HGNC label is not the gene the entry names (#10948).
 # `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
@@ -2037,10 +2115,36 @@ export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
+# Maximal KGX export: the whole KB (disorders, modules, comorbidities,
+# groupings) as one graph with entry-local pathograph nodes promoted to
+# first-class KG nodes (dismech:<stem>#<node> ids). Experimental; see the
+# module docstring for the koza join / report follow-on commands.
+[group('Export')]
+export-kgx-maximal out_dir="output/maximal_kgx":
+    uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
+
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
 [group('Export')]
 export-hpoa:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+
+# Runs `export-hpoa` first (the script reads its output), then downloads the release,
+# hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
+# it -- `curl --fail` so an HTTP error aborts instead of caching an error page), and
+# writes the generated report sections to stdout and the per-disease worklist to
+# `dir`/per-disease.tsv. The committed report carries hand-written sections too, so
+# merge rather than overwrite it.
+# Compare the HPOA export against the HPO project's phenotype.hpoa release.
+[group('Export')]
+compare-hpoa-release dir="output/hpoa-compare": export-hpoa
+    mkdir -p {{dir}}
+    test -s {{dir}}/phenotype.hpoa || curl --fail -sSL -o {{dir}}/phenotype.hpoa https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/phenotype.hpoa
+    test -s {{dir}}/hp.obo || curl --fail -sSL -o {{dir}}/hp.obo https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/hp.obo
+    test -s {{dir}}/mondo.sssom.tsv || curl --fail -sSL -o {{dir}}/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    test -s {{dir}}/mondo.obo || curl --fail -sSL -o {{dir}}/mondo.obo http://purl.obolibrary.org/obo/mondo.obo
+    uv run python scripts/hpoa_release_compare.py \
+        --hpo {{dir}}/phenotype.hpoa --sssom {{dir}}/mondo.sssom.tsv \
+        --hp-obo {{dir}}/hp.obo --mondo-obo {{dir}}/mondo.obo --out-tsv {{dir}}/per-disease.tsv
 
 # Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
 [group('Export')]
@@ -3152,6 +3256,32 @@ ictrp-rebuild *args="":
 ictrp-list limit="20":
     uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
 
+# Fetch EPA's ToxCast/Tox21 assay-endpoint annotations into data/toxcast/.
+# These describe what each assay measures — intended gene target, target family,
+# biological process, species, tissue, method and signal direction — and are the
+# input to the assay-to-pathograph-node mapping work in issue #12858. Chemical
+# hit-calls are NOT fetched; those stay with #12682.
+# Requires CTX_API_KEY (free, from ccte_api@epa.gov). Pass --force to refetch,
+# --summary to describe what is already cached.
+[group('Research')]
+toxcast-refresh *args="":
+    uv run python -m dismech.toxcast_assays {{args}}
+
+# How far ToxCast assay endpoints reach into the pathograph: endpoints whose
+# declared gene target is named by a pathophysiology node, counted by node, by
+# gene and by disease (issue #12858, projects/TOXCAST.md). A shared gene is a
+# candidate, never a mapping. Offline and report-only once `just toxcast-refresh`
+# has cached the annotations; exits 2 naming that recipe when it has not.
+#
+#   just toxcast-coverage
+#   just toxcast-coverage --format tsv --table targets   # or nodes, endpoints, diseases
+#   just toxcast-coverage --json
+#   just toxcast-coverage --check-symbols                # needs the local HGNC build
+#   just toxcast-coverage --out docs/reports/toxcast-pathograph-coverage-<date>.md
+[group('Research')]
+toxcast-coverage *args="":
+    uv run python scripts/toxcast_pathograph_coverage.py "$@"
+
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
 [group('Research')]
@@ -3619,6 +3749,19 @@ sedml-export *args="":
 gen-model-results *args="":
     uv run python -m dismech.perturb.results_export {{args}}
 
+# Verify every repository-authored model (models/<id>/spec.yaml + run.py) has
+# current committed results: runs each run.py --check. Seconds, offline.
+[group('Analysis')]
+check-authored-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    status=0
+    for spec in models/*/spec.yaml; do
+        dir=$(dirname "$spec")
+        uv run python "$dir/run.py" --check || status=1
+    done
+    exit $status
+
 # Check the exported archives reproduce dismech-perturb's own numbers by
 # running each .omex through tellurium's SED-ML interpreter and diffing.
 # Requires tellurium: uv pip install tellurium
@@ -3793,12 +3936,12 @@ jev-audit *args:
 # Preview new issues from the latest published Jev queue; no API inference.
 [positional-arguments]
 plan-eval-issues n="5":
-    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1"
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1"
 
 # Create up to N issues, skipping diseases with an open or closed intake issue.
 [positional-arguments]
 enqueue-eval-issues n="5":
-    uv run --no-project --with click --with httpx python scripts/jev_recuration_issues.py --limit "$1" --apply
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1" --apply
 
 # Inventory every assertion without paid API calls.
 [positional-arguments]
@@ -3814,3 +3957,14 @@ jev-audit-report output="reports/jev-audit" *args:
 [positional-arguments]
 jev-audit-cache *args:
     uv run python -m dismech.classifier.cache "$@"
+
+# ============== Curation-donation schedule (/donate-curation) ==============
+
+# Expand .claude/schedule-config.yaml (or another path) into its UTC cron(s),
+# expiry, self-disable flag, and DST-transition dates -- the deterministic core
+# of the /donate-curation skill. Pass --now to pin a reference instant.
+# Example: just schedule-expand
+# Example: just schedule-expand .claude/schedule-config.yaml --now 2026-07-15T09:00:00
+[group('Schedule')]
+schedule-expand config=".claude/schedule-config.yaml" *flags:
+    uv run python -m dismech.schedule --config {{config}} {{flags}}
