@@ -1,6 +1,6 @@
 ---
 title: Estrogen Signalling Gap Filling
-status: IN_PROGRESS
+status: COMPLETE
 description: >-
   Close the gap between how often dismech talks about estrogen and how rarely it
   binds the receptor. Twelve entries annotate the estrogen receptor signaling
@@ -156,7 +156,8 @@ In scope:
   the receptor sits on a mechanism node by definition. Curated as
   Estrogen_Resistance_Syndrome; its stub was added and retired in the same PR.
 - Deciding whether estrogen receptor signalling needs its own mechanism module.
-  This is the one item still open; everything above it is worked.
+  Decided against; see *Module decision* below. Every item in scope is now
+  worked.
 
 Not in scope, and deliberately left to the issues that already own them: the
 estrogen-adjacent findings listed under *Related issues* below.
@@ -256,12 +257,12 @@ it.
 
 osteoporosis_bone_resorption is the one worth attention. It treats estrogen
 withdrawal as a named upstream driver across several nodes, and it is a
-non-proliferative bone mechanism, which is exactly the territory the open module
-question below asks about.
+non-proliferative bone mechanism, which is exactly the territory the module
+decision below considers.
 
-## Open question: does estrogen receptor signalling need its own module?
+## Module decision: no estrogen receptor signalling module
 
-Undecided, and this project should not pre-empt it.
+The question was whether estrogen receptor signalling needs its own module.
 sex_steroid_driven_proliferation is the nearest existing module, but it is
 scoped to proliferation of a hormone-responsive tissue and tagged `ONCOLOGY`.
 The non-proliferative mechanisms in the corpus — myocardial signalling in
