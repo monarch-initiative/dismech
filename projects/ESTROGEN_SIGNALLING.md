@@ -35,8 +35,10 @@ modules:
 # Estrogen Signalling Gap Filling
 
 Estrogen receptor 1 is among the most heavily assayed targets in ToxCast and the
-receptor the US endocrine-disruptor screening statute was written around. It has
-almost no presence in the dismech pathograph. This project closes that gap, and
+receptor the US endocrine-disruptor screening statute was written around
+(the evidence for both claims is in
+[Endocrine Disruptor Screening History](#endocrine-disruptor-screening-history)
+below). It has almost no presence in the dismech pathograph. This project closes that gap, and
 this page is the scope and worklist for it.
 
 The measurement behind that claim is
@@ -57,6 +59,90 @@ The gap was between those last two: the pathway was recorded and the receptor
 driving it was not. That is what the ToxCast mapping needs and what this project
 was mostly about. The pathograph worklist below closed it, and the node-bound
 count has moved off one. Read the census report for current figures.
+
+## Endocrine Disruptor Screening History
+
+The opening claim of this page, that estrogen receptor 1 is among the most
+heavily assayed ToxCast targets and the receptor the US screening statute was
+written around, rests on five independent lines of evidence. They are worth
+keeping separate because they carry different weight. Every identifier below was
+confirmed against PubMed for identifier and exact title on 2026-09-29.
+
+**The screening mandate names estrogen in the statute.** The Food Quality
+Protection Act of 1996 amended the Federal Food, Drug, and Cosmetic Act to
+require EPA to develop a screening program determining whether substances "may
+have an effect in humans that is similar to an effect produced by a naturally
+occurring estrogen" (21 U.S.C. 346a(p)(1), quoted in 80 FR 35350, 2015-06-19).
+Androgen and thyroid screening entered later, through the advisory committee that
+designed the program, not through the enabling text. Estrogen is the endocrine
+axis the regulation was written around.
+
+**The receptor has the deepest validated assay stack of any endocrine target.**
+OECD maintains three guidelines for it: TG 455 for receptor transactivation,
+TG 493 for human recombinant receptor binding, and TG 440 for the rodent
+uterotrophic bioassay. Two of the three are *performance-based*, meaning the
+pathway is characterised well enough that new assays can be validated against a
+standard rather than adopted individually. TG 440 records that the bioassay
+"originated in the 1930's and was first standardized for screening by an expert
+committee in 1962", and its modern international ring trial was published across
+four papers in *Environmental Health Perspectives*: phase 1 ([PMID:11564613](https://pubmed.ncbi.nlm.nih.gov/11564613/)), the
+programme overview ([PMID:12948895](https://pubmed.ncbi.nlm.nih.gov/12948895/)), the phase 2 dose-response studies
+([PMID:12948896](https://pubmed.ncbi.nlm.nih.gov/12948896/)) and the phase 2 coded single-dose studies ([PMID:12948897](https://pubmed.ncbi.nlm.nih.gov/12948897/)). A
+fifth paper covers the dietary phytoestrogen confound ([PMID:12948898](https://pubmed.ncbi.nlm.nih.gov/12948898/)).
+
+**ToxCast built its first pathway model on this receptor, and it is the only
+endocrine target where high-throughput data replaced a guideline animal study.**
+Judson and colleagues integrated 18 in vitro assays spanning receptor binding,
+dimerisation, chromatin binding, transactivation and receptor-dependent
+proliferation into a single pathway model ([PMID:26272952](https://pubmed.ncbi.nlm.nih.gov/26272952/)), closing with the
+observation that the approach "is generalizable to any molecular pathway" — the
+estrogen receptor was the proving ground. Browne and colleagues then reported
+that "EPA is accepting ToxCast ER model data for 1812 chemicals as alternatives
+for EDSP Tier 1 ER binding, ER transactivation, and uterotrophic assays"
+([PMID:26066997](https://pubmed.ncbi.nlm.nih.gov/26066997/); cite alongside its correction, [PMID:28767231](https://pubmed.ncbi.nlm.nih.gov/28767231/)). The androgen
+receptor model that followed used 11 assays ([PMID:27933809](https://pubmed.ncbi.nlm.nih.gov/27933809/)). Assay-minimisation
+work ran in the same order, estrogen in 2017 ([PMID:28993267](https://pubmed.ncbi.nlm.nih.gov/28993267/)) and androgen in 2020
+([PMID:32798611](https://pubmed.ncbi.nlm.nih.gov/32798611/)).
+
+**The modelling consortia ran estrogen first and named the successor after it.**
+CERAPP pooled 17 groups across the US and Europe, 48 models, and screened 32,464
+structures against a training set drawn from the ToxCast data ([PMID:26908244](https://pubmed.ncbi.nlm.nih.gov/26908244/)).
+CoMPARA applied the same methodology to the androgen receptor four years later
+([PMID:32074470](https://pubmed.ncbi.nlm.nih.gov/32074470/)). No comparable consortium exists for any other endocrine
+receptor.
+
+**The receptor dominates the mechanistic pathway literature.** In the AOP-Wiki
+snapshot of 2026-09-15, 26 of 597 Adverse Outcome Pathways declare an
+estrogen-receptor-related molecular initiating event, drawn from 8 distinct key
+events — more than the androgen receptor (16) or the aryl hydrocarbon receptor
+(23), and comparable to the whole thyroid axis (25) despite that axis spanning
+seven target proteins. This is cited as evidence of how heavily the receptor has
+been studied. **Mapping those pathways onto dismech entries is not in this
+project's scope**, and is tracked separately alongside the ToxCast work in #12858
+and #12682.
+
+The historical reason for all of this is chemical promiscuity rather than
+regulatory accident. The founding xenoestrogen observations were incidental
+contamination findings — nonylphenol leaching from modified polystyrene
+([PMID:1935846](https://pubmed.ncbi.nlm.nih.gov/1935846/)) and bisphenol A from autoclaved polycarbonate ([PMID:8504731](https://pubmed.ncbi.nlm.nih.gov/8504731/)) — and
+Katzenellenbogen set out the underlying argument the same decade in "The
+structural pervasiveness of estrogenic activity" ([PMID:8593885](https://pubmed.ncbi.nlm.nih.gov/8593885/)): the receptor's
+ligand tolerance is broad enough that structurally unrelated industrial chemicals
+hit it. Shanle and Xu's review of endocrine disrupting chemicals targeting this
+signalling pathway is the best single entry point ([PMID:21053929](https://pubmed.ncbi.nlm.nih.gov/21053929/)).
+
+### Two things not to claim
+
+- **These AOPs are not the most OECD-endorsed — they are the least.** None of the
+  26 carries WPHA/WNT endorsement; the endorsed endocrine set is androgen
+  receptor, aromatase, thyroperoxidase, deiodinase and sodium-iodide symporter.
+  The strongest estrogen pathways sit at *Under Review*. "Most studied" and "most
+  formally endorsed" point in opposite directions here.
+- **The 40-endpoint figure for ESR1 is ours, not the literature's.** It is
+  computed from the ToxCast assay annotation table. Present it as a derived count
+  with the invitrodb version stated, never as a citation. No published source
+  ranks ToxCast targets by endpoint count; the citable within-programme
+  comparison is 18 assays in the estrogen model against 11 in the androgen model.
 
 ## Scope
 

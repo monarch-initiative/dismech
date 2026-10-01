@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import csv
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -72,26 +71,6 @@ from check_granularity import (
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "check_granularity.py"
 KB_DIR = ROOT / "kb" / "disorders"
-
-
-@pytest.fixture(autouse=True)
-def _restore_kb_cache_env():
-    """Keep ``main()``'s ``kb_cache.default_off()`` inside this test.
-
-    ``default_off()`` belongs in ``main()`` (CLAUDE.md), but it sets a
-    process-wide environment variable; without this the parsed-KB cache stays
-    disabled for every test that runs after this module in the same process.
-    Copied from ``tests/test_disconnected_phenotypes.py``.
-    """
-    sentinel = object()
-    before = os.environ.get("DISMECH_KB_CACHE", sentinel)
-    try:
-        yield
-    finally:
-        if before is sentinel:
-            os.environ.pop("DISMECH_KB_CACHE", None)
-        else:
-            os.environ["DISMECH_KB_CACHE"] = before
 
 
 # --------------------------------------------------------------------------
