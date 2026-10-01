@@ -39463,9 +39463,30 @@ window.searchData = [
       "MRT6",
       "MRT7",
       "MRT13",
+      "MRT14",
       "MRT15",
       "MRT18",
-      "MRT57"
+      "MRT42",
+      "MRT45",
+      "MRT46",
+      "MRT47",
+      "MRT50",
+      "MRT51",
+      "MRT54",
+      "MRT56",
+      "MRT57",
+      "MRT58",
+      "MRT59",
+      "MRT60",
+      "MRT61",
+      "MRT64",
+      "MRT66",
+      "MRT69",
+      "MRT70",
+      "MRT71",
+      "MRT72",
+      "MRT82",
+      "MRT83"
     ],
     "description": "Autosomal recessive non-syndromic intellectual disability (AR-NSID / NS-ARID; the OMIM \"mental retardation / intellectual developmental disorder, autosomal recessive\" MRT series) is a genetically extremely heterogeneous class of intellectual disability in which impaired intellectual functioning and adaptive behaviour arise from biallelic (usually homozygous) loss-of-function variants in an autosomal gene, without a consistent pattern of associated dysmorphic, malformative, metabolic, or neuroimaging features that would define a clinically recognisable syndrome. It is the mechanistic and epidemiological mirror image of the autosomal dominant class: where AD-NSID is dominated by sporadic de novo heterozygous lesions in constraint-intolerant genes, AR-NSID is inherited, carries a 25% sibling recurrence risk, and is concentrated in populations with frequent parental consanguinity - roughly a seventh of the world population, in which recessive gene defects are the leading genetic cause of intellectual disability. Because each gene accounts for only a handful of families worldwide, the class was intractable to conventional linkage and was opened up only by homozygosity (autozygosity) mapping in large consanguineous pedigrees combined with exome sequencing: the first gene, PRSS12/neurotrypsin, was reported in 2002, only four genes were known by 2008, and large consanguineous cohorts have since implicated many hundreds, against an estimated total of more than 2,500 autosomal intellectual-disability genes, most of them recessive. Critically, the causal genes do NOT converge on a prevalent pathway or protein complex - the authoritative review of the class states there are no prevalent ARID genes, pathways, or protein complexes - but they do fall repeatedly into a limited set of recurring cellular themes: synaptic transmission and proteolysis (GRIK2, PRSS12), transcriptional regulation (MED23), RNA modification (NSUN2, ADAT3), protein glycosylation (TUSC3, MAN1B1), vesicle trafficking with NF-kB signalling (TRAPPC9, CC2D1A), protein turnover (CRBN), and membrane lipid remodelling (MBOAT7). The disorder is a static (non-progressive) developmental encephalopathy - a mis-built rather than a damaged circuit - so developmental regression argues against the diagnosis. As in the dominant class the non-syndromic label is unstable: several MRT-series entities (NSUN2, MAN1B1, ADAT3) acquired recognisable dysmorphic or systemic features once larger series were phenotyped.",
     "pathophysiology": [
@@ -39556,6 +39577,27 @@ window.searchData = [
       "MED23",
       "MBOAT7",
       "ADAT3",
+      "TECR",
+      "PGAP1",
+      "FBXO31",
+      "NDST1",
+      "FMN2",
+      "EDC3",
+      "HNMT",
+      "TNIK",
+      "ZC3H14",
+      "ELP2",
+      "IMPA1",
+      "TAF13",
+      "RUSC2",
+      "LINGO1",
+      "FERRY3",
+      "ZBTB11",
+      "RSRC1",
+      "ALKBH8",
+      "METTL5",
+      "NSUN6",
+      "KICS2",
       "Homozygous copy-number variants"
     ],
     "treatments": [
@@ -39572,9 +39614,9 @@ window.searchData = [
     "page_url": "../pages/disorders/Autosomal_Recessive_Non-Syndromic_Intellectual_Disability.html",
     "num_phenotypes": 12,
     "num_pathophysiology": 7,
-    "num_genes": 12,
+    "num_genes": 33,
     "num_treatments": 6,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "57",
     "causal_graph_longest_path": "5"
   },
   {
@@ -105871,6 +105913,90 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "27",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Dermatitis Herpetiformis",
+    "disease_id": "MONDO:0015614",
+    "category": "Autoimmune",
+    "parents": [
+      "Autoimmune Disease",
+      "Skin Disease"
+    ],
+    "creation_date": "2026-09-30T23:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dermatitis herpetiformis (DH) is the cutaneous manifestation of gluten sensitivity and a specific extraintestinal expression of celiac disease. In genetically predisposed (HLA-DQ2/DQ8) individuals, gluten-driven small-bowel autoimmunity generates IgA autoantibodies that, in DH, are of markedly higher avidity for epidermal transglutaminase (TG3) than for tissue transglutaminase. High-avidity IgA anti-TG3, together with the TG3 enzyme, forms granular immune deposits in the papillary dermis, recruits neutrophils into the dermal papillae, and produces an intensely pruritic, symmetrical papulovesicular eruption on extensor surfaces. Diagnosis rests on pathognomonic granular IgA deposits by direct immunofluorescence; a lifelong gluten-free diet is the treatment of choice, with dapsone for rapid symptom control.",
+    "pathophysiology": [
+      "HLA-DQ2/DQ8-Restricted Gluten Presentation",
+      "Gluten-Driven Small-Bowel Autoimmunity",
+      "Anti-TG3 IgA Autoantibody Response",
+      "Granular IgA-TG3 Deposition in the Papillary Dermis",
+      "Neutrophil Recruitment and Papillary Microabscess Formation",
+      "Subepidermal Vesicle Formation"
+    ],
+    "cell_types": [
+      "B cell",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000236",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "immunoglobulin production",
+      "neutrophil migration"
+    ],
+    "phenotypes": [
+      "Pruritic papulovesicular eruption",
+      "Pruritus",
+      "Small-bowel villous atrophy",
+      "Lymphoma"
+    ],
+    "phenotype_categories": [
+      "Cutaneous",
+      "Gastrointestinal",
+      "Neoplasm"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Immune",
+      "Integument",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0033700",
+      "HP:0000989",
+      "HP:0011473",
+      "HP:0002665"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HLA-DQA1",
+      "HLA-DQB1"
+    ],
+    "treatments": [
+      "Gluten-free diet",
+      "Dapsone",
+      "Sulfasalazine",
+      "Rituximab"
+    ],
+    "environmental": [
+      "Dietary gluten exposure",
+      "Iodide and NSAID exposure"
+    ],
+    "biochemical": [],
+    "source_file": "Dermatitis_Herpetiformis.yaml",
+    "page_url": "../pages/disorders/Dermatitis_Herpetiformis.html",
+    "num_phenotypes": 4,
+    "num_pathophysiology": 6,
+    "num_genes": 2,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dermatofibrosarcoma Protuberans",
@@ -347207,17 +347333,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3262,
-  "total_subtypes": 4490,
-  "total_disorders_and_subtypes": 7752,
-  "total_unique_evidence_sources": 47959,
-  "total_unique_publications": 44943,
+  "total_disorder_pages": 3263,
+  "total_subtypes": 4511,
+  "total_disorders_and_subtypes": 7774,
+  "total_unique_evidence_sources": 47989,
+  "total_unique_publications": 44973,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3258,
-  "total_unique_pathological_events": 20898,
+  "total_pathographs": 3259,
+  "total_unique_pathological_events": 20904,
   "total_modules": 180,
-  "total_research_reports": 3378,
+  "total_research_reports": 3379,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
