@@ -339129,6 +339129,96 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Waardenburg Syndrome Type 2F",
+    "disease_id": "MONDO:0030983",
+    "category": "Mendelian",
+    "parents": [
+      "Waardenburg Syndrome"
+    ],
+    "creation_date": "2026-09-30T19:45:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Waardenburg syndrome type 2F (WS2F) is the KITLG form of Waardenburg syndrome type 2: congenital or neonatal sensorineural hearing loss with hypomelanosis of the skin, hair and irides, and without dystopia canthorum. KITLG encodes KIT ligand (stem cell factor), the ligand of the KIT receptor tyrosine kinase that neural crest-derived melanoblasts depend on for survival, proliferation and movement into their target tissues. The disorder as currently defined rests on a small case series of individuals homozygous for rare KITLG variants, plus a few earlier single-family reports. Expressivity is strikingly variable, even between individuals carrying the same allele: hearing loss may be unilateral, asymmetric or bilateral, and hypomelanosis ranges from limb-restricted patches with islands of retained pigment, reminiscent of piebaldism, to generalized hypomelanosis of skin and hair. By analogy with the steel (Sl) mouse, which carries mutations in the orthologous Kitl gene, the hearing loss is attributed to failure of melanocytes to populate the cochlear stria vascularis as its intermediate cells, and the pigmentary findings to the same melanocyte deficit in skin, hair follicles and iris. KITLG is also the gene for two allelic disorders curated separately: heterozygous loss-of-function variants cause isolated, often unilateral, sensorineural hearing loss, and heterozygous gain-of-function variants cause familial progressive hyperpigmentation with or without hypopigmentation.",
+    "pathophysiology": [
+      "Biallelic KITLG Variants Reducing KIT Ligand Signalling",
+      "Reduced Melanoblast Survival, Proliferation and Colonization",
+      "Strial Intermediate Cell Deficiency",
+      "Cutaneous, Hair and Iris Melanocyte Deficiency"
+    ],
+    "cell_types": [
+      "melanoblast",
+      "melanocyte",
+      "strial intermediate cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000541",
+      "CL:0000148",
+      "CL:0002486"
+    ],
+    "biological_processes": [
+      "Kit signaling pathway",
+      "melanocyte proliferation",
+      "melanocyte migration",
+      "pigmentation"
+    ],
+    "phenotypes": [
+      "Congenital Sensorineural Hearing Loss",
+      "Unilateral Sensorineural Hearing Loss",
+      "Hypopigmentation of the Skin",
+      "Generalized Hypomelanosis",
+      "Heterochromia Iridis",
+      "Blue Irides",
+      "White Forelock",
+      "Hair Hypopigmentation",
+      "White Hair",
+      "Cafe-au-lait Macule"
+    ],
+    "phenotype_categories": [
+      "Otologic",
+      "Dermatologic",
+      "Ocular"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0008527",
+      "HP:0025797",
+      "HP:0001010",
+      "HP:0007513",
+      "HP:0001100",
+      "HP:0000635",
+      "HP:0002211",
+      "HP:0005599",
+      "HP:0011364",
+      "HP:0000957"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
+    "genes": [
+      "KITLG"
+    ],
+    "treatments": [
+      "Hearing Rehabilitation with Cochlear Implantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Waardenburg_Syndrome_Type_2F.yaml",
+    "page_url": "../pages/disorders/Waardenburg_Syndrome_Type_2F.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Waldenstrom Macroglobulinemia",
     "disease_id": "MONDO:0100280",
     "category": "Cancer",
@@ -347444,17 +347534,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3263,
+  "total_disorder_pages": 3264,
   "total_subtypes": 4511,
-  "total_disorders_and_subtypes": 7774,
-  "total_unique_evidence_sources": 48064,
-  "total_unique_publications": 45028,
+  "total_disorders_and_subtypes": 7775,
+  "total_unique_evidence_sources": 48074,
+  "total_unique_publications": 45038,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 289,
-  "total_pathographs": 3259,
-  "total_unique_pathological_events": 20915,
+  "total_pathographs": 3260,
+  "total_unique_pathological_events": 20919,
   "total_modules": 181,
-  "total_research_reports": 3379,
+  "total_research_reports": 3380,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 110
