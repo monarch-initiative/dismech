@@ -30,6 +30,9 @@ Claude Code skills are available in `.claude/skills/`:
   scope and alignment investigations, Boomer results, proxy merges, and source
   correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[evidence-claim-mismatch](.claude/skills/evidence-claim-mismatch/SKILL.md)**:
+  Use when reviewing an existing disease for mismatches between its claims and
+  supporting snippets, including issues from the evaluation queue.
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
@@ -186,12 +189,28 @@ against 20.5 s / 522 MB with it, while the two-walk
 call in `main()`, never at import: pytest imports these scripts' `scan_repo`
 functions directly and runs several of them in one process, which is exactly
 the case the cache exists for. `default_off()` uses `setdefault`, so an
-explicit `DISMECH_KB_CACHE` still wins.
+explicit `DISMECH_KB_CACHE` still wins. A test that calls such a `main()` in-process
+needs no guard of its own: the autouse `preserve_kb_cache_environment` fixture in
+`tests/conftest.py` resets the variable around every test, so the `0` it writes
+cannot reach `tests/test_kb_cache.py` (issue #11942).
 
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
+
+### Models Directory (`models/`)
+One folder per model, `models/<model_id>/`, with fixed file names:
+`config.yaml` + `model.xml` (+ `model.ant`, `extension.ant`) for a model
+`dismech-perturb` runs, or `spec.yaml` + `run.py` + `results.json` for a model
+authored in this repository with its own runner (the rosacea Boolean network,
+the neuronal-migration agent-based model). A folder holds exactly one of
+`config.yaml` or `spec.yaml`, and the folder name is the `model_id` the KB
+record points at. `src/dismech/model_registry.py` is the only place that
+resolves these paths; route a new consumer through it rather than globbing.
+`tests/test_model_registry.py` gates the layout, so a branch still adding a
+flat `models/<id>.config.yaml` fails with a message. `just
+check-authored-models` runs every `run.py --check`. See `models/README.md`.
 
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
@@ -1215,6 +1234,79 @@ a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
 `Pancreatic_Ductal_Adenocarcinoma`. See
 [`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
 
+### Infectious Disease Entry Granularity
+
+Infectious disease entries follow the **granularity ladder** ratified in design
+decisions §3e (`docs/explanation/design-decisions.md`), the infection
+counterpart of the cancer ladder in §3a — consult it before creating, splitting,
+or lumping any microbial entry. The short version:
+
+- **The default level is the named clinical entity**: the pathogen–syndrome pair
+  the field names, diagnoses and treats as a unit (cholera, Legionnaires'
+  disease, Pontiac fever). Neither the organism alone nor the organ syndrome
+  alone. Every node in the entry's pathophysiology must be true of every case
+  it covers; a node written vaguely enough to span two organisms with different
+  mechanisms means the entry belongs at the rung above.
+- **Above it**: a union of diseases the field names separately, or an organ
+  syndrome across unrelated organisms, is a `Grouping` (`Treponematoses` is the
+  model), and an abstraction like *infectious disease* is an `OUT_OF_SCOPE`
+  stub.
+- **Below it, the default is to lump.** An organism stratum (species, serovar,
+  serotype) earns a `has_subtypes` row only when it is **documented to differ**
+  from its siblings on one axis — presentation, diagnosis, first-line therapy,
+  prognosis, transmission/vector/reservoir, or geography — and the row's
+  `description` says what differs and its `evidence` cites it. A taxonomy
+  offering a name is not a reason. Pathotypes, biotypes, lineages, genotypes
+  and clades are carried structurally with `classification: pathotype` (etc.)
+  and the defining determinant in `description`; never bind ETEC to
+  `NCBITaxon:562`, the parent species.
+- **Promotion to a separate entry needs two axes** of the five (transmission
+  or vector; reservoir; tempo; organ systems; first-line therapy), a covering
+  `Grouping`, and a **pointer subtype** left on the parent carrying
+  `curated_in: <file stem>` — `Spotted_Fever_Rickettsiosis` → `RMSF` →
+  `curated_in: Rocky_Mountain_Spotted_Fever` is the worked example. A subtype
+  with `curated_in` is a pointer, not a disease; one that names a disease with
+  its own entry and lacks it is the defect.
+- **A phase is never an entry, and the entry must list its phases** in
+  `progression:`. A post-infectious immune sequela is its own entry. An
+  infection-attributed neoplasm follows §3a. A shared mechanism is a module.
+- **Every microbial entry declares** at least one NCBITaxon-bound
+  `infectious_agent` and at least one `transmission` route, plus
+  `agent_life_cycle` with `hosts`/`vectors` wherever a non-human reservoir or
+  arthropod vector exists. NCBITaxon is the only organism vocabulary; do not
+  add GTDB or assembly accessions.
+- **Where the taxon lives.** A disease-level subtype is a *clinical* stratum
+  (MONDO-bound where a named variant exists); an `InfectiousAgent.has_subtypes`
+  stratum is a *taxonomic* one (NCBITaxon-bound once PR #10353 lands). There
+  is deliberately **no `pathotype:` slot**.
+- **Record a deliberate lump** with a paragraph of the entry-level
+  `review_notes` beginning `Deliberately lumped.` followed by at least twenty
+  words on which strata were kept together and what was searched — the same
+  shape as the `Left deliberately uncited.` environmental waiver. The sentence
+  alone does not record anything.
+
+```bash
+just check-granularity                          # census + worklist (report-only, in `just qc`)
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry, the computed columns
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on the deterministic classes
+just check-granularity --scope all              # DOUBLE_MODELLED / DUPLICATE_ANCHOR KB-wide
+```
+
+The **deterministic** classes (`MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION`, `ROOT_AS_ENTRY`, `DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`,
+`PATHOTYPE_COLLAPSE`, `DANGLING_POINTER`) are defects with no judgement in
+them; the **advisory** ones (`TAXON_LUMP`, `UNBOUND_SUBTYPE`,
+`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`,
+`POINTER_TERM_MISMATCH`) are questions for a curator and never gate — an undifferentiated lump is the ladder's default
+state, not a defect, so `TAXON_LUMP` means "no decision recorded" and clears on
+the waiver above. Neoplasms with a viral agent, Mendelian susceptibility
+disorders, post-infectious sequelae and mycotoxicoses are out of scope by the
+ladder's own rules and are counted, not assessed. Over-broad anchoring
+(`Travelers_Diarrhea` on *diarrheal disease*) needs a MONDO descendant count and
+stays a manual audit.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
@@ -1234,7 +1326,26 @@ sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
 just grouping-nesting-audit          # declared tree + undeclared containments
+just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+**Check a MONDO mapping by walking members up, not the class down.** A grouping
+mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
+sit inside that class. Verifying that by expanding the class's descendant
+closure is the expensive direction — it scales with the ontology, and the
+configured `ols:mondo` adapter cannot do it at all. Inverted, it is cheap:
+resolve each member's own MONDO term to its ancestors and look the mapped class
+up in that set, one bounded walk per member, no 588 MB build. `broadMatch`,
+`closeMatch` and `relatedMatch` assert no subsumption, so members outside the
+class are expected there and are not reported.
+
+**A member outside the mapped class is a lead, not a defect.** It is either a
+genuine scope difference — the dismech concept is broader than the MONDO class,
+so the *predicate* is wrong — or MONDO classifying that disease by clinical
+presentation rather than mechanism, which is a candidate MONDO term request and
+not a membership error. Both occur in the current corpus, which is why the
+recipe is report-only and `--strict` gates on the predicate rather than on any
+individual member.
 
 **Nesting is declared, never inferred.** A grouping sits below another only
 when the parent lists it as a `member_type: GROUPING` member, and that is the
@@ -2207,6 +2318,74 @@ Beyond genes, the same shape applies to any descriptor where `preferred_term`
 names the entity and `term` binds it. Genes are the sharpest case because the
 label is usually an exact symbol.
 
+### Gene-Disease Validity Is Copied, Never Assigned (dismech#10179)
+
+`relationship_type` says what *kind* of gene-disease relationship is claimed
+(`CAUSATIVE`, `RISK_FACTOR`, ...). How *well established* it is goes in
+`Genetic.gene_disease_validity`, a list of `GeneDiseaseValidityAssertion`
+objects. Each records one external classification: the tier
+(`validity_classification`, the GenCC harmonised ladder from `DEFINITIVE` to
+`REFUTED`), **who assigned it** (`classified_by`, required), and the source's
+identifier for it (`external_id`).
+
+```yaml
+genetic:
+- name: HGD variants
+  gene_disease_validity:
+  - validity_classification: DEFINITIVE
+    classified_by: CLINGEN
+    external_id: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+    evidence:
+    - reference: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: "HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive"
+```
+
+Rules for filling it:
+
+- **Copy a tier from a source; never assign one.** There is no `DISMECH` or
+  `CURATOR` value for `classified_by`, on purpose. When no external body has
+  classified the pair (a gene surfaced by one cohort, IVNS1ABP at posterior
+  probability 0.33), leave the slot absent and say what the evidence is in
+  `Genetic.notes`. Absent means "not classified", which is not
+  `NO_KNOWN_DISEASE_RELATIONSHIP`.
+- **One assertion per source record.** ClinGen classifies each mode of
+  inheritance separately (JPH2 in dilated cardiomyopathy is Strong AR and
+  Limited AD), so a gene can carry several. Where an entry's subtypes are
+  separate ClinGen diseases, set `subtype` to the `has_subtypes[].name`.
+- **The assertion must be for this entry's disease.** A ClinGen record counts
+  only when its MONDO term is the entry's `disease_term`, a `has_subtypes`
+  term, or an `exactMatch` MONDO mapping. A broader ClinGen lumping (generic
+  hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
+- **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
+  scale, not a weak rating.
+- **Record it on the claim ClinGen classified.** An entry can carry a
+  causative row and a susceptibility row for the same gene; a ClinGen
+  Definitive AR tier belongs on the causative one only. The audit attributes
+  an assertion to the record whose own evidence cites it.
+- **Quote the source row as evidence**, as with any structured-source citation.
+
+```bash
+just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
+just list-gene-validity --format tsv --kind backfill  # the mechanical worklist
+just list-gene-validity kb/disorders/MyDisease.yaml
+```
+
+Only `conflict` fails: a recorded `CLINGEN` assertion whose cached `CGGV:`
+record carries a different tier or a different gene. The report classes are
+`unsourced` (a `CLINGEN` tier with no `CGGV:` identifier), `backfill` (a cited
+same-disease ClinGen assertion not yet recorded on the record that cites it),
+`other_disease` (ClinGen classified the gene only for a different MONDO
+disease: decide whether the entities are the same before copying), `unplaced`
+(an assertion cited outside `genetic[]` for a gene with several records, so the
+audit cannot tell which claim it describes),
+`overstated` (`relationship_type: CAUSATIVE`, which the schema defines as
+Definitive or Strong, on a gene ClinGen rates lower for this disease), and
+`uncached`. Only ClinGen is checked, because it is the one source cached per
+record. The audit never edits `kb/`; a bulk backfill would collide with every
+open curation PR.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
@@ -2239,6 +2418,44 @@ phenotype_term:
 
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
+
+### Gene Classifications (`kb/gene_classifications/`)
+
+Transcriptions of external systems that classify **genes** (as opposed to
+diseases), validating against `GeneClassificationCollection`. Provenance sits
+once in the file header; rows carry an HGNC-bound gene plus a multivalued
+`values` list.
+
+```bash
+just fetch-nmd-gene-table          # regenerate the NMD gene table collection
+just validate-gene-classifications # validate every collection
+```
+
+**`values` is multivalued by design.** A gene appears once per clinically
+distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy, and a
+motoneuron-disease presentation). That is a true fact about TTN, and putting it
+on the gene is exactly why this axis exists; it becomes unmodellable if forced
+onto a disease entry's `classifications`.
+
+Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
+[Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
+Note this is a **gene catalogue**, not an expert nosology in the ISDS sense;
+there is no whole-domain nosology for neuromuscular disease. It is nuclear-genome
+and monogenic only, so mtDNA disease and acquired neuromuscular disease
+(myasthenia gravis, the inflammatory myopathies, Guillain-Barré) are simply
+absent rather than assigned to a catch-all.
+
+**Never hand-edit a collection** — regenerate with its script. Adding a new
+source means: a new enum module under `src/dismech/schema/classifications/`, a
+fetch script, and an entry in `SYSTEM_ENUMS` in
+`tests/test_gene_classifications.py` so its values are checked against that enum.
+
+Distinct from `gene_sets:`, which references flat, typically
+experimentally-derived sets (signatures, perturbation results) consumed as
+enrichment inputs. A gene classification is a curated, authoritative assertion
+about which genes cause disease in a domain. See
+[`docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md`](docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md).
 
 ### Gain/Loss of Function: which slot?
 
@@ -3541,6 +3758,19 @@ none of these degradations is a decision about whether MONDO or HP *matters* —
 is the answer to "can this be served without a download". They have in common
 that the ontology is incidental to what they are doing, and each already had a
 degradation path to take.
+
+**Inverting a closure question can remove the build dependency entirely, but
+only for the questions that are actually per-member.** `ols:mondo` raises
+`NotImplementedError` for `descendants` *and* `ancestors`, so the OAK wrapper
+looks like a dead end — but the OLS REST `hierarchicalAncestors` endpoint
+underneath serves ancestors fine, and "is this member under that class" only
+ever needed ancestors. That is what `just grouping-mondo-consistency` does.
+What it cannot do is replace `render`'s grouping coverage table or
+`scripts/grouping_mondo_gaps.py`: both enumerate MONDO descendants that have
+**no** dismech entry, and you cannot discover terms you do not hold by walking
+up from ones you do. That half is irreducibly a descendant query and still
+needs the local build. Before reaching for the build, ask which direction the
+question actually runs in.
 
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
