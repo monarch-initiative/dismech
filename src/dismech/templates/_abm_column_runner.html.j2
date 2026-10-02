@@ -1,0 +1,325 @@
+{#
+  In-browser runner for an authored agent-based model whose spec has a
+  one-dimensional column geometry (`domain` + `cohorts`). The model code is the
+  folder's run.js, inlined verbatim; tests/test_neuronal_migration_abm_js.py
+  holds it to exact parity with run.py, so a committed scenario replayed here
+  is the committed run, draw for draw. The page checks that on every committed
+  scenario it runs and says so under the readouts.
+
+  Expects `m` (model_pages.build_model_context) with `spec`, `results` and
+  `browser_runner_js`.
+#}
+<section class="panel" id="run-in-browser">
+    <h2>Run it in the browser</h2>
+    <p class="section-intro">
+        Pick a committed scenario to replay it neuron by neuron, or move a slider to run a new one.
+        Depth runs from the ventricular surface (bottom) to the pia (top); each lane is one birth cohort,
+        earliest-born on the left. In a normal cortex later cohorts settle above earlier ones (inside-out).
+        Hollow markers are neurons carrying the perturbation; a cross marks an arrested neuron.
+    </p>
+    <div class="runner">
+        <div class="runner-controls">
+            <label for="abm-scenario">Scenario</label>
+            <select id="abm-scenario">
+                {% for name in m.spec.scenarios %}<option value="{{ name }}">{{ name | replace('_', ' ') }}</option>{% endfor %}
+                <option value="__custom__">custom (from the sliders)</option>
+            </select>
+            <div id="abm-scenario-desc" class="muted small" style="margin-top:.3rem"></div>
+            {% for key, label, lo, hi, step in [
+                ('perturbation', 'Perturbation', 0, 1, 0.05),
+                ('affected_fraction', 'Affected fraction', 0, 1, 0.05),
+                ('arrest_rate', 'Arrest rate', 0, 0.05, 0.001),
+                ('rescue', 'Rescue', 0, 1, 0.05),
+                ('base_motility', 'Base motility', 0.1, 1, 0.05),
+            ] %}
+            <label for="abm-{{ key }}"><span class="slider-row"><span>{{ label }}</span><span class="slider-value" id="abm-{{ key }}-value"></span></span>
+                {% if m.spec.inputs[key] and m.spec.inputs[key].description %}<span class="hint">{{ m.spec.inputs[key].description | truncate(120) }}</span>{% endif %}
+            </label>
+            <input type="range" id="abm-{{ key }}" data-param="{{ key }}" min="{{ lo }}" max="{{ hi }}" step="{{ step }}">
+            {% endfor %}
+        </div>
+        <div class="runner-stage">
+            <div class="canvas-wrap"><canvas id="abm-canvas" aria-label="Neuron positions in the cortical column over time" role="img"></canvas></div>
+            <div class="playbar">
+                <button type="button" id="abm-play">Play</button>
+                <input type="range" id="abm-frame" min="0" max="0" step="1" value="0" aria-label="Time step">
+                <span class="t-label" id="abm-time">t = 0</span>
+            </div>
+            <div class="legend" id="abm-legend"></div>
+            <div class="readout-grid" id="abm-readouts"></div>
+            <div id="abm-phenotypes" style="margin-top:.6rem"></div>
+            <div class="parity" id="abm-parity"></div>
+        </div>
+    </div>
+</section>
+
+<script>
+{{ m.browser_runner_js | safe }}
+</script>
+<script>
+(function () {
+    "use strict";
+    const ABM = window.NeuronalMigrationABM;
+    const SPEC = {{ m.spec | tojson }};
+    const COMMITTED = {{ (m.results.scenarios or {}) | tojson }};
+    const TRACE_EVERY = 2;
+    const COHORT_COLORS = ["#1d4ed8", "#0891b2", "#059669", "#ca8a04", "#ea580c", "#be185d", "#7c3aed", "#475569"];
+    const ARREST_COLOR = "#991b1b";
+    const PATTERN_LABELS = {
+        normal: "normal", delayed_lamination: "delayed lamination", diffuse_ectopia: "diffuse ectopia",
+        band_heterotopia: "band heterotopia", migration_failure: "migration failure",
+    };
+    const READOUTS = [
+        ["cortical_plate_fraction", "Plate fraction"],
+        ["arrested_fraction", "Arrested"],
+        ["in_transit_fraction", "In transit"],
+        ["lamination_fidelity", "Lamination fidelity"],
+        ["mean_arrival_delay", "Mean arrival delay"],
+        ["band_score", "Band score"],
+    ];
+
+    const $ = (id) => document.getElementById(id);
+    const scenarioSelect = $("abm-scenario");
+    const sliders = Array.from(document.querySelectorAll("input[data-param]"));
+    const frameInput = $("abm-frame");
+    const playButton = $("abm-play");
+    const canvas = $("abm-canvas");
+    const ctx = canvas.getContext("2d");
+    const defaults = ABM.inputDefaults(SPEC);
+
+    let trace = null;
+    let frame = 0;
+    let timer = null;
+    let jitter = [];
+
+    function currentParams() {
+        const params = Object.assign({}, defaults);
+        for (const s of sliders) params[s.dataset.param] = Number(s.value);
+        return params;
+    }
+
+    function setSliders(params) {
+        for (const s of sliders) s.value = params[s.dataset.param];
+        updateSliderLabels();
+    }
+
+    function updateSliderLabels() {
+        for (const s of sliders) $(`abm-${s.dataset.param}-value`).textContent = Number(s.value).toString();
+    }
+
+    function deepEqual(a, b) {
+        if (a === b) return true;
+        if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+        const ka = Object.keys(a), kb = Object.keys(b);
+        return ka.length === kb.length && ka.every((k) => deepEqual(a[k], b[k]));
+    }
+
+    function sameParams(a, b) {
+        return Object.keys(defaults).every((k) => Math.abs(Number(a[k]) - Number(b[k])) < 1e-12);
+    }
+
+    function committedMatch(params) {
+        for (const [name, body] of Object.entries(COMMITTED)) {
+            if (sameParams(body.params, params)) return name;
+        }
+        return null;
+    }
+
+    function run() {
+        stop();
+        const params = currentParams();
+        const scenario = scenarioSelect.value !== "__custom__" && COMMITTED[scenarioSelect.value] &&
+            sameParams(COMMITTED[scenarioSelect.value].params, params) ? scenarioSelect.value : committedMatch(params);
+        // A committed scenario is replayed with its own run name, so its draws are the
+        // committed ones; any other parameter set gets a name derived from its values.
+        const runName = scenario ? `scenario:${scenario}` :
+            "custom:" + Object.keys(defaults).map((k) => `${k}=${params[k]}`).join(",");
+        const t = {};
+        const readouts = ABM.simulate(SPEC, params, runName, t, TRACE_EVERY);
+        trace = t;
+        jitter = trace.cohort.map((_, i) => {
+            // Deterministic spread within a lane, so the picture does not shimmer between runs.
+            const x = Math.sin((i + 1) * 12.9898) * 43758.5453;
+            return x - Math.floor(x);
+        });
+        frameInput.max = String(trace.frames.length - 1);
+        frame = 0;
+        frameInput.value = "0";
+        showReadouts(readouts, scenario);
+        draw();
+        play();
+    }
+
+    function showReadouts(readouts, scenario) {
+        const grid = $("abm-readouts");
+        grid.innerHTML = "";
+        const pattern = document.createElement("div");
+        pattern.className = "readout";
+        pattern.innerHTML = `<div class="k">Pattern</div><div class="v"><span class="pattern pattern-${readouts.pattern}">${PATTERN_LABELS[readouts.pattern] || readouts.pattern}</span></div>`;
+        grid.appendChild(pattern);
+        for (const [key, label] of READOUTS) {
+            const el = document.createElement("div");
+            el.className = "readout";
+            const v = readouts[key];
+            el.innerHTML = `<div class="k">${label}</div><div class="v">${v === null || v === undefined ? "—" : v}</div>`;
+            grid.appendChild(el);
+        }
+        const phen = ABM.activatedPhenotypes(SPEC, readouts);
+        $("abm-phenotypes").innerHTML = phen.length
+            ? "Activated phenotypes: " + phen.map((p) =>
+                `<a class="hp-pill" href="https://hpo.jax.org/browse/term/${p.id}" target="_blank" rel="noopener">${p.label}</a>`).join(" ")
+            : '<span class="muted small">No phenotype mapping is activated.</span>';
+        const parity = $("abm-parity");
+        if (scenario) {
+            const ok = deepEqual(COMMITTED[scenario].readouts, readouts);
+            parity.className = "parity " + (ok ? "ok" : "bad");
+            parity.textContent = ok
+                ? `Identical to the committed run of ${scenario} in results.json.`
+                : `Differs from the committed run of ${scenario}: run.js and results.json are out of step.`;
+        } else {
+            parity.className = "parity custom";
+            parity.textContent = "A new parameter set, run here; not part of the committed results.";
+        }
+    }
+
+    function draw() {
+        if (!trace) return;
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+            canvas.width = Math.round(w * dpr);
+            canvas.height = Math.round(h * dpr);
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const dom = trace.domain;
+        const padL = 100, padR = 12, padT = 12, padB = 22;
+        const plotH = h - padT - padB;
+        const y = (d) => padT + plotH * (1 - d / dom.pia);
+        const nLanes = Math.max(...trace.cohort) + 1;
+        const laneW = (w - padL - padR) / nLanes;
+        const f = trace.frames[frame];
+
+        // Zones
+        const zones = [
+            [0, dom.vz_top, "#f1f5f9", "ventricular"],
+            [dom.vz_top, dom.plate_floor, "#f8fafc", "intermediate"],
+            [dom.plate_floor, dom.pia, "#f0fdfa", "cortical plate"],
+        ];
+        ctx.font = "11px system-ui, sans-serif";
+        for (const [lo, hi, fill, label] of zones) {
+            ctx.fillStyle = fill;
+            ctx.fillRect(padL, y(hi), w - padL - padR, y(lo) - y(hi));
+            ctx.fillStyle = "#64748b";
+            ctx.textAlign = "right";
+            ctx.fillText(label, padL - 6, (y(lo) + y(hi)) / 2 + 4);
+        }
+        // Plate top
+        ctx.strokeStyle = "#0d9488";
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(padL, y(f.plate_top));
+        ctx.lineTo(w - padR, y(f.plate_top));
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Lane separators and labels
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.textAlign = "center";
+        for (let c = 0; c < nLanes; c++) {
+            const x0 = padL + c * laneW;
+            if (c > 0) { ctx.beginPath(); ctx.moveTo(x0, padT); ctx.lineTo(x0, h - padB); ctx.stroke(); }
+            ctx.fillStyle = COHORT_COLORS[c % COHORT_COLORS.length];
+            ctx.fillText(`cohort ${c}`, x0 + laneW / 2, h - 6);
+        }
+        // Neurons
+        const r = 2.4;
+        for (let i = 0; i < f.pos.length; i++) {
+            const p = f.pos[i];
+            if (p === null) continue;
+            const c = trace.cohort[i];
+            const cx = padL + c * laneW + laneW * (0.08 + 0.84 * jitter[i]);
+            const cy = y(p);
+            const color = COHORT_COLORS[c % COHORT_COLORS.length];
+            if (f.state[i] === 1) {
+                ctx.strokeStyle = ARREST_COLOR;
+                ctx.lineWidth = 1.4;
+                ctx.beginPath();
+                ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r);
+                ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx - r, cy + r);
+                ctx.stroke();
+                ctx.lineWidth = 1;
+                continue;
+            }
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            if (trace.affected[i]) {
+                ctx.strokeStyle = color;
+                ctx.stroke();
+            } else {
+                ctx.fillStyle = color;
+                ctx.fill();
+            }
+        }
+        $("abm-time").textContent = `t = ${f.t} / ${trace.frames[trace.frames.length - 1].t}`;
+    }
+
+    function play() {
+        stop();
+        playButton.textContent = "Pause";
+        timer = setInterval(() => {
+            if (frame >= trace.frames.length - 1) { stop(); return; }
+            frame += 1;
+            frameInput.value = String(frame);
+            draw();
+        }, 40);
+    }
+
+    function stop() {
+        if (timer) clearInterval(timer);
+        timer = null;
+        playButton.textContent = "Play";
+    }
+
+    function buildLegend() {
+        $("abm-legend").innerHTML =
+            '<span><span class="swatch" style="background:#475569"></span>unaffected</span>' +
+            '<span><span class="swatch" style="border:1.5px solid #475569"></span>affected</span>' +
+            `<span style="color:${ARREST_COLOR}">&#x2715; arrested</span>` +
+            '<span><span style="display:inline-block;width:16px;border-top:2px dashed #0d9488"></span>top of the cortical plate</span>';
+    }
+
+    scenarioSelect.addEventListener("change", () => {
+        const name = scenarioSelect.value;
+        if (COMMITTED[name]) setSliders(COMMITTED[name].params);
+        $("abm-scenario-desc").textContent = COMMITTED[name] ? COMMITTED[name].description : "";
+        run();
+    });
+    let debounce = null;
+    for (const s of sliders) {
+        s.addEventListener("input", () => {
+            updateSliderLabels();
+            const match = committedMatch(currentParams());
+            scenarioSelect.value = match || "__custom__";
+            $("abm-scenario-desc").textContent = match ? COMMITTED[match].description : "";
+            clearTimeout(debounce);
+            debounce = setTimeout(run, 150);
+        });
+    }
+    frameInput.addEventListener("input", () => { stop(); frame = Number(frameInput.value); draw(); });
+    playButton.addEventListener("click", () => {
+        if (timer) { stop(); return; }
+        if (frame >= trace.frames.length - 1) { frame = 0; }
+        play();
+    });
+    window.addEventListener("resize", draw);
+
+    buildLegend();
+    // The select lists scenarios in spec order; the embedded JSON is key-sorted.
+    const first = scenarioSelect.options[0].value;
+    scenarioSelect.value = first;
+    setSliders(COMMITTED[first] ? COMMITTED[first].params : ABM.paramsFrom(SPEC.scenarios[first], defaults));
+    $("abm-scenario-desc").textContent = COMMITTED[first] ? COMMITTED[first].description : "";
+    run();
+})();
+</script>
