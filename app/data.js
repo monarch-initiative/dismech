@@ -49422,33 +49422,37 @@ window.searchData = [
     "creation_date": "2026-03-18T15:33:50Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Bell's palsy is an acute idiopathic peripheral facial neuropathy causing sudden unilateral weakness of the muscles of facial expression. The leading mechanistic model invokes post-viral inflammatory edema of cranial nerve VII at the geniculate ganglion and within the narrow facial canal, producing transient compression, conduction block, and facial muscle dysfunction.",
+    "description": "Bell's palsy is an acute idiopathic peripheral facial neuropathy, usually producing unilateral weakness of the upper and lower face. Inflammatory swelling and compression of cranial nerve VII in the facial canal form the leading mechanistic model, while the initiating cause remains uncertain. Viral reactivation and common genetic susceptibility are proposed contributors. Most patients improve over weeks to months, but axonal injury can leave persistent weakness or synkinesis.",
     "pathophysiology": [
-      "Putative post-viral immune activation in the geniculate ganglion",
-      "JAK-STAT-associated inflammatory signaling and immune-cell recruitment",
+      "Putative herpesvirus reactivation",
+      "Facial nerve inflammation",
       "Facial nerve edema within the facial canal",
-      "Intracanalicular compression and conduction block of cranial nerve VII",
-      "Incomplete recovery with aberrant reinnervation"
+      "Facial nerve compression",
+      "Facial nerve conduction impairment",
+      "Facial nerve axonal injury",
+      "Misguided facial motor axon regeneration",
+      "Misdirected secretomotor reinnervation of the lacrimal gland",
+      "Ocular surface exposure"
     ],
     "cell_types": [
-      "peripheral nervous system neuron",
-      "Schwann cell"
+      "peripheral nervous system neuron"
     ],
     "cell_type_ids": [
-      "CL:2000032",
-      "CL:0002573"
+      "CL:2000032"
     ],
     "biological_processes": [
-      "response to virus",
-      "inflammatory response",
-      "JAK-STAT cascade"
+      "inflammatory response"
     ],
     "phenotypes": [
       "Facial weakness",
       "Lagophthalmos",
       "Abnormal taste sensation",
       "Hyperacusis",
-      "Facial synkinesis"
+      "Facial synkinesis",
+      "Dry eyes",
+      "Corneal ulceration",
+      "Ear pain",
+      "Gustatory lacrimation"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -49456,7 +49460,12 @@ window.searchData = [
       "Auditory"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Ear",
+      "Eye",
       "Head and Neck",
+      "Immune",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -49465,32 +49474,39 @@ window.searchData = [
       "HP:0030001",
       "HP:0000223",
       "HP:0010780",
-      "HP:0034979"
+      "HP:0034979",
+      "HP:0001097",
+      "HP:0012804",
+      "HP:0030766",
+      "HP:0100274"
     ],
     "frequencies": [
-      "OBLIGATE",
-      "FREQUENT",
-      "OCCASIONAL"
+      "OBLIGATE"
     ],
     "genes": [
       "Common susceptibility locus at 6p21.1"
     ],
     "treatments": [
-      "Oral corticosteroids",
+      "Early oral corticosteroids in adults",
       "Adjunctive antiviral therapy",
       "Facial physical therapy",
-      "Botulinum toxin type A therapy"
+      "Botulinum toxin type A therapy",
+      "Eye lubrication and eyelid protection",
+      "Prednisolone in children: uncertain benefit",
+      "Facial nerve decompression: uncertain benefit",
+      "Intratympanic dexamethasone: investigational",
+      "Laser acupuncture and photobiomodulation: investigational"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Bells_Palsy.yaml",
     "page_url": "../pages/disorders/Bell's_palsy.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 9,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 9,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Benign Familial Infantile Epilepsy",
@@ -52843,21 +52859,16 @@ window.searchData = [
     "creation_date": "2026-07-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Blepharophimosis-intellectual disability syndrome, Maat-Kievit-Brunner (MKB) type \u2014 also called X-linked Ohdo syndrome (XLOS/OHDOX) \u2014 is a rare X-linked recessive neurodevelopmental disorder caused by hemizygous missense variants in MED12 (Xq13.1). Ohdo syndrome is a clinically heterogeneous group of blepharophimosis-intellectual disability syndromes; the MKB type is the form distinguished by X-linked inheritance and progressive facial coarsening with age. Affected males have intellectual disability, blepharophimosis (horizontally small palpebral fissures) and ptosis, and additional features including hearing loss, dental anomalies, congenital heart defects, and genitourinary anomalies. MED12 encodes a subunit of the CDK8 kinase module of the Mediator complex, a transcriptional coactivator for RNA polymerase II; disease variants perturb MED12-dependent transcriptional programs (immediate early genes, REST-mediated neuronal gene silencing, and Wnt/\u03b2-catenin and Sonic hedgehog/GLI3 developmental signaling). It is allelic to the other MED12-related disorders (FG/Opitz-Kaveggia syndrome and Lujan-Fryns syndrome).\n",
+    "description": "Blepharophimosis-intellectual disability syndrome, Maat-Kievit-Brunner (MKB) type, also called X-linked Ohdo syndrome (XLOS/OHDOX), is a MED12-related neurodevelopmental disorder characterized by intellectual and developmental disability, blepharophimosis, ptosis and facial coarsening with age. Most established familial cases involve hemizygous missense variants in males and unaffected carrier mothers, but affected heterozygous females have also been reported. Associated findings include severe language delay, hypotonia, hearing loss and variable dental, cardiac, palatal, skeletal and genitourinary anomalies. MED12 is a transcriptional regulator within Mediator. Experimental work on p.Arg1148His and p.Ser1165Pro demonstrates impaired REST-dependent gene repression and abnormal serum-responsive FOS/EGR1 expression in non-neuronal cell systems. The developmental steps connecting these defects to the clinical phenotype remain incompletely resolved. This MKB entity is distinct from KAT6B-related Say-Barber-Biesecker-Young-Simpson syndrome and FOXL2-related BPES.",
     "pathophysiology": [
-      "MED12 Missense Variant Disrupting the CDK8 Kinase Module",
-      "Dysregulated Immediate Early Gene and REST-Dependent Neuronal Transcription"
+      "MED12 Variant-Dependent Transcriptional Dysfunction",
+      "Impaired REST-Dependent Repression of Neuronal Genes",
+      "Altered Serum-Responsive FOS and EGR1 Expression"
     ],
-    "cell_types": [
-      "neuron"
-    ],
-    "cell_type_ids": [
-      "CL:0000540"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
-      "regulation of RNA polymerase II transcription",
-      "Wnt signaling pathway",
-      "Sonic hedgehog (smoothened) signaling"
+      "regulation of transcription by RNA polymerase II"
     ],
     "phenotypes": [
       "Intellectual disability",
@@ -52871,17 +52882,41 @@ window.searchData = [
       "Strabismus",
       "Coarse facial features",
       "Hearing impairment",
-      "Abnormality of the dentition",
-      "Congenital heart defect",
-      "Abnormality of the genital system"
+      "Micrognathia",
+      "Long philtrum",
+      "Cleft palate",
+      "Ventricular septal defect",
+      "Atrial septal defect",
+      "Tetralogy of Fallot",
+      "Inguinal hernia",
+      "Drooling",
+      "Cryptorchidism",
+      "Micropenis",
+      "Hypospadias",
+      "Microdontia",
+      "Short stature",
+      "Microcephaly",
+      "Hypotonia",
+      "Joint hypermobility",
+      "Seizures",
+      "Feeding difficulties",
+      "Gastroesophageal reflux",
+      "Hirschsprung disease",
+      "Clubfoot",
+      "Camptodactyly of fingers",
+      "Morgagni-type diaphragmatic hernia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
       "Ear",
       "Eye",
       "Genitourinary",
+      "Growth",
       "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -52896,14 +52931,31 @@ window.searchData = [
       "HP:0000486",
       "HP:0000280",
       "HP:0000365",
-      "HP:0000164",
-      "HP:0001627",
-      "HP:0000078"
+      "HP:0000347",
+      "HP:0000343",
+      "HP:0000175",
+      "HP:0001629",
+      "HP:0001631",
+      "HP:0001636",
+      "HP:0000023",
+      "HP:0002307",
+      "HP:0000028",
+      "HP:0000054",
+      "HP:0000047",
+      "HP:0000691",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0001252",
+      "HP:0001382",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0002020",
+      "HP:0002251",
+      "HP:0001762",
+      "HP:0100490",
+      "HP:0025194"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "MED12"
     ],
@@ -52911,17 +52963,20 @@ window.searchData = [
       "Multidisciplinary supportive and developmental care",
       "Audiologic evaluation and management",
       "Regular dental surveillance",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Ophthalmologic surveillance",
+      "Repair of significant congenital heart defects",
+      "Feeding support and management of reflux"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Blepharophimosis_Intellectual_Disability_Syndrome_MKB_Type.yaml",
     "page_url": "../pages/disorders/Blepharophimosis-Intellectual_Disability_Syndrome,_MKB_Type.html",
-    "num_phenotypes": 14,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 34,
+    "num_pathophysiology": 3,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "2",
+    "num_treatments": 7,
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "2"
   },
   {
@@ -53246,12 +53301,14 @@ window.searchData = [
     "creation_date": "2026-08-15T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Blue cone monochromacy is an X-linked recessive cone dysfunction syndrome in which the long-wavelength (L, \"red\") and middle-wavelength (M, \"green\") cone photoreceptors are non-functional while short-wavelength (S, \"blue\") cones and rods are preserved. The lesion is at the OPN1LW/OPN1MW opsin gene array on Xq28, and its architecture is what makes the disease unusual: the two opsin genes sit head-to-tail with more than 98% sequence identity, and a single upstream locus control region (LCR) loops to one promoter at a time to enforce mutually exclusive expression of one opsin per cone. Because one LCR governs both genes, a single regulatory deletion silences the whole array \u2014 so a disorder that would otherwise require two independent hits is reachable in one step. The two commonest routes are exactly these: deletion of the LCR, and unequal crossing-over that collapses the array to a single gene which then carries the recurrent inactivating Cys203Arg substitution.\nClinically this produces reduced but not absent visual acuity (roughly 20/60 to 20/200), pendular nystagmus, photophobia, myopia, and colour discrimination that fails on the protan and deutan axes while retaining tritan discrimination \u2014 the preserved blue-yellow axis being the finding that separates it from complete achromatopsia at the bedside. The disorder was long taught as stationary, and the honest position is that this is only partly true: several families show psychophysical and structural progression, and progression rate tracks genotype, with large deletions degenerating faster than Cys203Arg. That genotype-dependence is not a curiosity but the central problem for the gene-therapy programmes now developing outcome measures for this disease, since it determines how wide the treatment window is and for whom.",
+    "description": "Blue cone monochromacy (BCM) is an X-linked cone dysfunction disorder caused by pathogenic configurations of the OPN1LW/OPN1MW opsin gene array on Xq28. Long- and middle-wavelength-sensitive cone function is absent or severely impaired, with vision predominantly mediated by S cones and rods. Disease mechanisms include deletions of the upstream locus control region (LCR), deletions of coding sequence, inactivating variants in single or multiple expressed opsin genes, and exon 3 haplotypes that cause aberrant splicing. Typical findings include reduced visual acuity, severe colour discrimination defects, infantile nystagmus, photophobia and myopia. S-cone function does not imply normal blue-yellow colour discrimination. Milder exon 3-associated phenotypes overlap with other opsin-related cone disorders. Foveal hypoplasia and macular structural abnormalities occur; progression varies among individuals and measures. Management supports vision and photophobia, while opsin gene augmentation remains investigational.",
     "pathophysiology": [
       "Loss of Function of the OPN1LW/OPN1MW Opsin Gene Array",
       "Failure of Locus Control Region-Driven Opsin Expression",
+      "Exon 3 Haplotype-Dependent Opsin Missplicing",
       "Absent or Non-Functional L and M Cone Photopigment",
-      "Cone Outer Segment Disruption and Progressive Foveal Cone Loss",
+      "Cone Outer Segment Disruption",
+      "Variable Foveal Cone Loss and Macular Degeneration",
       "Vision Mediated by Preserved S Cones and Rods",
       "Carrier Female Cone Mosaic Disruption"
     ],
@@ -53271,19 +53328,21 @@ window.searchData = [
     ],
     "biological_processes": [
       "regulation of DNA-templated transcription",
+      "RNA splicing",
       "phototransduction",
       "photoreceptor cell outer segment organization",
       "visual perception"
     ],
     "phenotypes": [
-      "Severe Color Vision Defect with Preserved Tritan Discrimination",
+      "Severe Colour Vision Defect",
       "Reduced Visual Acuity",
       "Nystagmus",
       "Photophobia",
       "Myopia",
       "Severely Reduced Photopic Cone Electroretinogram",
       "Progressive Macular Atrophy",
-      "Progressive Loss of Cone Function"
+      "Progressive Loss of Cone Function",
+      "Foveal Hypoplasia"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
@@ -53300,36 +53359,38 @@ window.searchData = [
       "HP:0000613",
       "HP:0000545",
       "HP:0000512",
-      "HP:0000608"
+      "HP:0000608",
+      "HP:0000529",
+      "HP:0007750"
     ],
     "frequencies": [
-      "OBLIGATE",
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
+      "FREQUENT"
     ],
     "genes": [
       "OPN1LW/OPN1MW opsin gene array",
       "OPN1MW",
       "Locus control region deletion",
       "Structural variant landscape of the OPN1LW/OPN1MW cluster",
-      "GPR143",
-      "Cys203Arg recurrent inactivating substitution"
+      "Cys203Arg recurrent inactivating substitution",
+      "Splice-disrupting exon 3 haplotypes",
+      "De novo opsin-array rearrangement"
     ],
     "treatments": [
       "Tinted Lenses and Low Vision Aids",
-      "AAV-Mediated L-Opsin Gene Augmentation (investigational)"
+      "AAV-Mediated L-Opsin Gene Augmentation (investigational)",
+      "Reading and display adaptations",
+      "Genetic counselling and family testing"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Blue_Cone_Monochromacy.yaml",
     "page_url": "../pages/disorders/Blue_Cone_Monochromacy.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 6,
-    "num_genes": 6,
-    "num_treatments": 2,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "4"
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 7,
+    "num_treatments": 4,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Blue Rubber Bleb Nevus Syndrome",
@@ -53341,25 +53402,24 @@ window.searchData = [
     "creation_date": "2026-08-31T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Blue rubber bleb nevus syndrome, also called Bean syndrome, is a rare and almost always sporadic multifocal venous malformation disorder. It is defined by the coexistence of characteristic cutaneous venous malformations - soft, blue-violaceous, compressible \"blebs\" with a predilection for the palms and soles - and multifocal gastrointestinal venous malformations, predominantly of the small bowel, which are effectively pathognomonic. The gastrointestinal lesions bleed chronically, producing recurrent and often transfusion-dependent iron-deficiency anaemia that is the principal source of morbidity. Despite the name, the lesions are venous malformations rather than nevi or tumours, and the International Society for the Study of Vascular Anomalies classifies the condition among multifocal venous malformations. The cause is post-zygotic somatic mosaic activating mutation of TEK, which encodes the endothelial receptor tyrosine kinase TIE2; multifocal disease is characteristically driven by double mutations in cis on the same allele. These produce ligand-independent TIE2 activation signalling through PI3K-AKT-mTOR, which suppresses endothelial apoptosis and, through an AKT/FOXO1 axis, reduces PDGFB and mural-cell recruitment, yielding dilated smooth-muscle-poor venous channels that enlarge and bleed. Management is stratified by lesion burden, from iron and transfusion through endoscopic and surgical treatment to systemic mTOR inhibition with sirolimus for diffuse or unresectable disease.",
+    "description": "Blue rubber bleb nevus syndrome (BRBNS; Bean syndrome) is a multifocal venous malformation disorder, usually caused by postzygotic activating TEK variants. Recurrent double mutations in cis activate the endothelial TIE2 receptor. Cutaneous lesions are soft, blue and compressible; gastrointestinal lesions, often involving the small bowel, can cause occult or overt bleeding and iron-deficiency anemia. Typical skin lesions may be sparse or absent, and diagnosis can be delayed. Lesions may also affect deeper tissues and other organs, and localized intravascular coagulopathy can accompany extensive disease. Management combines correction of iron deficiency, lesion-directed endoscopic or surgical treatment, and specialist-directed systemic sirolimus when appropriate. Much of the downstream signaling model derives from other TEK-mutant venous malformations and must be distinguished from direct BRBNS evidence.",
     "pathophysiology": [
-      "Somatic TEK Double Mutation",
+      "Somatic Activating TEK Variants",
       "Ligand-Independent TIE2 Activation",
       "PI3K-AKT-mTOR Pathway Activation",
       "Endothelial Apoptosis Suppression",
-      "PDGFB Downregulation and Mural Cell Deficiency",
+      "Reduced Endothelial PDGFB Expression",
+      "Reduced Mural Cell Recruitment and Coverage",
       "Ectatic Mural-Cell-Poor Venous Channels",
       "Chronic Gastrointestinal Blood Loss",
       "Localised Intravascular Coagulopathy"
     ],
     "cell_types": [
       "vein endothelial cell",
-      "pericyte",
       "smooth muscle cell"
     ],
     "cell_type_ids": [
       "CL:0002543",
-      "CL:0000669",
       "CL:0000192"
     ],
     "biological_processes": [
@@ -53374,45 +53434,75 @@ window.searchData = [
       "Gastrointestinal Hemorrhage",
       "Iron Deficiency Anemia",
       "Gastrointestinal Venous Malformations",
-      "Elevated D-Dimer"
+      "Elevated D-Dimer",
+      "Intussusception",
+      "Volvulus",
+      "Fatigue",
+      "Hepatic Venous Malformations",
+      "Intramuscular Venous Malformations",
+      "Phleboliths",
+      "Ocular Venous Malformations",
+      "Thyroid Venous Malformations",
+      "Splenic Venous Malformations",
+      "Intraosseous Venous Malformations",
+      "Pulmonary Venous Malformations",
+      "Intestinal Infarction"
     ],
     "phenotype_categories": [
       "Dermatologic",
       "Gastrointestinal",
-      "Hematologic"
+      "Hematologic",
+      "Hepatic",
+      "Musculoskeletal",
+      "Ophthalmologic",
+      "Endocrine",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Constitutional",
       "Digestive"
     ],
     "phenotype_ids": [
       "HP:0012721",
       "HP:0002239",
       "HP:0001891",
-      "HP:0033106"
+      "HP:0033106",
+      "HP:0002576",
+      "HP:0002580",
+      "HP:0012378",
+      "HP:0006576",
+      "HP:6000661",
+      "HP:0005244"
     ],
     "frequencies": [],
     "genes": [
-      "TEK",
-      "PIK3CA"
+      "TEK"
     ],
     "treatments": [
       "Systemic Sirolimus",
-      "Transfusion and Iron Replacement",
+      "Iron Replacement",
+      "Blood Transfusion",
       "Endoscopic Treatment of Bowel Lesions",
-      "Surgical Bowel Resection"
+      "Surgical Treatment of Gastrointestinal Lesions",
+      "Management of Localized Intravascular Coagulopathy",
+      "Clinical and Laboratory Surveillance",
+      "Genetic Counseling",
+      "Avoidance of High-Estrogen Contraceptive Pills",
+      "Sclerotherapy of Symptomatic Cutaneous and Soft-Tissue Lesions",
+      "Excision of Selected Cutaneous and Soft-Tissue Lesions"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Blue_Rubber_Bleb_Nevus_Syndrome.yaml",
     "page_url": "../pages/disorders/Blue_Rubber_Bleb_Nevus_Syndrome.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 8,
-    "num_genes": 2,
-    "num_treatments": 4,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "5"
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 11,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Body Dysmorphic Disorder",
@@ -53598,13 +53688,19 @@ window.searchData = [
     "creation_date": "2026-09-14T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "BCARD is an ultra-rare autosomal recessive multisystem connective tissue disorder caused by biallelic loss-of-function variants in PLOD3, which encodes lysyl hydroxylase 3 (LH3). About eleven patients across seven reports are on record.\n**It is a collagen glycosylation disease, not a collagen hydroxylation disease, and that is the single most important thing about it.** LH3 is bifunctional: it hydroxylates collagen lysines and then glycosylates the resulting hydroxylysines. The obvious reading, given its name and its family, is that the lysyl hydroxylase activity is what matters. Mouse genetics say otherwise. A mouse carrying a mutation that blocks *only* the lysyl hydroxylase activity develops normally. Reducing the glucosyltransferase activity instead kills embryos between E9.5 and E14.5 from failed basement membrane formation, and survival tracks the residual glucosyltransferase level directly. The essential function is the sugar, not the hydroxyl.\n**The mechanism is a secretion failure, which is why the phenotype is so widely distributed.** Hydroxylysine-linked sugars are needed for type VI collagen to tetramerise inside the cell and for types IV and VI to be secreted at all. Without them the collagens are not merely abnormal once deposited; they do not leave the cell properly. Basement membranes fail wherever those collagens are needed, which is nearly everywhere, and the clinical picture follows the expression pattern of the enzyme: cochlea, eye, skin, limb, heart and cartilage.\n**The resulting phenotype is a composite of three recognised disorders.** It overlaps most with Stickler syndrome, with variable features of Ehlers-Danlos syndrome and of epidermolysis bullosa; one patient had sub-lamina-densa blistering with reduced type VII collagen and no COL7A1 mutation at all. A curator meeting this disease through any one of those three doors will see a partial picture, which is what the proposed BCARD label was introduced to fix.\nThe vascular risk is what makes recognition urgent rather than academic: aneurysm and arterial dissection are part of the syndrome, and early identification changes surveillance.",
+    "description": "BCARD is an autosomal recessive multisystem connective tissue disorder caused by biallelic pathogenic PLOD3 variants affecting lysyl hydroxylase 3 (LH3). Skeletal fragility and contractures, cataracts or other ocular abnormalities, sensorineural hearing loss, and arterial complications occur in variable combinations. Skin blistering, developmental delay, and neurologic or visceral abnormalities broaden the phenotype. LH3 contributes both collagen lysine hydroxylation and hydroxylysine glucosylation, working with the galactosyltransferase COLGALT1. Patient studies demonstrate reduced LH3 abundance or activity and abnormal urinary collagen glycosylation products. Experimental loss of LH3 impairs collagen assembly, secretion, and extracellular matrix organization in a collagen- and model-dependent manner. Selective mouse experiments establish an essential developmental role for glucosyltransferase activity, while also showing structural defects after loss of hydroxylase activity. Human alleles can affect both functions. Management addresses documented complications and includes ocular and vascular monitoring; the small case literature does not establish phenotype frequencies or treatment-effect estimates.",
     "pathophysiology": [
       "PLOD3 Biallelic Loss of Function",
-      "Loss of Hydroxylysine-Linked Glycosylation",
-      "Failure of Type IV and VI Collagen Assembly and Secretion",
-      "Basement Membrane and Extracellular Matrix Failure",
-      "Multisystem Connective Tissue Fragility"
+      "Reduced Collagen Hydroxylysine Glucosylation",
+      "Reduced Type IV Collagen Lysyl Hydroxylation",
+      "Impaired Type VI Collagen Tetramerization",
+      "Abnormal Type IV Collagen Triple Helix",
+      "Impaired Type IV and VI Collagen Secretion",
+      "Basement Membrane Disorganization",
+      "Altered Extracellular Collagen Fibril Organization",
+      "Type VII Collagen Anchoring Fibril Disruption",
+      "Collagen Retention in the Endoplasmic Reticulum",
+      "PERK Branch Unfolded Protein Response"
     ],
     "cell_types": [
       "fibroblast"
@@ -53613,10 +53709,11 @@ window.searchData = [
       "CL:0000057"
     ],
     "biological_processes": [
-      "hydroxylysine-linked O-glycosylation of collagen",
+      "Hydroxylysine-linked collagen glycosylation",
       "peptidyl-lysine hydroxylation",
       "protein secretion",
-      "collagen fibril organization"
+      "collagen fibril organization",
+      "PERK-mediated unfolded protein response"
     ],
     "phenotypes": [
       "Reduced bone mineral density",
@@ -53636,7 +53733,30 @@ window.searchData = [
       "Focal-onset seizure",
       "Polymicrogyria",
       "Gray matter heterotopia",
-      "Abnormal blistering of the skin"
+      "Abnormal blistering of the skin",
+      "Recurrent fractures",
+      "Talipes equinovarus",
+      "Platyspondyly",
+      "Diaphragmatic eventration",
+      "Intrauterine growth retardation",
+      "Short stature",
+      "Thin skin",
+      "Easy bruising",
+      "Nail hypoplasia",
+      "Cerebral hemorrhage",
+      "Infantile spasms",
+      "Hypsarrhythmia",
+      "Ptosis",
+      "Strabismus",
+      "Amblyopia",
+      "Microcephaly",
+      "Midface retrusion",
+      "Micrognathia",
+      "Popliteal Artery Aneurysm",
+      "Carotid Artery Dilatation",
+      "Multiple pterygia",
+      "Poor wound healing",
+      "Low-set ears"
     ],
     "phenotype_categories": [
       "Skeletal",
@@ -53647,14 +53767,19 @@ window.searchData = [
       "Craniofacial",
       "Dermatologic",
       "Renal",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Respiratory",
+      "Growth",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Digestive",
       "Ear",
       "Eye",
       "Genitourinary",
+      "Growth",
       "Head and Neck",
       "Integument",
       "Limbs",
@@ -53679,34 +53804,57 @@ window.searchData = [
       "HP:0007359",
       "HP:0002126",
       "HP:0002282",
-      "HP:0008066"
+      "HP:0008066",
+      "HP:0002757",
+      "HP:0001762",
+      "HP:0000926",
+      "HP:0009110",
+      "HP:0001511",
+      "HP:0004322",
+      "HP:0000963",
+      "HP:0000978",
+      "HP:0001792",
+      "HP:0001342",
+      "HP:0012469",
+      "HP:0002521",
+      "HP:0000508",
+      "HP:0000486",
+      "HP:0000646",
+      "HP:0000252",
+      "HP:0011800",
+      "HP:0000347",
+      "HP:0002617",
+      "HP:0012163",
+      "HP:0001040",
+      "HP:0001058",
+      "HP:0000369"
     ],
-    "frequencies": [
-      "FREQUENT",
-      "OCCASIONAL",
-      "VERY_RARE"
-    ],
+    "frequencies": [],
     "genes": [
       "PLOD3"
     ],
     "treatments": [
       "Vascular Surveillance",
       "Ophthalmologic Surveillance",
-      "Audiologic Rehabilitation",
-      "Skeletal and Orthopedic Management"
+      "Cochlear Implantation",
+      "Orthopedic Surgery",
+      "Ocular Surgery",
+      "Repair of Symptomatic Diaphragmatic Eventration",
+      "Treatment of Infantile Spasms",
+      "Genetic Counseling and Family Testing"
     ],
     "environmental": [],
     "biochemical": [
-      "Glycosylated hydroxylysine in tissue"
+      "Reduced urinary glycosylated hydroxylysine"
     ],
     "source_file": "Bone_Fragility_With_Contractures_Arterial_Rupture_And_Deafness.yaml",
     "page_url": "../pages/disorders/Bone_Fragility_With_Contractures_Arterial_Rupture_And_Deafness.html",
-    "num_phenotypes": 18,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 41,
+    "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 8,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Bone Giant Cell Tumor",
@@ -53831,42 +53979,51 @@ window.searchData = [
     "creation_date": "2026-09-23T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Bone marrow failure syndrome 4 (BMFS4; OMIM 618116), also called MYSM1 deficiency, is an autosomal recessive inherited bone marrow failure syndrome caused by biallelic loss-of-function variants in MYSM1, a chromatin-bound metalloprotease that removes the K119 monoubiquitin mark from histone H2A. It presents from birth or in the first months of life with transfusion-dependent anaemia, variable leukopenia and neutropenia, and a B-cell (often also NK-cell) lymphopenia with hypogammaglobulinaemia. Many, but not all, affected children also have developmental features: growth failure, developmental delay, microcephaly, facial dysmorphism, cataracts and mild skeletal anomalies.\nThe published human cohort is very small: about a dozen individuals from roughly ten families, most from consanguineous unions, ascertained through case reports and small case series. Phenotype counts in this entry are counts in a handful of patients, not frequency estimates.\nThree features make the disease clinically distinctive. First, the course can be biphasic: some children improve spontaneously after infancy and then relapse in late childhood with hypocellular myelodysplasia, monosomy 7 or acute myeloid leukaemia, so an early remission is not reassurance. Second, in one patient a spontaneous reversion of the germline variant in a single haematopoietic stem cell restored normal blood counts and immunity for more than a decade, which is direct human evidence that the marrow failure is cell-intrinsic to HSCs. Third, the disease is readily mistaken for Diamond-Blackfan anaemia, and it can be picked up by newborn SCID screening.\nThe mechanism is best characterised in Mysm1-deficient mice: loss of MYSM1 reduces ribosomal-protein gene expression and protein synthesis in HSCs, which activates p53; genetic deletion of p53 rescues essentially the whole haematopoietic and developmental mouse phenotype. In engineered human HSCs the same reduction in protein synthesis sensitises the cells to ferroptosis. Allogeneic haematopoietic stem cell transplantation with fludarabine-based reduced-intensity conditioning has been curative in the reported cases.\n",
+    "description": "Bone marrow failure syndrome 4 (BMFS4; MYSM1 deficiency) is an autosomal recessive disorder caused by biallelic loss-of-function MYSM1 variants. Reported patients have early-onset anemia, often requiring transfusion, with variable neutropenia, thrombocytopenia and B-, NK- or T-cell lymphopenia. Hypogammaglobulinemia and growth, skeletal, craniofacial, ocular, cardiac and neurodevelopmental abnormalities are variably present. Ascertainment through small, overlapping reports precludes disease-wide phenotype frequencies. Some children improve hematologically before later myelodysplasia or acute myeloid leukemia; the cumulative risk is unknown. One patient had sustained hematologic and immune recovery following somatic genetic reversion in one or a few early stem cells, without correction of nonhematologic findings. Mouse studies identify impaired ribosomal-protein gene expression, p53-mediated progenitor dysfunction and lineage-specific transcriptional defects. Engineered human HSCs additionally reveal vulnerability to ferroptosis. Reported allogeneic transplants restore hematopoiesis and immunity, with variable conditioning and transplant complications; they do not establish correction of all developmental manifestations.",
     "pathophysiology": [
       "Biallelic MYSM1 Loss of Function",
       "Loss of Histone H2A K119 Deubiquitinase Activity",
-      "Reduced Ribosomal Protein Gene Expression and Protein Synthesis in HSCs",
+      "Reduced Ribosomal Protein Gene Expression",
       "p53 Activation in Hematopoietic Stem and Progenitor Cells",
       "Ferroptosis of Hematopoietic Stem Cells",
-      "HSC Pool Exhaustion and Progenitor Apoptosis",
+      "Impaired Hematopoietic Stem Cell Function",
       "Block in Early B-Cell Development",
       "Impaired NK-Cell Maturation",
       "Prolonged DNA Damage Response Signaling",
       "p53-Mediated Developmental Tissue Apoptosis",
-      "Somatic Genetic Rescue by Reversion in a Hematopoietic Stem Cell",
-      "Clonal Evolution to Myelodysplasia and Leukemia"
+      "Somatic Genetic Rescue of Hematopoiesis",
+      "Clonal Evolution to Myelodysplasia and Leukemia",
+      "Reduced Protein Synthesis",
+      "Reduced Ferroptosis-Protective Protein Production",
+      "PUMA-Dependent Multipotent Progenitor Apoptosis",
+      "Loss of Hematopoietic Stem Cell Quiescence",
+      "Reduced GFI1 Expression in Hematopoietic Stem Cells",
+      "Reduced ID4 Expression in Neural Stem Cells",
+      "Neural Stem Cell Differentiation Imbalance"
     ],
     "cell_types": [
       "hematopoietic stem cell",
       "hematopoietic multipotent progenitor cell",
       "pro-B cell",
-      "natural killer cell"
+      "natural killer cell",
+      "neural stem cell"
     ],
     "cell_type_ids": [
       "CL:0000037",
       "CL:0000837",
       "CL:0000826",
-      "CL:0000623"
+      "CL:0000623",
+      "CL:0000047"
     ],
     "biological_processes": [
-      "cytoplasmic translation",
       "signal transduction by p53 class mediator",
       "ferroptosis",
       "hematopoietic stem cell homeostasis",
-      "intrinsic apoptotic signaling pathway by p53 class mediator",
       "B cell differentiation",
       "natural killer cell differentiation",
-      "DNA damage response"
+      "DNA damage response",
+      "intrinsic apoptotic signaling pathway by p53 class mediator",
+      "cytoplasmic translation"
     ],
     "phenotypes": [
       "Anemia",
@@ -53891,11 +54048,22 @@ window.searchData = [
       "Cataract",
       "Brachydactyly",
       "Midface Hypoplasia",
-      "Polydactyly",
+      "Preaxial Hand Polydactyly",
       "Hearing Impairment",
       "Choanal Atresia",
       "Eczema",
-      "Elevated Erythrocyte Adenosine Deaminase"
+      "Elevated Erythrocyte Adenosine Deaminase",
+      "Left Ventricular Noncompaction Cardiomyopathy",
+      "Osteopenia",
+      "Rhizomelic Arm Shortening",
+      "Gingival Overgrowth",
+      "Delayed Tooth Eruption",
+      "Trigonocephaly",
+      "Cerebral White Matter Hyperintensity",
+      "Monocytopenia",
+      "Distal Renal Tubular Acidosis",
+      "Hypokalemia",
+      "Subependymal Cyst"
     ],
     "phenotype_categories": [
       "Hematologic",
@@ -53909,13 +54077,19 @@ window.searchData = [
       "Skeletal",
       "Otologic",
       "Respiratory",
-      "Laboratory"
+      "Laboratory",
+      "Cardiovascular",
+      "Dental",
+      "Renal",
+      "Metabolic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Cellular",
       "Ear",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
@@ -53949,11 +54123,22 @@ window.searchData = [
       "HP:0000518",
       "HP:0001156",
       "HP:0011800",
-      "HP:0010442",
+      "HP:0001177",
       "HP:0000365",
       "HP:0000453",
       "HP:0000964",
-      "HP:0030270"
+      "HP:0030270",
+      "HP:0011664",
+      "HP:0000938",
+      "HP:0004991",
+      "HP:0000212",
+      "HP:0000684",
+      "HP:0000243",
+      "HP:0030890",
+      "HP:0012312",
+      "HP:0008341",
+      "HP:0002900",
+      "HP:0002416"
     ],
     "frequencies": [],
     "genes": [
@@ -53962,17 +54147,20 @@ window.searchData = [
     "treatments": [
       "Allogeneic Hematopoietic Stem Cell Transplantation",
       "Red Blood Cell Transfusion",
-      "Antibiotic Prophylaxis"
+      "Antibiotic Prophylaxis",
+      "Captopril for Cardiomyopathy",
+      "Genetic Counseling and Family Testing",
+      "Reported Eltrombopag Use"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Bone_Marrow_Failure_Syndrome_4.yaml",
     "page_url": "../pages/disorders/Bone_Marrow_Failure_Syndrome_4.html",
-    "num_phenotypes": 27,
-    "num_pathophysiology": 12,
+    "num_phenotypes": 38,
+    "num_pathophysiology": 19,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "37",
+    "num_treatments": 6,
+    "causal_graph_edges": "48",
     "causal_graph_longest_path": "7"
   },
   {
@@ -55661,14 +55849,17 @@ window.searchData = [
     "creation_date": "2026-08-31T08:10:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Brachyolmia with amelogenesis imperfecta - also published as dental anomalies and short stature (DASS, OMIM #601216) - is an autosomal recessive disorder caused by biallelic hypomorphic variants in LTBP3. Two things co-occur in every reported family: a short-trunk skeletal dysplasia with generalized platyspondyly and long bones that are essentially spared, and a hypoplastic amelogenesis imperfecta so severe that enamel is thin to absent on both dentitions. It was described as a clinical association in 1996, argued to be a single entity rather than a coincidence in 2009, and given its gene in 2015.\nThe mechanism is not a structural-matrix mechanism, which is the easy wrong reading of a skeletal dysplasia caused by an extracellular-matrix protein. LTBP3 is a latent TGF-beta binding protein: it associates with the small latent complex, targets latent TGF-beta to the extracellular matrix, and gates its subsequent activation. Losing it therefore reduces the amount of TGF-beta that can be stored and released where it is needed, and the disease is a TGF-beta bioavailability defect in two tissues that happen to depend heavily on that signal - the secretory ameloblast and the growth plate. The two apparently unrelated halves of the clinical picture, teeth and spine, are one lesion read out in two places.\nThe Ltbp3-null mouse is the strongest mechanistic evidence and also the clearest caution. It reproduces the enamel phenotype closely, down to disorganised ameloblasts laying an irregular matrix, and it reproduces the maxillary underdevelopment with relative mandibular prognathism. It does not reproduce platyspondyly at all, and its skeleton is osteopetrotic where patients are normal or osteopenic. This entry records the successes and that failure as separate, explicitly graded model links rather than letting the mouse stand in for the human skeleton.\n",
+    "description": "Brachyolmia-amelogenesis imperfecta syndrome, also called dental anomalies and short stature (DASS), is an autosomal recessive LTBP3-related disorder combining enamel hypoplasia and dental anomalies with short stature and variable skeletal dysplasia. Platyspondyly and a short trunk are characteristic, but proportionate short stature and mild long-bone abnormalities also occur. Cardiovascular involvement includes valvular abnormalities, aortic dilatation, aneurysms and dissection; vascular disease can extend beyond the thoracic aorta. LTBP3 regulates extracellular localization and activation of latent TGF-beta, but the direction and timing of signaling changes in affected human tissues remain incompletely established. Mouse models reproduce aspects of the dental and craniofacial phenotype without reproducing the full human skeletal or vascular disorder.",
     "pathophysiology": [
-      "Biallelic Hypomorphic LTBP3 Variants",
-      "Failure of Latent TGF-beta Matrix Targeting and Activation",
-      "Impaired Secretory Ameloblast Function",
+      "Biallelic LTBP3 Loss of Function",
+      "Altered Latent TGF-beta Complex Assembly",
+      "Altered Extracellular Localization of Latent TGF-beta",
+      "Altered Local TGF-beta Bioavailability",
+      "Abnormal Ameloblast Differentiation",
       "Hypoplastic Enamel Formation",
-      "Disturbed Axial Growth Plate and Vertebral Body Formation",
-      "Platyspondyly with Short-Trunk Short Stature"
+      "Disturbed Axial Skeletal Development",
+      "Premature Cranial-base Synchondrosis Ossification",
+      "Impaired Vascular Wall Homeostasis"
     ],
     "cell_types": [
       "ameloblast",
@@ -55688,7 +55879,7 @@ window.searchData = [
     "phenotypes": [
       "Hypoplastic Amelogenesis Imperfecta",
       "Platyspondyly",
-      "Short-Trunk Short Stature",
+      "Short Stature",
       "Scoliosis",
       "Coxa Valga with Elongated Femoral Necks",
       "Hypodontia",
@@ -55698,10 +55889,28 @@ window.searchData = [
       "Nephrocalcinosis",
       "Delayed or Failed Tooth Eruption",
       "Dental Malocclusion",
-      "Septal and Valvular Anomalies",
-      "Aortic Valve Stenosis and Hypertrophic Cardiomyopathy",
+      "Atrial Septal Defect",
+      "Aortic Valve Stenosis",
       "Thoracic Aortic Aneurysm",
-      "Osteopenia"
+      "Osteopenia",
+      "Hypertrophic Cardiomyopathy",
+      "Aortic Dissection",
+      "Abdominal Aortic Aneurysm",
+      "Aortic Root Dilatation",
+      "Mitral Valve Prolapse",
+      "Mitral Regurgitation",
+      "Atrial Septal Aneurysm",
+      "Arterial Tortuosity",
+      "Increased Bone Mineral Density",
+      "Short Distal Finger Phalanges",
+      "Webbed Neck",
+      "Short Neck",
+      "Pes Planus",
+      "Dental Abscesses",
+      "Microdontia",
+      "Brachiocephalic Artery Aneurysm",
+      "Common Carotid Artery Aneurysm",
+      "Abnormal Dentin Morphology"
     ],
     "phenotype_categories": [
       "Dental",
@@ -55716,6 +55925,7 @@ window.searchData = [
       "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Immune",
       "Limbs",
       "Musculoskeletal"
     ],
@@ -55735,7 +55945,25 @@ window.searchData = [
       "HP:0001631",
       "HP:0001650",
       "HP:0012727",
-      "HP:0000938"
+      "HP:0000938",
+      "HP:0001639",
+      "HP:0002647",
+      "HP:0005112",
+      "HP:0002616",
+      "HP:0001634",
+      "HP:0001653",
+      "HP:0011995",
+      "HP:0005116",
+      "HP:0011001",
+      "HP:0009882",
+      "HP:0000465",
+      "HP:0000470",
+      "HP:0001763",
+      "HP:0030757",
+      "HP:0000691",
+      "HP:0034324",
+      "HP:0034325",
+      "HP:0010299"
     ],
     "frequencies": [],
     "genes": [
@@ -55744,18 +55972,23 @@ window.searchData = [
     "treatments": [
       "Restorative dental rehabilitation",
       "Orthodontic and orthognathic management of malocclusion",
-      "Aortic imaging surveillance"
+      "Aortic imaging surveillance",
+      "Extraction of Severely Affected Teeth",
+      "Scoliosis Surgery",
+      "Aortic Repair for Dissection or Aneurysm",
+      "Beta-blocker Treatment for Valve-related Arrhythmias",
+      "Genetic Counseling and Family Testing"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Brachyolmia-Amelogenesis_Imperfecta_Syndrome.yaml",
     "page_url": "../pages/disorders/Brachyolmia-Amelogenesis_Imperfecta_Syndrome.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 34,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 8,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Brachyolmia",
@@ -56135,26 +56368,30 @@ window.searchData = [
     "creation_date": "2026-08-19T23:20:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A brain arteriovenous malformation (bAVM) is a focal tangle - the nidus - of dilated arterioles draining directly into veins with no intervening capillary bed. It is a leading cause of haemorrhagic stroke in children and young adults, and presents with intracranial haemorrhage, seizures, or focal neurological deficit.\nFor most of the twentieth century bAVM was understood as a static congenital anatomical accident. That view is obsolete. Somatic activating KRAS mutations were found in the endothelium of the majority of sporadic lesions, present in AVM tissue and absent from the same patients' blood - a mosaic, lesion-restricted mutation, which is why the disease is focal, sporadic, and not inherited. Mutant KRAS drives constitutive MAPK-ERK signalling in brain endothelial cells, which in turn drives an aberrant angiogenic and Notch transcriptional programme, endothelial migration, loss of normal arteriovenous identity, and a glycolytic shift; the result is a nidus that shunts arterial blood directly into veins. Inhibiting MAPK-ERK reverses the cellular phenotype, which is what makes the pathway causal rather than correlative.\nThe lesion then becomes clinically dangerous by two partly separable routes, both curated here: the haemodynamic route, in which high-flow shunting and venous hypertension load thin-walled vessels, and the inflammatory route, in which mutant endothelium secretes pro-inflammatory mediators, loses blood-brain-barrier junction proteins, and recruits microglia and macrophages that further degrade vessel integrity. This entry is deliberately about the sporadic, somatic-mosaic disease; the germline syndromic AVMs are separate entries (`Hereditary_Hemorrhagic_Telangiectasia`, `Capillary_Malformation-Arteriovenous_Malformation_Syndrome`), as is `Cerebral_Proliferative_Angiopathy`.",
+    "description": "Brain arteriovenous malformation is a nidus of abnormal vessels connecting cerebral arteries to veins without an intervening capillary bed. Presentation includes intracranial hemorrhage, seizures, headache or focal neurological deficits; some lesions are detected incidentally. This entry focuses on sporadic brain AVM. Somatic activating KRAS variants, and less frequently activating BRAF variants, explain a substantial subset of sampled lesions, with endothelial enrichment and experimental evidence of MAPK-dependent vascular remodeling. A molecular cause is not established in every lesion. Altered endothelial metabolism, junctional integrity, mural-cell support and inflammatory interactions contribute to vascular instability, with different levels of human and model evidence. Germline syndromic AVMs are covered in the HHT and capillary-malformation\u2013AVM syndrome entries.",
     "pathophysiology": [
       "Somatic Activating KRAS or BRAF Mutation in Brain Endothelium",
       "Constitutive RAS-MAPK-ERK Signalling in Brain Endothelial Cells",
-      "Endothelial Glycolytic Reprogramming via GLUT1 and Hexokinase-2",
-      "Aberrant Angiogenic and Notch Programme with Loss of Arteriovenous Identity",
+      "Increased Endothelial GLUT1 Membrane Localization",
+      "Increased Endothelial Hexokinase-2 Expression",
+      "Increased Endothelial Glycolytic Flux",
+      "Aberrant Endothelial Angiogenic Sprouting",
+      "Endothelial-to-Mesenchymal Transition",
       "Nidus Formation with Direct Arteriovenous Shunting",
       "High-Flow Shunt Haemodynamics and Venous Hypertension",
-      "Vascular Inflammation and Blood-Brain Barrier Junction Loss",
+      "Endothelial Inflammatory Mediator Production",
+      "Perivascular Myeloid Cell Activation",
+      "Endothelial Junction Disruption",
+      "Increased Blood-Brain Barrier Permeability",
+      "Myeloid-associated Vascular Smooth Muscle Cell Apoptosis",
+      "Deficient Mural Cell Coverage and Vessel Wall Instability",
       "Perinidal Cortical Irritation and Seizure Generation",
-      "Nidus Rupture and Intracranial Haemorrhage",
-      "MAPK-ERK Pathway Inhibition as Therapeutic Vulnerability",
-      "Deficient Mural Cell Coverage and Vessel Wall Instability"
+      "Nidus Rupture and Intracranial Haemorrhage"
     ],
     "cell_types": [
       "brain microvascular endothelial cell",
       "endothelial cell of artery",
       "vein endothelial cell",
-      "microglial cell",
-      "macrophage",
       "pericyte",
       "smooth muscle cell"
     ],
@@ -56162,29 +56399,27 @@ window.searchData = [
       "CL:2000044",
       "CL:1000413",
       "CL:0002543",
-      "CL:0000129",
-      "CL:0000235",
       "CL:0000669",
       "CL:0000192"
     ],
     "biological_processes": [
       "ERK1 and ERK2 cascade",
-      "MAPK cascade",
-      "glycolytic process",
-      "angiogenesis",
-      "Notch signaling pathway",
-      "cell migration"
+      "MAPK cascade"
     ],
     "phenotypes": [
       "Cerebral arteriovenous malformation",
       "Intracranial haemorrhage",
       "Seizure",
       "Stroke",
-      "Focal neurological deficit"
+      "Focal neurological deficit",
+      "Headache",
+      "Hemiparesis",
+      "Paresthesia"
     ],
     "phenotype_categories": [
       "Structural",
-      "Clinical"
+      "Clinical",
+      "Neurologic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -56195,7 +56430,11 @@ window.searchData = [
       "HP:0002408",
       "HP:0002170",
       "HP:0001250",
-      "HP:0001297"
+      "HP:0001297",
+      "HP:0012638",
+      "HP:0002315",
+      "HP:0001269",
+      "HP:0003401"
     ],
     "frequencies": [],
     "genes": [
@@ -56206,18 +56445,22 @@ window.searchData = [
       "Microsurgical resection",
       "Stereotactic radiosurgery",
       "Conservative medical management",
-      "Endovascular embolization"
+      "Endovascular embolization",
+      "Antiseizure medication",
+      "Investigational MEK inhibition",
+      "Investigational bevacizumab",
+      "Acute management of AVM-related hemorrhage"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Brain_Arteriovenous_Malformation.yaml",
     "page_url": "../pages/disorders/Brain_arteriovenous_malformation.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 11,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 17,
     "num_genes": 2,
-    "num_treatments": 4,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 8,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Brain Small Vessel Disease 1 With Or Without Ocular Anomalies",
@@ -349746,12 +349989,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3279,
   "total_subtypes": 4568,
   "total_disorders_and_subtypes": 7847,
-  "total_unique_evidence_sources": 48489,
-  "total_unique_publications": 45393,
+  "total_unique_evidence_sources": 48581,
+  "total_unique_publications": 45453,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 290,
   "total_pathographs": 3275,
-  "total_unique_pathological_events": 21096,
+  "total_unique_pathological_events": 21125,
   "total_modules": 181,
   "total_research_reports": 3392,
   "total_classifications": 21,
