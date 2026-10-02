@@ -1741,7 +1741,7 @@ entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 
 A `KNOWLEDGE_GAP` discussion's `proposed_experiments` say what *should* be
 measured. `Experiment.executable_protocols` says that a service exists which
-would measure it, at a named provider, for a recorded price:
+would measure it, and names the provider and their own identifier for it:
 
 ```yaml
     executable_protocols:
@@ -1754,8 +1754,6 @@ would measure it, at a named provider, for a recorded price:
       measures:
       - pathophysiology#PEPD Prolidase Catalytic Deficiency
       inputs_required: Coding sequences carrying a Strep-II tag, as a DNA template plate
-      list_price: USD 159.00
-      unit_price_usd: 159.0
       retrieved_date: '2026-10-01'
 ```
 
@@ -1778,18 +1776,19 @@ Rules for filling it:
 - **`name` is the provider's name for the protocol, verbatim**, for the same
   reason `datasets[].title` is the repository's own title. Your account of what
   it would contribute goes in `description`.
-- **Record `retrieved_date` with any catalogue fact.** `protocol_id`,
-  `list_price`, `unit_price_usd`, `turnaround` and `throughput` all describe a
-  live commercial listing that changes without notice and carries no version, so
-  an undated price cannot be checked or aged. This is gated by
+- **There is no price, turnaround, or throughput slot, and this is deliberate.**
+  Those are commercial terms that go out of date with no signal that they have,
+  and mirroring a provider's price list is not this knowledge base's job — cost
+  and scheduling are settled with the provider at the point of ordering. Do not
+  smuggle them into `notes` or `description` either: a figure in prose rots the
+  same way, and nothing can check it. `test_no_commercial_terms_are_carried`
+  gates the slots; the prose is on you.
+- **Record `retrieved_date` with `protocol_id` or `protocol_url`.** A provider's
+  catalogue changes without notice and without a version, so an undated
+  identifier cannot be aged — a reader has no way to tell a current handle from
+  one renamed two years ago. Gated by
   `test_catalogue_facts_carry_a_retrieval_date`. Treat an old date as stale,
   not as wrong.
-- **Omit what the catalogue does not state; do not estimate it.** A provider
-  that publishes no turnaround or no maximum panel size gets those slots left
-  empty and the absence noted. A price whose charging unit is unstated is a
-  lower bound on a panel, and the `notes` should say so — this is the ordinary
-  *omit the field and say why* rule, and an invented throughput is the same
-  class of defect as an invented CURIE.
 - **`provider` is free text; `venue_type` is the enum.** The set of
   laboratories is open and changes without warning, so an enum of vendor names
   would need a schema PR per new lab. The four-value `ExecutionVenueEnum` is the

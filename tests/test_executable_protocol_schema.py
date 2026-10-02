@@ -1,12 +1,12 @@
 """Tests for the ExecutableProtocol block on a proposed Experiment.
 
 ``Experiment.executable_protocols`` records that an orderable service exists
-which would take a measurement a knowledge gap asks for. The facts it carries
-about a provider's catalogue -- identifier, price, turnaround, throughput --
-describe a live commercial listing that changes without notice and without a
-version, so the one thing worth gating is that they are never recorded without
-the date they were read: an un-dated price is a claim that cannot be checked or
-aged, and it is the slot a curator is most likely to fill from memory.
+which would take a measurement a knowledge gap asks for. It deliberately holds
+no price, turnaround, or throughput -- those are commercial terms that go stale
+with no signal, and reproducing a vendor's price list is not this repository's
+job. What it does hold is the provider's own catalogue identifier, which also
+changes without notice and without a version, so the one thing worth gating is
+that an identifier is never recorded without the date it was read.
 """
 
 from pathlib import Path
@@ -20,7 +20,12 @@ SCHEMA_PATH = ROOT_DIR / "src" / "dismech" / "schema" / "dismech.yaml"
 KB_DIRS = ("disorders", "modules", "comorbidities")
 
 #: Slots whose values are copied off a provider's live catalogue.
-CATALOGUE_SLOTS = ("protocol_id", "list_price", "unit_price_usd", "turnaround", "throughput")
+CATALOGUE_SLOTS = ("protocol_id", "protocol_url")
+
+#: Commercial terms this class deliberately does not carry. Listed so that
+#: re-adding one is a deliberate decision with a test to update, rather than a
+#: quiet drift back into mirroring a vendor's price list.
+EXCLUDED_COMMERCIAL_SLOTS = ("list_price", "unit_price_usd", "turnaround", "throughput")
 
 
 @pytest.fixture(scope="module")
@@ -57,6 +62,18 @@ def test_executable_protocol_is_reachable_from_experiment(schema_view):
     slot = schema_view.get_slot("executable_protocols")
     assert slot.range == "ExecutableProtocol"
     assert slot.multivalued
+
+
+def test_no_commercial_terms_are_carried(schema_view):
+    """Price, turnaround and throughput are deliberately absent.
+
+    They go out of date with no signal that they have, and mirroring a
+    provider's price list is not this repository's job; cost and scheduling are
+    settled with the provider when something is actually ordered. If one of
+    these is wanted later, that is a decision to argue for, not a gap to fill.
+    """
+    slots = set(schema_view.get_class("ExecutableProtocol").slots)
+    assert not slots & set(EXCLUDED_COMMERCIAL_SLOTS)
 
 
 def test_provider_is_free_text_and_venue_type_is_the_enum(schema_view):
@@ -107,6 +124,9 @@ def test_catalogue_facts_carry_a_retrieval_date(filepath: Path):
                 f"{path} ({name}) records {', '.join(present)} from a provider "
                 f"catalogue but no retrieved_date"
             )
+        for banned in EXCLUDED_COMMERCIAL_SLOTS:
+            if protocol.get(banned) is not None:
+                errors.append(f"{path} ({name}) carries {banned}, a commercial term")
         if not protocol.get("provider"):
             errors.append(f"{path} ({name}) has no provider")
 

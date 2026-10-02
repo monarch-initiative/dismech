@@ -84,10 +84,13 @@ cell-free expression validation and optimisation, HiBiT and A280
 quantification, Strep-tag and His-tag purification, LabChip purity, a SYPRO
 Orange thermal shift assay, Echo-MS detection of an enzymatic reaction,
 minibinder expression with SPR target onboarding, IVT mRNA/circRNA synthesis,
-E. coli and Pichia expression, and assay-onboarding services. Published list
-prices run from USD 25 to 799, cell-free turnarounds are 4-16 hours, and
-several protocols state a 88-96 construct plate format with DNA submitted as a
-CSV of sequences.
+E. coli and Pichia expression, and assay-onboarding services. Input is
+typically DNA sequences submitted as a CSV.
+
+Commercial terms — price, turnaround, throughput — are deliberately recorded
+nowhere in this repository. They change with no signal that they have, and
+this project is not a reseller's catalogue; a curator settles them with the
+provider when something is actually ordered.
 
 **The Ewing chromatin demonstrator above is not executable on this catalogue.**
 Nothing in it does chromatin accessibility, cell-line culture, or a
@@ -117,10 +120,11 @@ Open questions before this is a closed loop:
   ordering appears to be a commercial transaction, not an API call. Any claim
   that a plan can be "submitted programmatically" is unverified, and the final
   hop is currently a human.
-- **Price units are unstated.** The catalogue gives a number per protocol without
-  saying whether it is charged per construct, per well, or per plate. Panel costs
-  derived from it are lower bounds. `ExecutableProtocol.list_price` keeps the
-  verbatim figure and the entry notes record the ambiguity.
+- **Scoping a panel needs a conversation, not the catalogue.** The published
+  prices do not state what they are charged per, and several protocols give no
+  maximum panel size, so the cost and scheduling of a real submission cannot be
+  read off the listing at all. This is part of why the schema does not try to
+  carry them.
 - **Method validation is per-substrate.** Echo-MS is open-access in principle, but
   whether a given substrate/product pair is validated is a separate question, and
   the provider sells method onboarding as its own line item.
