@@ -95417,6 +95417,99 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Congenital Myasthenic Syndrome 18",
+    "disease_id": "MONDO:0014590",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Myasthenic Syndrome"
+    ],
+    "creation_date": "2026-07-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Congenital myasthenic syndrome 18 (CMS18, SNAP25-CMS; OMIM #616330) is an ultra-rare autosomal dominant presynaptic congenital myasthenic syndrome caused by de novo heterozygous variants in SNAP25, which encodes synaptosomal-associated protein 25 (SNAP-25B), the plasma-membrane (target/t-) SNARE that assembles with syntaxin-1 (t-SNARE) and synaptobrevin/VAMP (vesicle/v-SNARE) into the alpha-helical coiled-coil SNARE complex driving calcium-triggered synaptic vesicle fusion. Unlike the loss-of-function recessive presynaptic syndromes of acetylcholine synthesis and packaging (CHAT/CMS6, SLC5A7, SLC18A3), CMS18 is caused by dominant-negative alleles acting on the shared release machinery, so the defect is a reduction in the number of quanta released per nerve impulse with normal quantal size - electrophysiologically a Lambert-Eaton-like (LEMS-like) presynaptic release failure rather than a defect of transmitter supply. Because SNAP-25 is the same fusion protein used at central synapses, the neuromuscular phenotype is accompanied by prominent CNS involvement: the index patient presented with fatigable myasthenic weakness together with cerebral cortical hyperexcitability, cerebellar ataxia, and intellectual disability. The reported phenotypic range now extends from that adolescent-diagnosed myasthenic-plus presentation to a critically ill newborn with a de novo SNAP25 nonsense variant. CMS18 sits at a nosological boundary with SNAP25-related developmental and epileptic encephalopathy (SNAP25-DEE, curated separately as SNAP25 Encephalopathy): both are SNAREopathies arising from de novo SNAP25 variants, but CMS18 is defined by a demonstrable neuromuscular junction transmission defect - shown in the index patient by in vitro microelectrode studies of intercostal-muscle endplates - which is the therapeutic target that the encephalopathy label does not imply.",
+    "pathophysiology": [
+      "Dominant-Negative Disruption of the SNARE Complex",
+      "Impaired Calcium-Triggered Synaptic Vesicle Exocytosis",
+      "Reduced Evoked Quantal Release at the Motor Endplate",
+      "Impaired Neuromuscular Junction Transmission",
+      "Central Synaptic Dysfunction"
+    ],
+    "cell_types": [
+      "Motor neuron presynaptic terminal",
+      "Central nervous system neuron",
+      "Skeletal muscle fiber endplate",
+      "Skeletal muscle fiber (postsynaptic motor endplate)"
+    ],
+    "cell_type_ids": [
+      "CL:0000100",
+      "CL:0000540",
+      "CL:0008002"
+    ],
+    "biological_processes": [
+      "SNARE complex assembly",
+      "Calcium-ion regulated exocytosis",
+      "Synaptic vesicle exocytosis",
+      "Synaptic vesicle fusion to presynaptic active zone membrane",
+      "Neuromuscular synaptic transmission"
+    ],
+    "phenotypes": [
+      "Fatigable Muscle Weakness",
+      "Ptosis",
+      "Congenital Joint Contractures",
+      "Neonatal Cyanosis",
+      "Cerebral Cortical Hyperexcitability",
+      "Cerebellar Ataxia",
+      "Intellectual Disability",
+      "Delayed Psychomotor Development",
+      "Delayed Speech and Language Development",
+      "Dysarthria"
+    ],
+    "phenotype_categories": [
+      "Neuromuscular",
+      "Musculoskeletal",
+      "Neonatal",
+      "Neurologic",
+      "Neurodevelopmental"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Integument",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003473",
+      "HP:0000508",
+      "HP:0002803",
+      "HP:0000961",
+      "HP:0011198",
+      "HP:0001251",
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001260"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SNAP25"
+    ],
+    "treatments": [
+      "Amifampridine (3,4-Diaminopyridine)",
+      "Antiseizure Prophylaxis",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Myasthenic_Syndrome_18.yaml",
+    "page_url": "../pages/disorders/Congenital_Myasthenic_Syndrome_18.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Congenital Myasthenic Syndrome 6",
     "disease_id": "MONDO:0009689",
     "category": "Mendelian",
@@ -351812,17 +351905,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3287,
+  "total_disorder_pages": 3288,
   "total_subtypes": 4568,
-  "total_disorders_and_subtypes": 7855,
-  "total_unique_evidence_sources": 48900,
-  "total_unique_publications": 45708,
+  "total_disorders_and_subtypes": 7856,
+  "total_unique_evidence_sources": 48905,
+  "total_unique_publications": 45713,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 292,
-  "total_pathographs": 3283,
-  "total_unique_pathological_events": 21329,
+  "total_pathographs": 3284,
+  "total_unique_pathological_events": 21333,
   "total_modules": 183,
-  "total_research_reports": 3400,
+  "total_research_reports": 3402,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 111
