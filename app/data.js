@@ -88819,6 +88819,149 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Combined Immunodeficiency Due To MALT1 Deficiency",
+    "disease_id": "MONDO:0014197",
+    "category": "Mendelian",
+    "parents": [
+      "Combined immunodeficiency",
+      "Inborn error of immunity"
+    ],
+    "creation_date": "2026-10-01T21:19:54Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Combined immunodeficiency due to MALT1 deficiency (immunodeficiency 12) is the autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in MALT1, the paracaspase subunit of the CARD11-BCL10-MALT1 (CBM) signalosome. MALT1 does two jobs in that complex. As a scaffold it carries an engaged T or B cell antigen receptor through to canonical NF-kappaB activation, and as a cysteine protease it cleaves negative regulators of that pathway and of cytokine mRNA stability. Most reported alleles abolish the protein, so both jobs fail together.\nThe disease therefore has two faces in the same child. The immunodeficient face follows from the scaffold defect: T cells are present in normal numbers but proliferate and make IL-2 poorly on receptor stimulation, Th17 immunity is weak, and B cells arrest at the transitional stage and are progressively lost, so specific antibody responses fail and some patients become agammaglobulinemic. Infections with Staphylococcus aureus, Candida albicans and cytomegalovirus dominate, alongside recurrent pneumonia that leads to bronchiectasis. The dysregulated face follows mainly from loss of the protease function that regulatory T cells depend on: FOXP3 regulatory T cells are drastically reduced and the picture can be IPEX-like, with enteropathy, autoimmunity, eczematous or erythrodermic skin disease, eosinophilia and raised IgE.\nOnset is in the first months of life. Because T and B cell numbers are often normal at presentation, and newborn TREC screening can be normal, the disease is recognised late. Immunoglobulin replacement and antibiotic prophylaxis do little to change its course, about half of untreated patients die of infection, and allogeneic haematopoietic stem cell transplantation is curative.",
+    "pathophysiology": [
+      "Biallelic MALT1 Loss of Function",
+      "Defective CBM Signalosome Signaling to NF-kappaB",
+      "Loss of MALT1 Paracaspase Activity",
+      "Impaired Antigen Receptor-Driven T Cell Activation",
+      "Impaired Th17 Immunity",
+      "Arrested B Cell Maturation and Progressive B Cell Depletion",
+      "Regulatory T Cell Deficiency",
+      "Th2-Skewed Immune Dysregulation"
+    ],
+    "cell_types": [
+      "T cell",
+      "T-helper 17 cell",
+      "transitional stage B cell",
+      "memory B cell",
+      "regulatory T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000899",
+      "CL:0000818",
+      "CL:0000787",
+      "CL:0000815"
+    ],
+    "biological_processes": [
+      "T cell receptor signaling pathway",
+      "B cell receptor signaling pathway",
+      "canonical NF-kappaB signal transduction",
+      "T cell proliferation",
+      "interleukin-2 production",
+      "tumor necrosis factor production",
+      "T-helper 17 cell differentiation",
+      "B cell differentiation",
+      "regulatory T cell differentiation",
+      "type 2 immune response"
+    ],
+    "phenotypes": [
+      "Recurrent infections",
+      "Bronchiectasis",
+      "Cytomegalovirus pneumonitis",
+      "Pneumocystis jirovecii pneumonia",
+      "Recurrent Staphylococcus aureus infections",
+      "Recurrent candida infections",
+      "Decreased antigen-specific T cell proliferation",
+      "Impaired specific antibody response",
+      "Decreased Th17 T cell proportion",
+      "Decreased total B cell count",
+      "Agammaglobulinemia",
+      "Decreased regulatory T cell proportion",
+      "Autoimmunity",
+      "Chronic diarrhea",
+      "Eczematous dermatitis",
+      "Erythroderma",
+      "Increased circulating IgE concentration",
+      "Eosinophilia",
+      "Failure to thrive",
+      "Oral ulcer",
+      "Periodontitis",
+      "Severe infection",
+      "Lymphadenopathy"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Respiratory",
+      "Infectious",
+      "Digestive",
+      "Integumentary",
+      "Hematological",
+      "Growth"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002719",
+      "HP:0002110",
+      "HP:5210283",
+      "HP:0020102",
+      "HP:0002726",
+      "HP:0005401",
+      "HP:0031402",
+      "HP:0012475",
+      "HP:0025832",
+      "HP:0010976",
+      "HP:0004432",
+      "HP:0020113",
+      "HP:0002960",
+      "HP:0002028",
+      "HP:0000964",
+      "HP:0001019",
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0001508",
+      "HP:0000155",
+      "HP:0000704",
+      "HP:0032169",
+      "HP:0002716"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "MALT1"
+    ],
+    "treatments": [
+      "Hematopoietic Stem Cell Transplantation",
+      "Immunoglobulin Replacement Therapy",
+      "Antibiotic Prophylaxis"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Combined_Immunodeficiency_Due_To_MALT1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Combined_Immunodeficiency_Due_To_MALT1_Deficiency.html",
+    "num_phenotypes": 23,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Combined Immunodeficiency Due To Moesin Deficiency",
     "disease_id": "MONDO:0010514",
     "category": "Mendelian",
@@ -115562,6 +115705,174 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "24",
     "causal_graph_longest_path": "9"
+  },
+  {
+    "name": "Disabling Pansclerotic Morphea of Childhood",
+    "disease_id": "MONDO:0957497",
+    "category": "Mendelian",
+    "parents": [
+      "Localized scleroderma",
+      "Autoinflammatory disease",
+      "Autosomal dominant disease"
+    ],
+    "creation_date": "2026-10-01T20:21:47Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A rare, severe systemic inflammatory and fibrosing disorder at the most severe end of the juvenile localized scleroderma (morphea) spectrum, with onset usually in early childhood. Rapidly progressive sclerosis extends circumferentially from the dermis through subcutaneous fat and fascia into muscle and bone, producing joint contractures, musculoskeletal atrophy, articular ankylosis and immobility. Poor wound healing with chronic skin and mucosal ulceration is characteristic, and long-standing ulcers carry a risk of cutaneous squamous cell carcinoma. Unlike systemic sclerosis, internal organ fibrosis is typically absent and scleroderma-associated autoantibodies are usually not detected. Systemic features in genetically defined cases include cytopenias, hypogammaglobulinemia, raised inflammatory markers and recurrent infections. Heterozygous germline gain-of-function missense variants in the SH2 domain of STAT4 were identified in three unrelated families with autosomal dominant or de novo disease; they produce constitutive STAT4 phosphorylation and an interleukin-6-driven autoinflammatory loop in dermal fibroblasts, and the JAK1/2 inhibitor ruxolitinib improved disease in treated patients. The disease is otherwise refractory to conventional immunosuppression and carries high morbidity and mortality from sepsis, gangrene, restrictive pulmonary disease and squamous cell carcinoma.",
+    "pathophysiology": [
+      "STAT4 SH2-Domain Gain-of-Function Signaling",
+      "Fibroblast Interleukin-6 Autoinflammatory Loop",
+      "Impaired Fibroblast Wound Repair",
+      "Lymphocyte Inflammatory Transcriptional Program",
+      "Type II Interferon-Driven Fibroblast-Dendritic Cell Crosstalk",
+      "Progressive Deep Tissue Sclerosis"
+    ],
+    "cell_types": [
+      "dermal fibroblast",
+      "natural killer cell",
+      "T cell",
+      "myofibroblast",
+      "cDC2B conventional dendritic cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002551",
+      "CL:0000623",
+      "CL:0000084",
+      "CL:0000186",
+      "CL:0000990"
+    ],
+    "biological_processes": [
+      "STAT4 signaling",
+      "interleukin-6 production",
+      "interleukin-6-mediated signaling",
+      "fibroblast migration",
+      "wound healing",
+      "inflammatory response",
+      "response to IFN-gamma",
+      "myofibroblast differentiation",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Morphea",
+      "Poor wound healing",
+      "Skin ulcer",
+      "Oral ulcer",
+      "Panniculitis",
+      "Joint contracture",
+      "Skeletal muscle atrophy",
+      "Ankylosis",
+      "Arthritis",
+      "Neutropenia",
+      "Lymphopenia",
+      "Anemia",
+      "Thrombocytopenia",
+      "Decreased circulating IgG concentration",
+      "Decreased circulating IgA concentration",
+      "Acute phase response",
+      "Eosinophilia",
+      "Recurrent infections",
+      "Squamous cell carcinoma of the skin",
+      "Pulmonary arterial hypertension",
+      "Restrictive ventilatory defect",
+      "Pulmonary nodule",
+      "Pulmonary infiltrates",
+      "Portal hypertension",
+      "Glaucoma",
+      "Cataract",
+      "Sensorineural hearing impairment",
+      "Sepsis",
+      "Gangrene"
+    ],
+    "phenotype_categories": [
+      "Dermatological",
+      "Oral",
+      "Musculoskeletal",
+      "Hematological",
+      "Immunological",
+      "Neoplasm",
+      "Cardiovascular",
+      "Respiratory",
+      "Gastrointestinal",
+      "Ophthalmological",
+      "Audiological",
+      "Infectious",
+      "Vascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Constitutional",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012344",
+      "HP:0001058",
+      "HP:0200042",
+      "HP:0000155",
+      "HP:0012490",
+      "HP:0034392",
+      "HP:0003202",
+      "HP:0031013",
+      "HP:0001369",
+      "HP:0001875",
+      "HP:0001888",
+      "HP:0001903",
+      "HP:0001873",
+      "HP:0004315",
+      "HP:0002720",
+      "HP:0033331",
+      "HP:0001880",
+      "HP:0002719",
+      "HP:0006739",
+      "HP:0002092",
+      "HP:0002091",
+      "HP:0033608",
+      "HP:0002113",
+      "HP:0001409",
+      "HP:0000501",
+      "HP:0000518",
+      "HP:0000407",
+      "HP:0100806",
+      "HP:0100758"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT"
+    ],
+    "genes": [
+      "STAT4"
+    ],
+    "treatments": [
+      "Ruxolitinib",
+      "Methotrexate and Systemic Corticosteroids",
+      "Mycophenolate Mofetil",
+      "Tocilizumab",
+      "Ultraviolet A Phototherapy",
+      "Bosentan",
+      "Sildenafil with Acellular Matrix Wound Dressing",
+      "Intravenous Immunoglobulin Replacement",
+      "Physical Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Disabling_Pansclerotic_Morphea_Of_Childhood.yaml",
+    "page_url": "../pages/disorders/Disabling_Pansclerotic_Morphea_of_Childhood.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Disorder of Catecholamine Synthesis",
@@ -180317,6 +180628,105 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 3,
     "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Immunodeficiency 74, COVID-19-Related, X-Linked",
+    "disease_id": "MONDO:0026767",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of immunity",
+      "X-linked recessive disease"
+    ],
+    "creation_date": "2026-10-01T20:11:01Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Immunodeficiency 74 is X-linked recessive TLR7 deficiency: an inborn error of innate immunity in which hemizygous loss-of-function or hypomorphic variants of the X-chromosomal gene TLR7 abolish endosomal sensing of viral single-stranded RNA, and whose only consistently reported clinical consequence is severe-to-critical COVID-19 pneumonia in males. TLR7 is the single-stranded-RNA receptor whose ligation in plasmacytoid dendritic cells (pDCs) drives the largest burst of type I interferon any human leukocyte produces. In TLR7-deficient men that burst does not happen: patient pDCs exposed to SARS-CoV-2, or to TLR7-specific agonists, fail to induce type I interferon genes and fail to mature, while their response to a TLR9 agonist is intact, which localises the defect to the receptor rather than to the cell.\nThe disease is unusual among inborn errors of immunity in how narrow it is. TLR7 is not expressed in lung or pulmonary epithelial cells, so the lesion does not impair the TLR3-dependent epithelial arm of interferon immunity that other interferon-pathway defects hit; and the patients, who were ascertained through critical COVID-19, had not previously been hospitalised for any severe viral illness, influenza pneumonia included. It is also an inborn error that is defined by an exposure: the genotype is clinically silent until SARS-CoV-2 arrives, so COVID-19 segregates in these families as an X-linked recessive trait conditioned on infection. Penetrance for severe or critical disease is high but incomplete, and appears lower in young children, for whom the circulating pDC compartment is larger.\nIt is quantitatively important rather than merely instructive. In the COVID Human Genetic Effort cohort, biochemically deleterious TLR7 variants accounted for about 1.8% of unrelated male patients with critical COVID-19 pneumonia below 60 years of age, and were absent from asymptomatically or mildly infected men. Independent Italian and Spanish/Italian series found deleterious variants in 2.1% and 2.4% of comparable severe cases. Because the cumulative frequency of deleterious TLR7 alleles in men in the general population is below 6.5 per 10,000, a deleterious hemizygous variant found in a previously healthy young man with critical COVID-19 is a diagnosis rather than an incidental finding, and it makes his male relatives testable before they are infected.",
+    "pathophysiology": [
+      "TLR7 Loss of Function",
+      "Failure of Endosomal Single-Stranded RNA Sensing",
+      "Abolished MyD88-Dependent Signal Transduction",
+      "Deficient Plasmacytoid Dendritic Cell Type I Interferon Production",
+      "Impaired Type II Interferon Induction",
+      "Defective B Cell and Myeloid TLR7 Responsiveness",
+      "Unrestrained Early SARS-CoV-2 Replication in the Respiratory Tract",
+      "Lung Neutrophil Accumulation and Immunopathology",
+      "Hypoxemic COVID-19 Pneumonia"
+    ],
+    "cell_types": [
+      "plasmacytoid dendritic cell",
+      "B cell",
+      "classical monocyte",
+      "myeloid dendritic cell",
+      "neutrophil",
+      "alveolar macrophage",
+      "pulmonary alveolar type 2 cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000784",
+      "CL:0000236",
+      "CL:0000860",
+      "CL:0000782",
+      "CL:0000775",
+      "CL:0000583",
+      "CL:0002063"
+    ],
+    "biological_processes": [
+      "detection of virus",
+      "toll-like receptor 7 signaling pathway",
+      "MyD88-dependent toll-like receptor signaling pathway",
+      "positive regulation of canonical NF-kappaB signal transduction",
+      "type I interferon production",
+      "positive regulation of type I interferon production",
+      "type II interferon production",
+      "viral genome replication",
+      "defense response to virus",
+      "type III interferon production",
+      "neutrophil chemotaxis",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Severe viral infection",
+      "Pneumonia",
+      "Hypoxemia",
+      "Respiratory failure requiring assisted ventilation",
+      "Acute respiratory distress syndrome"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0031691",
+      "HP:0002090",
+      "HP:0012418",
+      "HP:0004887",
+      "HP:0033677"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TLR7"
+    ],
+    "treatments": [
+      "SARS-CoV-2 mRNA vaccination",
+      "Genetic counseling and pre-symptomatic testing of male relatives",
+      "Early exogenous interferon therapy"
+    ],
+    "environmental": [
+      "SARS-CoV-2 infection"
+    ],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_74_COVID-19-related_X-linked.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_74,_COVID-19-Related,_X-Linked.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "7"
   },
   {
@@ -280823,6 +281233,132 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Pulmonary Alveolar Proteinosis With Hypogammaglobulinemia",
+    "disease_id": "MONDO:0020840",
+    "category": "Mendelian",
+    "parents": [
+      "Pulmonary alveolar proteinosis",
+      "Inborn error of immunity",
+      "Autoinflammatory disease"
+    ],
+    "creation_date": "2026-10-01T20:22:03Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Pulmonary alveolar proteinosis with hypogammaglobulinemia (PAPHG), also described as OAS1-associated polymorphic autoinflammatory immunodeficiency (OPAID), is an ultra-rare autosomal dominant inborn error of immunity caused by heterozygous, mostly de novo, gain-of-function missense variants in OAS1. Affected infants are well at birth and develop pulmonary alveolar proteinosis with progressive respiratory insufficiency in the first months of life, often after a viral-like respiratory illness, together with hypogammaglobulinemia, leukocytosis, splenomegaly, and flares of recurrent fever, ulcerative skin rash and diarrhea. Variant OAS1 synthesizes 2'-5'-oligoadenylate without its double-stranded RNA trigger once interferon induces its expression, activating RNase L, which degrades cellular RNA, arrests translation, and drives apoptosis and dysfunction of monocytes, alveolar macrophages and differentiating B cells. Defective alveolar macrophage clearance of surfactant produces the proteinosis, and B-cell loss produces the antibody deficiency. Mortality from respiratory failure in infancy and childhood is high; allogeneic hematopoietic stem cell transplantation is curative, while whole lung lavage and immunoglobulin replacement are bridging measures.",
+    "pathophysiology": [
+      "Interferon-Induced Variant OAS1 Expression",
+      "Constitutive dsRNA-Independent 2-5A Synthesis",
+      "RNase L-Mediated Cellular RNA Degradation",
+      "Translational Arrest",
+      "Monocyte and Macrophage Apoptosis",
+      "Alveolar Macrophage Dysfunction",
+      "Alveolar Surfactant Accumulation",
+      "B Cell Apoptosis and Impaired Differentiation",
+      "Myeloid-Driven Systemic Autoinflammation"
+    ],
+    "cell_types": [
+      "monocyte",
+      "B cell",
+      "macrophage",
+      "alveolar macrophage",
+      "plasmablast"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000236",
+      "CL:0000235",
+      "CL:0000583",
+      "CL:0000980"
+    ],
+    "biological_processes": [
+      "type I interferon-mediated signaling pathway",
+      "rRNA catabolic process",
+      "negative regulation of translation",
+      "myeloid cell apoptotic process",
+      "macrophage apoptotic process",
+      "phagocytosis",
+      "granulocyte-macrophage colony-stimulating factor signaling pathway",
+      "surfactant homeostasis",
+      "B cell apoptotic process",
+      "B cell differentiation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Pulmonary alveolar proteinosis",
+      "Respiratory insufficiency",
+      "Interstitial lung disease",
+      "Hypogammaglobulinemia",
+      "Recurrent respiratory infections",
+      "Recurrent fever",
+      "Failure to thrive",
+      "Inflammatory skin rash",
+      "Gastrointestinal inflammation",
+      "Diarrhea",
+      "Leukocytosis",
+      "Splenomegaly",
+      "Decreased monocyte count during flares"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Immunological",
+      "Constitutional",
+      "Dermatological",
+      "Gastrointestinal",
+      "Hematological",
+      "Abdominal",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006517",
+      "HP:0002093",
+      "HP:0006530",
+      "HP:0004313",
+      "HP:0002205",
+      "HP:0001954",
+      "HP:0001508",
+      "HP:0000988",
+      "HP:0004386",
+      "HP:0002014",
+      "HP:0001974",
+      "HP:0001744",
+      "HP:0012312"
+    ],
+    "frequencies": [
+      "6/6",
+      "5/5",
+      "4/5"
+    ],
+    "genes": [
+      "OAS1"
+    ],
+    "treatments": [
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Whole Lung Lavage",
+      "Immunoglobulin Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Pulmonary_Alveolar_Proteinosis_With_Hypogammaglobulinemia.yaml",
+    "page_url": "../pages/disorders/Pulmonary_Alveolar_Proteinosis_With_Hypogammaglobulinemia.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Pulmonary Embolism",
     "disease_id": "MONDO:0005279",
     "category": "Acquired",
@@ -306143,6 +306679,170 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "20",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Severe X-linked Mitochondrial Encephalomyopathy",
+    "disease_id": "MONDO:0010437",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-10-01T21:34:26Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Severe X-linked mitochondrial encephalomyopathy, also called combined oxidative phosphorylation deficiency 6 (COXPD6, OMIM 300816), is an ultra-rare primary mitochondrial disease of hemizygous males caused by pathogenic variants in AIFM1 (Xq26.1). AIFM1 encodes apoptosis-inducing factor (AIF), an FAD-dependent NADH oxidoreductase anchored in the mitochondrial intermembrane space. AIF has two functions that both matter here. Its vital function is to support biogenesis of the respiratory chain: AIF imports and partners CHCHD4 (MIA40), the receptor of the intermembrane space disulfide relay, which in turn imports complex I subunits such as NDUFS5. Its lethal function is exercised when a soluble AIF fragment is released and moves to the nucleus to drive caspase-independent chromatin fragmentation (parthanatos).\nThe founding allele, an in-frame deletion of arginine 201, destabilizes AIF, reduces respiratory chain activities in patient fibroblasts and muscle, and increases the DNA-binding affinity of soluble AIF, so that patient cells show both an oxidative phosphorylation (OXPHOS) defect and exaggerated parthanatos. Later alleles (missense, splice and targeting-sequence variants) likewise reduce steady-state AIF and produce combined complex I, III and/or IV deficiency with tissue-dependent biochemical patterns.\nClinically the disease is an infantile- or neonatal-onset progressive encephalomyopathy: severe psychomotor delay or regression, seizures that can be intractable, hypotonia, extrapyramidal signs, axonal sensorimotor neuropathy with denervation, myopathy, lactic acidosis, and basal ganglia (striatal) involvement on imaging or pathology in many cases; a neonatal presentation with diffuse cortical and white-matter injury that relatively spares the basal ganglia is also reported, so the imaging pattern is not uniform. Prenatal ventriculomegaly, cardiac hypertrophy and death in infancy are reported in the severe end; a slower course with ataxia, cerebellar atrophy, hearing loss, ophthalmoplegia and respiratory failure is reported in other males. Treatment is supportive; riboflavin, the FAD precursor, has been given with mixed results.",
+    "pathophysiology": [
+      "Unstable AIF Protein",
+      "Impaired CHCHD4 Mitochondrial Import",
+      "Defective Respiratory Chain Complex Assembly",
+      "Combined Oxidative Phosphorylation Deficiency",
+      "Enhanced AIF-Dependent Parthanatos",
+      "Progressive Neuronal Degeneration",
+      "Mitochondrial Myopathy",
+      "Cardiomyocyte Energy Failure"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "fibroblast",
+      "neuron",
+      "motor neuron",
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000057",
+      "CL:0000540",
+      "CL:0000100",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "protein import into mitochondrial intermembrane space",
+      "mitochondrial respiratory chain complex I assembly",
+      "mitochondrial respiratory chain complex assembly",
+      "oxidative phosphorylation",
+      "parthanatos (caspase-independent AIF-mediated programmed cell death)"
+    ],
+    "phenotypes": [
+      "Encephalopathy",
+      "Global developmental delay",
+      "Developmental regression",
+      "Seizure",
+      "Abnormality of extrapyramidal motor function",
+      "Bilateral striatal necrosis",
+      "Abnormal basal ganglia MRI signal intensity",
+      "Cerebral atrophy",
+      "Cerebral edema",
+      "Diffuse white matter abnormality",
+      "Multicystic encephalomalacia",
+      "EEG burst suppression",
+      "Ventriculomegaly",
+      "Microcephaly",
+      "Peripheral axonal neuropathy",
+      "EMG and muscle biopsy denervation",
+      "Hypotonia",
+      "Muscle weakness",
+      "Skeletal muscle atrophy",
+      "Ragged-red muscle fibers",
+      "Sensorineural hearing impairment",
+      "Ataxia",
+      "Cerebellar atrophy",
+      "External ophthalmoplegia",
+      "Dysphagia",
+      "Respiratory insufficiency",
+      "Kyphoscoliosis",
+      "Hypertrophic cardiomyopathy",
+      "Dilated cardiomyopathy",
+      "Congestive heart failure",
+      "Lactic acidosis",
+      "Increased CSF lactate",
+      "Elevated brain lactate level by MRS",
+      "Decreased activity of mitochondrial complex IV",
+      "Decreased activity of mitochondrial complex III",
+      "Decreased activity of mitochondrial complex I"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neurodevelopmental",
+      "Neuroimaging",
+      "Neuromuscular",
+      "Otologic",
+      "Ophthalmological",
+      "Gastrointestinal",
+      "Respiratory",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0006789",
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0001250",
+      "HP:0002071",
+      "HP:0040140",
+      "HP:0012751",
+      "HP:0002059",
+      "HP:0002181",
+      "HP:0007204",
+      "HP:0040197",
+      "HP:0010851",
+      "HP:0002119",
+      "HP:0000252",
+      "HP:0003477",
+      "HP:0003445",
+      "HP:0001252",
+      "HP:0001324",
+      "HP:0003202",
+      "HP:0003200",
+      "HP:0000407",
+      "HP:0001251",
+      "HP:0001272",
+      "HP:0000544",
+      "HP:0002015",
+      "HP:0002093",
+      "HP:0002751",
+      "HP:0001639",
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0003128",
+      "HP:0002490",
+      "HP:0012707",
+      "HP:0008347",
+      "HP:0011924",
+      "HP:0011923"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AIFM1"
+    ],
+    "treatments": [
+      "Mitochondrial cofactor supplementation",
+      "Antiseizure pharmacotherapy",
+      "Perioperative anesthetic planning",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Severe_X-linked_Mitochondrial_Encephalomyopathy.yaml",
+    "page_url": "../pages/disorders/Severe_X-linked_Mitochondrial_Encephalomyopathy.html",
+    "num_phenotypes": 36,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "55",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Sezary Syndrome",
@@ -331703,6 +332403,104 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Traumatic Brain Injury",
+    "disease_id": "MONDO:0858950",
+    "category": "Complex",
+    "parents": [],
+    "creation_date": "2026-10-01T04:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Damage to the brain caused by an external mechanical force: a blow to the head, rapid acceleration and deceleration, penetration, or blast. The injury unfolds in two stages. The primary injury is mechanical and happens in milliseconds: tissue is deformed, vessels tear, and axons are stretched beyond their tolerance. A secondary injury cascade then develops over hours to days, driven by excitotoxic glutamate release, spreading depolarisations, blood-brain barrier disruption, cytotoxic brain swelling and raised intracranial pressure, and systemic insults such as hypotension and hypoxia. In a proportion of survivors a chronic phase follows, with neuroinflammation and white matter degeneration that persist for years and an increased risk of dementia. Severity ranges from concussion to coma, and it is graded clinically by the Glasgow Coma Scale and the duration of loss of consciousness and post-traumatic amnesia rather than by mechanism.",
+    "pathophysiology": [
+      "Rapid Head Acceleration and Brain Tissue Deformation",
+      "Focal Contusion and Intracranial Haemorrhage",
+      "Diffuse Axonal Injury",
+      "Blood-Brain Barrier Disruption",
+      "Excitotoxic Glutamate Release",
+      "Spreading Depolarisations",
+      "Secondary Systemic Insults (Hypotension and Hypoxia)",
+      "Cytotoxic Brain Swelling and Raised Intracranial Pressure",
+      "Secondary Neuronal Loss",
+      "Persistent Neuroinflammation",
+      "White Matter Degeneration and Circuit Disconnection"
+    ],
+    "cell_types": [
+      "neuron",
+      "microglial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000540",
+      "CL:0000129"
+    ],
+    "biological_processes": [
+      "response to axon injury",
+      "glutamate secretion",
+      "microglial cell activation",
+      "neuroinflammatory response"
+    ],
+    "phenotypes": [
+      "Loss of Consciousness",
+      "Coma",
+      "Post-Traumatic Amnesia",
+      "Cerebral Contusion",
+      "Subdural Hemorrhage",
+      "Intracranial Hemorrhage",
+      "Increased Intracranial Pressure",
+      "Headache",
+      "Cognitive impairment",
+      "Early Post-Traumatic Seizures",
+      "Dementia"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007185",
+      "HP:0001259",
+      "HP:0002354",
+      "HP:6000141",
+      "HP:0100309",
+      "HP:0002170",
+      "HP:0002516",
+      "HP:0002315",
+      "HP:0100543",
+      "HP:0001250",
+      "HP:0000726"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Tranexamic Acid",
+      "Decompressive Craniectomy",
+      "Corticosteroids",
+      "Early Seizure Prophylaxis",
+      "Hyperosmolar Therapy",
+      "Haematoma Evacuation",
+      "Therapeutic Hypothermia",
+      "Amantadine"
+    ],
+    "environmental": [
+      "Mechanical Head Trauma"
+    ],
+    "biochemical": [
+      "Serum GFAP",
+      "Serum UCH-L1"
+    ],
+    "source_file": "Traumatic_Brain_Injury.yaml",
+    "page_url": "../pages/disorders/Traumatic_Brain_Injury.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 8,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Traveler's Diarrhea",
     "disease_id": "MONDO:0001673",
     "category": "Infectious Disease",
@@ -350632,17 +351430,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3279,
+  "total_disorder_pages": 3285,
   "total_subtypes": 4568,
-  "total_disorders_and_subtypes": 7847,
-  "total_unique_evidence_sources": 48695,
-  "total_unique_publications": 45528,
+  "total_disorders_and_subtypes": 7853,
+  "total_unique_evidence_sources": 48794,
+  "total_unique_publications": 45627,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 292,
-  "total_pathographs": 3275,
-  "total_unique_pathological_events": 21231,
-  "total_modules": 181,
-  "total_research_reports": 3392,
+  "total_pathographs": 3281,
+  "total_unique_pathological_events": 21275,
+  "total_modules": 183,
+  "total_research_reports": 3398,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 111

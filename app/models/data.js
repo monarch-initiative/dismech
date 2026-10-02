@@ -1575,6 +1575,48 @@ window.searchData = [
     "source_file": "kb/disorders/Sick_Sinus_Syndrome_2_Autosomal_Dominant.yaml"
   },
   {
+    "model_key": "Traumatic_Brain_Injury--computational-model-finite-element-head-model-of-brain-injury-biomechanics--0",
+    "name": "Finite-Element Head Model of Brain Injury Biomechanics",
+    "description": "A high-fidelity three-dimensional finite-element model of the human head that computes strain and strain rate in brain tissue for a given head loading. Applied to a helmet-to-helmet American football impact, a fall and a road traffic collision, it predicts that strain concentrates at the depths of sulci, and patient diffusion tensor imaging shows abnormalities in the same sulcal regions. A rat version of the model was later validated against histology after controlled cortical impact.",
+    "model_type": "Biomechanical",
+    "model_type_raw": "BIOMECHANICAL",
+    "model_format": "finite-element mesh",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:28043957",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Traumatic Brain Injury",
+    "disease_id": "MONDO:0858950",
+    "category": "Complex",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Rapid Head Acceleration and Brain Tissue Deformation",
+      "Diffuse Axonal Injury"
+    ],
+    "num_mechanisms": 2,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:28043957"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-10-01T04:00:00Z",
+    "page_url": "../../pages/disorders/Traumatic_Brain_Injury.html#computational-model-finite-element-head-model-of-brain-injury-biomechanics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Traumatic_Brain_Injury.yaml"
+  },
+  {
     "model_key": "Phenylketonuria--computational-model-harvey-whole-body-pku-model--2",
     "name": "Harvey Whole-Body PKU Model",
     "description": "Sex-specific whole-body model for organ-resolved IEM biomarker prediction.",
@@ -6418,9 +6460,9 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 131,
-  "total_source_entries": 58,
-  "total_model_types": 10,
+  "total_models": 132,
+  "total_source_entries": 59,
+  "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 55
 };
