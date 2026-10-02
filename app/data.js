@@ -62482,33 +62482,44 @@ window.searchData = [
     "creation_date": "2026-07-17T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CDKL5 deficiency disorder (CDD) is an X-linked developmental and epileptic encephalopathy caused by loss-of-function variants in CDKL5, which encodes a serine/threonine protein kinase essential for neuronal maturation and synapse development. It is characterized by severe early-onset (usually first months of life), intractable epilepsy - frequently including epileptic spasms - together with profound developmental impairment, a complex movement disorder (chorea, dystonia, and stereotypies), cerebral (cortical) visual impairment, and autonomic disturbances. Females (heterozygous) are affected roughly four times as often as hemizygous males, but severity in both sexes can be equivalent and is modulated by variant type/position, X-chromosome inactivation, and postzygotic mosaicism. Nearly all cases are simplex, arising from a de novo CDKL5 variant.",
+    "description": "CDKL5 deficiency disorder (CDD) is an X-linked developmental and epileptic encephalopathy caused by pathogenic variants that reduce CDKL5 function. Severe seizures usually begin in early infancy, accompanied by developmental impairment, hypotonia, cerebral visual impairment, movement abnormalities, and sleep, gastrointestinal and autonomic problems. Rare individuals have milder development or no epilepsy. Females are diagnosed more often than males, but both sexes can be severely affected. Most affected individuals are simplex cases, commonly with a de novo variant; inherited variants and parental or postzygotic mosaicism also occur. CDKL5 has both kinase-dependent and kinase-independent neuronal functions.",
     "pathophysiology": [
       "CDKL5 Loss-of-Function Variant",
+      "CDKL5 Noncoding Exon Deletion",
+      "Reduced CDKL5 Transcript Abundance",
+      "Reduced Functional CDKL5 Protein",
       "Loss of CDKL5 Kinase Activity in Neurons",
-      "Impaired Dendritic Spine and Synapse Development",
+      "Reduced MAP1S Phosphorylation",
+      "Reduced EB2 Phosphorylation",
+      "Prolonged Dendritic Microtubule Growth",
+      "Reduced Dendritic TrkB Transport",
+      "Impaired CLIP170-Dynactin Association",
+      "Reduced Axonal Retrograde Cargo Initiation",
+      "Reduced CaV2.3 Phosphorylation",
+      "Prolonged CaV2.3 Current",
+      "Increased Postsynaptic NMDA Receptor Abundance",
+      "Altered Postsynaptic Condensate Organization",
+      "Impaired Dendritic Spine Plasticity",
+      "Reduced Dendritic Arborization",
       "Disrupted Cortical Excitation-Inhibition Balance",
       "Neuronal Network Hyperexcitability",
       "Early-Onset Intractable Epilepsy",
       "Impaired Neurodevelopment",
       "Movement Disorder",
       "Cortical Visual Impairment",
-      "Autonomic Dysfunction"
+      "Central Autonomic Dysregulation"
     ],
     "cell_types": [
+      "neuron",
       "Neuron",
-      "GABAergic interneuron",
       "Autonomic neuron"
     ],
     "cell_type_ids": [
       "CL:0000540",
-      "CL:0000617",
       "CL:0000107"
     ],
     "biological_processes": [
-      "Protein phosphorylation",
-      "Dendritic spine development",
-      "Regulation of synapse structure or activity"
+      "dendritic spine development"
     ],
     "phenotypes": [
       "Early-Onset Seizures",
@@ -62527,15 +62538,39 @@ window.searchData = [
       "Gastroesophageal Reflux",
       "Postnatal Microcephaly",
       "Scoliosis",
-      "Spasticity"
+      "Tonic Seizures",
+      "Focal Seizures",
+      "Myoclonic Seizures",
+      "Hypsarrhythmia",
+      "Absent Speech",
+      "Inability to Walk Independently",
+      "Nystagmus",
+      "Esotropia",
+      "Exotropia",
+      "Dysphagia",
+      "Apnea",
+      "Hypoventilation",
+      "Hip Dislocation",
+      "Autistic Behavior",
+      "Excessive Daytime Somnolence",
+      "Cerebral Atrophy",
+      "Cerebellar Atrophy",
+      "Bruxism",
+      "Hyperventilation",
+      "Delayed Puberty",
+      "Generalized Tonic-Clonic Seizures"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Digestive",
+      "Endocrine",
       "Eye",
+      "Growth",
       "Head and Neck",
+      "Limbs",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001250",
@@ -62547,35 +62582,71 @@ window.searchData = [
       "HP:0001332",
       "HP:0000733",
       "HP:0012332",
-      "HP:0001252",
+      "HP:0001290",
       "HP:0002360",
       "HP:0011968",
       "HP:0002019",
       "HP:0002020",
       "HP:0005484",
       "HP:0002650",
-      "HP:0001257"
+      "HP:0032792",
+      "HP:0007359",
+      "HP:0032794",
+      "HP:0002521",
+      "HP:0001344",
+      "HP:0002540",
+      "HP:0000639",
+      "HP:0000565",
+      "HP:0000577",
+      "HP:0002015",
+      "HP:0002104",
+      "HP:0002791",
+      "HP:0002827",
+      "HP:0000729",
+      "HP:0001262",
+      "HP:0002059",
+      "HP:0001272",
+      "HP:0003763",
+      "HP:0002883",
+      "HP:0000823",
+      "HP:0025190"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
     "genes": [
       "CDKL5"
     ],
     "treatments": [
       "Ganaxolone (Ztalmy)",
-      "Antiseizure Medication",
+      "Individualized Antiseizure Medication",
       "Ketogenic Diet Therapy",
-      "Multidisciplinary Supportive Care"
+      "Cannabidiol",
+      "Fenfluramine (Investigational for CDD)",
+      "Ataluren (Negative Clinical Trial)",
+      "Vagus Nerve Stimulation",
+      "Corpus Callosotomy",
+      "Multidisciplinary Supportive Care",
+      "Physical Therapy",
+      "Occupational Therapy",
+      "Communication Therapy",
+      "Nutritional and Feeding Support",
+      "Gastrostomy Feeding",
+      "Sleep Apnea Support",
+      "Genetic Counseling",
+      "Baclofen for Movement Symptoms",
+      "Cerebral Visual Impairment Support"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CDKL5_Deficiency_Disorder.yaml",
     "page_url": "../pages/disorders/CDKL5_Deficiency_Disorder.html",
-    "num_phenotypes": 17,
-    "num_pathophysiology": 10,
+    "num_phenotypes": 37,
+    "num_pathophysiology": 24,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 18,
+    "causal_graph_edges": "71",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "CEDNIK Syndrome",
@@ -62589,13 +62660,26 @@ window.searchData = [
     "creation_date": "2026-09-17T14:55:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CEDNIK syndrome \u2014 cerebral dysgenesis, neuropathy, ichthyosis and keratoderma \u2014 is the autosomal recessive neurocutaneous disease caused by biallelic loss of SNAP29, a SNARE protein on 22q11.2. Its coherence as one disease rests on a single cell-biological fact: SNAP29 is required for vesicle fusion, and the two tissues that suffer are the two that depend most conspicuously on regulated fusion events. In the epidermis, lamellar granules fail to mature, so the lipids and proteases they should deliver to the stratum corneum end up mislocated, the barrier fails and the skin becomes ichthyotic and hyperkeratotic. In the developing brain, the same trafficking defect accompanies cerebral malformation \u2014 corpus callosum dysgenesis and polymicrogyria \u2014 and a peripheral neuropathy. SNAP29 also participates in autophagosome-lysosome fusion, and knockout mouse epidermis accumulates LC3B-II with induction of the ER stress marker CHOP, which is why the disease is often discussed as an autophagy disorder as well as a SNARE one.\nThe gene's position matters clinically. SNAP29 lies inside the region deleted in 22q11.2 deletion syndrome, so a patient hemizygous for 22q11.2 who also carries a deleterious variant on the remaining allele can present with CEDNIK features. Expressivity is variable and penetrance incomplete: patients homozygous for the same c.486_487insA allele may show the full constellation or only the neurological part with no skin disease at all.",
+    "description": "CEDNIK syndrome is an autosomal recessive SNAP29-related neurocutaneous disorder with variable developmental impairment, brain malformations, peripheral neuropathy, ichthyosis and palmoplantar keratoderma. Some molecularly confirmed individuals lack skin disease or cortical malformations. Loss of SNAP29 function disrupts selected membrane-trafficking pathways; patient skin demonstrates abnormal lamellar granules and retention of lipid and protease cargo. Cell models identify endocytic recycling, Golgi organization and mitotic defects, but the causal routes to human brain malformations remain incompletely resolved. Hypomyelination and later neurological regression broaden the disorder beyond a purely congenital malformation syndrome. Biallelic sequence variants or a pathogenic sequence variant opposite a deletion encompassing SNAP29 can cause disease; other deleted genes can contribute additional features.",
     "pathophysiology": [
       "SNAP29 Loss of Function",
       "Lamellar Granule Maturation Failure",
-      "Impaired Autophagosome-Lysosome Fusion",
-      "Aberrant Epidermal Differentiation and Barrier Failure",
-      "Neuroectodermal Developmental Disruption"
+      "Reduced Extracellular Epidermal Lipid Delivery",
+      "Epidermal Protease Cargo Retention",
+      "Impaired Corneocyte Desquamation",
+      "Epidermal Barrier Impairment",
+      "Abnormal Keratinocyte Differentiation",
+      "Impaired Endocytic Recycling",
+      "Reduced Fibroblast Motility",
+      "Golgi Organization Defects",
+      "Defective Mitotic Chromosome Segregation",
+      "Abnormal Neural Development",
+      "Abnormal Cerebral Myelination",
+      "Context-Dependent Autophagic Clearance Disturbance",
+      "Endoplasmic Reticulum Stress",
+      "Altered Motor Neuron Organization",
+      "Peripheral Nerve Myelin Dysfunction",
+      "Impaired Swallowing"
     ],
     "cell_types": [
       "keratinocyte"
@@ -62604,79 +62688,140 @@ window.searchData = [
       "CL:0000312"
     ],
     "biological_processes": [
-      "autophagosome-lysosome fusion",
-      "keratinocyte differentiation",
-      "establishment of skin barrier"
+      "establishment of skin barrier",
+      "keratinocyte differentiation"
     ],
     "phenotypes": [
       "Ichthyosis",
       "Palmoplantar keratoderma",
-      "Cerebral dysgenesis",
+      "Corpus callosum hypoplasia",
+      "Corpus callosum agenesis",
       "Polymicrogyria",
+      "Cerebral hypomyelination",
       "Peripheral neuropathy",
+      "Peripheral demyelination",
+      "Areflexia",
       "Seizures",
       "Global developmental delay",
-      "Hypotonia",
-      "Optic nerve hypoplasia",
-      "Failure to thrive",
-      "Severe intellectual disability",
+      "Intellectual disability",
+      "Axial hypotonia",
+      "Generalized hypotonia",
       "Poor head control",
+      "Progressive microcephaly",
+      "Developmental regression",
+      "Lower limb spasticity",
+      "Dysarthria",
+      "Optic nerve hypoplasia",
+      "Optic atrophy",
+      "Cerebral visual impairment",
+      "Nystagmus",
+      "Strabismus",
       "Roving eye movements",
-      "Craniofacial dysmorphism",
-      "Hearing impairment"
+      "Sensorineural hearing impairment",
+      "Feeding difficulties",
+      "Dysphagia",
+      "Failure to thrive",
+      "Gastroesophageal reflux",
+      "Constipation",
+      "Aspiration pneumonia",
+      "Scoliosis",
+      "Joint contractures",
+      "Long face",
+      "Hypertelorism",
+      "Downslanted palpebral fissures",
+      "Synophrys",
+      "Precocious puberty",
+      "Short stature",
+      "Supraventricular tachycardia",
+      "Tethered cord"
     ],
     "phenotype_categories": [
-      "Dermatologic",
-      "Neurologic",
-      "Ophthalmologic",
-      "Growth",
-      "Craniofacial",
-      "Otolaryngologic"
+      "Ophthalmologic"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
       "Ear",
+      "Endocrine",
       "Eye",
       "Growth",
       "Head and Neck",
+      "Immune",
       "Integument",
       "Limbs",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0008064",
-      "HP:0000982",
+      "HP:0000972",
+      "HP:0002079",
       "HP:0001274",
       "HP:0002126",
+      "HP:0006808",
       "HP:0009830",
+      "HP:0011096",
+      "HP:0001284",
       "HP:0001250",
       "HP:0001263",
+      "HP:0001249",
       "HP:0008936",
-      "HP:0000609",
-      "HP:0001508",
-      "HP:0010864",
+      "HP:0001290",
       "HP:0002421",
+      "HP:0000253",
+      "HP:0002376",
+      "HP:0002061",
+      "HP:0001260",
+      "HP:0000609",
+      "HP:0000648",
+      "HP:0100704",
+      "HP:0000639",
+      "HP:0000486",
       "HP:0000496",
-      "HP:0001999",
-      "HP:0000365"
+      "HP:0000407",
+      "HP:0011968",
+      "HP:0002015",
+      "HP:0001508",
+      "HP:0002020",
+      "HP:0002019",
+      "HP:0011951",
+      "HP:0002650",
+      "HP:0034392",
+      "HP:0000276",
+      "HP:0000316",
+      "HP:0000494",
+      "HP:0000664",
+      "HP:0000826",
+      "HP:0004322",
+      "HP:0004755",
+      "HP:0002144"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "SNAP29"
     ],
-    "treatments": [],
+    "treatments": [
+      "Emollient skin care",
+      "Swallowing-directed feeding modification",
+      "Gastrostomy feeding",
+      "Individualized antiseizure medication",
+      "Physical and occupational rehabilitation",
+      "Augmentative communication",
+      "Corrective strabismus surgery",
+      "Symptomatic gastrointestinal treatment",
+      "Genetic counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CEDNIK_Syndrome.yaml",
     "page_url": "../pages/disorders/CEDNIK_Syndrome.html",
-    "num_phenotypes": 15,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 42,
+    "num_pathophysiology": 18,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 9,
+    "causal_graph_edges": "81",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "CERKL-Related Retinopathy",
@@ -63078,65 +63223,56 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CHD8-related neurodevelopmental disorder with overgrowth (CHD8-NDD; MONDO:0014017, OMIM 615032, also catalogued as \"intellectual developmental disorder with autism and macrocephaly\"/IDDAM) is an autosomal dominant, highly penetrant monogenic neurodevelopmental syndrome caused by heterozygous loss-of-function variants in CHD8 (HGNC:20153) at 14q11.2. CHD8 encodes chromodomain helicase DNA-binding protein 8, an ATP-dependent chromatin remodeller that binds the promoters of a large network of neurodevelopmental and autism risk genes. Haploinsufficiency produces a recognisable clinical gestalt: generalised overgrowth with macrocephaly (usually apparent in infancy) and tall stature (usually emerging around puberty), developmental delay with disproportionate speech and motor delay, intellectual disability that is most often mild to moderate, autism spectrum disorder, a characteristic facies (broad forehead with prominent supraorbital ridges, hypertelorism/widely spaced eyes, depressed nasal bridge, long philtrum, large ears), sleep disturbance affecting both sleep initiation and maintenance, and gastrointestinal dysfunction dominated by constipation. Less frequent features include hypotonia (about 30%), seizures (10%-15%), and rarely dystonia and Chiari I malformation. Most probands carry a de novo variant, but inherited variants with markedly variable expressivity are documented.\nEntity scope (NEC boundary, see `discussions` and `differential_diagnoses`): this entry is the MONOGENIC CHD8 haploinsufficiency syndrome anchored on MONDO:0014017 / OMIM:615032 / RO:0004003 HGNC:20153. It is deliberately kept distinct from (i) broad multifactorial autism spectrum disorder, in which CHD8 is merely one of many risk genes recovered by large-scale exome studies - that polygenic/multifactorial entity is curated separately and must not be conflated with this syndrome; and (ii) the CHD paralogue disorders that are the most common sources of citation confusion - CHD7 (CHARGE syndrome), CHD2 (developmental and epileptic encephalopathy), and CHD4 (Sifrim-Hitz-Weiss syndrome). Large-scale autism exome-sequencing cohorts are cited here only for gene discovery and gene-level burden, never for CHD8-specific phenotype frequencies; those come from the GeneReviews chapter and CHD8-ascertained clinical series.",
+    "description": "CHD8-related neurodevelopmental disorder with overgrowth is an autosomal dominant disorder associated principally with heterozygous loss-of-function variants in CHD8 at 14q11.2. CHD8 is an ATP-dependent chromatin regulator. The clinical spectrum includes variable macrocephaly and tall stature, developmental and speech delay, intellectual disability ranging from mild to severe, autism, sleep disturbance and gastrointestinal symptoms, particularly constipation. Hypotonia and seizures occur in a minority; dystonia can occasionally be a prominent presentation with limited cognitive involvement. Most pathogenic variants arise de novo, but transmission with markedly variable expression is documented. The frequency of each feature depends on ascertainment, age and reporting completeness. This entry concerns the molecularly defined CHD8 disorder; broad autism cohorts inform gene discovery, while CHD8-specific cohorts inform clinical frequencies. Contiguous deletions may add effects from neighboring genes.",
     "pathophysiology": [
       "CHD8 Haploinsufficiency",
-      "Failure of Chromatin Remodelling at CHD8 Target Promoters",
+      "Reduced Neuronal Chromatin Accessibility",
       "Dysregulation of Neurodevelopmental Gene Networks",
       "Impaired Wnt/beta-Catenin Signal Transduction",
+      "Reduced Cortical Progenitor Proliferation",
+      "Premature Neuronal Differentiation",
       "REST-Mediated Repression of Neuronal Genes",
-      "Altered Neural Progenitor Proliferation and Delayed Neuronal Differentiation",
-      "Brain Overgrowth and Megalencephaly",
+      "Shortened Neural Progenitor G1 Phase",
+      "Increased Neural Progenitor Proliferation",
+      "Premature Ventral Progenitor Differentiation",
       "Excitatory-Inhibitory Neuronal Trajectory Imbalance",
+      "Increased Gliogenesis",
+      "White Matter Expansion",
+      "Brain Overgrowth and Megalencephaly",
       "Aberrant Long-Range Functional Connectivity",
-      "Autistic, Cognitive and Neuropsychiatric Phenotype",
-      "Enteric Neural Crest and Gut Epithelial Dysfunction",
-      "Gastrointestinal Dysmotility and Barrier Dysfunction",
-      "Increased Gliogenesis and White Matter Expansion",
-      "Glial and Serotonergic Disruption of Sleep Architecture",
-      "Striatal Circuit Dysfunction"
+      "Striatal Circuit Dysfunction",
+      "Abnormal Neural Development",
+      "Reduced Vagal Neural Crest Cell Pool",
+      "Reduced Enteric Neuron Abundance",
+      "Gastrointestinal Dysmotility",
+      "Altered Intestinal Epithelial Differentiation",
+      "Intestinal Barrier Impairment",
+      "Developmental Glial Sleep Regulation Defect",
+      "Developmental Serotonin Excess",
+      "Sleep Fragmentation",
+      "Impaired Myelination",
+      "Slowed Axonal Conduction",
+      "Reduced Aged-Cortex Proteostasis Response Signature",
+      "Delayed Cortical Spine Development"
     ],
     "cell_types": [
-      "neural progenitor cell",
-      "radial glial cell",
-      "GABAergic (inhibitory) neuron",
-      "glutamatergic (excitatory) neuron",
-      "enteric neuron",
-      "intestinal goblet cell",
-      "intestinal tuft cell",
-      "glial cell",
-      "blood-brain-barrier glia (Drosophila subperineurial glia)",
-      "medium spiny neuron of the nucleus accumbens"
+      "neural progenitor cell"
     ],
     "cell_type_ids": [
-      "CL:0011020",
-      "CL:0000681",
-      "CL:0000617",
-      "CL:0000679",
-      "CL:0007011",
-      "CL:0000160",
-      "CL:0019032",
-      "CL:0000125",
-      "CL:1001474"
+      "CL:0011020"
     ],
     "biological_processes": [
-      "chromatin remodeling",
       "regulation of transcription by RNA polymerase II",
-      "synapse assembly",
-      "axon guidance",
-      "brain development",
       "canonical Wnt signaling pathway",
-      "negative regulation of transcription by RNA polymerase II",
       "neural precursor cell proliferation",
       "neuron differentiation",
-      "cell cycle",
-      "cerebral cortex neuron differentiation",
-      "enteric nervous system development",
-      "gliogenesis"
+      "negative regulation of transcription by RNA polymerase II",
+      "gliogenesis",
+      "brain development"
     ],
     "phenotypes": [
       "Macrocephaly",
-      "Tall Stature and Generalized Overgrowth",
+      "Tall Stature",
       "Overweight",
       "Global Developmental Delay",
       "Delayed Speech and Language Development",
@@ -63152,9 +63288,9 @@ window.searchData = [
       "Chiari Type I Malformation",
       "Anxiety",
       "Attention Deficit Hyperactivity Disorder",
-      "Aggressive and Self-Injurious Behavior",
+      "Self-Injurious Behavior",
       "Hypertelorism",
-      "Broad Forehead with Prominent Supraorbital Ridges",
+      "Broad Forehead",
       "Prominent Supraorbital Ridges",
       "Depressed Nasal Bridge",
       "Long Philtrum",
@@ -63163,7 +63299,14 @@ window.searchData = [
       "Pointed Chin",
       "Behavioral Abnormality",
       "Developmental Regression",
-      "Musculoskeletal Abnormality"
+      "Musculoskeletal Abnormality",
+      "Aggressive Behavior",
+      "Pes Planus",
+      "Scoliosis",
+      "Fifth-Finger Clinodactyly",
+      "Hyperbilirubinemia",
+      "Genitourinary Abnormality",
+      "Respiratory Distress"
     ],
     "phenotype_categories": [
       "Growth",
@@ -63171,16 +63314,23 @@ window.searchData = [
       "Behavioral",
       "Gastrointestinal",
       "Craniofacial",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Metabolic",
+      "Genitourinary",
+      "Respiratory"
     ],
     "phenotype_hpo_categories": [
       "Digestive",
       "Ear",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Limbs",
+      "Metabolism",
       "Musculoskeletal",
-      "Nervous System"
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0000256",
@@ -63211,13 +63361,19 @@ window.searchData = [
       "HP:0000307",
       "HP:0000708",
       "HP:0002376",
-      "HP:0033127"
+      "HP:0033127",
+      "HP:0000718",
+      "HP:0001763",
+      "HP:0002650",
+      "HP:0004209",
+      "HP:0002904",
+      "HP:0000119",
+      "HP:0002098"
     ],
     "frequencies": [
       "FREQUENT",
-      "VERY_FREQUENT",
       "OCCASIONAL",
-      "VERY_RARE"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "CHD8"
@@ -63230,17 +63386,21 @@ window.searchData = [
       "Surgical Treatment of Chiari I Malformation",
       "Growth and Neurologic Surveillance",
       "Deep Brain Stimulation for Refractory Dystonia",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Physical Therapy",
+      "Occupational Therapy",
+      "Levodopa Trial for Dystonia",
+      "Tizanidine and Botulinum Toxin Symptomatic Treatment"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth.yaml",
     "page_url": "../pages/disorders/CHD8-Related_Neurodevelopmental_Disorder_with_Overgrowth.html",
-    "num_phenotypes": 29,
-    "num_pathophysiology": 15,
+    "num_phenotypes": 36,
+    "num_pathophysiology": 29,
     "num_genes": 1,
-    "num_treatments": 8,
-    "causal_graph_edges": "25",
+    "num_treatments": 12,
+    "causal_graph_edges": "110",
     "causal_graph_longest_path": "9"
   },
   {
@@ -63251,16 +63411,20 @@ window.searchData = [
     "creation_date": "2026-09-02T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CHEK2-related cancer predisposition is the moderate-penetrance autosomal dominant cancer susceptibility caused by germline variants in CHEK2, which encodes the checkpoint kinase CHK2. CHK2 sits in the ATM-CHK2-p53 arm of the response to DNA double-strand breaks: ATM activates CHK2, and CHK2 in turn engages TP53, BRCA1, BRCA2 and the CDC25 phosphatases to trigger cell-cycle arrest, repair and apoptosis.\nTwo features make this entry different from a classic high-penetrance syndrome, and both are curated explicitly here rather than smoothed over.\nFirst, the mechanism is not as clean as the pathway diagram suggests. CHK2 speeds the damage signal along, but its role in activating p53-dependent arrest is dispensable, so a simple \"no CHK2, no p53 checkpoint\" account overstates what is known. In tumours, most CHEK2-associated breast cancers show biallelic inactivation with loss of heterozygosity, so the germline variant behaves as a first hit rather than acting through haploinsufficiency alone. The authors of the largest histopathologic series say plainly that the precise mechanistic relationship between CHEK2 and breast cancer remains uncertain.\nSecond, risk is a distribution rather than a number. Cancer risk for a CHEK2 heterozygote is continuous, running from population level to high risk depending on the specific variant, family history and other modifiers, so the same genotype can warrant population screening in one family and high-risk surveillance in another. The two commonest alleles behave differently: the truncating c.1100del confers the higher risk, whereas the p.Ile157Thr missense allele damages protein function yet carries a penetrance too low to be clinically actionable on its own.\nFemale breast cancer is the dominant tumour type. Prostate cancer is associated to a lesser extent, and CHEK2 has been reported as a moderate-penetrance testicular germ cell tumour susceptibility gene. Associations with other cancers are less well established or conflicting.\nCHEK2 is not a Li-Fraumeni syndrome gene. Early case series suggested it might be, and that claim has since been refuted; the entry records the refutation as evidence rather than leaving it as an absence.",
+    "description": "CHEK2-related cancer predisposition is an autosomal dominant susceptibility associated with germline pathogenic variants in the checkpoint kinase gene CHEK2. Female breast cancer is the best-established manifestation, with increased contralateral breast and prostate cancer risks and a smaller absolute male breast cancer risk. Penetrance varies with the allele, age, sex, family history and other modifiers. Common lower-risk missense variants, including p.Ile157Thr, require different risk interpretation from truncating variants. CHK2 participates in DNA-damage signaling, but checkpoint defects are context dependent and CHEK2-associated tumors generally lack the BRCA-like homologous-recombination-deficiency profile. Somatic second hits occur in a subset of tumors; neither their presence nor their absence defines every carrier-associated cancer. Clinical management uses individualized surveillance and cancer-specific treatment. CHEK2 does not cause Li-Fraumeni syndrome.",
     "pathophysiology": [
       "Germline CHEK2 Loss of Function",
-      "Attenuated ATM-CHK2 Damage Response Signaling",
-      "Biallelic Inactivation and Genomic Instability"
+      "Somatic CHEK2 Second-Hit Alteration",
+      "Attenuated CHK2 Damage Response Signaling",
+      "Increased CDC25A Abundance",
+      "Reduced Damage-Induced Apoptosis",
+      "Model-Specific Genomic Instability"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
-      "DNA damage checkpoint signaling"
+      "DNA damage checkpoint signaling",
+      "apoptotic process"
     ],
     "phenotypes": [
       "Breast carcinoma",
@@ -63284,27 +63448,28 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "CHEK2",
-      "CHEK2 c.1100del (truncating founder allele)",
-      "CHEK2 p.Ile157Thr (hypomorphic missense allele)"
+      "CHEK2"
     ],
     "treatments": [
       "Breast cancer surveillance",
       "Prostate cancer surveillance",
       "Risk-reducing mastectomy",
       "Cancer-directed treatment",
-      "Genetic counseling and cascade testing"
+      "Genetic counseling and cascade testing",
+      "Colorectal screening according to personal and family history",
+      "Olaparib under tumor-specific indications or trials",
+      "Ovarian risk management"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CHEK2-related_Cancer_Predisposition.yaml",
     "page_url": "../pages/disorders/CHEK2-related_Cancer_Predisposition.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 3,
-    "num_genes": 3,
-    "num_treatments": 5,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "CHILD Syndrome",
@@ -178087,6 +178252,127 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "29",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Immunodeficiency 122",
+    "disease_id": "MONDO:0971151",
+    "category": "Mendelian",
+    "parents": [
+      "Combined Immunodeficiency",
+      "Inborn Errors of Immunity"
+    ],
+    "creation_date": "2026-10-01T20:28:15Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "IMD122 is the syndromic combined immunodeficiency caused by biallelic variants in POLD3, an accessory subunit of DNA polymerase delta. Two unrelated patients are published, each homozygous for a different missense variant: a Lebanese child of a consanguineous family with a syndromic SCID, neurodevelopmental delay and hearing loss, and a boy of Moroccan descent who presented as Omenn syndrome and died at four. Three further siblings of the first patient died in early childhood of a comparable illness but were not genotyped, so the genetically confirmed count is two.\nThe mechanism is the same proliferation defect that underlies the sibling polymerase-delta immunodeficiencies POLD1 (IMD120) and POLD2. Polymerase delta is a heterotetramer: POLD1 carries the catalytic activities, POLD2 is the scaffold, and POLD3 and POLD4 regulate the activity and stability of the complex and establish its contacts, with POLD3 in particular mediating the interaction with PCNA that the holoenzyme needs for processivity. A hypomorphic accessory subunit lowers the enzyme's output, which restricts how many cells can enter and complete S phase. Lymphocytes expand fastest on demand, so they fail first, and the disease presents as a T-cell deficiency.\nThe two alleles reach that output by different routes, which is the useful part of having two patients. p.Ile10Thr sits in the POLD2-binding region and abolishes expression of POLD3 along with POLD1 and POLD2 \u2014 the destabilisation route, the same one the POLD1 CysB allele takes. p.Lys373Thr sits in a positively charged interdomain region thought to aid DNA binding, and leaves the expression of all three subunits intact while impairing function \u2014 the reduced-activity route. Different lesions, convergent phenotype, which is the argument that the disease follows from reduced polymerase delta output rather than from a property of one allele.\nUnlike the POLD1 patients, where DNA repair after genotoxic stress was reported normal, the Omenn patient's fibroblasts showed both a marked defect in S-phase entry and an increased number of double-strand-break-associated foci, so replicative stress and DNA damage are directly documented here. The cell-cycle defect was rescued by re-expressing wild-type POLD3, which establishes the direction of causation.\nClinically it presents in infancy with recurrent infection, profound depletion of naive T cells, a restricted T-cell receptor repertoire and defective early TCR recombination. The Omenn patient had the full dysregulation picture \u2014 erythroderma, alopecia, eosinophilia, elevated IgE, lymphadenopathy, hepatosplenomegaly and an absent thymus \u2014 and received a haematopoietic stem cell transplant at six months. The Lebanese patient had low naive T cells with preserved B-cell numbers, sensorineural hearing loss and developmental delay. Both carry syndromic non-immune features, which is why the entry is classified as a combined immunodeficiency with syndromic features.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic POLD3 Variants",
+      "Destabilisation of the Polymerase Delta Complex",
+      "Impaired Polymerase Delta Function with Intact Complex",
+      "Impaired DNA Replication and S-Phase Entry",
+      "Replication-Associated DNA Damage",
+      "Impaired T Cell Development and Proliferation",
+      "Oligoclonal T Cell Expansion",
+      "Omenn-Type Immune Dysregulation",
+      "Syndromic Developmental and Sensorineural Features"
+    ],
+    "cell_types": [
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "DNA replication initiation",
+      "cell cycle",
+      "DNA damage response",
+      "T cell receptor V(D)J recombination",
+      "T cell proliferation"
+    ],
+    "phenotypes": [
+      "Severe Combined Immunodeficiency",
+      "Recurrent Infections",
+      "Decreased CD8+ T Cell Proportion",
+      "Decreased Naive T Cell Proportion",
+      "Restricted T Cell Receptor Repertoire",
+      "Thymic Aplasia",
+      "Erythroderma",
+      "Alopecia",
+      "Eosinophilia",
+      "Elevated Serum IgE",
+      "Hepatosplenomegaly",
+      "Lymphadenopathy",
+      "Increased Natural Killer Cell Count",
+      "Decreased Circulating IgA",
+      "Sensorineural Hearing Loss",
+      "Global Developmental Delay",
+      "Growth Delay",
+      "Facial Dysmorphism"
+    ],
+    "phenotype_categories": [
+      "Immune",
+      "Integumentary",
+      "Abdominal",
+      "Otologic",
+      "Nervous System",
+      "Growth",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0004430",
+      "HP:0002719",
+      "HP:0005415",
+      "HP:0031397",
+      "HP:0025845",
+      "HP:0005359",
+      "HP:0001019",
+      "HP:0001596",
+      "HP:0001880",
+      "HP:0003212",
+      "HP:0001433",
+      "HP:0002716",
+      "HP:6000677",
+      "HP:0002720",
+      "HP:0000407",
+      "HP:0001263",
+      "HP:0001510",
+      "HP:0001999"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "POLD3"
+    ],
+    "treatments": [
+      "Haematopoietic Stem Cell Transplantation",
+      "Immunosuppression for Omenn Syndrome"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Immunodeficiency_122.yaml",
+    "page_url": "../pages/disorders/Immunodeficiency_122.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Immunodeficiency 123 With HPV-related Verrucosis",
@@ -305773,6 +306059,102 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Serotonin Syndrome",
+    "disease_id": "MONDO:0018546",
+    "category": "Complex",
+    "parents": [
+      "Poisoning"
+    ],
+    "creation_date": "2026-10-02T02:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "A drug-induced toxidrome caused by excess serotonergic activity in the central nervous system. It is not a disease of a serotonin defect but of serotonin excess, almost always pharmacological: a serotonergic drug raises synaptic 5-hydroxytryptamine - by increasing synthesis or release, blocking reuptake, blocking metabolism, or directly agonizing receptors - and the resulting over-stimulation of postsynaptic receptors, most notably 5-HT2A and 5-HT1A, produces a clinical triad of altered mental status, neuromuscular hyperexcitability (clonus, hyperreflexia, tremor), and autonomic instability.\nMost cases follow a combination of two agents acting by different mechanisms, the classic and most dangerous being a monoamine oxidase inhibitor with a serotonin-reuptake inhibitor, but monotherapy and overdose also cause it. Severity is a spectrum: most cases are mild and resolve within about a day of stopping the drug, while the severe end is defined by hyperthermia that is muscular rather than hypothalamic in origin, with rhabdomyolysis, disseminated intravascular coagulation, and death. Diagnosis is clinical, by the Hunter or Sternbach criteria, there being no confirmatory test. Because the hyperthermia is generated by sustained muscle activity rather than a raised set point, antipyretics do not help and the specific antidote is a 5-HT2A antagonist, cyproheptadine.",
+    "pathophysiology": [
+      "Excess Synaptic Serotonin",
+      "Overactivation of Postsynaptic 5-HT Receptors",
+      "Neuromuscular Hyperexcitability",
+      "Central Noradrenergic Hyperactivity",
+      "Autonomic Hyperactivity"
+    ],
+    "cell_types": [
+      "serotonergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000850"
+    ],
+    "biological_processes": [
+      "serotonin receptor signaling pathway"
+    ],
+    "phenotypes": [
+      "Agitation",
+      "Clonus",
+      "Hyperreflexia",
+      "Tremor",
+      "Myoclonus",
+      "Hyperhidrosis",
+      "Hyperthermia",
+      "Muscle rigidity",
+      "Seizure",
+      "Coma",
+      "Hypertension",
+      "Tachycardia",
+      "Mydriasis",
+      "Diarrhea",
+      "Rhabdomyolysis"
+    ],
+    "phenotype_categories": [
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000713",
+      "HP:0002169",
+      "HP:0001347",
+      "HP:0001337",
+      "HP:0001336",
+      "HP:0000975",
+      "HP:0001945",
+      "HP:0001276",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0000822",
+      "HP:0001649",
+      "HP:0011499",
+      "HP:0002014",
+      "HP:0003201"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Discontinuation and supportive care",
+      "Cyproheptadine",
+      "Benzodiazepine sedation"
+    ],
+    "environmental": [
+      "Electroconvulsive therapy concurrent with serotonergic agents",
+      "Cocaine overdose",
+      "Ayahuasca combined with a serotonergic agent",
+      "Kava supplement use with serotonergic agents"
+    ],
+    "biochemical": [],
+    "source_file": "Serotonin_Syndrome.yaml",
+    "page_url": "../pages/disorders/Serotonin_Syndrome.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Severe Combined Immunodeficiency",
     "disease_id": "MONDO:0015974",
     "category": "Mendelian",
@@ -351430,17 +351812,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3285,
+  "total_disorder_pages": 3287,
   "total_subtypes": 4568,
-  "total_disorders_and_subtypes": 7853,
-  "total_unique_evidence_sources": 48794,
-  "total_unique_publications": 45627,
+  "total_disorders_and_subtypes": 7855,
+  "total_unique_evidence_sources": 48900,
+  "total_unique_publications": 45708,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 292,
-  "total_pathographs": 3281,
-  "total_unique_pathological_events": 21275,
+  "total_pathographs": 3283,
+  "total_unique_pathological_events": 21329,
   "total_modules": 183,
-  "total_research_reports": 3398,
+  "total_research_reports": 3400,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 111
