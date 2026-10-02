@@ -189,7 +189,10 @@ against 20.5 s / 522 MB with it, while the two-walk
 call in `main()`, never at import: pytest imports these scripts' `scan_repo`
 functions directly and runs several of them in one process, which is exactly
 the case the cache exists for. `default_off()` uses `setdefault`, so an
-explicit `DISMECH_KB_CACHE` still wins.
+explicit `DISMECH_KB_CACHE` still wins. A test that calls such a `main()` in-process
+needs no guard of its own: the autouse `preserve_kb_cache_environment` fixture in
+`tests/conftest.py` resets the variable around every test, so the `0` it writes
+cannot reach `tests/test_kb_cache.py` (issue #11942).
 
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
@@ -207,7 +210,12 @@ record points at. `src/dismech/model_registry.py` is the only place that
 resolves these paths; route a new consumer through it rather than globbing.
 `tests/test_model_registry.py` gates the layout, so a branch still adding a
 flat `models/<id>.config.yaml` fails with a message. `just
-check-authored-models` runs every `run.py --check`. See `models/README.md`.
+check-authored-models` runs every `run.py --check`. Every folder gets a derived
+page, `pages/models/<model_id>.html` (`src/dismech/model_pages.py`, written by
+the page build), and an authored folder may add `run.js`, a browser port the
+page inlines so the model runs there. A `run.js` must reproduce `results.json`
+exactly, so a rule change goes into `run.py` first and then into `run.js`, and
+the parity test fails until they agree. See `models/README.md`.
 
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
@@ -1231,6 +1239,79 @@ a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
 `Pancreatic_Ductal_Adenocarcinoma`. See
 [`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
 
+### Infectious Disease Entry Granularity
+
+Infectious disease entries follow the **granularity ladder** ratified in design
+decisions §3e (`docs/explanation/design-decisions.md`), the infection
+counterpart of the cancer ladder in §3a — consult it before creating, splitting,
+or lumping any microbial entry. The short version:
+
+- **The default level is the named clinical entity**: the pathogen–syndrome pair
+  the field names, diagnoses and treats as a unit (cholera, Legionnaires'
+  disease, Pontiac fever). Neither the organism alone nor the organ syndrome
+  alone. Every node in the entry's pathophysiology must be true of every case
+  it covers; a node written vaguely enough to span two organisms with different
+  mechanisms means the entry belongs at the rung above.
+- **Above it**: a union of diseases the field names separately, or an organ
+  syndrome across unrelated organisms, is a `Grouping` (`Treponematoses` is the
+  model), and an abstraction like *infectious disease* is an `OUT_OF_SCOPE`
+  stub.
+- **Below it, the default is to lump.** An organism stratum (species, serovar,
+  serotype) earns a `has_subtypes` row only when it is **documented to differ**
+  from its siblings on one axis — presentation, diagnosis, first-line therapy,
+  prognosis, transmission/vector/reservoir, or geography — and the row's
+  `description` says what differs and its `evidence` cites it. A taxonomy
+  offering a name is not a reason. Pathotypes, biotypes, lineages, genotypes
+  and clades are carried structurally with `classification: pathotype` (etc.)
+  and the defining determinant in `description`; never bind ETEC to
+  `NCBITaxon:562`, the parent species.
+- **Promotion to a separate entry needs two axes** of the five (transmission
+  or vector; reservoir; tempo; organ systems; first-line therapy), a covering
+  `Grouping`, and a **pointer subtype** left on the parent carrying
+  `curated_in: <file stem>` — `Spotted_Fever_Rickettsiosis` → `RMSF` →
+  `curated_in: Rocky_Mountain_Spotted_Fever` is the worked example. A subtype
+  with `curated_in` is a pointer, not a disease; one that names a disease with
+  its own entry and lacks it is the defect.
+- **A phase is never an entry, and the entry must list its phases** in
+  `progression:`. A post-infectious immune sequela is its own entry. An
+  infection-attributed neoplasm follows §3a. A shared mechanism is a module.
+- **Every microbial entry declares** at least one NCBITaxon-bound
+  `infectious_agent` and at least one `transmission` route, plus
+  `agent_life_cycle` with `hosts`/`vectors` wherever a non-human reservoir or
+  arthropod vector exists. NCBITaxon is the only organism vocabulary; do not
+  add GTDB or assembly accessions.
+- **Where the taxon lives.** A disease-level subtype is a *clinical* stratum
+  (MONDO-bound where a named variant exists); an `InfectiousAgent.has_subtypes`
+  stratum is a *taxonomic* one (NCBITaxon-bound once PR #10353 lands). There
+  is deliberately **no `pathotype:` slot**.
+- **Record a deliberate lump** with a paragraph of the entry-level
+  `review_notes` beginning `Deliberately lumped.` followed by at least twenty
+  words on which strata were kept together and what was searched — the same
+  shape as the `Left deliberately uncited.` environmental waiver. The sentence
+  alone does not record anything.
+
+```bash
+just check-granularity                          # census + worklist (report-only, in `just qc`)
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry, the computed columns
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on the deterministic classes
+just check-granularity --scope all              # DOUBLE_MODELLED / DUPLICATE_ANCHOR KB-wide
+```
+
+The **deterministic** classes (`MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION`, `ROOT_AS_ENTRY`, `DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`,
+`PATHOTYPE_COLLAPSE`, `DANGLING_POINTER`) are defects with no judgement in
+them; the **advisory** ones (`TAXON_LUMP`, `UNBOUND_SUBTYPE`,
+`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`,
+`POINTER_TERM_MISMATCH`) are questions for a curator and never gate — an undifferentiated lump is the ladder's default
+state, not a defect, so `TAXON_LUMP` means "no decision recorded" and clears on
+the waiver above. Neoplasms with a viral agent, Mendelian susceptibility
+disorders, post-infectious sequelae and mycotoxicoses are out of scope by the
+ladder's own rules and are counted, not assessed. Over-broad anchoring
+(`Travelers_Diarrhea` on *diarrheal disease*) needs a MONDO descendant count and
+stays a manual audit.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
@@ -2242,6 +2323,74 @@ Beyond genes, the same shape applies to any descriptor where `preferred_term`
 names the entity and `term` binds it. Genes are the sharpest case because the
 label is usually an exact symbol.
 
+### Gene-Disease Validity Is Copied, Never Assigned (dismech#10179)
+
+`relationship_type` says what *kind* of gene-disease relationship is claimed
+(`CAUSATIVE`, `RISK_FACTOR`, ...). How *well established* it is goes in
+`Genetic.gene_disease_validity`, a list of `GeneDiseaseValidityAssertion`
+objects. Each records one external classification: the tier
+(`validity_classification`, the GenCC harmonised ladder from `DEFINITIVE` to
+`REFUTED`), **who assigned it** (`classified_by`, required), and the source's
+identifier for it (`external_id`).
+
+```yaml
+genetic:
+- name: HGD variants
+  gene_disease_validity:
+  - validity_classification: DEFINITIVE
+    classified_by: CLINGEN
+    external_id: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+    evidence:
+    - reference: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: "HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive"
+```
+
+Rules for filling it:
+
+- **Copy a tier from a source; never assign one.** There is no `DISMECH` or
+  `CURATOR` value for `classified_by`, on purpose. When no external body has
+  classified the pair (a gene surfaced by one cohort, IVNS1ABP at posterior
+  probability 0.33), leave the slot absent and say what the evidence is in
+  `Genetic.notes`. Absent means "not classified", which is not
+  `NO_KNOWN_DISEASE_RELATIONSHIP`.
+- **One assertion per source record.** ClinGen classifies each mode of
+  inheritance separately (JPH2 in dilated cardiomyopathy is Strong AR and
+  Limited AD), so a gene can carry several. Where an entry's subtypes are
+  separate ClinGen diseases, set `subtype` to the `has_subtypes[].name`.
+- **The assertion must be for this entry's disease.** A ClinGen record counts
+  only when its MONDO term is the entry's `disease_term`, a `has_subtypes`
+  term, or an `exactMatch` MONDO mapping. A broader ClinGen lumping (generic
+  hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
+- **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
+  scale, not a weak rating.
+- **Record it on the claim ClinGen classified.** An entry can carry a
+  causative row and a susceptibility row for the same gene; a ClinGen
+  Definitive AR tier belongs on the causative one only. The audit attributes
+  an assertion to the record whose own evidence cites it.
+- **Quote the source row as evidence**, as with any structured-source citation.
+
+```bash
+just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
+just list-gene-validity --format tsv --kind backfill  # the mechanical worklist
+just list-gene-validity kb/disorders/MyDisease.yaml
+```
+
+Only `conflict` fails: a recorded `CLINGEN` assertion whose cached `CGGV:`
+record carries a different tier or a different gene. The report classes are
+`unsourced` (a `CLINGEN` tier with no `CGGV:` identifier), `backfill` (a cited
+same-disease ClinGen assertion not yet recorded on the record that cites it),
+`other_disease` (ClinGen classified the gene only for a different MONDO
+disease: decide whether the entities are the same before copying), `unplaced`
+(an assertion cited outside `genetic[]` for a gene with several records, so the
+audit cannot tell which claim it describes),
+`overstated` (`relationship_type: CAUSATIVE`, which the schema defines as
+Definitive or Strong, on a gene ClinGen rates lower for this disease), and
+`uncached`. Only ClinGen is checked, because it is the one source cached per
+record. The audit never edits `kb/`; a bulk backfill would collide with every
+open curation PR.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
@@ -2274,6 +2423,44 @@ phenotype_term:
 
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
+
+### Gene Classifications (`kb/gene_classifications/`)
+
+Transcriptions of external systems that classify **genes** (as opposed to
+diseases), validating against `GeneClassificationCollection`. Provenance sits
+once in the file header; rows carry an HGNC-bound gene plus a multivalued
+`values` list.
+
+```bash
+just fetch-nmd-gene-table          # regenerate the NMD gene table collection
+just validate-gene-classifications # validate every collection
+```
+
+**`values` is multivalued by design.** A gene appears once per clinically
+distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy, and a
+motoneuron-disease presentation). That is a true fact about TTN, and putting it
+on the gene is exactly why this axis exists; it becomes unmodellable if forced
+onto a disease entry's `classifications`.
+
+Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
+[Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
+Note this is a **gene catalogue**, not an expert nosology in the ISDS sense;
+there is no whole-domain nosology for neuromuscular disease. It is nuclear-genome
+and monogenic only, so mtDNA disease and acquired neuromuscular disease
+(myasthenia gravis, the inflammatory myopathies, Guillain-Barré) are simply
+absent rather than assigned to a catch-all.
+
+**Never hand-edit a collection** — regenerate with its script. Adding a new
+source means: a new enum module under `src/dismech/schema/classifications/`, a
+fetch script, and an entry in `SYSTEM_ENUMS` in
+`tests/test_gene_classifications.py` so its values are checked against that enum.
+
+Distinct from `gene_sets:`, which references flat, typically
+experimentally-derived sets (signatures, perturbation results) consumed as
+enrichment inputs. A gene classification is a curated, authoritative assertion
+about which genes cause disease in a domain. See
+[`docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md`](docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md).
 
 ### Gain/Loss of Function: which slot?
 
@@ -2912,6 +3099,67 @@ transcytosis route is *not* filled into the targeting slots — the cited report
 states it as a possibility, and a hypothesized uptake route is not a targeting
 claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
 [`docs/delivery-systems.md`](docs/delivery-systems.md).
+
+### Treatment Effect Differs by Subgroup (`effect_modifiers`)
+
+When a source reports that a treatment works differently in one patient
+subgroup than another, record it as a `TreatmentEffectModifier` under the
+treatment's `effect_modifiers`, not only in its `description`:
+
+```yaml
+  effect_modifiers:
+  - effect_modifier_type: SEX            # AGE, SEX, REPRODUCTIVE_STATUS, BASELINE_SEVERITY,
+                                         # GENOTYPE, BIOMARKER, COMORBIDITY, ANCESTRY,
+                                         # CONCOMITANT_TREATMENT, OTHER
+    stratum: women over 65               # the subgroup, in the source's terms
+    comparator_stratum: men over 65
+    modified_outcome: knee extensor maximal torque
+    effect_in_stratum: SMALLER_EFFECT    # LARGER_EFFECT, SMALLER_EFFECT, NO_EFFECT,
+                                         # OPPOSITE_EFFECT, NO_DIFFERENCE
+    modification_analysis: CROSS_STRATUM_COMPARISON
+    interaction_tested: true
+    evidence:
+    - reference: PMID:27354538
+      ...
+```
+
+Rules for filling it:
+
+- **One entry per stratum, outcome and source.** A subgroup can show a larger
+  effect on one outcome and none on another; do not merge them.
+- **Record tested nulls.** `NO_DIFFERENCE` (compared, no difference) is a
+  finding, and it is what stops a reader assuming a subgroup effect. Use
+  `NO_EFFECT` when the stratum showed no benefit while the comparator did.
+- **Say how it was established.** `modification_analysis` runs from
+  `PRESPECIFIED_SUBGROUP` and `META_ANALYSIS_SUBGROUP` down to
+  `POST_HOC_SUBGROUP`, `CROSS_STRATUM_COMPARISON` (strata compared within one
+  study with no separate control) and `CROSS_STUDY_COMPARISON` (separate studies
+  in different populations; the weakest basis). Set `interaction_tested` only
+  when the source says whether a treatment-by-subgroup interaction test was run;
+  omit it otherwise.
+- **Never set `effect_in_stratum` from your own reading of two numbers.** The
+  source has to state the difference, or report a formal interaction. Two
+  overlapping confidence intervals read side by side are not a subgroup
+  finding.
+- **Conflicting studies get separate entries.** Do not average them into one.
+  Name the conflict in each entry's `description`, and consider a
+  `KNOWLEDGE_GAP` discussion attached to the treatment.
+- **Effect modification is not a mechanism.** If a mechanism explains the
+  difference (older muscle's blunted mTORC1 response to load explains the age
+  gradient), record it as a pathophysiology node and name that node in
+  `description`.
+- **Population first.** A subgroup result from a different population (a
+  sex-difference meta-analysis in 18-45-year-olds cited for a geriatric
+  disease) belongs in the treatment's `evidence`, with the caveat in its
+  `explanation`, not in `effect_modifiers`.
+
+`SEX` and `REPRODUCTIVE_STATUS` are separate on purpose, because menopausal
+status varies within one sex. Worked example: `Sarcopenia` → Progressive
+Resistance Exercise Training, which carries age, sex, menopausal-status and
+baseline-function modifiers. It also shows what stays out: SPRINTT reported a
+grip and lean-mass benefit in women and none in men, but from separate
+within-sex results with no interaction test and for a multicomponent programme,
+so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
 
 ### Subtype Naming Conventions
 
