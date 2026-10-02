@@ -1,0 +1,348 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Models - dismech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        body { font-family: var(--font); color: var(--gray-800); line-height: 1.6; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        nav { position: sticky; top: 0; z-index: 100; padding: .75rem 1.5rem; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--gray-200); backdrop-filter: blur(12px); }
+        .nav-inner { max-width: 1120px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+        .nav-logo { font-weight: 700; color: var(--teal); }
+        .nav-links { display: flex; flex-wrap: wrap; gap: 1.1rem; font-size: .875rem; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links .active { color: var(--teal); font-weight: 700; }
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: 1120px; margin: auto; padding: 3.2rem 1.5rem 2.2rem; }
+        .hero h1 { color: var(--teal); font-size: 2.1rem; line-height: 1.15; }
+        .hero-sub { max-width: 780px; margin-top: .65rem; color: var(--gray-600); }
+        main { max-width: 1120px; margin: auto; padding: 2rem 1.5rem 4rem; }
+        .breadcrumb { margin-bottom: 1.4rem; color: var(--gray-500); font-size: .88rem; }
+        .model-list { overflow: hidden; border: 1px solid var(--gray-200); border-radius: 10px; background: #fff; }
+        .model-row { display: grid; grid-template-columns: minmax(240px, 1.2fr) minmax(240px, 1.6fr) minmax(170px, .8fr); gap: 1rem; align-items: start; padding: 1rem; border-bottom: 1px solid var(--gray-200); }
+        .model-row:last-child { border-bottom: 0; }
+        .model-name { font-weight: 700; color: var(--gray-900); }
+        .model-id { display: block; color: var(--gray-500); font-family: var(--mono); font-size: .72rem; }
+        .model-used { color: var(--gray-600); font-size: .88rem; }
+        .pills { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; gap: .35rem; }
+        .pill { display: inline-flex; padding: .18rem .5rem; border-radius: 999px; background: var(--teal-50); color: var(--teal); font-size: .7rem; font-weight: 700; }
+        .pill-browser { background: #eef2ff; color: #4338ca; }
+        @media (max-width: 760px) { .model-row { grid-template-columns: 1fr; } .pills { justify-content: flex-start; } }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../modules/index.html">Modules</a>
+                <a href="index.html" class="active">Models</a>
+                <a href="../../app/models/index.html">Models browser</a>
+                <a href="../../details/">Docs</a>
+                <a href="https://github.com/monarch-initiative/dismech">GitHub</a>
+            </div>
+        </div>
+    </nav>
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Models kept in this repository</h1>
+            <p class="hero-sub">Each model whose files live under <code>models/</code>, with its rules, its committed runs and how to run it. The <a href="../../app/models/index.html">models browser</a> lists every computational model curated in the knowledge base, including the many that live elsewhere.</p>
+        </section>
+    </div>
+    <main>
+        <div class="breadcrumb"><a href="../../">Home</a> / Models</div>
+        <div class="model-list">
+            
+            <div class="model-row">
+                <div><a class="model-name" href="BIOMD0000000341.html">Topp Beta-Cell Mass / Insulin / Glucose Model</a><span class="model-id">BIOMD0000000341</span></div>
+                <div class="model-used">
+                    Curated on <a href="../disorders/Type_2_Diabetes_Mellitus.html#computational-model-topp-beta-cell-mass-insulin-glucose-model">Type 2 Diabetes Mellitus</a>
+                    
+                </div>
+                <div class="pills">
+                    <span class="pill">dismech-perturb</span>
+                    
+                </div>
+            </div>
+            
+            <div class="model-row">
+                <div><a class="model-name" href="BIOMD0000000613.html">Peterson-Riggs Calcium Homeostasis and Bone Remodeling Model</a><span class="model-id">BIOMD0000000613</span></div>
+                <div class="model-used">
+                    Curated on <a href="../disorders/CKD-Mineral_Bone_Disorder.html#computational-model-peterson-riggs-calcium-homeostasis-and-bone-remodeling-model">CKD-Mineral Bone Disorder</a>
+                    
+                </div>
+                <div class="pills">
+                    <span class="pill">dismech-perturb</span>
+                    
+                </div>
+            </div>
+            
+            <div class="model-row">
+                <div><a class="model-name" href="hpt_feedback_axis.html">Minimal Hypothalamic-Pituitary-Thyroid Feedback Model</a><span class="model-id">hpt_feedback_axis</span></div>
+                <div class="model-used">
+                    Curated on <a href="../disorders/Congenital_Hypothyroidism.html#computational-model-minimal-hypothalamic-pituitary-thyroid-feedback-model">Congenital Hypothyroidism</a>
+                    
+                </div>
+                <div class="pills">
+                    <span class="pill">dismech-perturb</span>
+                    
+                </div>
+            </div>
+            
+            <div class="model-row">
+                <div><a class="model-name" href="neuronal_migration_abm.html">Microtubule-Dependent Radial Neuronal Migration Agent-Based Model</a><span class="model-id">neuronal_migration_abm</span></div>
+                <div class="model-used">
+                    Curated on <a href="../modules/microtubule_dependent_neuronal_migration_failure.html#computational-model-microtubule-dependent-radial-neuronal-migration-agent-based-model">Microtubule-Dependent Neuronal Migration Failure Module</a>
+                    
+                </div>
+                <div class="pills">
+                    <span class="pill">authored runner</span>
+                    <span class="pill pill-browser">runs in browser</span>
+                </div>
+            </div>
+            
+            <div class="model-row">
+                <div><a class="model-name" href="rosacea_innate_boolean.html">Rosacea Innate-Immune Axis Boolean Model</a><span class="model-id">rosacea_innate_boolean</span></div>
+                <div class="model-used">
+                    Curated on <a href="../disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model">Rosacea</a>
+                    
+                </div>
+                <div class="pills">
+                    <span class="pill">authored runner</span>
+                    
+                </div>
+            </div>
+            
+            <div class="model-row">
+                <div><a class="model-name" href="urate_homeostasis.html">Minimal Urate Homeostasis Model</a><span class="model-id">urate_homeostasis</span></div>
+                <div class="model-used">
+                    Curated on <a href="../disorders/Gout.html#computational-model-minimal-urate-homeostasis-model">Gout</a>
+                    
+                </div>
+                <div class="pills">
+                    <span class="pill">dismech-perturb</span>
+                    
+                </div>
+            </div>
+            
+        </div>
+        
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
+    </main>
+</body>
+</html>

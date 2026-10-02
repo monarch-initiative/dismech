@@ -42,6 +42,7 @@ def isolated_disorder_render(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setattr(render, "render_all_comorbidities", lambda *a, **k: [])
     monkeypatch.setattr(render, "render_all_modules", lambda *a, **k: [])
+    monkeypatch.setattr(render, "render_all_model_pages", lambda *a, **k: [])
     monkeypatch.setattr(render, "render_research_index_page", lambda *a, **k: None)
     monkeypatch.setattr(render, "render_classification_pages", lambda *a, **k: [])
 

@@ -1,0 +1,1576 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topp Beta-Cell Mass / Insulin / Glucose Model - dismech models</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+                /* Model cards (experimental, animal, computational) and the readout,
+           findings and pathograph-link blocks inside them. Shared by the
+           disorder and module pages through _model_cards.html.j2 (#13123). */
+
+        .crosslink-meta {
+            color: #0f766e;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            margin-left: 6px;
+        }
+
+        .tag-phenotype {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .tag-biomarker {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+
+        .tag-dataset {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .mapping-notes {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .findings-section {
+            margin-top: 12px;
+        }
+
+        .findings-title {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .finding-item {
+            padding: 10px 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.9rem;
+        }
+
+        .finding-statement {
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+            line-height: 1.5;
+        }
+
+        .finding-supporting {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 6px;
+            padding-left: 12px;
+            border-left: 2px solid #cbd5e1;
+            font-style: italic;
+            line-height: 1.5;
+        }
+
+        .experiment-section {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .experiment-section-title {
+            font-size: 0.74rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+
+        .experiment-subitem {
+            padding: 10px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            margin-bottom: 8px;
+            font-size: 0.88rem;
+            line-height: 1.5;
+        }
+
+        .experiment-subitem-name {
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Experimental Models */
+        .exp-model-box {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .exp-model-box .item-name { color: #92400e; }
+        .exp-model-box .item-desc { color: #b45309; }
+
+        .tag-exp-model-type {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .tag-namo-type {
+            background: #ffedd5;
+            color: #c2410c;
+        }
+        .tag-condition {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .model-detail-list {
+            display: grid;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .model-detail-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.88rem;
+        }
+        .model-detail-label {
+            font-weight: 600;
+            color: var(--text);
+            min-width: 110px;
+        }
+        .model-detail-value {
+            color: var(--text-muted);
+            flex: 1;
+            min-width: 0;
+        }
+        .model-detail-value a {
+            color: inherit;
+        }
+
+        /* Computational Models */
+        .comp-model-box {
+            background: #f0fdf4;
+            border-left: 4px solid #22c55e;
+        }
+        .comp-model-box .item-name { color: #166534; }
+        .comp-model-box .item-desc { color: #15803d; }
+
+        .tag-format {
+            background: #dcfce7;
+            color: #166534;
+        }
+        .tag-software {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .tag-model-type {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+
+        .model-variables-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+            font-size: 0.85rem;
+        }
+        .model-variables-table th {
+            background: #f0fdf4;
+            color: #166534;
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 2px solid #86efac;
+            font-weight: 600;
+        }
+        .model-variables-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            vertical-align: top;
+        }
+        .model-variables-table tr:hover td {
+            background: #f0fdf4;
+        }
+        .model-var-name {
+            font-weight: 600;
+            color: #166534;
+        }
+        .model-var-desc {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+        .model-var-id {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        /* Simulation-run results (derived, from exports/model_runs/) */
+        .model-run-block {
+            margin-top: 12px;
+            border: 1px solid #86efac;
+            border-radius: 6px;
+            background: #f7fef9;
+        }
+        .model-run-summary {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-weight: 600;
+            color: #166534;
+            font-size: 0.9rem;
+        }
+        .model-run-summary:hover { background: #ecfdf5; }
+        .model-run-note {
+            display: block;
+            font-weight: 400;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .model-run-scroll { overflow-x: auto; }
+        .model-run-table { margin-top: 0; }
+        .model-run-table td { white-space: nowrap; }
+        .model-run-baseline td {
+            background: #ecfdf5;
+            font-weight: 500;
+        }
+        .model-run-caveat {
+            margin: 10px 12px;
+            padding: 10px 12px;
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #78350f;
+            line-height: 1.5;
+        }
+        .model-run-provenance {
+            padding: 8px 12px 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            border-top: 1px solid #d1fae5;
+        }
+        .severity-pill a { color: inherit; text-decoration: none; }
+        .severity-pill a:hover { text-decoration: underline; }
+
+        .severity-pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            margin: 2px;
+        }
+        .severity-mild { background: #fef9c3; color: #854d0e; }
+        .severity-moderate { background: #fed7aa; color: #9a3412; }
+        .severity-severe { background: #fecaca; color: #991b1b; }
+        .severity-other { background: #f3f4f6; color: #374151; }
+
+        .ontology-mapping-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            background: #e0f2fe;
+            color: #0369a1;
+            margin: 2px;
+        }
+        .ontology-mapping-tag a {
+            color: inherit;
+            text-decoration: none;
+        }
+        .ontology-mapping-tag a:hover {
+            text-decoration: underline;
+        }
+
+        /* Per-link scale and typed divergences (ModelMechanismLink). */
+        .model-link-scale {
+            display: inline-block;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #eef2ff;
+            color: #3730a3;
+            margin-left: 4px;
+        }
+        .model-divergence {
+            margin-top: 6px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+        }
+        .model-divergence-type {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            background: #f1f5f9;
+            color: #334155;
+        }
+        .model-materiality {
+            font-size: 0.72rem;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 4px;
+        }
+        .model-materiality-INVALIDATING { background: #fecaca; color: #991b1b; }
+        .model-materiality-QUALIFYING { background: #fef3c7; color: #92400e; }
+        .model-materiality-IMMATERIAL { background: #f3f4f6; color: #374151; }
+        .model-notes-details summary {
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+        .model-page-link {
+            display: inline-block;
+            margin-left: 16px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+        body { font-family: var(--font); color: var(--gray-800); line-height: 1.6; background: linear-gradient(180deg, #fff 0%, var(--gray-50) 100%); }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code, .mono { font-family: var(--mono); font-size: .85em; }
+        nav { position: sticky; top: 0; z-index: 100; padding: .75rem 1.5rem; background: rgba(255,255,255,.96); border-bottom: 1px solid var(--gray-200); backdrop-filter: blur(12px); }
+        .nav-inner { max-width: 1120px; margin: auto; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+        .nav-logo { font-weight: 700; color: var(--teal); }
+        .nav-links { display: flex; flex-wrap: wrap; gap: 1.1rem; font-size: .875rem; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links .active { color: var(--teal); font-weight: 700; }
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: 1120px; margin: auto; padding: 3.2rem 1.5rem 2.2rem; }
+        .hero h1 { color: var(--teal); font-size: 2rem; line-height: 1.2; letter-spacing: -.02em; }
+        .hero-id { margin-top: .3rem; color: var(--gray-500); font-family: var(--mono); font-size: .85rem; }
+        .hero-sub { max-width: 820px; margin-top: .8rem; color: var(--gray-700); }
+        .hero-stats { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+        .stat { display: inline-flex; padding: .28rem .7rem; border: 1px solid var(--teal-light); border-radius: 999px; background: #fff; color: var(--teal); font-size: .78rem; font-weight: 700; }
+        .stat-warn { border-color: #fcd34d; color: #92400e; }
+        main { max-width: 1120px; margin: auto; padding: 2rem 1.5rem 4rem; }
+        .breadcrumb { margin-bottom: 1.4rem; color: var(--gray-500); font-size: .88rem; }
+        .panel { margin-bottom: 2rem; padding: 1.35rem; border: 1px solid var(--gray-200); border-radius: 12px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+        .panel h2 { font-size: 1.25rem; margin-bottom: .3rem; }
+        .panel h3 { font-size: 1rem; margin: 1.2rem 0 .4rem; }
+        .section-intro { color: var(--gray-600); font-size: .92rem; margin-bottom: .8rem; max-width: 860px; }
+        .table-scroll { overflow-x: auto; }
+        table.data { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        table.data th { text-align: left; padding: 7px 10px; border-bottom: 2px solid var(--gray-200); color: var(--gray-600); font-weight: 600; white-space: nowrap; }
+        table.data td { padding: 7px 10px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+        table.data td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+        table.data th.num { text-align: right; }
+        .muted { color: var(--gray-500); }
+        .small { font-size: .8rem; }
+        .pattern { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+        .pattern-normal { background: #dcfce7; color: #166534; }
+        .pattern-delayed_lamination { background: #fef9c3; color: #854d0e; }
+        .pattern-diffuse_ectopia { background: #fed7aa; color: #9a3412; }
+        .pattern-band_heterotopia { background: #ede9fe; color: #5b21b6; }
+        .pattern-migration_failure { background: #fecaca; color: #991b1b; }
+        .hp-pill { display: inline-block; margin: 1px 2px; padding: 1px 7px; border-radius: 999px; background: #fef3c7; color: #92400e; font-size: .75rem; }
+        .rule { padding: .8rem 1rem; margin-bottom: .6rem; border: 1px solid var(--gray-200); border-left: 4px solid var(--teal-light); border-radius: 8px; background: var(--gray-50); }
+        .rule.assumption { border-left-color: #f59e0b; background: #fffbeb; }
+        .rule-name { font-weight: 700; font-family: var(--mono); font-size: .88rem; }
+        .rule-expr { margin: .3rem 0; font-family: var(--mono); font-size: .8rem; color: var(--gray-700); white-space: pre-wrap; }
+        .rule-meta { font-size: .82rem; color: var(--gray-600); }
+        .rule-meta ul { margin: .2rem 0 0 1.2rem; }
+        .rule-decision { margin-top: .35rem; font-size: .82rem; color: var(--gray-700); }
+        .badge-assumption { display: inline-block; margin-left: .4rem; padding: 0 6px; border-radius: 4px; background: #fde68a; color: #78350f; font-size: .7rem; font-weight: 700; font-family: var(--font); }
+        .cmd { display: block; margin: .3rem 0; padding: .5rem .75rem; border-radius: 6px; background: #0f172a; color: #e2e8f0; font-family: var(--mono); font-size: .82rem; overflow-x: auto; white-space: pre; }
+        .file-list { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+        .file-list a { padding: .15rem .55rem; border: 1px solid var(--gray-200); border-radius: 6px; font-family: var(--mono); font-size: .8rem; background: #fff; }
+        .usage-list { list-style: none; display: grid; gap: .4rem; margin-top: .4rem; }
+        .usage-kind { display: inline-block; min-width: 64px; color: var(--gray-500); font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+        /* In-browser runner */
+        .runner { display: grid; grid-template-columns: minmax(260px, 320px) 1fr; gap: 1.2rem; align-items: start; }
+        .runner-controls label { display: block; margin-top: .7rem; font-size: .82rem; font-weight: 600; color: var(--gray-700); }
+        .runner-controls .hint { font-weight: 400; color: var(--gray-500); font-size: .75rem; }
+        .runner-controls select, .runner-controls input[type=range] { width: 100%; margin-top: .2rem; }
+        .runner-controls select { padding: .35rem .5rem; border: 1px solid var(--gray-300); border-radius: 6px; font: inherit; font-size: .85rem; background: #fff; }
+        .slider-row { display: flex; justify-content: space-between; align-items: baseline; }
+        .slider-value { font-family: var(--mono); font-size: .8rem; color: var(--teal); }
+        .runner-stage { min-width: 0; }
+        .canvas-wrap { position: relative; border: 1px solid var(--gray-200); border-radius: 8px; background: #fff; }
+        canvas#abm-canvas { display: block; width: 100%; height: 420px; }
+        .playbar { display: flex; align-items: center; gap: .6rem; margin-top: .5rem; }
+        .playbar button { padding: .3rem .8rem; border: 1px solid var(--teal); border-radius: 6px; background: var(--teal); color: #fff; font: inherit; font-size: .82rem; cursor: pointer; }
+        .playbar button.secondary { background: #fff; color: var(--teal); }
+        .playbar input[type=range] { flex: 1; }
+        .playbar .t-label { font-family: var(--mono); font-size: .8rem; color: var(--gray-600); min-width: 92px; text-align: right; }
+        .legend { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: .5rem; font-size: .75rem; color: var(--gray-600); }
+        .legend span { display: inline-flex; align-items: center; gap: .3rem; }
+        .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+        .readout-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .5rem; margin-top: .8rem; }
+        .readout { padding: .45rem .6rem; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); }
+        .readout .k { font-size: .7rem; color: var(--gray-500); text-transform: uppercase; letter-spacing: .03em; }
+        .readout .v { font-family: var(--mono); font-size: .95rem; color: var(--gray-900); }
+        .parity { margin-top: .6rem; font-size: .8rem; }
+        .parity.ok { color: #166534; }
+        .parity.custom { color: var(--gray-600); }
+        .parity.bad { color: #991b1b; font-weight: 700; }
+        [hidden] { display: none !important; }
+        @media (max-width: 860px) {
+            .runner { grid-template-columns: 1fr; }
+            nav { padding: .7rem 1rem; }
+            .hero { padding: 2.6rem 1rem 1.8rem; }
+            main { padding: 1.3rem 1rem 3rem; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../modules/index.html">Modules</a>
+                <a href="index.html" class="active">Models</a>
+                <a href="../../app/models/index.html">Models browser</a>
+                <a href="../../details/">Docs</a>
+                <a href="https://github.com/monarch-initiative/dismech">GitHub</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Topp Beta-Cell Mass / Insulin / Glucose Model</h1>
+            <div class="hero-id">models/BIOMD0000000341/</div>
+            <p class="hero-sub">Minimal three-ODE dynamical model of the glucose regulatory system (Topp et al. 2000): plasma glucose, plasma insulin, and beta-cell mass, with fast glucose/insulin dynamics on a slow beta-cell-mass manifold. For normal parameters the system is bistable - a physiological steady state (euglycemia) and a pathological, insulinopenic steady state (beta-cell-mass collapse and severe hyperglycemia) separated by a saddle. This makes it the reference dynamical substrate for type 2 diabetes: reduced insulin sensitivity, impaired secretion, or hepatic glucose overproduction decompensates the at-risk state to overt diabetes, and it is wired for perturbation analysis (see the model config sidecar) so that both risk genes and glucose-lowering treatments can be simulated as parameter changes.</p>
+            <div class="hero-stats">
+                
+                <span class="stat">Runs through dismech-perturb</span>
+                
+                <span class="stat">kinetic</span>
+                
+                
+            </div>
+        </section>
+    </div>
+
+    <main>
+        <div class="breadcrumb"><a href="../../">Home</a> / <a href="index.html">Models</a> / BIOMD0000000341</div>
+
+        <section class="panel">
+            <h2>Where this model is curated</h2>
+            <p class="section-intro">The entry card says what the model is for: which mechanism nodes it links to, how faithfully, and what it found. This page holds the model itself.</p>
+            
+            <ul class="usage-list">
+                
+                <li><span class="usage-kind">disorder</span> <a href="../disorders/Type_2_Diabetes_Mellitus.html#computational-model-topp-beta-cell-mass-insulin-glucose-model">Type 2 Diabetes Mellitus</a> <span class="muted small">kb/disorders/Type_2_Diabetes_Mellitus.yaml</span></li>
+                
+            </ul>
+            
+        </section>
+
+        
+
+        
+
+        
+
+        
+        
+        <section class="panel" id="run">
+            <h2>Committed run</h2>
+            <p class="section-intro">From <code>exports/model_runs/BIOMD0000000341.json</code>, regenerated by <code>just gen-model-results</code>. Scenario roots link to the mechanism node they drive on the entry page.</p>
+            
+            
+<details class="model-run-block" open>
+    <summary class="model-run-summary">
+        Simulation results &mdash; 15 scenarios
+        <span class="model-run-note">
+            run with dismech-perturb (tellurium / libRoadRunner CVODE) over
+            4000 h; baseline
+            si = 0.72
+        </span>
+    </summary>
+    
+    <div class="model-run-caveat">
+        <strong>Interpretation caveat.</strong> This model is bistable and its baseline sits near the saddle separating the physiological and pathological fixed points, so every impairing lesion collapses to the same attractor (glucose 600 mg/dL, beta-cell mass 0) regardless of magnitude. Scenario outcomes are therefore NOT comparable in severity, and severity tiers are suppressed for this model. Two scenarios in particular must not be read as clinical claims: GCK loss-of-function is GCK-MODY (MODY2), which causes mild, non-progressive fasting hyperglycemia with no beta-cell mass loss and usually needs no pharmacotherapy; and the TCF7L2 risk allele is a modest susceptibility factor (per-allele odds ratio ~1.4), not a deterministic route to beta-cell failure.
+    </div>
+    
+    <div class="model-run-scroll">
+    <table class="model-variables-table model-run-table">
+        <thead>
+            <tr>
+                <th>Scenario</th>
+                
+                <th>Beta_Cell_Mass (mg)</th>
+                
+                <th>Fasting_Plasma_Glucose (mg/dL)</th>
+                
+                <th>Plasma_Insulin (uU/mL)</th>
+                
+                <th>Activated phenotypes</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr class="model-run-baseline">
+                <td><div class="model-var-name">Healthy baseline</div>
+                    <div class="model-var-desc">si = 0.72</div>
+                </td>
+                
+                <td>300.0</td>
+                
+                <td>100.0</td>
+                
+                <td>10.0</td>
+                
+                <td class="model-var-desc">reference</td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Severe insulin resistance (si=0.30)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-insulin-resistance">Insulin Resistance</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Insulin resistance (si=0.45)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-insulin-resistance">Insulin Resistance</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">PPARG loss-of-function (insulin resistance)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-insulin-resistance">Insulin Resistance</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">TCF7L2 risk variant (impaired secretion)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">KCNJ11 K_ATP gain (impaired secretion)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">HNF1A loss-of-function (MODY3)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">GCK loss-of-function (glucose-sensing defect)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">SLC5A2 loss-of-function (renal glucosuria; protective)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-hyperglycemia">Hyperglycemia</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    210.0
+                    
+                    <div class="model-var-desc">0.70&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    7.0
+                    
+                    <div class="model-var-desc">0.70&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Metformin (reduced hepatic glucose output)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-hepatic-glucose-overproduction">Hepatic Glucose Overproduction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    307.2
+                    
+                    <div class="model-var-desc">1.02&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    10.24
+                    
+                    <div class="model-var-desc">1.02&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Thiazolidinedione (insulin sensitizer)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-insulin-resistance">Insulin Resistance</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    300.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    10.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">SGLT2 inhibitor (insulin-independent glucose clearance)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-hyperglycemia">Hyperglycemia</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    504.0
+                    
+                    <div class="model-var-desc">1.68&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    16.8
+                    
+                    <div class="model-var-desc">1.68&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Sulfonylurea (secretagogue) - fails once beta cells collapse</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-beta-cell-dysfunction">Beta Cell Dysfunction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    600.0
+                    
+                    <div class="model-var-desc">6.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    0.0
+                    
+                    <div class="model-var-desc">0.00&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    
+                    <span class="severity-pill severity-other"
+                          title="600.0">
+                        <a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener noreferrer">Hyperglycemia</a>
+                        
+                        
+                    </span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">GLP-1 receptor agonist (secretion + reduced hepatic output)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-incretin-axis-dysfunction">Incretin Axis Dysfunction</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    260.571429
+                    
+                    <div class="model-var-desc">0.87&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    12.16
+                    
+                    <div class="model-var-desc">1.22&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Insulin therapy (increased net insulin action)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-hyperglycemia">Hyperglycemia</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    240.0
+                    
+                    <div class="model-var-desc">0.80&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    8.0
+                    
+                    <div class="model-var-desc">0.80&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+            <tr>
+                <td>
+                    <div class="model-var-name">Metformin + SGLT2 inhibitor (severe disease)</div>
+                    
+                    <div class="model-var-desc">
+                        drives
+                        <a href="../disorders/Type_2_Diabetes_Mellitus.html#pathophysiology-hyperglycemia">Hyperglycemia</a>
+                    </div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    244.8
+                    
+                    <div class="model-var-desc">0.82&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    100.0
+                    
+                    <div class="model-var-desc">1.00&times; baseline</div>
+                    
+                </td>
+                
+                
+                
+                <td>
+                    8.16
+                    
+                    <div class="model-var-desc">0.82&times; baseline</div>
+                    
+                </td>
+                
+                <td>
+                    
+                    <span class="model-var-desc">none</span>
+                    
+                </td>
+            </tr>
+            
+        </tbody>
+    </table>
+    </div>
+    <div class="model-run-provenance">
+        Derived artifact, regenerated by <code>just gen-model-results</code>
+        &mdash; not curated evidence. Values rounded to
+        6 decimals.
+        Config <code>e8ecf0513c19</code>,
+        model.xml <code>e86507d1dc05</code>.
+        Phenotypes activate per the curated variable thresholds.
+    </div>
+</details>
+            
+            <h3>Phenotype thresholds</h3>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th>Phenotype</th><th>Variable</th><th>Direction</th><th class="num">Threshold</th><th>Reading</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td><a href="http://purl.obolibrary.org/obo/HP_0003074" target="_blank" rel="noopener">Hyperglycemia</a></td>
+                    <td><code>Fasting_Plasma_Glucose</code></td>
+                    <td>above</td>
+                    <td class="num">126.0</td>
+                    <td class="small">absolute</td>
+                </tr>
+                
+                <tr>
+                    <td><a href="http://purl.obolibrary.org/obo/HP_0000842" target="_blank" rel="noopener">Hyperinsulinemia</a></td>
+                    <td><code>Plasma_Insulin</code></td>
+                    <td>above</td>
+                    <td class="num">18.0</td>
+                    <td class="small">absolute</td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+            
+        </section>
+        
+        
+        <section class="panel" id="gene-effects">
+            <h2>Gene effects</h2>
+            <p class="section-intro">How <code>config.yaml</code> turns a gene perturbation into a model parameter change: the multiplier applied for a loss- or gain-of-function.</p>
+            <div class="table-scroll">
+            <table class="data">
+                <thead><tr><th>Gene</th><th>Parameter</th><th>Effect</th><th>Rationale</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td><code>PPARG</code></td>
+                    <td><code>si</code></td>
+                    <td class="small">LoF &times;0.4</td>
+                    <td class="small">PPARG is the master adipogenic regulator and the thiazolidinedione target; loss-of-function (e.g. FPLD3) causes severe insulin resistance. Modeled as reduced whole-body insulin sensitivity si.</td>
+                </tr>
+                
+                <tr>
+                    <td><code>TCF7L2</code></td>
+                    <td><code>sigma</code></td>
+                    <td class="small">LoF &times;0.5</td>
+                    <td class="small">TCF7L2 is the strongest common type 2 diabetes risk locus; risk alleles impair glucose-stimulated insulin secretion. Modeled as reduced maximal per-beta-cell secretory capacity sigma.</td>
+                </tr>
+                
+                <tr>
+                    <td><code>KCNJ11</code></td>
+                    <td><code>sigma</code></td>
+                    <td class="small">LoF &times;0.5</td>
+                    <td class="small">KCNJ11 encodes the Kir6.2 subunit of the beta-cell K_ATP channel; activating variants hold the channel open and blunt insulin secretion (neonatal diabetes / T2D risk). Modeled as reduced secretory capacity sigma.</td>
+                </tr>
+                
+                <tr>
+                    <td><code>HNF1A</code></td>
+                    <td><code>sigma</code></td>
+                    <td class="small">LoF &times;0.5</td>
+                    <td class="small">HNF1A loss-of-function causes MODY3, a progressive beta-cell secretory defect. Modeled as reduced secretory capacity sigma.</td>
+                </tr>
+                
+                <tr>
+                    <td><code>GCK</code></td>
+                    <td><code>alpha</code></td>
+                    <td class="small">LoF &times;3.0</td>
+                    <td class="small">Glucokinase is the beta-cell glucose sensor; loss-of-function raises the glucose set-point for insulin secretion (MODY2 when heterozygous; permanent neonatal diabetes when biallelic). Modeled as an increased half-maximal glucose constant alpha (higher glucose needed for the same secretion).</td>
+                </tr>
+                
+                <tr>
+                    <td><code>SLC5A2</code></td>
+                    <td><code>Eg0</code></td>
+                    <td class="small">LoF &times;2.5</td>
+                    <td class="small">SLC5A2 encodes SGLT2, the renal glucose transporter and gliflozin target; loss-of-function causes familial renal glucosuria and raises insulin- independent glucose clearance. Modeled as increased glucose effectiveness Eg0 (protective).</td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+        </section>
+        
+        
+
+        <section class="panel" id="run-locally">
+            <h2>Run it locally</h2>
+            <code class="cmd">uv run python -m dismech.perturb kb/disorders/Type_2_Diabetes_Mellitus.yaml --all</code><code class="cmd">just gen-model-results --id BIOMD0000000341</code>
+            <h3>Files</h3>
+            <div class="file-list"><a href="https://github.com/monarch-initiative/dismech/blob/main/models/BIOMD0000000341/config.yaml" target="_blank" rel="noopener">config.yaml</a><a href="https://github.com/monarch-initiative/dismech/blob/main/models/BIOMD0000000341/model.xml" target="_blank" rel="noopener">model.xml</a></div>
+        </section>
+
+        
+<p class="dismech-disclaimer-footer">
+    DisMech is an AI-curated research resource and is <strong>not medical advice</strong>.
+    <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+</p>
+    </main>
+</body>
+</html>
