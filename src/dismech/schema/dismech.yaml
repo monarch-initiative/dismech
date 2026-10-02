@@ -3330,6 +3330,37 @@ enums:
         title: Other
         description: A module-collection basis not covered by the other values.
 
+  ExecutionVenueEnum:
+    description: >-
+      Broad kind of facility that would execute an ExecutableProtocol. Four
+      coarse values rather than a vendor list: the classification is what a
+      query needs (is this orderable by anyone, or does it need a local
+      collaboration?), while the provider's identity is free text in
+      `provider`, so a new laboratory is data and not a schema change.
+    permissible_values:
+      COMMERCIAL_CLOUD_LAB:
+        title: Commercial cloud lab
+        description: >-
+          A commercial remote laboratory that accepts protocol orders from any
+          paying customer and returns data, with no local presence or
+          collaboration required. Ginkgo Cloud Lab, Emerald Cloud Lab and
+          Strateos are of this kind.
+      ACADEMIC_AUTOMATION_CORE:
+        title: Academic automation core
+        description: >-
+          An institutional core facility or academic cloud lab running
+          automated protocols as a service, typically requiring an
+          institutional account, a collaboration, or a named investigator.
+      LOCAL_LABORATORY:
+        title: Local laboratory
+        description: >-
+          A specific research laboratory that has the assay running and could
+          execute it, reached through collaboration rather than by order.
+      OTHER:
+        title: Other
+        description: >-
+          A venue none of the above describes. Prefer adding a value to this
+          enum over stretching an existing one.
   ModuleCategoryEnum:
     description: >-
       Areas of study a mechanism module is relevant to. A category asserts
@@ -5008,6 +5039,81 @@ slots:
       experimental workflow. May be a PMID, DOI, protocols.io DOI, URL, or other
       stable identifier.
     range: string
+  executable_protocols:
+    description: >-
+      Concrete, orderable protocols that would execute some or all of this
+      experiment, each naming a provider and that provider's own catalogue
+      identifier. Distinct from `protocol_reference`, which cites a *methods
+      paper* describing how a technique works: an ExecutableProtocol is a
+      service that can be ordered, and records what it would cost and what it
+      would return. Recording one does not propose, authorise, or commit to
+      running it.
+    multivalued: true
+    range: ExecutableProtocol
+    inlined_as_list: true
+  provider:
+    description: >-
+      The organisation that would execute the protocol, named as that
+      organisation names itself (for example `Ginkgo Cloud Lab`, `Emerald Cloud
+      Lab`, `UNC Lineberger High-Throughput Screening Facility`). Deliberately
+      free text rather than an enum: the set of providers is open and changes
+      without warning, so an enum would need a schema PR per new laboratory.
+      The durable classification is `venue_type`.
+    range: string
+  venue_type:
+    description: Broad kind of facility that would execute the protocol.
+    range: ExecutionVenueEnum
+  protocol_id:
+    description: >-
+      The provider's own stable identifier for the protocol — a catalogue
+      handle, service code, or SKU — copied exactly as the provider publishes
+      it, never composed or tidied. This is what an order would name, so a
+      reworded value is not an identifier.
+    range: string
+  protocol_url:
+    description: The provider's own page for this protocol.
+    range: uri
+  measures:
+    description: >-
+      Entity references for the pathograph nodes, phenotypes, or other modeled
+      objects this protocol would return a measurement on. Uses the same
+      hash-anchor grammar as `attaches_to`, and every value must use it. This
+      records *what the protocol can observe*, which is a weaker claim than
+      `would_support` / `would_refute`: a protocol can measure a node without
+      any one result adjudicating the hypothesis attached to it.
+    multivalued: true
+    range: string
+  inputs_required:
+    description: >-
+      What the requester must supply for the protocol to run — DNA sequences as
+      a CSV, a purified antigen, a cell line, a compound plate. Records the
+      input that is the requester's problem rather than the provider's, since
+      that is usually what decides whether a proposal is actually reachable.
+    range: string
+  throughput:
+    description: >-
+      Samples, constructs, or conditions the protocol accepts per run, in the
+      provider's own terms (for example `up to 88 constructs per plate`).
+    range: string
+  turnaround:
+    description: >-
+      Elapsed time from submission to data return, in the provider's own terms
+      (for example `4-16 hours`, `up to 12 business days`).
+    range: string
+  list_price:
+    description: >-
+      The published price, verbatim and including the unit it is charged per
+      (for example `USD 159 per construct`). Keep the provider's wording: a
+      price whose unit has been dropped cannot be used to estimate a panel.
+    range: string
+  unit_price_usd:
+    description: >-
+      The published price normalised to US dollars per sample, for comparison
+      and for budget arithmetic across providers. Record the verbatim figure in
+      `list_price`; this slot is the derived number, on the same
+      verbatim-plus-normalised pattern as `Prevalence.notes` beside
+      `rate_per_100000`.
+    range: float
   posed_by:
     description: >-
       Optional attribution for who posed a Discussion. ORCID is preferred when
@@ -6835,6 +6941,7 @@ classes:
       - supporting_outcome
       - refuting_outcome
       - protocol_reference
+      - executable_protocols
       - datasets
       - evidence
       - notes
@@ -6951,6 +7058,72 @@ classes:
       perturbations:
         range: ExperimentalPerturbation
         inlined_as_list: true
+
+  ExecutableProtocol:
+    description: >-
+      A concrete, orderable protocol at a named provider that would execute
+      some or all of a proposed experiment, together with what it costs, what
+      it needs as input, and which pathograph nodes it would return a
+      measurement on.
+    comments:
+      - >-
+        Reached from `Experiment.executable_protocols`. A proposed experiment
+        in a `KNOWLEDGE_GAP` discussion states what *should* be measured;
+        this records that a service exists which would measure it, so the
+        feasibility of a gap is readable from the entry rather than
+        re-researched each time somebody asks what it would take to close it.
+      - >-
+        Recording a protocol is a feasibility note, not a plan. It does not
+        propose, authorise, fund, or commit to running anything, and it is not
+        evidence about the disease: nothing here asserts a result.
+      - >-
+        `provider` plus `protocol_id` is the identity of the service;
+        `venue_type` is the durable classification. The commercial facts
+        (`list_price`, `unit_price_usd`, `turnaround`, `throughput`) describe a
+        live catalogue, so `retrieved_date` pins when they were read and they
+        should be treated as stale rather than wrong once it ages.
+    slots:
+      - name
+      - description
+      - provider
+      - venue_type
+      - protocol_id
+      - protocol_url
+      - measures
+      - inputs_required
+      - throughput
+      - turnaround
+      - list_price
+      - unit_price_usd
+      - retrieved_date
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        description: >-
+          The protocol's name as the provider publishes it, copied exactly. A
+          summary of what it would be used for belongs in `description`.
+        required: true
+      provider:
+        required: true
+      description:
+        description: >-
+          What this protocol would contribute to the experiment, and why it is
+          the right one — the curator's reasoning, not the provider's marketing
+          copy.
+      retrieved_date:
+        description: >-
+          Date the provider's catalogue was read for the identifier, price,
+          turnaround, and throughput recorded here. Record it alongside any of
+          those, because they describe a live commercial catalogue that changes
+          without notice and without a version: a price with no retrieval date
+          is a claim that cannot be checked or aged.
+      evidence:
+        description: >-
+          Literature or provider documentation supporting the protocol's
+          suitability or its precedent for this measurement. Not a place for
+          results: this object describes a protocol that has not been run.
+        recommended: false
 
   ClinicalTrial:
     description: A clinical trial relevant to treatment or research of a disease

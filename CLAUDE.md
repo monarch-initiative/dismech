@@ -1737,6 +1737,88 @@ entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
 (`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
 
+### Executable Protocols on a Proposed Experiment
+
+A `KNOWLEDGE_GAP` discussion's `proposed_experiments` say what *should* be
+measured. `Experiment.executable_protocols` says that a service exists which
+would measure it, at a named provider, for a recorded price:
+
+```yaml
+    executable_protocols:
+    - name: Protein Expression and Thermal Shift Assay   # the provider's own name, verbatim
+      provider: Ginkgo Cloud Lab
+      venue_type: COMMERCIAL_CLOUD_LAB
+      protocol_id: protein-expression-and-thermal-shift-assay   # their catalogue handle
+      protocol_url: https://cloud.ginkgo.bio/protocols/protein-expression-and-thermal-shift-assay
+      description: Supplies the folding term — which allele is destabilised rather than dead.
+      measures:
+      - pathophysiology#PEPD Prolidase Catalytic Deficiency
+      inputs_required: Coding sequences carrying a Strep-II tag, as a DNA template plate
+      list_price: USD 159.00
+      unit_price_usd: 159.0
+      retrieved_date: '2026-10-01'
+```
+
+**It is a feasibility note, not a plan.** Recording a protocol does not
+propose, authorise, fund, or commit to running it, and it is not evidence about
+the disease — nothing in the block asserts a result. What it buys is that the
+cost of closing a gap is readable off the entry instead of being re-researched
+by whoever next asks.
+
+**`protocol_reference` is a different slot and both can coexist.** That one
+cites a *methods paper* describing how a technique works. An
+`ExecutableProtocol` is a service that can be ordered.
+
+Rules for filling it:
+
+- **`protocol_id` is copied, never composed.** It is the handle an order would
+  name — a catalogue slug, service code, or SKU — so a reworded or tidied value
+  is not an identifier. Same discipline as a CURIE: read it from the provider's
+  own listing in the step you write the line.
+- **`name` is the provider's name for the protocol, verbatim**, for the same
+  reason `datasets[].title` is the repository's own title. Your account of what
+  it would contribute goes in `description`.
+- **Record `retrieved_date` with any catalogue fact.** `protocol_id`,
+  `list_price`, `unit_price_usd`, `turnaround` and `throughput` all describe a
+  live commercial listing that changes without notice and carries no version, so
+  an undated price cannot be checked or aged. This is gated by
+  `test_catalogue_facts_carry_a_retrieval_date`. Treat an old date as stale,
+  not as wrong.
+- **Omit what the catalogue does not state; do not estimate it.** A provider
+  that publishes no turnaround or no maximum panel size gets those slots left
+  empty and the absence noted. A price whose charging unit is unstated is a
+  lower bound on a panel, and the `notes` should say so — this is the ordinary
+  *omit the field and say why* rule, and an invented throughput is the same
+  class of defect as an invented CURIE.
+- **`provider` is free text; `venue_type` is the enum.** The set of
+  laboratories is open and changes without warning, so an enum of vendor names
+  would need a schema PR per new lab. The four-value `ExecutionVenueEnum` is the
+  durable question — orderable by anyone, or needs a local collaboration?
+- **`measures` is weaker than `would_support`.** It says the protocol returns a
+  measurement *on* that node. Whether any one result adjudicates the hypothesis
+  is what `would_support` / `would_refute` are for. It uses the same hash-anchor
+  grammar and is gated as a foreign key.
+- **Say what the protocol cannot see.** A cell-free system reports on an
+  isolated protein and carries none of the cellular context; a monomer's melting
+  curve does not report on an assembled holoenzyme. Those caveats belong in
+  `notes` — they are the same translational honesty `ModelMechanismLink.limitations`
+  asks for, and without them a cheap protocol reads as a complete answer.
+
+**Not every gap has one, and that is the common case.** Most open gaps in the
+KB need patient cohorts, tissue, or longitudinal follow-up, none of which is a
+catalogue item. Leaving the block absent is the default; an entry gains it only
+where somebody actually checked a provider's listing. Do not add a protocol
+because a gap looks assayable.
+
+Worked example: `Prolidase_Deficiency` →
+`pd_allele_panel_abundance_stability_catalysis`, which decomposes the single
+clinical "residual prolidase activity" figure into abundance, folding, and
+catalysis across a patient allele panel using three protocols. That amount
+versus activity split is the axis deferred in design decisions §12; the
+experiment is recorded as a way to measure it, and settles nothing about the
+schema question. See [`projects/AUTONOMOUS_LABS.md`](projects/AUTONOMOUS_LABS.md)
+for the wider execution-layer project.
+
 ### Hypothesis-Based Phenotype Algorithms
 
 A `definitions[]` entry with `definition_type: PHENOTYPE_ALGORITHM` may be a
