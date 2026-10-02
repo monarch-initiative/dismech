@@ -3826,6 +3826,9 @@
         <div class="item-meta">{{ render_descriptor_tag(model.tissue_term, "tag-location", false, "model.tissue_term") }}</div>
         {% endif %}
         {{ render_descriptor_tags(model.cell_types, "tag-cell", false, "model.cell_types") }}
+        {% if model._modeled_mechanisms_resolved %}
+        {{ render_model_mechanism_links(model._modeled_mechanisms_resolved) }}
+        {% endif %}
         {% if model.notes %}
         <div class="mapping-notes">{{ model.notes }}</div>
         {% endif %}
@@ -3864,6 +3867,54 @@
     {% macro render_experiment_readout(readout, show_target=true) %}{% include "_model_readout.html.j2" %}{% endmacro %}
 
     {% macro render_model_mechanism_links(links) %}{% include "_model_mechanism_links.html.j2" %}{% endmacro %}
+
+    {#
+      One orderable protocol that would execute part of a proposed experiment.
+      This is a feasibility note, not a result and not a plan, so it renders as
+      provider and identity, never as evidence of an outcome. No price or
+      turnaround is carried by the schema, so none is shown; `retrieved_date`
+      marks when the identifier was read.
+    #}
+    {% macro render_executable_protocol(protocol) %}
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">{{ protocol.name }}</div>
+        <div class="item-meta">
+            {% if protocol.provider %}
+            <span class="tag tag-dataset">
+                {%- if protocol.protocol_url -%}
+                <a href="{{ protocol.protocol_url }}" target="_blank" rel="noopener" style="color: inherit; text-decoration: none;">{{ protocol.provider }}</a>
+                {%- else -%}
+                {{ protocol.provider }}
+                {%- endif -%}
+            </span>
+            {% endif %}
+            {% if protocol.venue_type %}
+            <span class="tag tag-classification">{{ protocol.venue_type | replace('_', ' ') | lower }}</span>
+            {% endif %}
+            {% if protocol.retrieved_date %}
+            <span class="tag tag-discussion-status" title="Date the provider's catalogue was read. Catalogue identifiers change without notice, so this may be stale.">catalogue read {{ protocol.retrieved_date }}</span>
+            {% endif %}
+        </div>
+        {% if protocol.protocol_id %}
+        <div class="mapping-notes">Catalogue id: <code>{{ protocol.protocol_id }}</code></div>
+        {% endif %}
+        {% if protocol.description %}
+        <div style="margin-top: 6px;">{{ protocol.description }}</div>
+        {% endif %}
+        {% if protocol.measures %}
+        <div class="entity-ref-list">
+            {% for ref in protocol.measures %}{{ render_entity_ref(ref) }}{% endfor %}
+        </div>
+        {% endif %}
+        {% if protocol.inputs_required %}
+        <div class="mapping-notes">Requester supplies: {{ protocol.inputs_required }}</div>
+        {% endif %}
+        {% if protocol.notes %}
+        <div class="mapping-notes">{{ protocol.notes }}</div>
+        {% endif %}
+        {{ render_evidence(protocol.evidence, max_visible=1) }}
+    </div>
+    {% endmacro %}
 
     {% macro render_experiment_control(control) %}
     <div class="experiment-subitem">
@@ -3953,6 +4004,14 @@
         {{ render_outcome_list("Refuting outcome", experiment.refuting_outcome) }}
         {% if experiment.protocol_reference %}
         <div class="mapping-notes">Protocol: {{ experiment.protocol_reference }}</div>
+        {% endif %}
+        {% if experiment.executable_protocols %}
+        <div class="experiment-section">
+            <div class="experiment-section-title" title="Orderable services that would execute part of this experiment. Listing one is a feasibility note, not a plan to run it.">Executable protocols</div>
+            {% for protocol in experiment.executable_protocols %}
+            {{ render_executable_protocol(protocol) }}
+            {% endfor %}
+        </div>
         {% endif %}
         {{ render_evidence(experiment.evidence, max_visible=2) }}
         {% if experiment.notes %}

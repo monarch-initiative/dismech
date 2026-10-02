@@ -1058,6 +1058,65 @@ def _annotate_model_links(
 
             model["_modeled_mechanisms_resolved"] = resolved_links
 
+    _annotate_proposed_experiment_model_links(disorder, patho_by_name)
+
+
+def _annotate_proposed_experiment_model_links(
+    disorder: dict, patho_by_name: dict[str, dict]
+) -> None:
+    """Resolve pathograph-link anchors for model systems inside a *proposed* experiment.
+
+    A ``Discussion.proposed_experiments`` entry may declare ``model_systems``
+    with ``modeled_mechanisms``, carrying the same ``ModelMechanismLink`` — and
+    so the same ``fidelity``, ``model_scale``, ``limitations`` and typed
+    ``divergences`` — as a curated model. Without this, those caveats are in the
+    YAML and in the exports but invisible on the page, which makes recording a
+    limitation structurally *worse* for a reader than writing it as prose.
+
+    Deliberately resolves the anchor only, and does **not** append to the node's
+    ``_experimental_model_links``. That back-link draws the "models informing
+    this mechanism" crosslink on a pathophysiology card, and a model system that
+    exists solely inside a proposal has not informed anything: listing it there
+    would present a hypothetical as curated evidence. The experiment is reached
+    from the discussion that proposes it, which is the honest route to it.
+    """
+    discussions = disorder.get("discussions") or []
+    if not isinstance(discussions, list):
+        return
+
+    for discussion in discussions:
+        if not isinstance(discussion, dict):
+            continue
+        for experiment in discussion.get("proposed_experiments") or []:
+            if not isinstance(experiment, dict):
+                continue
+            # Controls carry their own model systems with the same shape.
+            model_holders = [experiment]
+            model_holders.extend(
+                control
+                for control in experiment.get("controls") or []
+                if isinstance(control, dict)
+            )
+            for holder in model_holders:
+                for model in holder.get("model_systems") or []:
+                    if not isinstance(model, dict):
+                        continue
+                    resolved_links: list[dict] = []
+                    for link in model.get("modeled_mechanisms") or []:
+                        if not isinstance(link, dict):
+                            continue
+                        target = link.get("target")
+                        if not target:
+                            continue
+                        target_item = patho_by_name.get(str(target))
+                        if target_item is None:
+                            continue
+                        resolved_link = dict(link)
+                        resolved_link["_target_anchor"] = target_item["_anchor_id"]
+                        resolved_links.append(resolved_link)
+                    if resolved_links:
+                        model["_modeled_mechanisms_resolved"] = resolved_links
+
 
 def _coerce_string_list(value: object) -> list[str]:
     """Normalize schema values that may be absent, scalar, or multivalued."""
