@@ -2590,6 +2590,84 @@ enums:
           should not use target_mechanisms or target_phenotypes because they do
           not directly modify disease pathophysiology or phenotypes.
 
+  EffectModifierTypeEnum:
+    description: >-
+      The characteristic of the treated population across which a treatment's effect
+      is reported to differ. Used on TreatmentEffectModifier.effect_modifier_type.
+    permissible_values:
+      AGE:
+        description: Chronological age or age band.
+      SEX:
+        description: Biological sex.
+      REPRODUCTIVE_STATUS:
+        description: >-
+          Menopausal, pubertal, pregnancy, or other reproductive-hormonal status,
+          recorded separately from SEX because it varies within one sex.
+      BASELINE_SEVERITY:
+        description: >-
+          Disease severity, functional status, or frailty at the start of treatment
+          (for example a performance-battery score, disease stage, or frailty status).
+      GENOTYPE:
+        description: >-
+          A germline or somatic genotype, including a pharmacogenomic variant or a
+          disease-gene subtype.
+      BIOMARKER:
+        description: A non-genetic laboratory, imaging, or molecular marker measured at baseline.
+      COMORBIDITY:
+        description: A co-occurring disease or condition.
+      ANCESTRY:
+        description: Genetic ancestry or population group.
+      CONCOMITANT_TREATMENT:
+        description: >-
+          A co-intervention received alongside the treatment (for example protein
+          supplementation alongside exercise, or a second drug).
+      OTHER:
+        description: Any other characteristic; describe it in stratum and description.
+  EffectModificationDirectionEnum:
+    description: >-
+      How the treatment's effect in the named stratum compares with its effect in the
+      comparator stratum, for the named outcome.
+    permissible_values:
+      LARGER_EFFECT:
+        description: The effect is larger in the stratum than in the comparator.
+      SMALLER_EFFECT:
+        description: The effect is smaller but still present in the stratum.
+      NO_EFFECT:
+        description: >-
+          No effect was detected in the stratum although one was detected in the
+          comparator.
+      OPPOSITE_EFFECT:
+        description: The effect runs in the opposite direction (harm, or reversal) in the stratum.
+      NO_DIFFERENCE:
+        description: >-
+          The effect was compared across strata and found not to differ. A tested null
+          is a finding worth recording, because it stops a reader from assuming a
+          subgroup difference.
+  EffectModificationAnalysisEnum:
+    description: >-
+      How the subgroup difference was established. Ordered roughly from strongest to
+      weakest: a subgroup effect claimed from a post hoc split or from comparing
+      separate studies is a hypothesis, not a finding.
+    permissible_values:
+      PRESPECIFIED_SUBGROUP:
+        description: >-
+          A subgroup analysis declared in the trial protocol or analysis plan before
+          unblinding.
+      POST_HOC_SUBGROUP:
+        description: A subgroup analysis that was not prespecified.
+      META_ANALYSIS_SUBGROUP:
+        description: Subgroup analysis or meta-regression across studies in a meta-analysis.
+      CROSS_STRATUM_COMPARISON:
+        description: >-
+          Strata that all received the treatment were compared with each other within
+          one study, without a separate untreated control for each stratum (for example
+          men versus women in a single-arm training study).
+      CROSS_STUDY_COMPARISON:
+        description: >-
+          Inferred by comparing separate studies conducted in different populations; the
+          weakest basis.
+      OTHER:
+        description: Any other basis; explain in description.
   TherapeuticModalityEnum:
     description: >-
       Broad therapeutic modality / platform of a treatment, independent of the
@@ -5203,6 +5281,47 @@ slots:
       (e.g., "once every 3 weeks", "twice yearly"). Record loading or induction doses
       in the treatment description rather than here.
     range: string
+  effect_modifiers:
+    description: >-
+      Reported differences in a treatment's effect across patient subgroups (age, sex,
+      baseline severity, genotype, ...). One entry per stratum, outcome and source:
+      the same stratum can show a larger effect on one outcome and none on another.
+      Absent means no subgroup difference has been curated, not that none exists.
+    multivalued: true
+    range: TreatmentEffectModifier
+    inlined_as_list: true
+  effect_modifier_type:
+    description: The kind of patient characteristic that defines the stratum.
+    range: EffectModifierTypeEnum
+  stratum:
+    description: >-
+      The subgroup the reported effect applies to, in the source's own terms
+      (for example "women", "age 75 years or younger", "SPPB 8-9").
+    range: string
+  comparator_stratum:
+    description: >-
+      The subgroup the stratum is compared with (for example "men"). Omit only when
+      the comparison is to the whole trial population.
+    range: string
+  modified_outcome:
+    description: >-
+      The outcome on which the effect differs (for example "handgrip strength",
+      "mobility disability"). Free text; a subgroup difference is outcome-specific.
+    range: string
+  effect_in_stratum:
+    description: >-
+      How the effect in the stratum compares with the comparator, for the named
+      outcome.
+    range: EffectModificationDirectionEnum
+  modification_analysis:
+    description: How the subgroup difference was established.
+    range: EffectModificationAnalysisEnum
+  interaction_tested:
+    description: >-
+      True when the source reports a formal treatment-by-subgroup interaction test
+      (whatever its result); false when the difference rests only on separate
+      within-stratum results. Omit when the source does not say.
+    range: boolean
   dosing_interval_days:
     description: >-
       The maintenance dosing interval normalized to days, so treatments are comparable
@@ -8189,6 +8308,7 @@ classes:
       - aso_details
       - dosing_interval
       - dosing_interval_days
+      - effect_modifiers
       - target_phenotypes
       - target_mechanisms
       - pdb_structures
@@ -8230,6 +8350,43 @@ classes:
       - delivery_platform
       - aso_mechanism
       - aso_chemistry
+  TreatmentEffectModifier:
+    description: >-
+      A reported difference in a treatment's effect between patient subgroups: the
+      stratum, what it is compared with, the outcome, the direction of the difference,
+      and how the difference was established. Records heterogeneity of treatment
+      effect so it is queryable ("which treatments work less well in women?") rather
+      than buried in a treatment description.
+    comments:
+      - >-
+        Effect modification is not a mechanism. Where a mechanism for the difference
+        is known, record that as a pathophysiology node and name it in description.
+      - >-
+        A difference resting on POST_HOC_SUBGROUP, CROSS_STRATUM_COMPARISON or
+        CROSS_STUDY_COMPARISON without an interaction test is a hypothesis; say so in
+        description rather than inflating effect_in_stratum.
+    slots:
+      - effect_modifier_type
+      - stratum
+      - comparator_stratum
+      - modified_outcome
+      - effect_in_stratum
+      - modification_analysis
+      - interaction_tested
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      effect_modifier_type:
+        required: true
+      stratum:
+        required: true
+      modified_outcome:
+        required: true
+      effect_in_stratum:
+        required: true
+      evidence:
+        recommended: true
   DeliverySystem:
     description: >-
       How a treatment's active agent is carried to its target - the formulation

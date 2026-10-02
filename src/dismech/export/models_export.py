@@ -105,6 +105,11 @@ class ModelsExporter:
         self.runnable_model_ids: set[str] = model_registry.runnable_model_ids(
             models_dir
         )
+        #: Model ids with any folder in ``models/``; each has a generated page at
+        #: ``pages/models/<model_id>.html`` (dismech.model_pages, #13123).
+        self.model_page_ids: set[str] = {
+            path.name for path in model_registry.iter_model_dirs(models_dir)
+        }
 
     def load_entry(self, file_path: Path) -> dict[str, Any]:
         """Parsed entry, shared through :mod:`dismech.kb_cache` (read-only)."""
@@ -223,6 +228,11 @@ class ModelsExporter:
                     "notes": model.get("notes", "") or "",
                     "creation_date": creation_date,
                     "page_url": f"{page_url}#{anchor}",
+                    "model_page_url": (
+                        f"../../pages/models/{model_id}.html"
+                        if model_id and str(model_id) in self.model_page_ids
+                        else ""
+                    ),
                     "source_file": source_file,
                 }
             )

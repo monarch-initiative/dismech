@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT04524390
+extractor_version: 1
 title: "Randomized, Double-Blind, Placebo-Controlled Phase 2 Study to Evaluate the Efficacy and Safety of Maralixibat in the Treatment of Subjects With Biliary Atresia After Hepatoportoenterostomy"
 content_type: summary
 full_text_attempted: true
