@@ -2773,6 +2773,51 @@ window.searchData = [
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
+    "model_key": "Sarcopenia--computational-model-multiscale-kinetic-model-of-leucine-stimulated-muscle-protein-metabolism--0",
+    "name": "Multiscale kinetic model of leucine-stimulated muscle protein metabolism",
+    "description": "A mechanistic kinetic model linking leucine ingestion and absorption, insulin secretion, intracellular mTORC1-p70S6K signalling, and muscle protein synthesis and breakdown in human skeletal muscle. It was extended to represent anabolic resistance: the ageing-related impairments were parameterised individually and in combination, and a virtual population was classified as anabolic-sensitive or anabolic-resistant. The model was then used to simulate single-target and multi-target interventions.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "MATLAB",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "https://doi.org/10.5281/zenodo.19413844",
+    "repository_host": "Other",
+    "publication": "PMID:42464764",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Sarcopenia",
+    "disease_id": null,
+    "category": "Complex",
+    "parents": [
+      "Musculoskeletal Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Anabolic Resistance"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "No single age-related impairment reproduced the reduced protein synthesis of older adults; the anabolic-resistant phenotype appeared only when several impairments acted together.",
+      "Restoring protein synthesis when all impairments were present required coordinated multi-target interventions; single targets proximal to mTORC1 were sufficient only against isolated impairments."
+    ],
+    "num_findings": 2,
+    "evidence_refs": [
+      "PMID:42464764"
+    ],
+    "num_evidence": 1,
+    "notes": "The stimulus represented is protein feeding. Resistance exercise and mechanical loading are not in the model, so it says nothing directly about the Blunted Load-Induced mTORC1 Signalling node; the authors note that exercise enhances muscle sensitivity to protein feeding, which is the interaction a loading extension would need to capture.",
+    "creation_date": "2026-08-31T00:00:00Z",
+    "page_url": "../../pages/disorders/Sarcopenia.html#computational-model-multiscale-kinetic-model-of-leucine-stimulated-muscle-protein-metabolism",
+    "source_file": "kb/disorders/Sarcopenia.yaml"
+  },
+  {
     "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
     "name": "Normative diffusion-perfusion MRI autoencoder",
     "description": "A seven-layer, fully connected PyTorch autoencoder trained only on healthy pediatric MRI features to detect individual deviations in A-T. Twenty inputs (13 regional diffusion/perfusion features plus seven demographic and volume covariates) are compressed and 13 imaging features are reconstructed. The paper reports a four-dimensional latent layer, whereas the released notebook instantiates five latent units. One hundred controls were used for training and validation, 10 controls for held-out testing, and 16 children with A-T for disease evaluation.",
@@ -5945,10 +5990,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 123,
-  "total_source_entries": 51,
+  "total_models": 124,
+  "total_source_entries": 52,
   "total_model_types": 10,
   "total_runnable": 4,
-  "total_with_repository": 54
+  "total_with_repository": 55
 };
 window.dispatchEvent(new Event('searchDataReady'));
