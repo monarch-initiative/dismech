@@ -188,7 +188,7 @@ def load_model_config(config_path: Path, disorder: dict | None = None) -> ModelC
     provides gene_effects, scenarios, coupling, and fallback values.
 
     Args:
-        config_path: Path to the .config.yaml file
+        config_path: Path to the model's config.yaml (models/<model_id>/config.yaml)
         disorder: Parsed disorder YAML data (optional; enriches with
             variable mappings and phenotype thresholds)
 

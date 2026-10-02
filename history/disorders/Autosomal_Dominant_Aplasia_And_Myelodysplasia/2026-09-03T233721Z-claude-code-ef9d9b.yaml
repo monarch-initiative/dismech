@@ -1,0 +1,125 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Autosomal_Dominant_Aplasia_And_Myelodysplasia
+  path: kb/disorders/Autosomal_Dominant_Aplasia_And_Myelodysplasia.yaml
+session:
+  id: 2026-09-03T233721Z-claude-code-ef9d9b
+  timestamp: '2026-09-03T23:37:21Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/10764
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/10814
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - references
+  - treatments
+  - pathophysiology
+  - phenotypes
+  - classifications
+  summary: 'Address ai4c-reviewer changes-requested review on PR #10814'
+  details: |
+    Addressed the ai4c-reviewer changes-requested review on PR #10814. Each
+    finding was reproduced locally before being acted on.
+
+    Fixed:
+
+    - (1, critical) GeneReviews reference_title did not match the cache. Already
+      fixed in the preceding commit, before the review was posted; re-synced with
+      `just normalize-reference-titles`. Root cause worth recording: the local
+      pre-PR sweep ran `just check-reference-titles`, which compares titles by
+      similarity against a 0.85 threshold, while linkml-reference-validator
+      requires an exact match. The truncated title scored above 0.85, so the
+      local gate was green while CI was always going to be red.
+    - (4) Bound HP:0008527 "Congenital sensorineural hearing impairment" in place
+      of the broader HP:0000407. Verified present in cache/hp/terms.csv and in
+      the phenotypeterm enum cache, so it validates offline.
+    - (5) Removed the duplicated marrow node. `Bone Marrow Hypocellularity`
+      (pathophysiology) and `Bone marrow hypocellularity` (phenotype, HP:0005528)
+      were two distinct graph nodes differing only in case, and the HP-bound one
+      had no incoming edge. Confirmed by building the graph with
+      dismech.graph.build_causal_graph. Dropped the pathophysiology node,
+      re-pointed the `Impaired Haematopoietic Output` edge at the phenotype name,
+      and moved the two downstream edges onto the phenotype as `sequelae`. The
+      graph now has one marrow node with the HPO binding, inside the chain.
+      Note check-causal-targets was silent throughout because nothing dangled -
+      the defect was a duplicated node, not a broken target.
+    - (6, partial) Regraded the two GeneReviews clinical-features items from
+      OTHER to HUMAN_CLINICAL. Did NOT regrade the IUIS row - see below.
+    - (3) Added a top-level `references:` block carrying the GeneReviews entry
+      with `tags: [GeneReviews]` plus the two PMIDs, and added an HSCT
+      `treatments` entry quoting the GeneReviews management section. The reviewer
+      was right that the entry-level note overstated the constraint; that note is
+      corrected in place and says so.
+    - (8) Added `subtype_term` (MONDO:0013851) to the BMFS1 has_subtypes row on
+      Inherited_Aplastic_Anemia. Note the slot is `subtype_term`, not
+      `disease_term` as the review said.
+    - (10) Strengthened the GENETICS_ENVIRONMENT_DISEASE justification.
+
+    Not fixed, with reasons:
+
+    - (2) Deep research and primary SRP72 literature. Re-attempted
+      `just fetch-reference PMID:22541560` as the review asked; it still fails
+      with "Tunnel connection failed: 403 Forbidden". The reviewer inferred from
+      term validation succeeding on the CI runner that egress is not blocked, but
+      those are different environments: OLS is reachable from the GitHub runner,
+      not from the curation session. The constraint is real and unchanged.
+    - (7) cache/**/*.csv rows for the three new CURIEs. These cannot be generated
+      without OLS, and CLAUDE.md forbids hand-writing cache rows - they must come
+      from `just validate-terms`. The reviewer supplied the row contents, which
+      confirms the bindings are correct, but transcribing them by hand is exactly
+      what the cache contract prohibits. Left for a session with egress.
+    - (9) OMIM mapping. Not possible: the `DiseaseMappings` class has only
+      icd10cm_mappings, icd11f_mappings, mondo_mappings and ncit_mappings. There
+      is no OMIM slot to put 614675 in. It remains in the description prose.
+    - (6, remainder) The IUIS row was left at OTHER rather than regraded to
+      HUMAN_CLINICAL for its phenotype column. That single snippet is cited by
+      six evidence items across classifications, inheritance, genetic and
+      phenotypes; `check-snippet-grading` is keyed on the quoted sentence, so
+      grading it HUMAN_CLINICAL in phenotypes while leaving it OTHER elsewhere
+      would create exactly the same-snippet divergence that gate exists to catch.
+      Regrading all six would assert that an expert classification table is human
+      clinical evidence, which the review itself agrees it is not. Kept OTHER
+      throughout.
+
+    Second review round (same session, appended before push of the rename): the
+    re-review raced the previous push - it was submitted at 23:37:44 against
+    647ad36, and ab08201 landed at 23:38:09 - so it reported findings 2 through 7
+    as unaddressed when they were already fixed but unseen. One finding in it was
+    genuinely new and correct, and is acted on here.
+
+    The first pathophysiology node was named "SRP72 Haploinsufficiency". That name
+    was inferred from the IUIS table calling the entity "SRP72-deficiency", which
+    is not the same claim: a classification table saying a functional deficiency
+    exists does not say the deficit is a halved dose of a normal subunit. The
+    primary reports describe mutant SRP72 mislocalizing and one variant failing to
+    associate normally with 7SL RNA, which argues for a misassembly or
+    dominant-negative lesion instead. Renamed the node to "SRP72 Deficiency",
+    which is what the cited source supports, rewrote its description to state the
+    unresolved choice, and added a fourth discussion (srp72-molecular-lesion,
+    KNOWLEDGE_GAP) attached to that node and to genetic#SRP72.
+    `functional_impact_category` is deliberately left unset for the same reason:
+    every value it could take would assert the distinction this entry cannot make.
+
+    The reviewer quoted the Kirwan abstract in its review body. That text was not
+    used as a snippet: it arrived through a review comment rather than through
+    references_cache/, and quoting unverified relayed text as an exact source
+    substring is precisely what the evidence SOP prohibits. references_cache/ has
+    no PMID_22541560.md, and `just fetch-reference PMID:22541560` was attempted a
+    third time here and still returns "Tunnel connection failed: 403 Forbidden".
+    The runner's successful fetch was ephemeral and committed nothing.
+
+    Validation after the changes: schema passes on both files; the reference
+    validator - the gate that failed - now reports "All validations passed";
+    snippet verification 53/53; all eleven other offline gates pass; the page
+    renders. Term validation still cannot run in this environment, but it passed
+    in CI on the previous commit for both files.

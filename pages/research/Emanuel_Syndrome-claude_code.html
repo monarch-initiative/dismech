@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emanuel Syndrome · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Emanuel Syndrome</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Emanuel Syndrome</h1>
+                
+                <p class="report-subtitle">Emanuel Syndrome: Comprehensive Research Report</p>
+                
+                
+                <div class="report-date">2026-09-04</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0012176" target="_blank" rel="noopener noreferrer">MONDO:0012176</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-4-5-20251001, claude-sonnet-5</span>
+                    
+                    
+                    <span class="meta-chip">22 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Emanuel Syndrome: Comprehensive Research Report</h1>
+<h2>1. Disease Information</h2>
+<h3>Overview</h3>
+<p>Emanuel syndrome (ES), also known as supernumerary der(22)t(11;22) syndrome or "derivative 22 syndrome," is a constitutional genomic disorder caused by the presence of an extra (supernumerary) marker chromosome — a derivative chromosome 22 [der(22)] — that carries duplicated segments from the long arms of both chromosome 11 and chromosome 22. This produces partial trisomy for 11q23-qter and partial trisomy for 22q11 (specifically the proximal 22q11.1–22q11.21 region), superimposed on the normal diploid chromosome complement (47 chromosomes total: two normal 11s, two normal 22s, plus the der(22) marker) (GeneReviews, NBK1263; OMIM #609029).</p>
+<p>The condition is characterized by severe-to-profound intellectual disability, characteristic craniofacial dysmorphism (micrognathia/microretrognathia, hooded eyelids, up- or down-slanting palpebral fissures, deep-set eyes, low-hanging columella, long philtrum, ear anomalies with preauricular tags/pits), congenital heart defects, renal anomalies, cleft/high-arched palate, hypotonia, and pre- and postnatal growth deficiency (Orphanet <a href="https://bioregistry.io/ORPHA:96170" target="_blank" rel="noopener noreferrer">ORPHA:96170</a>; NORD; GeneReviews).</p>
+<h3>Key Identifiers</h3>
+<ul>
+<li><strong>OMIM:</strong> #609029 (added November 2004)</li>
+<li><strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:96170" target="_blank" rel="noopener noreferrer">ORPHA:96170</a></li>
+<li><strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0009301" target="_blank" rel="noopener noreferrer">MONDO:0009301</a> (Emanuel syndrome)</li>
+<li><strong>GeneReviews:</strong> NBK1263 (Emanuel &amp; Boyar, first published 2007, periodically updated)</li>
+<li><strong>ICD-10:</strong> Q92.8 / Q95.1 (chromosomal abnormality NEC, balanced rearrangement/derivative chromosome — not separately coded)</li>
+</ul>
+<h3>Synonyms</h3>
+<ul>
+<li>Supernumerary der(22)t(11;22) syndrome</li>
+<li>Derivative 22 syndrome / der(22) syndrome</li>
+<li>Supernumerary der(22) syndrome</li>
+<li>+der(22)t(11;22)(q23;q11.2) syndrome</li>
+<li>t(11;22) syndrome</li>
+<li>Partial trisomy 11q/partial trisomy 22 syndrome (older nomenclature)</li>
+</ul>
+<h3>Data Source Type</h3>
+<p>The overwhelming majority of published knowledge on Emanuel syndrome derives from <strong>aggregated case-series and cohort reports</strong> rather than large-scale EHR data — a natural consequence of its rarity. The GeneReviews chapter synthesizes data from "well over 400 individuals" reported in the literature (Carter et al. 2009 phenotypic delineation of 63 individuals is the largest single cohort; Ohye et al. 2014 provides Japanese national surveillance/registry-based prevalence data). Some more recent findings (e.g., ZAP70 differential expression) derive from reanalysis of public transcriptomic datasets (GEO GSE13122).</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">Emanuel Syndrome - GeneReviews®</a>
+- <a href="https://omim.org/entry/609029">OMIM #609029 - EMANUEL SYNDROME</a>
+- <a href="https://www.orpha.net/en/disease/detail/96170">Orphanet: Emanuel syndrome</a>
+- <a href="https://rarediseases.org/mondo-disease/emanuel-syndrome/">NORD - Emanuel syndrome</a></p>
+<hr />
+<h2>2. Etiology</h2>
+<h3>Disease Causal Factors — Genetic (Chromosomal)</h3>
+<p>Emanuel syndrome is caused exclusively by a <strong>chromosomal structural rearrangement</strong>: unbalanced 3:1 meiotic malsegregation of a parental balanced reciprocal translocation, t(11;22)(q23.3;q11.2). This is not a single-gene disorder but a <strong>contiguous gene/segmental dosage disorder</strong> driven by trisomic gene dosage across the duplicated 11q23-qter and 22q11 segments.</p>
+<ul>
+<li><strong>In &gt;99% of cases</strong>, one parent is a phenotypically normal balanced carrier of t(11;22)(q23;q11.2) (GeneReviews).</li>
+<li>t(11;22)(q23;q11.2) is <strong>the most common recurrent non-Robertsonian reciprocal translocation in humans</strong>, arising independently and recurrently in the population due to a shared genomic architecture rather than being inherited from a common ancestor in most families.</li>
+<li>A minority of cases arise from <strong>de novo formation</strong> of the translocation or, rarely, from other complex/unusual segregation patterns (e.g., 3:1 malsegregation of a paternal complex rearrangement, or unusual non-Robertsonian events producing a similar unbalanced karyotype — see PMC8962060, t(20;22) case).</li>
+</ul>
+<h3>Genetic Risk Factors</h3>
+<ul>
+<li><strong>Parental balanced t(11;22) carrier status</strong> is the dominant, essentially sole, genetic risk factor.</li>
+<li><strong>Sex-of-transmitting-parent effect:</strong> recurrence/live-birth risk of an unbalanced conceptus is <strong>higher when the mother is the carrier than when the father is the carrier</strong> (GeneReviews) — consistent with differential selection against unbalanced gametes/embryos in spermatogenesis versus oogenesis.</li>
+<li><strong>Molecular basis for translocation formation (not transmission) risk:</strong> the palindromic AT-rich repeat (PATRR) sequences at 11q23 (PATRR11) and 22q11 (PATRR22) predispose these loci to double-strand breaks via hairpin/cruciform extrusion, explaining why this exact translocation recurs independently across unrelated families rather than being a single ancient founder event (Kurahashi &amp; Emanuel, Hum Mol Genet 2001, PMID cited in search results; Kato et al., PMC4940405).</li>
+</ul>
+<h3>Environmental Risk Factors</h3>
+<p>No environmental, toxin, infectious, or lifestyle risk factors have been identified for the formation or transmission of the t(11;22) translocation or for Emanuel syndrome. As with other chromosomal rearrangement disorders, there is no established association with parental age (unlike trisomy from nondisjunction such as Down syndrome), smoking, or teratogen exposure.</p>
+<h3>Protective Factors</h3>
+<ul>
+<li><strong>Genetic:</strong> None specific to Emanuel syndrome are described; the "protective" event during gametogenesis is production of a balanced, normal, or non-viable unbalanced gamete rather than the specific 3:1 malsegregant that produces a viable der(22).</li>
+<li><strong>Environmental/Reproductive:</strong> <strong>Preimplantation genetic testing for structural rearrangements (PGT-SR)</strong> functions as a reproductive/preventive intervention for known carrier couples, allowing selection of balanced or normal embryos for transfer (see Section 13, Prevention).</li>
+</ul>
+<h3>Gene-Environment Interactions</h3>
+<p>None reported; this is a purely chromosomal mechanism with no known gene-environment interaction contributing to occurrence or severity.</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4940405/">Kurahashi &amp; Emanuel — palindrome-mediated translocation mechanism, PMC4940405</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8962060/">Supernumerary derivative 22 from novel non-Robertsonian translocation t(20;22), PMC8962060</a></p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Emanuel syndrome phenotypes are drawn primarily from GeneReviews (NBK1263, synthesizing &gt;400 published cases) and the Carter et al. 63-individual phenotypic delineation study, supplemented by Orphanet and case reports.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Frequency</th>
+<th>HPO Term (suggested)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Severe developmental delay / intellectual disability</td>
+<td>~100% (universal)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" rel="noopener noreferrer">HP:0011344</a> (Severe intellectual disability)</td>
+</tr>
+<tr>
+<td>Pre- and postnatal growth deficiency</td>
+<td>Common/near-universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a> (Intrauterine growth retardation), <a href="http://purl.obolibrary.org/obo/HP_0004325" target="_blank" rel="noopener noreferrer">HP:0004325</a> (Decreased body weight)</td>
+</tr>
+<tr>
+<td>Microcephaly</td>
+<td>Universal in GeneReviews cohort</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" rel="noopener noreferrer">HP:0000252</a></td>
+</tr>
+<tr>
+<td>Hypotonia (centrally based)</td>
+<td>Universal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a></td>
+</tr>
+<tr>
+<td>Micrognathia/microretrognathia</td>
+<td>~60%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000347" target="_blank" rel="noopener noreferrer">HP:0000347</a></td>
+</tr>
+<tr>
+<td>Preauricular tags/pits, ear anomalies</td>
+<td>~76% (ear pits)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000384" target="_blank" rel="noopener noreferrer">HP:0000384</a> (Preauricular skin tag), <a href="http://purl.obolibrary.org/obo/HP_0004467" target="_blank" rel="noopener noreferrer">HP:0004467</a> (Preauricular pit)</td>
+</tr>
+<tr>
+<td>Cleft or high-arched palate</td>
+<td>~50–54%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" rel="noopener noreferrer">HP:0000175</a> (Cleft palate), <a href="http://purl.obolibrary.org/obo/HP_0002705" target="_blank" rel="noopener noreferrer">HP:0002705</a> (High palate)</td>
+</tr>
+<tr>
+<td>Congenital heart defects (ASD, VSD, tetralogy of Fallot, others)</td>
+<td>~60%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a> (ASD), <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a>/<a href="http://purl.obolibrary.org/obo/HP_0001636" target="_blank" rel="noopener noreferrer">HP:0001636</a> (VSD), <a href="http://purl.obolibrary.org/obo/HP_0001636" target="_blank" rel="noopener noreferrer">HP:0001636</a>, <a href="http://purl.obolibrary.org/obo/HP_0001636" target="_blank" rel="noopener noreferrer">HP:0001636</a></td>
+</tr>
+<tr>
+<td>Renal/kidney malformations</td>
+<td>~30%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000077" target="_blank" rel="noopener noreferrer">HP:0000077</a> (Abnormality of the kidney)</td>
+</tr>
+<tr>
+<td>Anal atresia</td>
+<td>~20%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" rel="noopener noreferrer">HP:0002023</a></td>
+</tr>
+<tr>
+<td>Genital abnormalities (males): cryptorchidism, micropenis</td>
+<td>Frequent in males</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a> (Cryptorchidism), <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" rel="noopener noreferrer">HP:0000054</a> (Micropenis)</td>
+</tr>
+<tr>
+<td>Hip dysplasia</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001385" target="_blank" rel="noopener noreferrer">HP:0001385</a></td>
+</tr>
+<tr>
+<td>Hearing loss</td>
+<td>Documented feature</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></td>
+</tr>
+<tr>
+<td>Hooded eyelids, deep-set eyes, up/down-slanting palpebral fissures</td>
+<td>Common facial gestalt</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000414" target="_blank" rel="noopener noreferrer">HP:0000414</a> (hooded eyelid), <a href="http://purl.obolibrary.org/obo/HP_0000490" target="_blank" rel="noopener noreferrer">HP:0000490</a> (deep-set eyes), <a href="http://purl.obolibrary.org/obo/HP_0000582" target="_blank" rel="noopener noreferrer">HP:0000582</a>/<a href="http://purl.obolibrary.org/obo/HP_0000601" target="_blank" rel="noopener noreferrer">HP:0000601</a></td>
+</tr>
+<tr>
+<td>Long philtrum, low-hanging columella</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" rel="noopener noreferrer">HP:0000343</a>, <a href="http://purl.obolibrary.org/obo/HP_0009914" target="_blank" rel="noopener noreferrer">HP:0009914</a></td>
+</tr>
+<tr>
+<td>Feeding difficulties / failure to thrive</td>
+<td>Common in infancy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" rel="noopener noreferrer">HP:0011968</a>, <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" rel="noopener noreferrer">HP:0001508</a></td>
+</tr>
+<tr>
+<td>Gastroesophageal reflux, aspiration risk</td>
+<td>Common</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002020" target="_blank" rel="noopener noreferrer">HP:0002020</a></td>
+</tr>
+<tr>
+<td>Seizures / abnormal EEG</td>
+<td>Documented in a subset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+</tr>
+<tr>
+<td>Structural brain anomalies (corpus callosum hypoplasia/maldevelopment, cerebellar hypoplasia, infratentorial involution)</td>
+<td>Reported in imaging studies</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" rel="noopener noreferrer">HP:0002079</a> (CC hypoplasia), <a href="http://purl.obolibrary.org/obo/HP_0001321" target="_blank" rel="noopener noreferrer">HP:0001321</a> (cerebellar hypoplasia)</td>
+</tr>
+<tr>
+<td>Immunologic abnormalities (immunoglobulin deficiency, thymic-dependent immunodeficiency)</td>
+<td>Reported subset</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002721" target="_blank" rel="noopener noreferrer">HP:0002721</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Onset, Severity, Progression</h3>
+<ul>
+<li><strong>Onset:</strong> Congenital — features are present from birth (growth deficiency often detectable prenatally), with developmental delay becoming evident in infancy.</li>
+<li><strong>Severity:</strong> Uniformly severe with respect to cognitive/developmental outcome ("adults function in the spectrum of severe-to-profound intellectual disability" — GeneReviews); somatic malformation burden (cardiac, renal, palate) is variable across individuals.</li>
+<li><strong>Progression:</strong> Largely <strong>stable/static</strong> developmental disability rather than progressive/degenerative; medical complications (cardiac, renal, respiratory) drive most of the morbidity and mortality risk, concentrated in infancy.</li>
+<li><strong>Course:</strong> Most affected individuals achieve independent sitting; "only a small number learn to walk" (GeneReviews). Expressive verbal language is typically very limited, often requiring augmentative/alternative communication.</li>
+</ul>
+<h3>Quality of Life Impact</h3>
+<p>Structured EQ-5D/SF-36-type QOL instruments have not been specifically validated in Emanuel syndrome cohorts (a common gap for ultra-rare chromosomal disorders). Qualitatively, quality of life is shaped by: severe communication limitation (requiring AAC), motor limitation (majority non-ambulatory), recurrent medical/surgical needs (cardiac, GI, orthopedic), and dependence on caregivers for all activities of daily living — consistent with parent/caregiver-reported burden captured by advocacy organizations (emanuelsyndrome.org) rather than formal psychometric QOL studies in the peer-reviewed literature.</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263</a>
+- <a href="https://www.researchgate.net/publication/26674827_Phenotypic_Delineation_of_Emanuel_Syndrome_Supernumerary_Derivative_22_Syndrome_Clinical_Features_of_63_Individuals">Phenotypic Delineation of Emanuel Syndrome: Clinical Features of 63 Individuals</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3652044/">Derivative 11;22 (Emanuel) Syndrome: A Case Report and Review, PMC3652044</a>
+- <a href="https://link.springer.com/article/10.1186/s43042-024-00494-6">Emanuel syndrome due to unusual pattern, Egypt J Med Hum Genet 2024</a></p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<h3>Causal Chromosomal Abnormality</h3>
+<ul>
+<li><strong>Karyotype:</strong> 47,XX or XY,+der(22)t(11;22)(q23;q11.2)pat/mat</li>
+<li>The der(22) is a <strong>supernumerary marker chromosome</strong> consisting of the centromere and proximal short/long arm of chromosome 22, fused to distal 11q material, resulting in:</li>
+<li><strong>Partial trisomy for 11q23→qter</strong> (distal long arm of chromosome 11)</li>
+<li><strong>Partial trisomy for 22q11.1→22q11.21</strong> (proximal long arm of chromosome 22, specifically the region duplicated in "22q11 duplication syndrome" and overlapping the DiGeorge/velocardiofacial critical region)</li>
+<li>This is <strong>not a simple reciprocal translocation</strong> producing two derivative chromosomes replacing normal homologs (which would be balanced); Emanuel syndrome results when the <strong>der(22) is retained as a THIRD, extra chromosome</strong> alongside two structurally normal pairs of chromosomes 11 and 22 (46 + 1 = 47 chromosomes total), via 3:1 meiotic segregation of the parental balanced quadrivalent.</li>
+</ul>
+<h3>Breakpoint Region / Molecular Mechanism (PATRR11/PATRR22)</h3>
+<ul>
+<li>The t(11;22)(q23;q11.2) translocation breakpoints cluster within <strong>palindromic AT-rich repeats (PATRRs)</strong> — PATRR11 on chromosome 11q23 and PATRR22 on chromosome 22q11 — long, near-perfect palindromic sequences capable of forming hairpin/cruciform secondary structures in single- or double-stranded DNA.</li>
+<li>These non-B DNA structures are thought to be substrates for <strong>double-strand breaks</strong>, which are then repaired via <strong>illegitimate (non-homologous) recombination</strong> joining 11q23 to 22q11, producing the recurrent, nearly identical breakpoint (breakpoints differ by only a few nucleotides across unrelated families) (Kurahashi &amp; Emanuel 2001; Kato et al., PMC4940405; <a href="https://pubmed.ncbi.nlm.nih.gov/17264116/" target="_blank" rel="noopener noreferrer">PMID:17264116</a> — cruciform extrusion propensity studies).</li>
+<li>This palindrome-mediated mechanism explains why t(11;22) is the <strong>most frequent recurrent non-Robertsonian translocation in humans</strong>, arising independently in many families rather than through common descent.</li>
+</ul>
+<h3>Genes in the Duplicated Regions and Dosage-Sensitive Candidates</h3>
+<ul>
+<li>The duplicated 22q11 segment (22q10-22q11) <strong>overlaps the 22q11.2 deletion/duplication (DiGeorge/velocardiofacial) critical region</strong>, sharing an approximately <strong>1.5-Mb region of overlap</strong> with classic VCFS/DiGeorge syndrome (der(22) syndrome and VCFS/DGS share this 1.5-Mb overlap — ScienceDirect/Am J Hum Genet).</li>
+<li><strong>TBX1</strong> (T-box transcription factor 1) lies in this region and is the leading candidate dosage-sensitive gene for the cardiac (conotruncal) and craniofacial phenotype: TBX1 haploinsufficiency is the major driver of DiGeorge/VCFS deletion phenotypes, and reciprocal TBX1 dosage increase (as in 22q11.2 duplication syndrome and, by extension, the duplicated segment on der(22)) has been shown in mouse models to produce <strong>congenital heart disease resembling the 22q11.2 duplication phenotype</strong> by disrupting the normal anterior heart field gene-expression balance (Hum Mol Genet 2018).</li>
+<li><strong>HIRA</strong>, also within this region, is independently predicted to be haploinsufficient/dosage-sensitive and is implicated in chromatin/nucleosome assembly relevant to cardiac and craniofacial development in the DiGeorge/VCFS spectrum.</li>
+<li>The duplicated distal 11q23-qter segment is gene-dense but no single "master" dosage-sensitive gene has been definitively established for the 11q-related phenotypic contribution; the phenotype is generally attributed to <strong>combined trisomic dosage effects across many genes</strong> in both segments rather than a single causal gene (unlike, e.g., Down syndrome's DSCR).</li>
+<li><strong>ZAP70</strong> (Zeta-chain-associated protein kinase 70) was recently identified via bioinformatic differential-expression/WGCNA analysis of a public transcriptomic dataset (GEO GSE13122; 9 balanced-carrier, 4 Emanuel syndrome, 13 control samples) as significantly upregulated in Emanuel syndrome fetal samples and proposed as a <strong>candidate noninvasive prenatal screening (NIPS) biomarker</strong>; ZAP70 is a protein kinase implicated in spindle assembly/chromosome segregation in oocytes, mechanistically connecting it to the meiotic malsegregation origin of the disorder (Hu, Wang, Xiang, <em>Biochem Genet</em> 2024, <a href="https://pubmed.ncbi.nlm.nih.gov/38687434/" target="_blank" rel="noopener noreferrer">PMID:38687434</a>).</li>
+</ul>
+<h3>Variant Classification / Population Frequency</h3>
+<ul>
+<li>This is a <strong>structural chromosomal rearrangement</strong>, not a point variant, so standard ACMG/AMP SNV classification and gnomAD-style allele-frequency data do not apply.</li>
+<li><strong>Balanced t(11;22) carrier population prevalence is unknown</strong> but is inferred to be relatively common among identified reciprocal translocations given how frequently the unbalanced (Emanuel syndrome) and balanced forms recur across unrelated ascertainments worldwide.</li>
+<li><strong>Somatic vs. germline:</strong> Constitutional (germline) only; no described role in acquired/somatic disease.</li>
+<li><strong>Functional consequence:</strong> Copy-number/dosage-gain (trisomic dosage) of genes within the two duplicated segments — a gene-dosage-imbalance mechanism analogous to other partial-trisomy/segmental duplication syndromes, rather than loss-of-function or dominant-negative single-gene mechanisms.</li>
+</ul>
+<h3>Epigenetics</h3>
+<p>No Emanuel-syndrome-specific epigenetic (DNA methylation/histone modification) studies were identified in the literature search; this remains an unexplored area for this disorder.</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.sciencedirect.com/science/article/pii/S0002929707617121">Der(22) Syndrome and VCFS/DiGeorge Syndrome Share a 1.5-Mb Region of Overlap on Chromosome 22q11, Am J Hum Genet</a>
+- <a href="https://academic.oup.com/hmg/article/27/11/1847/4917554">Dysregulation of TBX1 dosage in the anterior heart field, Hum Mol Genet 2018</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12144060/">ZAP70: differential expression analysis for Emanuel syndrome, PMC12144060</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4940405/">Kurahashi/Kato palindrome-mediated translocation, PMC4940405</a></p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>No environmental toxins, occupational exposures, infectious agents, or lifestyle factors have been identified as causal or contributory to Emanuel syndrome. As a purely constitutional chromosomal-rearrangement disorder with a well-characterized meiotic origin (3:1 malsegregation of a parental balanced translocation via a PATRR-mediated recurrent breakpoint), there is no evidence base implicating CTD-catalogued chemicals, radiation, maternal illness, or infection in either translocation formation or in modifying phenotypic expression/severity in affected individuals. This is consistent with the broader literature on recurrent PATRR-mediated translocations (e.g., t(11;22)), which are attributed to intrinsic sequence-driven genomic instability rather than exogenous mutagenic exposure.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered Causal Chain</h3>
+<ol>
+<li>A <strong>PATRR11–PATRR22 palindromic AT-rich repeat pair</strong> at 11q23 and 22q11 is intrinsically prone to forming hairpin/cruciform secondary DNA structures during meiosis. → <em>This leads to</em> double-strand DNA breaks at these loci.</li>
+<li>Illegitimate, non-homologous repair of these breaks joins 11q23 material to 22q11 material (and vice versa) in one parental germ cell lineage. → <em>This results in</em> formation of a <strong>balanced reciprocal translocation, t(11;22)(q23;q11.2)</strong>, in that parent (who is phenotypically normal because no genetic material is gained or lost — this step can also occur de novo in the proband's own lineage, but is inherited from a carrier parent in &gt;99% of Emanuel syndrome cases).</li>
+<li>During gametogenesis in the balanced carrier parent, the four translocation-involved chromosomes (normal 11, normal 22, der(11), der(22)) form a <strong>quadrivalent</strong> at meiosis I and can segregate in multiple ways, including the abnormal <strong>3:1 pattern</strong> (three chromosomes to one gamete, one to the other) rather than the normal 2:2 pattern. → <em>This leads to</em> production of a gamete carrying an extra der(22) chromosome alongside a normal haploid set.</li>
+<li>Fertilization by a normal gamete produces a <strong>conceptus with 47 chromosomes</strong>: two normal 11s, two normal 22s, plus the supernumerary der(22). → <em>This results in</em> <strong>partial trisomy for distal 11q (11q23→qter) and partial trisomy for proximal 22q11</strong> simultaneously, in every cell of the embryo (constitutional, not mosaic, in the great majority of cases). Note: this specific 3:1 outcome is the <em>rarer</em> viable unbalanced product among several theoretically possible segregation outcomes of the quadrivalent — most other unbalanced products (e.g., trisomy 11q only, monosomy patterns) are not compatible with term survival, which is why Emanuel syndrome (the der(22)-supernumerary product specifically) is the unbalanced outcome actually observed in liveborn infants; competing outcomes are lost predominantly to early miscarriage (spontaneous abortion risk 23–37% is elevated in these pregnancies overall).</li>
+<li>Trisomic gene dosage across the duplicated 22q11 segment — which overlaps the DiGeorge/VCFS 1.5-Mb critical region containing <strong>TBX1</strong> and <strong>HIRA</strong> — disrupts the normal balance of anterior heart field transcriptional programs. → <em>This leads to</em> (inferred from mouse TBX1-dosage models, extrapolated to human trisomic dosage) <strong>conotruncal and septal congenital heart defects</strong> (ASD, VSD, tetralogy of Fallot), and contributes to the <strong>craniofacial dysmorphism and palatal anomalies</strong> that phenocopy features of 22q11.2 duplication syndrome.</li>
+<li>Combined trisomic dosage across the gene-dense duplicated 11q23-qter segment (no single dominant gene identified) acts in parallel, and together with the 22q11 dosage effect → <em>results in</em> <strong>global neurodevelopmental disruption</strong> (severe intellectual disability, hypotonia, microcephaly), <strong>growth deficiency</strong> (pre- and postnatal), <strong>renal maldevelopment</strong>, and <strong>genital anomalies</strong> in males — the multisystem congenital malformation pattern characteristic of Emanuel syndrome. The mechanistic link from specific 11q23-qter genes to each of these individual organ phenotypes is <strong>largely inferred from the deletion/duplication-syndrome dosage paradigm</strong> rather than gene-by-gene demonstrated in Emanuel syndrome itself; this is an area with a genuine knowledge gap (no systematic 11q gene-phenotype dissection has been published for this disorder).</li>
+<li>In a subset of cases, disrupted spindle assembly/chromosome segregation machinery (implicated via <strong>ZAP70</strong> upregulation, a kinase normally regulating oocyte spindle assembly) may reflect a downstream transcriptional signature of, or contributor to, the meiotic malsegregation event itself — this is a recent hypothesis-generating finding (2024) rather than an established causal step, proposed chiefly as a biomarker rather than a mechanistic driver of the postnatal phenotype.</li>
+</ol>
+<h3>Molecular Pathways</h3>
+<ul>
+<li><strong>TBX1/anterior heart field transcriptional network</strong> — implicated in cardiac outflow tract and craniofacial development (<a href="http://purl.obolibrary.org/obo/GO_0003170" target="_blank" rel="noopener noreferrer">GO:0003170</a> heart valve development-adjacent pathways; anterior heart field specification). Dosage disruption (both loss in DiGeorge and gain in duplication/Emanuel) perturbs this network.</li>
+<li>No KEGG/Reactome pathway is specifically annotated to "Emanuel syndrome"; pathway involvement is inferred from the overlapping 22q11.2 deletion/duplication syndrome literature.</li>
+</ul>
+<h3>Cellular Processes</h3>
+<ul>
+<li><strong>Meiotic chromosome segregation defect</strong> (upstream, in parental gametogenesis) — <a href="http://purl.obolibrary.org/obo/GO_0007126" target="_blank" rel="noopener noreferrer">GO:0007126</a> (meiotic nuclear division), <a href="http://purl.obolibrary.org/obo/GO_0051321" target="_blank" rel="noopener noreferrer">GO:0051321</a> (meiotic cell cycle).</li>
+<li><strong>Dosage-driven transcriptional dysregulation</strong> in developing tissues (heart, craniofacial mesenchyme, kidney, brain) — downstream, in the conceptus.</li>
+<li><strong>Neurodevelopmental process disruption</strong> contributing to intellectual disability and hypotonia (largely inferred by analogy to other segmental-dosage neurodevelopmental disorders; not specifically dissected at the cellular level in Emanuel syndrome).</li>
+</ul>
+<h3>Protein Dysfunction</h3>
+<ul>
+<li>Not a "misfolding" or single-protein-dysfunction disorder; the pathophysiology is <strong>gene-dosage</strong> (too much of many gene products simultaneously), not altered protein structure/function of any single protein.</li>
+</ul>
+<h3>Tissue Damage / Structural Anomalies</h3>
+<ul>
+<li>Cardiac septal and outflow-tract malformation (structural, developmental — not degenerative).</li>
+<li>Renal dysplasia/malformation.</li>
+<li>CNS structural anomalies on imaging: cerebellar hypoplasia, infratentorial brain involution, maldeveloped/hypoplastic corpus callosum, reported in a subset of neuroimaging case series.</li>
+</ul>
+<h3>Immune System Involvement</h3>
+<p>Given the overlap with the DiGeorge/VCFS 22q11 critical region (a region whose <em>deletion</em> causes thymic aplasia and T-cell immunodeficiency in classic DiGeorge syndrome), a subset of Emanuel syndrome patients have documented <strong>immunoglobulin deficiency and thymic-dependent immunodeficiency</strong> — plausibly reflecting a dosage effect on the same 22q11 developmental pathway (thymic/parathyroid organogenesis), though this is less systematically characterized than in deletion-type 22q11.2 syndrome.</p>
+<h3>Molecular Profiling</h3>
+<ul>
+<li><strong>Transcriptomics:</strong> GEO dataset GSE13122 has been used for differential expression analysis comparing Emanuel syndrome, balanced-carrier, and control samples (Hu et al. 2024), identifying ZAP70 and other hub genes via WGCNA/Lasso regression — this is the only systematic transcriptomic characterization identified in the literature search.</li>
+<li><strong>Proteomics, metabolomics, lipidomics, single-cell, spatial transcriptomics:</strong> No disease-specific studies identified; this represents an unexplored area for Emanuel syndrome, consistent with its status as an ultra-rare disorder with limited tissue-availability for such studies.</li>
+</ul>
+<p><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0007126" target="_blank" rel="noopener noreferrer">GO:0007126</a> (meiotic nuclear division), <a href="http://purl.obolibrary.org/obo/GO_0000724" target="_blank" rel="noopener noreferrer">GO:0000724</a> (double-strand break repair via homologous recombination — for contrast with illegitimate/non-homologous repair implicated here), <a href="http://purl.obolibrary.org/obo/GO_0003007" target="_blank" rel="noopener noreferrer">GO:0003007</a> (heart morphogenesis), <a href="http://purl.obolibrary.org/obo/GO_0060412" target="_blank" rel="noopener noreferrer">GO:0060412</a> (ventricular septum morphogenesis).
+<strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000746" target="_blank" rel="noopener noreferrer">CL:0000746</a> (cardiac muscle cell), <a href="http://purl.obolibrary.org/obo/CL_0002327" target="_blank" rel="noopener noreferrer">CL:0002327</a> (mammary luminal progenitor cell — N/A), more relevantly <a href="http://purl.obolibrary.org/obo/CL_0000000" target="_blank" rel="noopener noreferrer">CL:0000000</a>-level developmental progenitor populations of anterior heart field and neural crest-derived craniofacial mesenchyme (no single well-established CL term captures "anterior heart field cell" precisely; <a href="http://purl.obolibrary.org/obo/UBERON_0003922" target="_blank" rel="noopener noreferrer">UBERON:0003922</a> anterior heart field is the anatomical structure term).</p>
+<p><strong>Sources:</strong>
+- <a href="https://academic.oup.com/hmg/article/27/11/1847/4917554">Dysregulation of TBX1 dosage, Hum Mol Genet 2018</a>
+- <a href="https://www.sciencedirect.com/science/article/pii/S0002929707617121">Der(22)/VCFS 1.5-Mb overlap, Am J Hum Genet</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12144060/">ZAP70 hub gene analysis, PMC12144060</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4940405/">Kurahashi &amp; Emanuel PATRR mechanism, PMC4940405</a></p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<h3>Organ Level</h3>
+<ul>
+<li><strong>Primary:</strong> Heart (conotruncal/septal defects), kidney (structural malformation), craniofacial skeleton/palate, brain (microcephaly, structural anomalies), external ear, genitalia (males).</li>
+<li><strong>Secondary/complications:</strong> Respiratory system (aspiration risk secondary to swallowing dysfunction and cleft palate), musculoskeletal system (hip dysplasia secondary to hypotonia/joint laxity), gastrointestinal tract (anal atresia, gastroesophageal reflux).</li>
+<li><strong>Body systems involved:</strong> Cardiovascular, renal/urinary, craniofacial/skeletal, nervous (central), digestive, genitourinary (male), immune (subset), auditory.</li>
+</ul>
+<h3>Tissue and Cell Level</h3>
+<ul>
+<li>Cardiac septal and outflow-tract tissue (neural-crest-derived and second heart field-derived mesenchyme; <a href="http://purl.obolibrary.org/obo/UBERON_0003922" target="_blank" rel="noopener noreferrer">UBERON:0003922</a> anterior heart field, <a href="http://purl.obolibrary.org/obo/UBERON_0002094" target="_blank" rel="noopener noreferrer">UBERON:0002094</a> outflow tract).</li>
+<li>Palatal shelf mesenchyme (cleft/high palate).</li>
+<li>Renal parenchyma (dysplastic/malformed kidney tissue; <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> kidney).</li>
+<li>CNS gray/white matter, cerebellum, corpus callosum (<a href="http://purl.obolibrary.org/obo/UBERON_0002616" target="_blank" rel="noopener noreferrer">UBERON:0002616</a> cerebellar cortex; <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a> corpus callosum).</li>
+<li>Skeletal muscle (generalized hypotonia; <a href="http://purl.obolibrary.org/obo/UBERON_0001134" target="_blank" rel="noopener noreferrer">UBERON:0001134</a> skeletal muscle tissue).</li>
+</ul>
+<h3>Subcellular Level</h3>
+<p>No subcellular/organelle-specific pathology has been described; the mechanism is chromosomal/genomic (nuclear, <a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>) rather than involving a specific organelle dysfunction (e.g., mitochondria, lysosome).</p>
+<h3>Localization</h3>
+<ul>
+<li>Craniofacial anomalies are typically <strong>bilateral/symmetric</strong> (facial gestalt); ear anomalies (preauricular tags/pits) may be unilateral or bilateral.</li>
+<li>Cardiac defects are structural/midline-related (septal defects) rather than laterality-defect syndromes.</li>
+<li>No described laterality (situs) defects.</li>
+</ul>
+<p><strong>Suggested UBERON terms:</strong> <a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a> (heart), <a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a> (kidney), <a href="http://purl.obolibrary.org/obo/UBERON_0001456" target="_blank" rel="noopener noreferrer">UBERON:0001456</a> (face), <a href="http://purl.obolibrary.org/obo/UBERON_0002417" target="_blank" rel="noopener noreferrer">UBERON:0002417</a> (hard palate), <a href="http://purl.obolibrary.org/obo/UBERON_0002616" target="_blank" rel="noopener noreferrer">UBERON:0002616</a> (cerebellar cortex), <a href="http://purl.obolibrary.org/obo/UBERON_0002336" target="_blank" rel="noopener noreferrer">UBERON:0002336</a> (corpus callosum), <a href="http://purl.obolibrary.org/obo/UBERON_0000151" target="_blank" rel="noopener noreferrer">UBERON:0000151</a> (ear).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<h3>Onset</h3>
+<ul>
+<li><strong>Congenital</strong> in all cases — the chromosomal imbalance is present from conception; growth deficiency is often detectable <strong>prenatally</strong> (intrauterine growth restriction, nuchal translucency thickening reported on first-trimester screening in some cases — PMC12527601).</li>
+<li>Developmental delay and hypotonia typically become clinically evident in <strong>early infancy</strong>.</li>
+</ul>
+<h3>Progression</h3>
+<ul>
+<li>Not a progressive/degenerative disorder in the classic sense; the underlying genomic imbalance is static and present in every cell from conception.</li>
+<li><strong>Disease course pattern:</strong> Chronic, lifelong, non-progressive with respect to the core neurodevelopmental disability; medically, the <strong>highest-risk period is the first months of life</strong>, when life-threatening structural malformations (cardiac, potentially with associated conditions such as congenital diaphragmatic hernia in rare co-occurring cases) drive most mortality.</li>
+<li>Beyond infancy, the disease course stabilizes into <strong>chronic, lifelong severe-to-profound intellectual disability</strong> with ongoing but generally non-escalating medical management needs (feeding, orthopedic, audiologic, ophthalmologic).</li>
+</ul>
+<h3>Patterns</h3>
+<ul>
+<li>No spontaneous or treatment-induced remission (this is a structural/dosage disorder, not a relapsing-remitting condition).</li>
+<li><strong>Critical period for intervention:</strong> the neonatal/infancy period for surgical correction of life-threatening cardiac and gastrointestinal anomalies (e.g., anal atresia repair, cardiac surgery), and early childhood for initiation of intensive developmental therapies (physical/occupational/speech, AAC) to optimize functional outcome.</li>
+</ul>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12527601/">Emanuel Syndrome: A Case Report with Isolated Nuchal Translucency Thickening, PMC12527601</a></p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<h3>Epidemiology</h3>
+<ul>
+<li><strong>Theoretical/estimated prevalence:</strong> ~<strong>1 in 110,000</strong> live births, based on Japanese national theoretical-frequency and surveillance data (Ohye et al., <em>Pediatrics International</em> 2014, vol 56, pp 462–466).</li>
+<li><strong>Case count:</strong> "Well over 400 individuals" reported in the medical literature to date (GeneReviews); true population prevalence is otherwise stated as "unknown" by GeneReviews given ascertainment limitations for a condition this rare.</li>
+<li>Balanced t(11;22) carrier frequency in the general population is <strong>unknown</strong> but presumed non-negligible given how often the unbalanced (Emanuel) and balanced forms are independently ascertained worldwide via recurrent, sequence-driven translocation formation.</li>
+</ul>
+<h3>Inheritance Pattern</h3>
+<ul>
+<li>Chromosomal (not classic Mendelian); functionally behaves as an <strong>autosomal, unbalanced structural rearrangement</strong> transmitted from a balanced-translocation-carrier parent via abnormal 3:1 meiotic segregation.</li>
+<li><strong>&gt;99% of Emanuel syndrome probands have a parent who is a balanced t(11;22)(q23;q11.2) carrier</strong> (GeneReviews); a minority arise de novo.</li>
+<li>In most familial cases, the carrier parent inherited the translocation from a parent, i.e., the balanced translocation itself can be transmitted stably across generations in a family (as a balanced state) before eventually producing an unbalanced (Emanuel syndrome) conceptus in a given generation.</li>
+</ul>
+<h3>Penetrance / Expressivity</h3>
+<ul>
+<li>The <strong>unbalanced chromosomal state (der(22) supernumerary) is fully "penetrant"</strong> for the Emanuel syndrome phenotype — i.e., essentially all liveborn individuals with the characteristic +der(22)t(11;22) karyotype manifest the syndrome, though <strong>expressivity is variable</strong> across organ systems (e.g., not all patients have cardiac defects [~60%] or renal anomalies [~30%] or cleft palate [~50%]), while the core neurodevelopmental/growth/craniofacial features are near-universal.</li>
+<li><strong>Balanced carriers are phenotypically normal</strong> (complete "non-penetrance" of the balanced state itself, aside from reproductive risk).</li>
+</ul>
+<h3>Genetic Anticipation</h3>
+<p>Not applicable — this is a structural chromosomal rearrangement, not a repeat-expansion disorder; there is no described anticipation phenomenon.</p>
+<h3>Germline Mosaicism</h3>
+<p>Rare/atypical parental mosaicism for the translocation has been reported as a mechanism in a minority of families where recurrence occurs despite an apparently normal parental karyotype on standard testing, though this is not the predominant mechanism (most carrier parents show a full, non-mosaic balanced translocation on karyotype).</p>
+<h3>Founder Effects</h3>
+<p>No founder effect has been established; t(11;22) is understood to arise <strong>recurrently and independently</strong> in unrelated families worldwide due to the intrinsic PATRR-mediated genomic instability at the 11q23/22q11 loci, rather than through descent from a common ancestral rearrangement event. This is a defining and somewhat unusual feature relative to most "founder" chromosomal syndromes.</p>
+<h3>Consanguinity</h3>
+<p>No specific role for consanguinity is described (mechanism is unrelated to autosomal recessive single-gene inheritance).</p>
+<h3>Recurrence Risk (Carrier Couples)</h3>
+<ul>
+<li><strong>Live-born infant with Emanuel syndrome:</strong> 1.8%–5.6% per pregnancy for a known balanced-carrier parent (GeneReviews), with risk <strong>higher when the mother is the carrier</strong>.</li>
+<li><strong>Spontaneous abortion risk</strong> in these pregnancies: 23%–37%.</li>
+<li><strong>Unaffected siblings of a proband:</strong> ~50% chance of being a balanced translocation carrier themselves; ~50% chance of normal chromosomes.</li>
+</ul>
+<h3>Population Demographics</h3>
+<ul>
+<li>No specific ethnic, geographic, or racial predilection has been established; cases have been reported worldwide across diverse populations.</li>
+<li><strong>Sex ratio:</strong> No strong sex bias in occurrence has been reported (autosomal mechanism); however, genital anomalies are specifically observed in <strong>affected males</strong> (cryptorchidism, micropenis) as part of the phenotype, not as a differential occurrence rate between sexes.</li>
+<li><strong>Age distribution:</strong> Ascertained predominantly in infancy/early childhood at diagnosis; survival into adulthood is documented, with some reported patients living <strong>more than 50 years</strong>.</li>
+</ul>
+<p><strong>Sources:</strong>
+- <a href="https://onlinelibrary.wiley.com/doi/10.1111/ped.12437">Ohye et al. — Prevalence of Emanuel syndrome, Pediatr Int 2014</a>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263</a>
+- <a href="https://emanuelsyndrome.org/emanuel-syndrome/commonly-asked-questions-faq/">Emanuel Syndrome FAQ — emanuelsyndrome.org</a></p>
+<hr />
+<h2>10. Diagnostics</h2>
+<h3>Clinical/Cytogenetic Tests</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Test</th>
+<th>Sensitivity/Utility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Conventional karyotype (G-banding)</strong></td>
+<td>Detects the supernumerary der(22) marker chromosome; ~100% sensitivity for the gross abnormality, though may require follow-up FISH to confirm origin</td>
+</tr>
+<tr>
+<td><strong>Chromosomal microarray analysis (CMA)</strong> — oligonucleotide or SNP array</td>
+<td>~100% sensitivity; identifies and precisely sizes the 11q and 22q copy-number gains</td>
+</tr>
+<tr>
+<td><strong>FISH</strong> with probes targeting 22q11 and 11q23</td>
+<td>100% sensitivity when probes for <strong>both</strong> regions are used; confirms the dual-segment composition of the der(22)</td>
+</tr>
+<tr>
+<td><strong>Diagnostic hallmark</strong></td>
+<td>Duplication of 22q10-22q11 <strong>and</strong> duplication of 11q23-qter co-occurring on a single supernumerary derivative chromosome 22</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Prenatal Diagnostics</h3>
+<ul>
+<li><strong>cfDNA (NIPS) screening</strong>: retrospective laboratory experience shows cfDNA screening can detect Emanuel syndrome and other unbalanced products of conception in known t(11;22) carrier pregnancies (PMC10606745), though it is not a substitute for diagnostic testing.</li>
+<li><strong>ZAP70 expression</strong> in maternal peripheral blood has been proposed (2024, hypothesis-generating) as a potential future noninvasive biomarker, but is not yet clinically validated or implemented.</li>
+<li><strong>Ultrasound findings:</strong> IUGR, and case reports describe <strong>isolated nuchal translucency thickening</strong> detected on first-trimester screening prompting diagnostic workup (PMC12527601).</li>
+<li>Amniocentesis/CVS with karyotype/FISH/CMA remains the diagnostic standard for confirming or excluding Emanuel syndrome in a known carrier pregnancy.</li>
+</ul>
+<h3>Genetic Testing Strategy</h3>
+<ul>
+<li><strong>Family history of a known t(11;22) balanced carrier parent:</strong> targeted karyotype/FISH is the recommended first-line diagnostic approach in the fetus/newborn.</li>
+<li><strong>De novo/unexplained developmental delay presentation:</strong> CMA is typically first-line for undiagnosed developmental delay generally, and would detect the 11q/22q copy-number gain; karyotype is then used to characterize the structural configuration (supernumerary marker vs. other mechanism) and to test parents for a balanced translocation.</li>
+<li>Once a proband is diagnosed, <strong>parental karyotyping is essential</strong> to determine recurrence risk and identify at-risk extended family members (for cascade/carrier testing).</li>
+</ul>
+<h3>Clinical Criteria and Differential Diagnosis</h3>
+<p>No formal consensus diagnostic clinical-criteria scoring system (akin to DSM/ICD criteria sets) exists for Emanuel syndrome — diagnosis is definitively cytogenetic/molecular, with clinical features prompting the genetic workup. <strong>Differential diagnoses</strong> to consider given phenotypic overlap include:
+- 22q11.2 deletion syndrome (DiGeorge/VCFS) and 22q11.2 duplication syndrome (phenotypic overlap via the shared 1.5-Mb region)
+- Other supernumerary marker chromosome syndromes
+- Other multiple congenital anomaly/intellectual disability syndromes with overlapping craniofacial gestalt (e.g., Smith-Magenis, Cornelia de Lange) — distinguished definitively by karyotype/CMA.</p>
+<h3>Screening</h3>
+<ul>
+<li>No population-based newborn screening program exists for Emanuel syndrome (as with virtually all rare structural chromosomal syndromes).</li>
+<li><strong>Targeted carrier/cascade screening</strong> is recommended for relatives of a known balanced t(11;22) carrier, and <strong>prenatal diagnostic testing</strong> is offered to known carrier couples in subsequent pregnancies.</li>
+</ul>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263 — Testing section</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10606745/">Prenatal cfDNA Screening for Emanuel Syndrome, PMC10606745</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12527601/">Emanuel Syndrome: Isolated Nuchal Translucency Thickening, PMC12527601</a></p>
+<hr />
+<h2>11. Outcome/Prognosis</h2>
+<h3>Survival and Mortality</h3>
+<ul>
+<li><strong>True population life expectancy is unknown</strong>, but mortality risk is <strong>highest in the first months of life</strong>, driven by life-threatening congenital malformations (predominantly cardiac).</li>
+<li>In one published cohort analysis: <strong>17/21 patients (80.95%) died at pediatric age</strong>, <strong>3/21 (14.28%) died at adult age</strong>, and 1 (4.76%) had unknown age at death; <strong>mortality was attributed to cardiac causes in 71.42%</strong> of deaths.</li>
+<li><strong>Survival into adulthood is well documented</strong>, including reported individuals <strong>living more than 50 years</strong>, particularly with modern surgical/medical management of the cardiac and other structural anomalies.</li>
+<li>With improved neonatal and pediatric cardiac/surgical care and time, survival prospects for infants who survive the neonatal period improve substantially.</li>
+</ul>
+<h3>Morbidity and Function</h3>
+<ul>
+<li><strong>Uniform severe-to-profound intellectual disability</strong> in surviving adults.</li>
+<li>Majority achieve independent sitting; <strong>only a minority learn to walk independently</strong>.</li>
+<li><strong>Verbal communication is typically very limited</strong>, commonly requiring augmentative and alternative communication strategies.</li>
+<li>No validated disease-specific quality-of-life instrument has been applied in the literature; functional outcome data are largely descriptive/qualitative from case series.</li>
+</ul>
+<h3>Disease Course / Complications</h3>
+<ul>
+<li>Major complications requiring ongoing management: recurrent respiratory issues (aspiration risk from swallowing dysfunction), orthopedic complications (hip dysplasia), gastrointestinal issues (reflux, feeding difficulty, post-surgical sequelae of anal atresia repair), sensory impairment (hearing loss, ophthalmologic issues requiring monitoring), and in a subset, seizure disorders.</li>
+<li><strong>Congenital diaphragmatic hernia</strong> has been reported as a co-occurring, life-threatening complication in a subset of cases (systematic review, ScienceDirect, S0022346821007776).</li>
+</ul>
+<h3>Prognostic Factors</h3>
+<ul>
+<li><strong>Presence and severity of congenital heart disease</strong> is the dominant prognostic determinant for early mortality.</li>
+<li>Presence of additional major structural anomalies (renal, gastrointestinal) compounds perioperative and long-term medical risk.</li>
+<li>No molecular/biomarker-based prognostic stratification currently exists.</li>
+</ul>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263 — Prognosis</a>
+- <a href="https://link.springer.com/article/10.1186/s43042-024-00494-6">Emanuel syndrome due to unusual pattern — mortality cohort data, Egypt J Med Hum Genet 2024</a>
+- <a href="https://www.sciencedirect.com/science/article/abs/pii/S0022346821007776">Emanuel syndrome and congenital diaphragmatic hernia: systematic review</a>
+- <a href="https://emanuelsyndrome.org/emanuel-syndrome/commonly-asked-questions-faq/">Emanuel Syndrome FAQ</a></p>
+<hr />
+<h2>12. Treatment</h2>
+<p>There is <strong>no disease-modifying or curative treatment</strong> for Emanuel syndrome — management is entirely <strong>multidisciplinary, supportive, and directed at individual malformations and complications</strong>, per GeneReviews management guidelines.</p>
+<h3>Diagnostic/Screening Evaluations at Diagnosis (Baseline Workup)</h3>
+<ul>
+<li>Cardiac echocardiography</li>
+<li>Renal ultrasound</li>
+<li>Orthopedic evaluation (hip dysplasia screening)</li>
+<li>Audiology evaluation</li>
+<li>Ophthalmologic evaluation</li>
+<li>Palatal/ENT assessment</li>
+<li>Feeding/swallowing evaluation (to assess aspiration risk, given palate anomalies and hypotonia)</li>
+</ul>
+<h3>Pharmacotherapy / Supportive Care</h3>
+<ul>
+<li><strong>Gastroesophageal reflux management</strong> — standard pharmacologic/positional management (NCIT:C49236 Therapeutic Procedure-level; specific agents not disease-specific)</li>
+<li>NCIT term: <code>NCIT:C15986</code> (Pharmacotherapy, generic)</li>
+<li><strong>Nutritional support</strong> — supplementary formulas; consideration of enteral (gastrostomy tube) feeding for failure to thrive or unsafe oral feeding</li>
+<li>NCIT term: <code>NCIT:C15447</code> (Dietary Intervention) / gastrostomy under <code>NCIT:C15329</code> (Surgical Procedure)</li>
+<li>No gene therapy, RNA-based therapy, cell therapy, or targeted molecular therapy exists or is in development for Emanuel syndrome, consistent with its nature as a multi-gene dosage disorder rather than a single-gene target.</li>
+</ul>
+<h3>Surgical/Interventional</h3>
+<ul>
+<li><strong>Cardiac surgical correction</strong> for structural heart defects (ASD/VSD closure, tetralogy of Fallot repair, etc.) — <code>NCIT:C15329</code> (Surgical Procedure) / more specifically cardiac surgical procedure terms.</li>
+<li><strong>Anal atresia surgical repair</strong></li>
+<li><strong>Inguinal hernia repair</strong></li>
+<li><strong>Gastrostomy tube placement</strong> for feeding support</li>
+<li><strong>Orthopedic surgical intervention</strong> for hip dysplasia as indicated — <code>NCIT:C16186</code> (Orthopedic Surgical Procedure)</li>
+<li><strong>Critical safety consideration:</strong> GeneReviews specifically emphasizes that "care during sedation and/or operative procedures should be provided by a pediatric anesthesiologist," reflecting airway/craniofacial anesthesia risk considerations (micrognathia, hypotonia).</li>
+</ul>
+<h3>Supportive and Rehabilitative</h3>
+<ul>
+<li><strong>Physical therapy</strong> — <code>NCIT:C15302</code> (Physical Therapy)</li>
+<li><strong>Occupational therapy</strong></li>
+<li><strong>Speech-language therapy</strong>, including <strong>augmentative and alternative communication (AAC)</strong> strategies given very limited verbal skills</li>
+<li><strong>Genetic counseling</strong> for the family — <code>NCIT:C15240</code> (Genetic Counseling)</li>
+</ul>
+<h3>Experimental / Clinical Trials</h3>
+<p>No disease-specific clinical trials (interventional) for Emanuel syndrome were identified in the search (consistent with its ultra-rare status and multisystem, non-single-gene-targetable nature). Management follows general pediatric multidisciplinary and cardiac/renal/orthopedic surgical standards rather than syndrome-specific trial-based protocols.</p>
+<h3>Treatment Strategy</h3>
+<p>Management follows an <strong>individualized, malformation-driven multidisciplinary care pathway</strong> rather than a standardized algorithm specific to Emanuel syndrome — coordinated among cardiology, nephrology, genetics, orthopedics, otolaryngology, audiology, ophthalmology, gastroenterology, and developmental/rehabilitation specialists.</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263 — Management section</a>
+- <a href="https://emanuelsyndrome.org/emanuel-syndrome/medical-emanuel-syndrome/gastrointestinal/">Emanuel Syndrome — Gastrointestinal Feeding Issues, emanuelsyndrome.org</a></p>
+<hr />
+<h2>13. Prevention</h2>
+<h3>Primary Prevention</h3>
+<p>There is no way to prevent formation of the recurrent t(11;22) translocation itself (it arises from intrinsic PATRR sequence instability). Primary prevention of Emanuel syndrome therefore centers on <strong>reproductive risk management</strong> in known or newly identified balanced-carrier families:</p>
+<ul>
+<li><strong>Genetic counseling</strong> for identified balanced translocation carriers and their at-risk relatives regarding the 1.8–5.6% live-birth recurrence risk (higher with maternal transmission) and the ~23–37% spontaneous abortion risk.</li>
+<li><strong>Preimplantation genetic testing for structural rearrangements (PGT-SR):</strong> IVF with ICSI followed by embryo biopsy and testing allows selection of chromosomally normal or balanced embryos for transfer, distinguishing them from unbalanced (Emanuel syndrome-causing) embryos before implantation. Outcomes vary by rearrangement type; reciprocal translocations such as t(11;22) yield a lower proportion of normal/balanced blastocysts (~45.7% in one comparative study) than non-reciprocal rearrangements (~89.9%), reflecting the larger number of possible unbalanced segregation products from a reciprocal-translocation quadrivalent.</li>
+</ul>
+<h3>Secondary Prevention (Early Detection)</h3>
+<ul>
+<li><strong>Prenatal diagnostic testing</strong> (CVS/amniocentesis with karyotype, FISH, and/or CMA) in known carrier pregnancies, and diagnostic follow-up of screening findings (e.g., abnormal cfDNA/NIPS result, ultrasound findings such as IUGR or increased nuchal translucency).</li>
+<li><strong>Cascade carrier testing</strong> of at-risk relatives once a balanced translocation is identified in a family, to inform their own reproductive planning before pregnancy occurs.</li>
+</ul>
+<h3>Tertiary Prevention (Preventing Complications in Affected Individuals)</h3>
+<ul>
+<li>Early, systematic multidisciplinary baseline evaluation (cardiac, renal, orthopedic, audiologic, ophthalmologic, feeding/swallowing) at diagnosis to detect and proactively manage complications before they become life-threatening (e.g., early echocardiography to catch cardiac defects driving the majority of mortality).</li>
+<li>Pediatric-anesthesiologist-supervised perioperative care to reduce anesthesia-related risk given craniofacial/airway anatomy.</li>
+</ul>
+<h3>Genetic Counseling</h3>
+<p>Central to prevention at every stage: risk assessment for carrier couples, explanation of the 3:1 malsegregation mechanism and recurrence-risk figures, discussion of reproductive options (natural conception with prenatal diagnosis, PGT-SR/IVF, use of donor gametes, or adoption), and family cascade-testing coordination.</p>
+<h3>Public Health / Screening Programs</h3>
+<p>No population-level public health screening or immunization strategy applies, as this is a non-infectious, non-preventable-at-the-population-level constitutional chromosomal disorder; prevention operates exclusively at the level of individual/family reproductive genetics.</p>
+<p><strong>Sources:</strong>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12387454/">Impact of Chromosomal Structural Rearrangements on IVF Laboratory Outcomes in PGT-SR Cycles, PMC12387454</a>
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">GeneReviews NBK1263 — Genetic Counseling section</a></p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p>No naturally occurring veterinary/companion-animal or wildlife disease directly analogous to Emanuel syndrome (i.e., a spontaneous t(11;22)-equivalent recurrent translocation producing a supernumerary derivative chromosome with this specific phenotype) was identified in the literature search. This is consistent with the disorder's basis in a <strong>human-specific recurrent breakpoint hotspot</strong> (PATRR11/PATRR22) rather than a broadly conserved genomic vulnerability; no OMIA (Online Mendelian Inheritance in Animals) entry or comparable veterinary literature was found for this specific translocation. Comparative genomic mapping of the human 11q23/22q11 breakpoint regions to other species' syntenic loci was not addressed in the sources reviewed.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<h3>Direct Disease Models</h3>
+<p><strong>No dedicated mouse, zebrafish, or other animal model of the t(11;22) translocation or the der(22) supernumerary chromosome/Emanuel syndrome karyotype was identified</strong> in the literature search. This is a significant gap consistent with the technical difficulty of engineering a segmental-duplication/supernumerary-chromosome model recapitulating a human-specific recurrent palindrome-mediated rearrangement, combined with the disorder's rarity limiting research investment relative to more common chromosomal syndromes (e.g., Down syndrome, 22q11.2 deletion syndrome, both of which have extensive mouse-model literature).</p>
+<h3>Related/Indirect Models Informing Mechanism</h3>
+<ul>
+<li><strong>TBX1 dosage mouse models:</strong> Mouse models engineered for <strong>increased TBX1 dosage</strong> in the anterior heart field reproduce <strong>congenital heart disease resembling the 22q11.2 duplication syndrome phenotype</strong> (Hum Mol Genet 2018), providing the strongest indirect functional evidence for how trisomic dosage of the duplicated 22q11 segment in Emanuel syndrome could drive its cardiac phenotype — though this model targets TBX1 dosage specifically, not the full der(22) segmental composition, and does not model the 11q23-qter component at all.</li>
+<li><strong>PATRR/palindrome biophysical models:</strong> In vitro and bacterial/yeast-based studies of PATRR11 and PATRR22 cruciform-extrusion propensity (not organismal models, but biochemical/molecular models) have been used to characterize the DNA secondary-structure mechanism underlying breakpoint formation (<a href="https://pubmed.ncbi.nlm.nih.gov/17264116/" target="_blank" rel="noopener noreferrer">PMID:17264116</a>).</li>
+<li><strong>Unrelated translocation-disruption mouse model (context only):</strong> A mouse model of a different chromosomal translocation, t(1;11), disrupting <em>DISC1</em> (relevant to psychiatric illness risk, not Emanuel syndrome) illustrates the general feasibility of engineering translocation-breakpoint mouse models, but is not itself an Emanuel syndrome model (PMC7895946).</li>
+</ul>
+<h3>Applications and Limitations</h3>
+<ul>
+<li>Existing indirect models (TBX1-dosage mice) can inform study of the <strong>cardiac phenotype component</strong> and validate the dosage-sensitivity hypothesis for genes in the 22q11 duplicated segment.</li>
+<li><strong>No model currently exists</strong> to study the neurodevelopmental (intellectual disability), renal, or craniofacial phenotype components, or to study the combined dual-segment (11q + 22q) trisomic dosage effect that defines the full Emanuel syndrome phenotype — representing a clear unmet need in the field, likely reflecting both the syndrome's rarity and the technical complexity of modeling a supernumerary marker chromosome (as opposed to a simple gene knockout/knock-in) in a laboratory animal.</li>
+</ul>
+<p><strong>Sources:</strong>
+- <a href="https://academic.oup.com/hmg/article/27/11/1847/4917554">Dysregulation of TBX1 dosage — mouse model, Hum Mol Genet 2018</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/17264116/">Cruciform extrusion propensity of PATRRs, PMID:17264116</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7895946/">Functional brain defects in DISC1 t(1;11) mouse model, PMC7895946</a></p>
+<hr />
+<h2>Summary and Key Curation Notes</h2>
+<p>Emanuel syndrome is a well-characterized, mechanistically well-understood <strong>chromosomal dosage disorder</strong> (partial trisomy 11q23-qter + partial trisomy 22q11 via a supernumerary der(22) marker chromosome), arising from 3:1 meiotic malsegregation of the most common recurrent human reciprocal translocation, t(11;22)(q23;q11.2). The molecular origin of the translocation itself (PATRR-mediated hairpin/cruciform-driven double-strand breaks) is unusually well elucidated for a rare chromosomal syndrome. However, <strong>gene-level dissection of the phenotype is markedly asymmetric</strong>: the cardiac/craniofacial component is reasonably well linked to TBX1/HIRA dosage within the shared 22q11 DiGeorge/VCFS critical region (supported by mouse dosage models), while the neurodevelopmental, renal, and growth phenotypes attributable to the 11q23-qter trisomic segment remain <strong>mechanistically underexplored</strong>, with no dominant candidate gene identified and no animal model available. This asymmetry — strong mechanistic grounding for one duplicated segment, essentially absent mechanistic dissection for the other — is the most important knowledge gap for a dismech-style pathophysiology entry to flag explicitly, likely via a <code>HUMAN_MODEL_MISMATCH</code> or <code>KNOWLEDGE_GAP</code> discussion node distinguishing the well-evidenced TBX1-dosage cardiac branch from the inferred-only 11q-driven branches of the causal chain.</p>
+<p>Sources:
+- <a href="https://www.ncbi.nlm.nih.gov/books/NBK1263/">Emanuel Syndrome - GeneReviews®</a>
+- <a href="https://omim.org/entry/609029">OMIM #609029 - EMANUEL SYNDROME</a>
+- <a href="https://www.orpha.net/en/disease/detail/96170">Orphanet: Emanuel syndrome</a>
+- <a href="https://rarediseases.org/mondo-disease/emanuel-syndrome/">NORD - Emanuel syndrome</a>
+- <a href="https://onlinelibrary.wiley.com/doi/10.1111/ped.12437">Ohye et al., Prevalence of Emanuel syndrome, Pediatr Int 2014</a>
+- <a href="https://www.sciencedirect.com/science/article/pii/S0002929707617121">Der(22)/VCFS 1.5-Mb region overlap, Am J Hum Genet</a>
+- <a href="https://academic.oup.com/hmg/article/27/11/1847/4917554">Dysregulation of TBX1 dosage, Hum Mol Genet 2018</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4940405/">Kurahashi &amp; Emanuel — palindrome-mediated translocation mechanism, PMC4940405</a>
+- <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12144060/">ZAP70 differential expression analysis, PMC12144060 (PMID:38687434)</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10606745/">Prenatal cfDNA Screening for Emanuel Syndrome, PMC10606745</a>
+- <a href="https://www.researchgate.net/publication/26674827_Phenotypic_Delineation_of_Emanuel_Syndrome_Supernumerary_Derivative_22_Syndrome_Clinical_Features_of_63_Individuals">Phenotypic Delineation of Emanuel Syndrome: 63 Individuals</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3652044/">Derivative 11;22 (Emanuel) Syndrome Case Report and Review, PMC3652044</a>
+- <a href="https://link.springer.com/article/10.1186/s43042-024-00494-6">Emanuel syndrome due to unusual pattern, Egypt J Med Hum Genet 2024</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12387454/">Impact of Chromosomal Structural Rearrangements on PGT-SR Outcomes, PMC12387454</a>
+- <a href="https://pubmed.ncbi.nlm.nih.gov/17264116/">Cruciform extrusion propensity of PATRRs, PMID:17264116</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7895946/">Functional brain defects in DISC1 t(1;11) mouse model, PMC7895946</a>
+- <a href="https://www.sciencedirect.com/science/article/abs/pii/S0022346821007776">Emanuel syndrome and congenital diaphragmatic hernia: systematic review</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12527601/">Emanuel Syndrome: Isolated Nuchal Translucency Thickening, PMC12527601</a>
+- <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8962060/">Supernumerary derivative 22 from novel translocation t(20;22), PMC8962060</a>
+- <a href="https://emanuelsyndrome.org/">Emanuel Syndrome — patient organization, emanuelsyndrome.org</a></p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>13</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>60</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>58</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0009301</code> (1 mention) - the report calls it "Emanuel syndrome"; MONDO calls it <strong>46,XY sex reversal 7</strong></li>
+<li><code>HP:0011344</code> (1 mention) - the report calls it "Severe intellectual disability"; HP calls it <strong>Severe global developmental delay</strong></li>
+<li><code>HP:0000252</code> (1 mention) - the report calls it "Universal in GeneReviews cohort"; HP calls it <strong>Microcephaly</strong></li>
+<li><code>HP:0001252</code> (1 mention) - the report calls it "Universal"; HP calls it <strong>Hypotonia</strong></li>
+<li><code>HP:0001385</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Hip dysplasia</strong></li>
+<li><code>HP:0000365</code> (1 mention) - the report calls it "Documented feature"; HP calls it <strong>Hearing impairment</strong></li>
+<li><code>HP:0002020</code> (1 mention) - the report calls it "Common"; HP calls it <strong>Gastroesophageal reflux</strong></li>
+<li><code>HP:0001250</code> (1 mention) - the report calls it "Documented in a subset"; HP calls it <strong>Seizure</strong></li>
+<li><code>GO:0007126</code> (2 mentions) - the report calls it "meiotic nuclear division"; GO calls it <strong>GO_0007126</strong></li>
+<li><code>UBERON:0002616</code> (2 mentions) - the report calls it "cerebellar cortex"; UBERON calls it <strong>regional part of brain</strong></li>
+<li><code>UBERON:0002417</code> (1 mention) - the report calls it "hard palate"; UBERON calls it <strong>abdominal segment of trunk</strong></li>
+<li><code>UBERON:0000151</code> (1 mention) - the report calls it "ear"; UBERON calls it <strong>pectoral fin</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0007126</code> (GO_0007126) (2 mentions) - replaced by <code>GO:0051321</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>CL:0002327</code> (1 mention) - the report calls it "mammary luminal progenitor cell — N/A"; CL calls it <strong>mammary gland epithelial cell</strong>, and lists "mammary epithelial cell" among its other names</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>ORPHA</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Elsahy-Waters_Syndrome-falcon.html">← Elsahy-Waters Syndrome (Falcon)</a>
+                
+                
+                <a href="Embryonal_Rhabdomyosarcoma-falcon.html">Embryonal Rhabdomyosarcoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Emanuel_Syndrome.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Emanuel_Syndrome-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -353,7 +353,7 @@ These are real backlogs but have their own homes:
   which is a recommendation gap and not an error — models that reach the
   pathograph are named 589 times out of 607. The invariant that does matter,
   no two models in one file sharing a fallback label, is enforced by
-  `test_animal_model_labels_are_unique_within_a_file`.
+  `check_animal_model_labels_are_unique` in `tests/test_data.py`.
 - **Thematic projects** with large open checklists: `REACTOME_DISEASES` (659
   open), `CANCER` (79), `NICU` (40), `GWAS_MECHANISMS` (35), `CHILDHOOD_CANCER`
   (35), `MONDO_EHR_MAPPINGS` (35).

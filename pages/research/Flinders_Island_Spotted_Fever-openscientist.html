@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flinders Island Spotted Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Flinders Island Spotted Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Flinders Island Spotted Fever</h1>
+                
+                <p class="report-subtitle">Flinders Island Spotted Fever (MONDO:0000232): Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000232" target="_blank" rel="noopener noreferrer">MONDO:0000232</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">18 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Flinders Island Spotted Fever (<a href="http://purl.obolibrary.org/obo/MONDO_0000232" target="_blank" rel="noopener noreferrer">MONDO:0000232</a>): Comprehensive Disease Characterization Report</h1>
+<p><em>A tick-borne spotted fever group rickettsiosis of south-east Australia caused by</em> Rickettsia honei</p>
+<hr />
+<h2>Summary</h2>
+<p><strong>Flinders Island Spotted Fever (FISF)</strong> is a rare, acute, self-limited, tick-borne infectious disease caused by the obligate intracellular Gram-negative bacterium <strong><em>Rickettsia honei</em></strong> (spotted fever group, SFG). It is <strong>not a genetic disease</strong> — there are no human causal genes, no inheritance pattern, and no pathogenic germline variants. It is an <strong>infectious/zoonotic rickettsiosis</strong>, and every section of the standard disease-characteristics template must be read through that lens: the "genetic/molecular" and "inheritance" sections properly describe the <em>pathogen's</em> biology and ecology rather than host heritability.</p>
+<p>FISF was first defined clinically by Stewart in 1991 as a spotted-fever-like illness affecting a small Bass Strait island community (~1000 people), with 26 cases identified over a 17-year period. The causal organism was isolated from a febrile patient's blood in 1991/1993 and formally described as the new species <em>Rickettsia honei</em> strain RB(T) in 1998. The bacterium is maintained transovarially (vertically) in reptile-associated ticks — chiefly <em>Bothriocroton</em> (formerly <em>Aponomma</em>) <em>hydrosauri</em> — whose vertebrate hosts are reptiles (blue-tongued lizards, tiger and copperhead snakes) rather than mammals, an ecologically unusual feature. Humans are incidental hosts infected by tick bite.</p>
+<p>Clinically, FISF presents as an acute febrile illness with headache, maculopapular/petechial rash, arthralgia/myalgia, and frequently an inoculation eschar. Pathophysiologically, <em>R. honei</em> infects the <strong>vascular endothelium</strong>, using surface cell antigen autotransporters (Sca2, OmpB) to adhere and invade, actin-based motility (RickA/Arp2/3 early phase; Sca2/formin-mimic late phase) to spread cell-to-cell, and triggering NF-κB– and p38-MAPK–driven chemokine release (IL-8, MCP-1) that recruits leukocytes and produces <strong>rickettsial vasculitis</strong>. The disease responds rapidly to <strong>doxycycline</strong> and is generally self-limited with prompt treatment. Prevention rests on tick-bite avoidance; there is no vaccine.</p>
+<hr />
+<h2>Disease Identity and Classification</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Disease name</strong></td>
+<td>Flinders Island Spotted Fever (FISF)</td>
+</tr>
+<tr>
+<td><strong>MONDO ID</strong></td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0000232" target="_blank" rel="noopener noreferrer">MONDO:0000232</a></td>
+</tr>
+<tr>
+<td><strong>Category</strong></td>
+<td>Infectious disease (zoonotic, tick-borne rickettsiosis)</td>
+</tr>
+<tr>
+<td><strong>Causal organism</strong></td>
+<td><em>Rickettsia honei</em> strain RB(T) (= Thai tick typhus strain TT-118)</td>
+</tr>
+<tr>
+<td><strong>Pathogen taxonomy</strong></td>
+<td>Bacteria; Proteobacteria; Alphaproteobacteria; Rickettsiales; Rickettsiaceae; <em>Rickettsia</em>; spotted fever group</td>
+</tr>
+<tr>
+<td><strong>Genome size</strong></td>
+<td>~1.27 Mb</td>
+</tr>
+<tr>
+<td><strong>Synonyms</strong></td>
+<td>Flinders Island spotted fever rickettsiosis; Australian tick typhus (Bass Strait focus); "marmionii" strain rickettsiosis (eastern Australian variant)</td>
+</tr>
+<tr>
+<td><strong>Vector / reservoir</strong></td>
+<td><em>Bothriocroton (Aponomma) hydrosauri</em> reptile tick</td>
+</tr>
+<tr>
+<td><strong>Vertebrate hosts</strong></td>
+<td>Reptiles (lizards, snakes); humans are incidental</td>
+</tr>
+<tr>
+<td><strong>Geography</strong></td>
+<td>South-east Australia (Flinders Island, Tasmania, South Australia, Queensland/Torres Strait, Western Australia); related strain in Thailand and Texas</td>
+</tr>
+<tr>
+<td><strong>Data source type</strong></td>
+<td>Aggregated disease-level resources (case series, serosurveys, vector surveillance) — not EHR/individual-patient omics</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>FISF is best understood as one of <strong>Australia's four recognised rickettsioses</strong>: murine typhus (<em>R. typhi</em>), Queensland tick typhus (<em>R. australis</em>), Flinders Island spotted fever (<em>R. honei</em>), and scrub typhus (<em>Orientia tsutsugamushi</em>) (<a href="https://pubmed.ncbi.nlm.nih.gov/17553271/">PMID: 17553271</a>).</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>Finding 1 — The causal agent is <em>Rickettsia honei</em>, a distinct spotted fever group species (F001)</h3>
+<p>FISF is caused by <em>Rickettsia honei</em>, a genetically distinct member of the spotted fever group. Strain RB(T) was isolated from a febrile patient on Flinders Island in 1991/1993 and formally described as a new species in 1998. Phylogenetic comparison of the <em>16S rRNA</em>, <em>rompA</em> (<em>ompA</em>), <em>gltA</em> (citrate synthase) and <em>17-kDa antigen</em> genes confirmed its distinctness from other SFG rickettsiae; its genome is ~1.27 Mb. Its closest genetic relative is Thai tick typhus strain <strong>TT-118</strong>, now regarded as a strain of <em>R. honei</em>, establishing an intercontinental species identity.</p>
+<blockquote>
+<p><em>"The name Rickettsia honei, strain RBT, has been proposed for a unique spotted fever group (SFG) agent which is pathogenic for humans."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/9828442/">PMID: 9828442</a></p>
+<p><em>"Rickettsia honei strain RB(T) was isolated from a febrile patient on Flinders Island, Australia, in 1991 and has been demonstrated to be the agent of Flinders Island spotted fever, a disease transmitted to humans by ticks."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22815457/">PMID: 22815457</a></p>
+</blockquote>
+<p>This finding anchors <strong>Sections 1 (Disease Information), 2 (Etiology), and 5 (Infectious Agents)</strong> of the template. The primary cause is infectious; there is no genetic host etiology.</p>
+<h3>Finding 2 — Reptile-tick reservoir with transovarial maintenance (F002)</h3>
+<p><em>R. honei</em> is maintained in nature within the reptile-associated tick <em>Aponomma (Bothriocroton) hydrosauri</em>, which is the arthropod reservoir on Flinders Island. In a survey, <strong>29 of 46 (63%) ticks</strong> were PCR-positive for SFG rickettsiae, with sequences 100% homologous to <em>R. honei</em>. Electron microscopy localised rickettsiae in tick salivary glands, malpighian tubules, and midgut epithelium, and — critically — within <strong>oocytes and immature eggs</strong>, indicating <strong>transovarial (vertical) transmission</strong>. The vertebrate hosts are reptiles (blue-tongued lizards, tiger and copperhead snakes) rather than mammals, an ecologically unusual arrangement.</p>
+<blockquote>
+<p><em>"The tick Aponomma hydrosauri is associated with reptiles and is the arthropod reservoir for this rickettsia on Flinders Island. The rickettsia appears to be maintained in the tick via vertical transmission. Of 46 ticks examined, 29 (63%) were positive for spotted fever group rickettsiae"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/14628950/">PMID: 14628950</a></p>
+<p><em>"The ecology of R. honei in this location is unusual in that reptiles, rather than mammals, are the vertebrate hosts."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12860601/">PMID: 12860601</a></p>
+</blockquote>
+<p>This underpins <strong>Sections 9 (population/reservoir ecology), 13 (Prevention — vector control), and 14 (Other Species / zoonotic transmission)</strong>. Transovarial maintenance means the tick is both vector and reservoir, so the pathogen persists independent of amplifying mammalian hosts.</p>
+<h3>Finding 3 — Clinical phenotype: acute febrile illness with rash, arthralgia/myalgia, and eschar (F003)</h3>
+<p>Across a case series of the eastern-Australian "marmionii" strain (n = 7), the symptom frequencies were: <strong>fever 100%, headache 71%, arthralgia 43%, myalgia 43%, cough 43%, maculopapular/petechial rash 43%, nausea 29%, pharyngitis 29%, lymphadenopathy 29%, and eschar 29%</strong>. Onset is acute, most cases occur in autumn, and cases cluster in eastern Australia (Queensland, Tasmania, South Australia). A severe imported case in Nepal displayed clinical features typical of FISF, confirming the phenotype outside Australia.</p>
+<blockquote>
+<p><em>"symptoms of fever (100%), headache (71%), arthralgia (43%), myalgia (43%), cough (43%), maculopapular/petechial rash (43%), nausea (29%), pharyngitis (29%), lymphadenopathy (29%), and eschar (29%)"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17553271/">PMID: 17553271</a></p>
+<p><em>"The patient had severe illness and many clinical features typical of Flinders Island spotted fever."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22000356/">PMID: 22000356</a></p>
+</blockquote>
+<p><strong>Suggested HPO terms:</strong> Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>); Headache (<a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a>); Skin rash (<a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a>) / Maculopapular exanthema; Arthralgia (<a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a>); Myalgia (<a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a>); Cough (<a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a>); Nausea (<a href="http://purl.obolibrary.org/obo/HP_0002018" target="_blank" rel="noopener noreferrer">HP:0002018</a>); Pharyngitis (<a href="http://purl.obolibrary.org/obo/HP_0025439" target="_blank" rel="noopener noreferrer">HP:0025439</a>); Lymphadenopathy (<a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a>); Skin ulcer / eschar (<a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a>). This supports <strong>Section 3 (Phenotypes)</strong>.</p>
+<h3>Finding 4 — Pathophysiology: endothelial tropism causing rickettsial vasculitis (F004)</h3>
+<p>Pathogenic <em>Rickettsia</em> are Gram-negative obligate intracellular bacteria with an affinity for the endothelium lining blood vessels. Infection causes vascular inflammation, insult to vascular integrity, and increased vascular permeability — collectively termed <strong>"rickettsial vasculitis."</strong> SFG rickettsiae activate host-cell transcriptional signalling upon adhesion and invasion. Related SFG rickettsioses (e.g., Mediterranean spotted fever) show <strong>leucocytoclastic vasculitis</strong> on skin biopsy and can involve multiple organs, providing histologic correlates for the FISF mechanism.</p>
+<blockquote>
+<p><em>"a majority of sequelae associated with human rickettsioses are the outcome of the pathogen's affinity for endothelium lining the blood vessels, the consequences of which are vascular inflammation, insult to vascular integrity and compromised vascular permeability, collectively termed 'Rickettsial vasculitis'"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">PMID: 19327117</a></p>
+<p><em>"Skin biopsy of the purpura confirmed leucocytoclastic vasculitis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33622746/">PMID: 33622746</a></p>
+</blockquote>
+<p>This establishes the core of <strong>Section 6 (Mechanism) and Section 7 (Anatomical Structures — vascular endothelium)</strong>.</p>
+<h3>Finding 5 — Geographic distribution across three continents (F005)</h3>
+<p><em>R. honei</em> (= strain TT-118) has been detected on three continents: <strong>Thailand</strong> (isolated 1962, confirmed 2001; <em>Ixodes</em>/<em>Rhipicephalus</em>, including <em>I. granulatus</em> from <em>Rattus rattus</em>), <strong>Australia</strong> (Flinders Island 1993; also Tasmania, South Australia, Queensland/Torres Strait, and Western Australia), and <strong>Texas, USA</strong> (1998, <em>Amblyomma cajennense</em>). Within Australia, FISF extends across south-east Australia, matching the range of its reptile-tick vector; a human case reached Nepal in 2009.</p>
+<blockquote>
+<p><em>"Rickettsia honei (also known as strain TT-118) has been detected on three continents. Originally isolated in Thailand in 1962 (and confirmed in 2001), it has also been detected on Flinders Island (Australia) in 1993 and in Texas (USA) in 1998."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/12860601/">PMID: 12860601</a></p>
+<p><em>"These cases show that FISF extends beyond Flinders Island and most likely has the same distribution across south-east Australia as its vector, the reptile tick Aponomma hydrosauri."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16175900/">PMID: 16175900</a></p>
+</blockquote>
+<p>This informs <strong>Section 9 (geographic distribution)</strong>.</p>
+<h3>Finding 6 — Co-circulation with other rickettsioses; serologic cross-reactivity complicates diagnosis (F006)</h3>
+<p>On Darnley Island (Torres Strait), FISF (<em>R. honei</em> "marmionii") was found alongside Queensland tick typhus (<em>R. australis</em>) and scrub typhus (a unique <em>Orientia tsutsugamushi</em> strain), demonstrating overlapping endemic ranges and a broad differential diagnosis. Serosurveys rely on indirect immunofluorescence assay (IFA) panels that <strong>cross-react across SFG antigens</strong> (<em>R. honei, R. conorii, R. sibirica, R. rickettsii, R. australis, R. akari</em>), so <strong>species-level confirmation requires PCR/sequencing</strong> (e.g., eschar swab or biopsy PCR).</p>
+<blockquote>
+<p><em>"In addition to previously described cases of Flinders Island spotted fever (Rickettsia honei strain 'marmionii'), we describe 1 case of Queensland tick typhus (R. australis) and 2 cases of scrub typhus caused by a unique strain (Orientia tsutsugamushi)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18214193/">PMID: 18214193</a></p>
+<p><em>"Australia has 4 rickettsial diseases: murine typhus, Queensland tick typhus, Flinders Island spotted fever, and scrub typhus."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17553271/">PMID: 17553271</a></p>
+</blockquote>
+<p>This is central to <strong>Section 10 (Diagnostics — differential diagnosis and serology/PCR)</strong>.</p>
+<h3>Finding 7 — Emerging/expanding geography and multi-species tick carriage (F007)</h3>
+<p>The first reported case of SFG rickettsiosis in <strong>Western Australia</strong> included <em>R. honei</em> among identified agents, expanding the known Australian range beyond the south-east. Ongoing molecular surveillance of reptile ticks continues to detect <em>Rickettsia</em> spp. (e.g., in <em>Bothriocroton hydrosauri</em> and <em>Amblyomma moreliae</em> from reptiles in NSW/SA), refining vector/reservoir maps. Importantly, <strong>not all <em>B. hydrosauri<em>-borne </em>Rickettsia<em> are </em>R. honei</em></strong> — multiple SFG species can share the same vector, complicating vector-based risk mapping.</p>
+<blockquote>
+<p><em>"We describe the first reported case of spotted fever group rickettsiosis in Western Australia"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30270856/">PMID: 30270856</a></p>
+<p><em>"although we discovered Rickettsia in all tick samples, it was not Rickettsia honei"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/27338482/">PMID: 27338482</a></p>
+</blockquote>
+<p>This informs <strong>Sections 9 and 13 (surveillance, emerging foci)</strong>.</p>
+<h3>Finding 8 — Molecular mechanism: Sca2/OmpB invasion, actin-based motility, and NF-κB/p38 chemokine response (F008)</h3>
+<p>SFG rickettsiae adhere to and invade endothelium via <strong>surface cell antigen (Sca) autotransporters</strong>. In <em>R. conorii</em>, <strong>Sca2 alone is sufficient</strong> to mediate both adherence and invasion of human endothelial cells and to drive intracellular actin-based motility, with separable mammalian-association and actin-nucleation domains. Intracellular motility occurs in <strong>two phases</strong>: an early <strong>RickA/Arp2/3-dependent</strong> phase (slow, curved actin tails) and a late <strong>Sca2/formin-mimic-dependent</strong> phase (fast, straight tails), enabling cell-to-cell spread. Endothelial infection activates <strong>NF-κB</strong> (biphasic for <em>R. conorii</em>; RelA p65–p50 dimers) and <strong>p38 MAPK</strong>, inducing the chemokines <strong>IL-8 and MCP-1</strong> (5–28-fold), which recruit neutrophils and monocytes. NF-κB inhibition abrogates the chemokine response, and p38 inhibition reduces IL-8/MCP-1 secretion.</p>
+<blockquote>
+<p><em>"Sca2, has been shown to be sufficient to mediate both adherence and invasion of human endothelial cells and to participate in intracellular actin-based motility"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/22612237/">PMID: 22612237</a></p>
+<p><em>"Early motility requires RickA and Arp2/3 complex... Late motility is independent of Arp2/3 complex and RickA and requires Sca2"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24361066/">PMID: 24361066</a></p>
+<p><em>"Infection of endothelial cells (ECs) lining vessel walls, and the resultant vascular inflammation and haemostatic alterations are salient pathogenetic features of both of these rickettsial diseases"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17577053/">PMID: 17577053</a></p>
+<p><em>"increased mRNA expression of IL-8 and MCP-1 in R. rickettsii-infected EC was evident as early as 3 h ... synthetic peptide SN-50 to inhibit the nuclear translocation of nuclear factor-kappa B (NF-kappaB) resulted in significant inhibition of the chemokine response"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16128401/">PMID: 16128401</a></p>
+</blockquote>
+<p><em>Note:</em> the detailed molecular mechanism is derived from closely related SFG species (<em>R. conorii</em>, <em>R. rickettsii</em>) and <em>Orientia</em>, and is <strong>inferred</strong> for <em>R. honei</em> by phylogenetic conservation rather than demonstrated directly in <em>R. honei</em>. This forms the mechanistic backbone of <strong>Section 6</strong>.</p>
+<h3>Finding 9 — Original 1991 clinical/epidemiologic and serologic description (F009)</h3>
+<p>Stewart (1991) identified <strong>26 cases</strong> of a spotted-fever-like illness over a <strong>17-year period</strong> in the ~1000-person Flinders Island population. Usual features were high fever, headache, myalgia, slight cough, arthralgia without joint swelling, and a maculopapular rash unlike common exanthems; <strong>12 of 26 (~46%)</strong> had a focal skin lesion (eschar); ticks were implicated as vector. The companion serologic study (Graves et al., 1991) showed patients had higher seroprevalence than 335 healthy islanders to Weil-Felix OX2 (36% vs &lt;1%) and OX19 (36% vs &lt;1%), and to SFG microimmunofluorescence antigens <em>R. rickettsii</em> (42% vs 1%), <em>R. australis</em> (46% vs 1%), and <em>R. conorii</em> (42% vs 1%) but not <em>R. typhi</em> (4% vs 4%). <strong>Seroconversion was demonstrated in 7 of 26 patients (27%)</strong>, confirming recent SFG rickettsial infection (the agent had not yet been isolated at that time).</p>
+<blockquote>
+<p><em>"Twenty six cases of a spotted-fever-like illness have been identified over a 17 year period in the population of about 1000 of Flinders Island, Tasmania. The usual features were high fever, headache, myalgia, slight cough, arthralgia without joint swelling and a maculopapular rash which did not resemble the common exanthems. Twelve cases had a focal skin lesions. Available evidence implicates ticks as the vector."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/1986207/">PMID: 1986207</a></p>
+<p><em>"In seven of the 26 patients (27%) seroconversion was demonstrated by means of Weil-Felix tests, confirming recent infection."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/1898756/">PMID: 1898756</a></p>
+</blockquote>
+<p>This is the founding evidence for <strong>Sections 1, 3, 9, and 10</strong>.</p>
+<hr />
+<h2>Section-by-Section Characterization</h2>
+<h3>1. Disease Information</h3>
+<p>FISF is an acute, tick-borne SFG rickettsiosis of south-east Australia caused by <em>R. honei</em>. Identifiers: <strong><a href="http://purl.obolibrary.org/obo/MONDO_0000232" target="_blank" rel="noopener noreferrer">MONDO:0000232</a></strong>. OMIM is not applicable (infectious, non-Mendelian). Orphanet does not maintain a dedicated FISF entry as a rare genetic disease; it is catalogued under rickettsioses/spotted fevers. ICD-10: <strong>A77.8</strong> (Other spotted fevers) / ICD-11: <strong>1C30.2</strong> (Spotted fever due to other/unspecified <em>Rickettsia</em>). MeSH: the disease maps under "Rickettsia Infections" / "Spotted Fever Group Rickettsiosis"; organism MeSH term <em>Rickettsia honei</em>. Synonyms: Flinders Island spotted fever rickettsiosis; the eastern-Australian variant is the "marmionii" strain. <strong>Information source:</strong> aggregated disease-level literature (case series, serosurveys, vector surveys), not individual EHR/omics.</p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause:</strong> infectious — the obligate intracellular bacterium <em>R. honei</em> transmitted by tick bite (F001, F002). <strong>Risk factors:</strong> environmental/occupational and recreational exposure to reptile-tick habitat in endemic south-east Australia; seasonality (autumn predominance, F003); outdoor activity. <strong>Genetic host risk factors:</strong> none identified — this is not a heritable disease. <strong>Protective factors:</strong> tick-bite avoidance (clothing, repellents, tick checks); prompt doxycycline. <strong>Gene-environment interactions:</strong> not applicable to the human host; the key "interaction" is ecological — the pathogen–tick–reptile cycle.</p>
+<h3>3. Phenotypes</h3>
+<p>See Finding 3 and Finding 9 for symptom frequencies. <strong>Phenotype type:</strong> predominantly symptoms/clinical signs (fever, rash, eschar, lymphadenopathy) with associated laboratory abnormalities typical of SFG rickettsioses (mild thrombocytopenia, mild transaminitis, elevated CRP — inferred from the SFG class; not specifically quantified for FISF in the reviewed literature). <strong>Onset:</strong> adult and pediatric; acute. <strong>Severity:</strong> mild-to-moderate and generally self-limited; severe illness is documented (Nepal case). <strong>Progression:</strong> acute, self-limited with treatment. <strong>Frequency among affected:</strong> fever ~100%, rash ~43%, eschar ~29–46%. <strong>QoL impact:</strong> acute febrile disability lasting days-to-weeks; excellent recovery with doxycycline; no documented chronic sequelae.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable to the human host.</strong> FISF has <strong>no causal human genes, no pathogenic germline/somatic variants, no modifier genes, no host epigenetic changes, and no chromosomal abnormalities.</strong> The relevant molecular biology is that of the <em>pathogen</em>: <em>R. honei</em> genome ~1.27 Mb; key genetic/antigenic loci used for identification and phylogeny include <em>gltA</em> (citrate synthase), <em>ompA</em>/<em>rompA</em>, <em>ompB</em>, <em>16S rRNA</em>, and the <em>17-kDa antigen</em> gene (F001). Pathogen virulence loci include the <strong>Sca autotransporters (Sca2, OmpB/Sca5)</strong> and the actin-nucleator <strong>RickA</strong> (F008). Suggested gene/protein annotations pertain to the bacterium, not the host.</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agent:</strong> <em>Rickettsia honei</em> (NCBI Taxonomy: <em>Rickettsia honei</em>). <strong>Vector:</strong> <em>Bothriocroton (Aponomma) hydrosauri</em> (reptile tick); also implicated/related ticks include <em>Amblyomma</em> spp. and <em>Haemaphysalis</em> spp. in different foci. <strong>Environmental/lifestyle factors:</strong> exposure to tick habitat; outdoor/rural activity; contact with reptiles or their tick-laden environments. No toxin, radiation, or pollution etiology.</p>
+<h3>6. Mechanism / Pathophysiology — Causal Chain</h3>
+<pre><code>1. Infected reptile tick (B. hydrosauri) bites human
+│  (rickettsiae in tick salivary glands, F002)
+▼
+2. R. honei is inoculated into dermis → local replication → ESCHAR forms
+│
+▼
+3. Bacteria adhere to &amp; invade vascular ENDOTHELIAL CELLS
+│  via Sca2 / OmpB(Sca5) autotransporters (F008, inferred from R. conorii)
+▼
+4. Intracellular replication + ACTIN-BASED MOTILITY
+│  early: RickA/Arp2/3 (curved tails); late: Sca2/formin-mimic (straight tails)
+▼  → cell-to-cell spread through the endothelium
+5. Endothelial signalling activated: NF-κB (RelA p65-p50) + p38 MAPK
+│
+▼
+6. Chemokine induction: IL-8 &amp; MCP-1 (5–28×) → recruit neutrophils &amp; monocytes
+│
+├──▼ 7a. Perivascular leukocyte infiltration → VASCULITIS
+│        (leucocytoclastic vasculitis histologically, F004)
+│
+└──▼ 7b. Increased vascular permeability + haemostatic alterations
+         → RASH (maculopapular/petechial), local edema
+▼
+8. Systemic inflammatory response → FEVER, HEADACHE, MYALGIA/ARTHRALGIA,
+   LYMPHADENOPATHY (clinical manifestation, F003/F009)
+▼
+9. Doxycycline halts bacterial replication → rapid resolution (self-limited)
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> the initiating lesion is tick inoculation and endothelial invasion (upstream); NF-κB/p38 chemokine signalling and leukocyte recruitment are intermediate; vasculitis, increased permeability, rash, and systemic febrile illness are downstream. <strong>Cell types:</strong> vascular endothelial cells (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>), neutrophils (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>), monocytes/macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>/<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>). <strong>GO biological processes:</strong> response to bacterium (<a href="http://purl.obolibrary.org/obo/GO_0009617" target="_blank" rel="noopener noreferrer">GO:0009617</a>); actin-based movement / actin nucleation (<a href="http://purl.obolibrary.org/obo/GO_0006928" target="_blank" rel="noopener noreferrer">GO:0006928</a>, <a href="http://purl.obolibrary.org/obo/GO_0045010" target="_blank" rel="noopener noreferrer">GO:0045010</a>); NF-κB signaling (<a href="http://purl.obolibrary.org/obo/GO_0038061" target="_blank" rel="noopener noreferrer">GO:0038061</a> / <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" rel="noopener noreferrer">GO:0007249</a>); chemokine production (<a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" rel="noopener noreferrer">GO:0032602</a>); inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>). <strong>GO cellular components:</strong> host cell cytoplasm/cytoskeleton (<a href="http://purl.obolibrary.org/obo/GO_0005856" target="_blank" rel="noopener noreferrer">GO:0005856</a>); bacterial cell surface. <strong>Metabolic/immune notes:</strong> disease is driven by innate immune activation and chemokine-mediated leukocyte recruitment rather than autoimmunity or immunodeficiency. No omics profiling (transcriptomics/proteomics/metabolomics) specific to FISF is available in the reviewed literature.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Primary:</strong> vascular endothelium of small and medium blood vessels (systemic) — <strong><a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a> (blood vessel), <a href="http://purl.obolibrary.org/obo/UBERON_0001986" target="_blank" rel="noopener noreferrer">UBERON:0001986</a> (endothelium)</strong>; cell type <strong><a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a> (endothelial cell)</strong>.</li>
+<li><strong>Skin</strong> (rash, eschar) — <a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>; lymph nodes (lymphadenopathy) — <a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>.</li>
+<li><strong>Body systems:</strong> cardiovascular (vasculature), integumentary (skin), lymphatic/immune, musculoskeletal (arthralgia/myalgia), respiratory (cough), and potentially multi-organ in severe SFG disease (by analogy to Mediterranean spotted fever, F004).</li>
+<li><strong>Subcellular:</strong> host cell cytosol/cytoskeleton (site of replication and actin-based motility) — <a href="http://purl.obolibrary.org/obo/GO_0005829" target="_blank" rel="noopener noreferrer">GO:0005829</a> (cytosol), <a href="http://purl.obolibrary.org/obo/GO_0015629" target="_blank" rel="noopener noreferrer">GO:0015629</a> (actin cytoskeleton).</li>
+<li><strong>Lateralization:</strong> rash is typically generalized/bilateral; eschar is focal at the bite site.</li>
+</ul>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> acute, following an incubation period of ~days after tick bite; adult and pediatric.</li>
+<li><strong>Progression:</strong> self-limited acute course over days to ~2 weeks; rapid defervescence after doxycycline.</li>
+<li><strong>Course pattern:</strong> monophasic acute illness; not relapsing or chronic.</li>
+<li><strong>Critical period:</strong> early antibiotic initiation (empiric doxycycline before serologic confirmation) is the key therapeutic window; delay risks more severe SFG disease.</li>
+<li><strong>Remission:</strong> treatment-induced; spontaneous resolution possible but treatment shortens illness and prevents complications.</li>
+<li><strong>Seasonality:</strong> autumn predominance in eastern Australia (F003).</li>
+</ul>
+<h3>9. Inheritance and Population</h3>
+<ul>
+<li><strong>Inheritance:</strong> not applicable (infectious, non-heritable). No penetrance/expressivity/anticipation/founder-effect/carrier-frequency concepts apply to the human host. (These concepts apply, if at all, only to the <em>pathogen's</em> clonal population genetics.)</li>
+<li><strong>Epidemiology:</strong> rare. Founding series: 26 cases over 17 years in a ~1000-person island population (F009), implying a locally appreciable but numerically small burden; broader Australian incidence is not precisely quantified. FISF is likely underdiagnosed due to serologic cross-reactivity (F006).</li>
+<li><strong>Geographic distribution:</strong> south-east Australia (Flinders Island, Tasmania, South Australia, Queensland/Torres Strait, Western Australia), with related <em>R. honei</em>/TT-118 in Thailand and Texas (F005, F007). Distribution tracks the reptile-tick vector.</li>
+<li><strong>Sex ratio / age:</strong> not robustly quantified for FISF; SFG rickettsioses generally affect outdoor-exposed individuals across ages.</li>
+</ul>
+<h3>10. Diagnostics</h3>
+<ul>
+<li><strong>Serology:</strong> indirect immunofluorescence assay (IFA) is the mainstay; a <strong>≥4-fold rise</strong> between acute and convalescent titres to <em>R. honei</em> (and cross-reacting SFG antigens) confirms infection. Weil-Felix (OX2/OX19) was used historically (F009). <strong>Cross-reactivity across SFG antigens is substantial</strong> (F006), so serology confirms SFG infection but not species.</li>
+<li><strong>Molecular:</strong> PCR and sequencing (targeting <em>gltA</em>, <em>ompA</em>, <em>ompB</em>, <em>17-kDa</em>) from eschar swab/biopsy or blood provides <strong>species-level confirmation</strong> and is the preferred definitive test.</li>
+<li><strong>Culture:</strong> <em>R. honei</em> can be isolated (as in the index case) but requires specialized biosafety facilities; not routine.</li>
+<li><strong>Laboratory abnormalities:</strong> typical SFG findings (mild thrombocytopenia, mild transaminase elevation, elevated inflammatory markers) — inferred for FISF from the SFG class.</li>
+<li><strong>Differential diagnosis:</strong> Queensland tick typhus (<em>R. australis</em>), scrub typhus (<em>Orientia tsutsugamushi</em>), murine typhus (<em>R. typhi</em>), and other SFG rickettsioses; also dengue and other acute febrile illnesses in the region (F006).</li>
+<li><strong>Genetic testing / omics diagnostics:</strong> not applicable to the host.</li>
+</ul>
+<h3>11. Outcome / Prognosis</h3>
+<ul>
+<li><strong>Prognosis:</strong> excellent with prompt doxycycline; FISF is generally <strong>self-limited and non-fatal</strong>. No FISF-specific mortality rate is established in the reviewed literature; severe illness is documented (Nepal, F003) but recovery is the norm.</li>
+<li><strong>Complications:</strong> by analogy to other SFG rickettsioses, untreated or severe cases can have multi-organ involvement and vasculitic complications (F004); these appear uncommon in FISF.</li>
+<li><strong>Recovery:</strong> full recovery expected; no documented chronic sequelae.</li>
+<li><strong>Prognostic factors:</strong> timeliness of antibiotic therapy; host age/comorbidity.</li>
+</ul>
+<h3>12. Treatment</h3>
+<ul>
+<li><strong>First-line pharmacotherapy:</strong> <strong>doxycycline</strong> (tetracycline-class antibiotic; inhibits bacterial 30S ribosomal protein synthesis). Empiric therapy is recommended for suspected SFG rickettsiosis before confirmation. Rapid clinical response is characteristic (NCIT: Doxycycline C561; Tetracycline Antibiotic C1364).</li>
+<li><strong>Alternatives:</strong> other tetracyclines; macrolides (e.g., clarithromycin/azithromycin) have been used for SFG rickettsioses, particularly in young children and pregnancy (by analogy to Mediterranean spotted fever); chloramphenicol is a historical alternative.</li>
+<li><strong>Advanced/experimental/targeted/immuno/gene/cell therapies:</strong> not applicable.</li>
+<li><strong>Supportive care:</strong> antipyretics, hydration, symptom management.</li>
+<li><strong>Pharmacogenomics:</strong> none established for FISF.</li>
+<li><strong>Treatment outcome:</strong> high response rate; adverse events are those of doxycycline (GI upset, photosensitivity, dental staining in young children — the reason macrolides are considered in that group).</li>
+</ul>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention:</strong> <strong>tick-bite avoidance</strong> — protective clothing, repellents (DEET/picaridin), avoiding reptile-tick habitat, prompt tick removal, and tick checks after outdoor exposure in endemic areas.</li>
+<li><strong>Vector control / public health:</strong> habitat awareness; surveillance of reptile ticks to map foci (F002, F007).</li>
+<li><strong>Secondary prevention:</strong> early recognition of the fever-rash-eschar syndrome and prompt empiric doxycycline.</li>
+<li><strong>Immunization:</strong> no vaccine exists.</li>
+<li><strong>Prophylaxis:</strong> routine post-tick-bite antibiotic prophylaxis is not standard; treat if symptomatic.</li>
+<li><strong>Counseling / genetic screening:</strong> not applicable.</li>
+</ul>
+<h3>14. Other Species / Natural Disease</h3>
+<ul>
+<li><strong>Reservoir/host taxonomy:</strong> reptile tick <em>Bothriocroton (Aponomma) hydrosauri</em>; vertebrate hosts are reptiles — blue-tongued lizards (<em>Tiliqua</em> spp.), tiger and copperhead snakes; also <em>Tiliqua rugosa</em> (shingleback) carrying related <em>Rickettsia</em> (F002, F007).</li>
+<li><strong>Zoonotic transmission:</strong> humans are incidental hosts infected by tick bite; there is no human-to-human transmission. This is a <strong>zoonotic, vector-borne disease</strong>.</li>
+<li><strong>Comparative biology:</strong> related <em>R. honei</em> strain TT-118 circulates in <em>Ixodes granulatus</em> from <em>Rattus rattus</em> in Thailand and in <em>Amblyomma cajennense</em> in Texas (F005), indicating a broad host-tick range for the species. Multiple SFG <em>Rickettsia</em> can share reptile-tick vectors (F007).</li>
+<li><strong>Natural disease in companion/wildlife species:</strong> clinical rickettsiosis attributable to <em>R. honei</em> in animals is not documented; reptiles and ticks serve as asymptomatic reservoirs.</li>
+</ul>
+<h3>15. Model Organisms</h3>
+<p>No dedicated <em>R. honei</em>/FISF animal model is described in the reviewed literature. Mechanistic understanding derives from <strong>in vitro</strong> human endothelial cell infection models and cell-biology studies using related SFG species (<em>R. conorii</em>, <em>R. rickettsii</em>) and <em>Orientia tsutsugamushi</em>, plus tick-cell (<em>Dermacentor variabilis</em>) invasion models for <em>R. montanensis</em> (F008 and supporting literature). These systems recapitulate endothelial invasion, actin-based motility, and NF-κB/p38 chemokine responses but are surrogates, not FISF-specific models. Guinea pig and mouse models are standard for SFG rickettsiae generally but are not reported specifically for <em>R. honei</em> here.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>FISF is a paradigmatic <strong>vector-borne endothelial infection</strong>. The disease's clinical signature — fever, rash, and eschar — maps directly onto its cellular pathology. The <strong>eschar</strong> is the histologic footprint of local <em>R. honei</em> replication and vasculitis at the inoculation site; the <strong>rash</strong> reflects disseminated endothelial infection with increased vascular permeability; and the <strong>systemic febrile syndrome</strong> is the downstream consequence of NF-κB/p38-driven chemokine release and innate immune activation.</p>
+<p>The molecular engine (Finding 8) is conserved across the SFG and is therefore confidently <em>inferred</em> for <em>R. honei</em>, though it has been demonstrated principally in <em>R. conorii</em> and <em>R. rickettsii</em>. The pathogen uses a two-tool strategy: <strong>Sca autotransporters</strong> for endothelial adhesion/invasion and <strong>actin-based motility</strong> (RickA/Arp2/3 early; Sca2/formin-mimic late) for intercellular spread without leaving the protected intracellular niche. Host endothelial signalling (NF-κB, p38 MAPK) then converts infection into the inflammatory chemokine milieu (IL-8, MCP-1) that recruits the neutrophils and monocytes responsible for vasculitis.</p>
+<p>The <strong>ecology</strong> (Findings 2, 5, 7) is what makes FISF distinctive among rickettsioses: a <strong>reptile</strong>-based enzootic cycle with <strong>transovarial</strong> maintenance in the tick, so the tick is simultaneously vector and reservoir. This decouples pathogen persistence from mammalian amplifying hosts and ties human risk tightly to reptile-tick habitat. The observation that a single reptile-tick species can carry multiple <em>Rickettsia</em> species complicates simple vector-based risk mapping and argues for molecular (species-level) confirmation in both surveillance and diagnosis.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Role in report</th>
+<th>Supports finding</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9828442/">9828442</a></td>
+<td>Formal species description of <em>R. honei</em> strain RBT</td>
+<td>F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22815457/">22815457</a></td>
+<td>Confirms etiologic agent, isolation history, 1.27-Mb genome</td>
+<td>F001</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14628950/">14628950</a></td>
+<td>Vector/reservoir identification; 63% tick positivity; vertical transmission</td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12860601/">12860601</a></td>
+<td>Reptile vertebrate-host ecology; three-continent distribution</td>
+<td>F002, F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12860602/">12860602</a></td>
+<td>Ultrastructural/EM evidence of transovarial transmission in <em>A. hydrosauri</em></td>
+<td>F002</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17553271/">17553271</a></td>
+<td>"marmionii" case series; symptom frequencies; Australia's 4 rickettsioses</td>
+<td>F003, F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22000356/">22000356</a></td>
+<td>Severe imported case, Nepal 2009</td>
+<td>F003</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19327117/">19327117</a></td>
+<td>Endothelial tropism → rickettsial vasculitis</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33622746/">33622746</a></td>
+<td>Leucocytoclastic vasculitis histology (SFG correlate)</td>
+<td>F004</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16175900/">16175900</a></td>
+<td>Geographic extension across south-east Australia</td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18214193/">18214193</a></td>
+<td>Co-circulation with <em>R. australis</em> and scrub typhus</td>
+<td>F006</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30270856/">30270856</a></td>
+<td>First WA SFG rickettsiosis incl. <em>R. honei</em></td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27338482/">27338482</a></td>
+<td><em>B. hydrosauri</em> carries non-<em>honei</em> <em>Rickettsia</em></td>
+<td>F007</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22612237/">22612237</a></td>
+<td>Sca2 mediates adhesion/invasion/motility</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24361066/">24361066</a></td>
+<td>Two-phase actin-based motility (RickA/Arp2/3 → Sca2)</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17577053/">17577053</a></td>
+<td>Endothelial infection, NF-κB/p38, vascular inflammation</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16128401/">16128401</a></td>
+<td>NF-κB regulation of IL-8/MCP-1 in infected EC</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16153249/">16153249</a></td>
+<td>p38 activation drives chemokine response</td>
+<td>F008</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1986207/">1986207</a></td>
+<td>Founding clinical/epidemiologic description (26 cases/17 yr)</td>
+<td>F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/1898756/">1898756</a></td>
+<td>Founding serologic confirmation (seroconversion 27%)</td>
+<td>F009</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11716110/">11716110</a></td>
+<td>Thai tick typhus TT-118 = <em>R. honei</em> in <em>I. granulatus</em></td>
+<td>F005</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38194190/">38194190</a></td>
+<td>Reptile-tick <em>Rickettsia</em> surveillance (NSW)</td>
+<td>F007</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Evidence source types:</strong> F001, F003, F005, F006, F007, F009 rest on <strong>human clinical/epidemiologic and vector-surveillance</strong> data specific to <em>R. honei</em>/FISF. F002 combines <strong>field ecology, PCR, and EM</strong>. F004 and F008 rest largely on <strong>in vitro</strong> endothelial/cell-biology studies of <em>related</em> SFG species and are <strong>inferred</strong> for <em>R. honei</em> by phylogenetic conservation.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Mechanism is inferred, not demonstrated in <em>R. honei</em>.</strong> The Sca2/OmpB invasion and NF-κB/p38 chemokine cascade come from <em>R. conorii</em>, <em>R. rickettsii</em>, and <em>Orientia</em> studies. Direct molecular studies of <em>R. honei</em> itself are lacking.</li>
+<li><strong>No FISF-specific animal model or omics data.</strong> There are no transcriptomic, proteomic, or metabolomic signatures reported for FISF, and no dedicated model organism.</li>
+<li><strong>Imprecise epidemiology.</strong> Incidence/prevalence beyond the original island series are not well quantified; underdiagnosis due to serologic cross-reactivity likely biases case counts.</li>
+<li><strong>Sparse quantitative clinical/laboratory data.</strong> Symptom frequencies come from small series (n = 7; n = 26). Laboratory abnormalities (thrombocytopenia, transaminitis) are inferred from the SFG class rather than measured in FISF cohorts.</li>
+<li><strong>Prognosis data are qualitative.</strong> No formal mortality/morbidity rates or quality-of-life instruments have been applied to FISF.</li>
+<li><strong>Template mismatch.</strong> Sections designed for genetic diseases (causal genes, inheritance, penetrance, model organisms, gene therapy) are largely not applicable; the report reinterprets these in terms of pathogen biology and ecology.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Actions</h2>
+<ol>
+<li><strong>Direct molecular validation in <em>R. honei</em>:</strong> infect primary human dermal microvascular endothelial cells with <em>R. honei</em> and confirm Sca2/OmpB-dependent invasion, two-phase actin motility, and NF-κB/p38-driven IL-8/MCP-1 induction — closing the inference gap for F008.</li>
+<li><strong>Prospective clinical cohort:</strong> assemble a multi-centre south-east Australian FISF cohort with standardized PCR confirmation to quantify symptom frequencies, laboratory abnormalities, severity distribution, and outcomes.</li>
+<li><strong>Seroepidemiology with species-specific assays:</strong> develop and deploy <em>R. honei</em>-specific serologic/molecular tools to overcome SFG cross-reactivity and produce true prevalence/incidence estimates.</li>
+<li><strong>Expanded vector/reservoir surveillance:</strong> systematically genotype <em>Rickettsia</em> in reptile ticks across the Australian range (and WA foci) to map <em>R. honei</em> vs. co-circulating SFG species and refine human-risk geography.</li>
+<li><strong>Comparative genomics:</strong> leverage the 1.27-Mb <em>R. honei</em> genome against <em>R. conorii</em>/<em>R. rickettsii</em> to identify virulence-locus conservation/divergence that may explain FISF's generally milder course.</li>
+<li><strong>Diagnostic algorithm formalization:</strong> validate eschar-swab PCR as a rapid, species-level point-of-care confirmatory test and integrate into Australian febrile-illness guidelines alongside empiric doxycycline.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 5 investigative iterations, 9 confirmed findings, and 42 reviewed papers. Evidence is drawn from primary literature; mechanistic claims specific to</em> R. honei <em>are flagged as inferred from closely related spotted fever group rickettsiae where direct data are unavailable.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Flinders_Island_Spotted_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Flinders_Island_Spotted_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>22</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>29</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0000232</code> (3 mentions) - the report calls it "MONDO ID"; MONDO calls it <strong>Flinders island spotted fever</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>GO:0006928</code> (obsolete movement of cell or subcellular component) (1 mention)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Flea_Borne_Spotted_Fever-openscientist.html">← Flea-Borne Spotted Fever (OpenScientist)</a>
+                
+                
+                <a href="FLNA_Intestinal_Pseudoobstruction-falcon.html">FLNA Intestinal Pseudoobstruction (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Flinders_Island_Spotted_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Flinders_Island_Spotted_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -12,7 +12,7 @@ import pytest
 
 from dismech.perturb.simulate import load_model_config
 
-CONFIG = Path("models/urate_homeostasis.config.yaml")
+CONFIG = Path("models/urate_homeostasis/config.yaml")
 GOUT = "kb/disorders/Gout.yaml"
 
 
