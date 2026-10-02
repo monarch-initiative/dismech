@@ -1516,11 +1516,21 @@ Rules for using it:
   existing links' caveats. A typed divergence now satisfies the caveat requirement on a
   `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
 
-Currently populated on computational models only. The taxonomy was chosen to extend to
-NAM and animal models unchanged — `BOUNDARY_OMISSION`, `PROXY_QUANTITY`,
-`CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH` all apply — and
-extending it would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`,
-both already evidenced in the animal set.
+Populated on computational models, plus one non-computational system: the cell-free
+expression panel in `Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION`
+divergences on a model system declared inside a *proposed* experiment. The taxonomy was
+chosen to extend to NAM and animal models unchanged — `BOUNDARY_OMISSION`,
+`PROXY_QUANTITY`, `CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH`
+all apply — and that first case needed no new value, which is some evidence the choice
+was right. Extending it further would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and
+`INCOMPLETE_PHENOTYPE`, both already evidenced in the animal set.
+
+**A model system inside a `proposed_experiments` entry takes the same link object**, so
+a proposal can state its own translational limits before anybody runs it. Such a link
+resolves its target anchor for rendering but is deliberately **not** back-linked onto
+the pathophysiology node's "models informing this mechanism" crosslink: a system that
+exists only inside a proposal has not informed anything, and listing it there would
+present a hypothetical as curated evidence.
 
 ```yaml
 animal_models:
@@ -1797,11 +1807,18 @@ Rules for filling it:
   measurement *on* that node. Whether any one result adjudicates the hypothesis
   is what `would_support` / `would_refute` are for. It uses the same hash-anchor
   grammar and is gated as a foreign key.
-- **Say what the protocol cannot see.** A cell-free system reports on an
-  isolated protein and carries none of the cellular context; a monomer's melting
-  curve does not report on an assembled holoenzyme. Those caveats belong in
-  `notes` — they are the same translational honesty `ModelMechanismLink.limitations`
-  asks for, and without them a cheap protocol reads as a complete answer.
+- **Say what the protocol cannot see — as a typed divergence, not as prose.**
+  Without that caveat a convenient protocol reads as a complete answer. The
+  structured home for it already exists and needs no new slot: declare the
+  system in the experiment's `model_systems`, link it to the node with
+  `modeled_mechanisms`, and record the shortfall as `divergences` with a
+  `divergence_type` and a `materiality` (see *Linking Models into the
+  Pathograph*). A cell-free system that carries none of the cellular context a
+  mechanism needs is a `BOUNDARY_OMISSION`, usually `QUALIFYING` — the claim
+  holds, in a narrower form. Prefer that over a sentence in `notes`, which no
+  query can read and which states the shortfall without saying what *kind* it
+  is. `Prolidase_Deficiency` is the worked example, and the first use of the
+  taxonomy outside computational models — which is what it was designed for.
 
 **Not every gap has one, and that is the common case.** Most open gaps in the
 KB need patient cohorts, tissue, or longitudinal follow-up, none of which is a
