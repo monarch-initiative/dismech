@@ -210,7 +210,12 @@ record points at. `src/dismech/model_registry.py` is the only place that
 resolves these paths; route a new consumer through it rather than globbing.
 `tests/test_model_registry.py` gates the layout, so a branch still adding a
 flat `models/<id>.config.yaml` fails with a message. `just
-check-authored-models` runs every `run.py --check`. See `models/README.md`.
+check-authored-models` runs every `run.py --check`. Every folder gets a derived
+page, `pages/models/<model_id>.html` (`src/dismech/model_pages.py`, written by
+the page build), and an authored folder may add `run.js`, a browser port the
+page inlines so the model runs there. A `run.js` must reproduce `results.json`
+exactly, so a rule change goes into `run.py` first and then into `run.js`, and
+the parity test fails until they agree. See `models/README.md`.
 
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
@@ -1511,11 +1516,21 @@ Rules for using it:
   existing links' caveats. A typed divergence now satisfies the caveat requirement on a
   `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
 
-Currently populated on computational models only. The taxonomy was chosen to extend to
-NAM and animal models unchanged — `BOUNDARY_OMISSION`, `PROXY_QUANTITY`,
-`CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH` all apply — and
-extending it would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`,
-both already evidenced in the animal set.
+Populated on computational models, plus one non-computational system: the cell-free
+expression panel in `Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION`
+divergences on a model system declared inside a *proposed* experiment. The taxonomy was
+chosen to extend to NAM and animal models unchanged — `BOUNDARY_OMISSION`,
+`PROXY_QUANTITY`, `CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH`
+all apply — and that first case needed no new value, which is some evidence the choice
+was right. Extending it further would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and
+`INCOMPLETE_PHENOTYPE`, both already evidenced in the animal set.
+
+**A model system inside a `proposed_experiments` entry takes the same link object**, so
+a proposal can state its own translational limits before anybody runs it. Such a link
+resolves its target anchor for rendering but is deliberately **not** back-linked onto
+the pathophysiology node's "models informing this mechanism" crosslink: a system that
+exists only inside a proposal has not informed anything, and listing it there would
+present a hypothetical as curated evidence.
 
 ```yaml
 animal_models:
@@ -1731,6 +1746,94 @@ entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
 (`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
+### Executable Protocols on a Proposed Experiment
+
+A `KNOWLEDGE_GAP` discussion's `proposed_experiments` say what *should* be
+measured. `Experiment.executable_protocols` says that a service exists which
+would measure it, and names the provider and their own identifier for it:
+
+```yaml
+    executable_protocols:
+    - name: Protein Expression and Thermal Shift Assay   # the provider's own name, verbatim
+      provider: Ginkgo Cloud Lab
+      venue_type: COMMERCIAL_CLOUD_LAB
+      protocol_id: protein-expression-and-thermal-shift-assay   # their catalogue handle
+      protocol_url: https://cloud.ginkgo.bio/protocols/protein-expression-and-thermal-shift-assay
+      description: Supplies the folding term — which allele is destabilised rather than dead.
+      measures:
+      - pathophysiology#PEPD Prolidase Catalytic Deficiency
+      inputs_required: Coding sequences carrying a Strep-II tag, as a DNA template plate
+      retrieved_date: '2026-10-01'
+```
+
+**It is a feasibility note, not a plan.** Recording a protocol does not
+propose, authorise, fund, or commit to running it, and it is not evidence about
+the disease — nothing in the block asserts a result. What it buys is that the
+cost of closing a gap is readable off the entry instead of being re-researched
+by whoever next asks.
+
+**`protocol_reference` is a different slot and both can coexist.** That one
+cites a *methods paper* describing how a technique works. An
+`ExecutableProtocol` is a service that can be ordered.
+
+Rules for filling it:
+
+- **`protocol_id` is copied, never composed.** It is the handle an order would
+  name — a catalogue slug, service code, or SKU — so a reworded or tidied value
+  is not an identifier. Same discipline as a CURIE: read it from the provider's
+  own listing in the step you write the line.
+- **`name` is the provider's name for the protocol, verbatim**, for the same
+  reason `datasets[].title` is the repository's own title. Your account of what
+  it would contribute goes in `description`.
+- **There is no price, turnaround, or throughput slot, and this is deliberate.**
+  Those are commercial terms that go out of date with no signal that they have,
+  and mirroring a provider's price list is not this knowledge base's job — cost
+  and scheduling are settled with the provider at the point of ordering. Do not
+  smuggle them into `notes` or `description` either: a figure in prose rots the
+  same way, and nothing can check it. `test_no_commercial_terms_are_carried`
+  gates the slots; the prose is on you.
+- **Record `retrieved_date` with `protocol_id` or `protocol_url`.** A provider's
+  catalogue changes without notice and without a version, so an undated
+  identifier cannot be aged — a reader has no way to tell a current handle from
+  one renamed two years ago. Gated by
+  `test_catalogue_facts_carry_a_retrieval_date`. Treat an old date as stale,
+  not as wrong.
+- **`provider` is free text; `venue_type` is the enum.** The set of
+  laboratories is open and changes without warning, so an enum of vendor names
+  would need a schema PR per new lab. The four-value `ExecutionVenueEnum` is the
+  durable question — orderable by anyone, or needs a local collaboration?
+- **`measures` is weaker than `would_support`.** It says the protocol returns a
+  measurement *on* that node. Whether any one result adjudicates the hypothesis
+  is what `would_support` / `would_refute` are for. It uses the same hash-anchor
+  grammar and is gated as a foreign key.
+- **Say what the protocol cannot see — as a typed divergence, not as prose.**
+  Without that caveat a convenient protocol reads as a complete answer. The
+  structured home for it already exists and needs no new slot: declare the
+  system in the experiment's `model_systems`, link it to the node with
+  `modeled_mechanisms`, and record the shortfall as `divergences` with a
+  `divergence_type` and a `materiality` (see *Linking Models into the
+  Pathograph*). A cell-free system that carries none of the cellular context a
+  mechanism needs is a `BOUNDARY_OMISSION`, usually `QUALIFYING` — the claim
+  holds, in a narrower form. Prefer that over a sentence in `notes`, which no
+  query can read and which states the shortfall without saying what *kind* it
+  is. `Prolidase_Deficiency` is the worked example, and the first use of the
+  taxonomy outside computational models — which is what it was designed for.
+
+**Not every gap has one, and that is the common case.** Most open gaps in the
+KB need patient cohorts, tissue, or longitudinal follow-up, none of which is a
+catalogue item. Leaving the block absent is the default; an entry gains it only
+where somebody actually checked a provider's listing. Do not add a protocol
+because a gap looks assayable.
+
+Worked example: `Prolidase_Deficiency` →
+`pd_allele_panel_abundance_stability_catalysis`, which decomposes the single
+clinical "residual prolidase activity" figure into abundance, folding, and
+catalysis across a patient allele panel using three protocols. That amount
+versus activity split is the axis deferred in design decisions §12; the
+experiment is recorded as a way to measure it, and settles nothing about the
+schema question. See [`projects/AUTONOMOUS_LABS.md`](projects/AUTONOMOUS_LABS.md)
+for the wider execution-layer project.
 
 ### Hypothesis-Based Phenotype Algorithms
 
@@ -3094,6 +3197,67 @@ transcytosis route is *not* filled into the targeting slots — the cited report
 states it as a possibility, and a hypothesized uptake route is not a targeting
 claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
 [`docs/delivery-systems.md`](docs/delivery-systems.md).
+
+### Treatment Effect Differs by Subgroup (`effect_modifiers`)
+
+When a source reports that a treatment works differently in one patient
+subgroup than another, record it as a `TreatmentEffectModifier` under the
+treatment's `effect_modifiers`, not only in its `description`:
+
+```yaml
+  effect_modifiers:
+  - effect_modifier_type: SEX            # AGE, SEX, REPRODUCTIVE_STATUS, BASELINE_SEVERITY,
+                                         # GENOTYPE, BIOMARKER, COMORBIDITY, ANCESTRY,
+                                         # CONCOMITANT_TREATMENT, OTHER
+    stratum: women over 65               # the subgroup, in the source's terms
+    comparator_stratum: men over 65
+    modified_outcome: knee extensor maximal torque
+    effect_in_stratum: SMALLER_EFFECT    # LARGER_EFFECT, SMALLER_EFFECT, NO_EFFECT,
+                                         # OPPOSITE_EFFECT, NO_DIFFERENCE
+    modification_analysis: CROSS_STRATUM_COMPARISON
+    interaction_tested: true
+    evidence:
+    - reference: PMID:27354538
+      ...
+```
+
+Rules for filling it:
+
+- **One entry per stratum, outcome and source.** A subgroup can show a larger
+  effect on one outcome and none on another; do not merge them.
+- **Record tested nulls.** `NO_DIFFERENCE` (compared, no difference) is a
+  finding, and it is what stops a reader assuming a subgroup effect. Use
+  `NO_EFFECT` when the stratum showed no benefit while the comparator did.
+- **Say how it was established.** `modification_analysis` runs from
+  `PRESPECIFIED_SUBGROUP` and `META_ANALYSIS_SUBGROUP` down to
+  `POST_HOC_SUBGROUP`, `CROSS_STRATUM_COMPARISON` (strata compared within one
+  study with no separate control) and `CROSS_STUDY_COMPARISON` (separate studies
+  in different populations; the weakest basis). Set `interaction_tested` only
+  when the source says whether a treatment-by-subgroup interaction test was run;
+  omit it otherwise.
+- **Never set `effect_in_stratum` from your own reading of two numbers.** The
+  source has to state the difference, or report a formal interaction. Two
+  overlapping confidence intervals read side by side are not a subgroup
+  finding.
+- **Conflicting studies get separate entries.** Do not average them into one.
+  Name the conflict in each entry's `description`, and consider a
+  `KNOWLEDGE_GAP` discussion attached to the treatment.
+- **Effect modification is not a mechanism.** If a mechanism explains the
+  difference (older muscle's blunted mTORC1 response to load explains the age
+  gradient), record it as a pathophysiology node and name that node in
+  `description`.
+- **Population first.** A subgroup result from a different population (a
+  sex-difference meta-analysis in 18-45-year-olds cited for a geriatric
+  disease) belongs in the treatment's `evidence`, with the caveat in its
+  `explanation`, not in `effect_modifiers`.
+
+`SEX` and `REPRODUCTIVE_STATUS` are separate on purpose, because menopausal
+status varies within one sex. Worked example: `Sarcopenia` → Progressive
+Resistance Exercise Training, which carries age, sex, menopausal-status and
+baseline-function modifiers. It also shows what stays out: SPRINTT reported a
+grip and lean-mass benefit in women and none in men, but from separate
+within-sex results with no interaction test and for a multicomponent programme,
+so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
 
 ### Subtype Naming Conventions
 
