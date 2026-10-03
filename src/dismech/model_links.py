@@ -14,9 +14,12 @@ The fourth was invisible to every check. ``tests/test_data.py`` and
 ``scripts/model_scale_audit.py`` each walked only the top-level sections, so a
 link declared inside a proposed experiment skipped the divergence, scale,
 readout-target and caveat gates entirely -- `just model-scale-audit` reported
-``model->mechanism links: 0`` for an entry that had one. The first such link
-(``Prolidase_Deficiency``, dismech#13375) passed those checks when they were
-applied by hand, but nothing would have caught the next one.
+``model->mechanism links: 0`` for an entry that had one. Such links were
+already committed across ``Alveolar_Rhabdomyosarcoma``, ``Ewing_Sarcoma`` and
+``Prolidase_Deficiency`` -- the first two predating the ``ExecutableProtocol``
+work (dismech#13375) that exposed the gap -- and all of them passed those checks
+when they were applied by hand. That was luck: nothing would have caught one
+that did not.
 
 This module exists so the two walks cannot disagree again, for the same reason
 ``entity_refs`` is the single place that resolves a hash-anchor reference: two

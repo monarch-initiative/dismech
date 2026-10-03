@@ -1540,8 +1540,9 @@ rather than looping over the sections yourself. Both `tests/test_data.py` and
 on this object — divergence typing, scale agreement, readout targets, the caveat
 requirements — silently had no opinion on a link inside a proposal, and
 `just model-scale-audit` would report `model->mechanism links: 0` for an entry that
-had one. 27 such links across `Alveolar_Rhabdomyosarcoma`, `Ewing_Sarcoma` and
-`Prolidase_Deficiency` were unchecked before #13375 closed the gap. They all pass,
+had one. Links across `Alveolar_Rhabdomyosarcoma`, `Ewing_Sarcoma` and
+`Prolidase_Deficiency` went unchecked that way until #13427 closed the gap; run the
+recipe for the current count rather than trusting one written here. They all passed,
 which is luck rather than process: an unreachable gate reports success, so "the check
 exits 0" says nothing until you have confirmed the check can see your data.
 

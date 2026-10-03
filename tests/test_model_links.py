@@ -5,8 +5,8 @@ top-level model sections, and the `model_systems` of a proposed experiment. The
 fourth was skipped by both `tests/test_data.py` and
 `scripts/model_scale_audit.py`, each of which walked only the top-level
 sections, so the divergence, scale, readout-target and caveat gates had no
-opinion on a link inside a `KNOWLEDGE_GAP` proposal — 27 such links across three
-entries were already in `kb/` and unchecked (dismech#13375).
+opinion on a link inside a `KNOWLEDGE_GAP` proposal. Such links were already
+committed across three entries and unchecked when dismech#13427 closed the gap.
 
 These tests pin the coverage rather than the counts: the point is that each of
 the four homes is reached and that a proposed link is distinguishable from a
@@ -16,9 +16,9 @@ curated one, not how many happen to exist today.
 from pathlib import Path
 
 import pytest
-import yaml
 
 from dismech.model_links import MODEL_SECTIONS, iter_model_links
+from dismech.yaml_io import safe_load
 
 ROOT_DIR = Path(__file__).parent.parent
 
@@ -158,7 +158,7 @@ def test_the_committed_proposed_links_are_reached():
     """
     path = ROOT_DIR / "kb" / "disorders" / "Prolidase_Deficiency.yaml"
     with path.open(encoding="utf-8") as handle:
-        data = yaml.safe_load(handle)
+        data = safe_load(handle)
     proposed = [s for s in iter_model_links(data) if s.proposed]
     assert proposed, "the proposed-experiment model link is not being walked"
     assert all(s.link.get("target") for s in proposed)
