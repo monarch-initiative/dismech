@@ -15,6 +15,11 @@ NOT_NAMED = "not named"
 NO_GENETIC_RECORD = "no genetic record"
 UNTYPED = "untyped"
 
+#: ClinGen tiers that support a gene-disease relationship. A Limited, Disputed,
+#: Refuted or No Known Disease Relationship tier is not a reason to type a
+#: record causative, so it is not a gap when the record is untyped.
+SUPPORTIVE_TIERS = frozenset({"definitive", "strong", "moderate"})
+
 
 @dataclass
 class ClinGenMatch:

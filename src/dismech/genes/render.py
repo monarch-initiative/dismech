@@ -30,7 +30,13 @@ from dismech.genes.curated import (
     verify_summary,
 )
 from dismech.genes.ingest import INGEST_DIR, IngestTables, load_ingest
-from dismech.genes.join import NO_GENETIC_RECORD, NOT_NAMED, UNTYPED, clingen_matches
+from dismech.genes.join import (
+    NO_GENETIC_RECORD,
+    NOT_NAMED,
+    SUPPORTIVE_TIERS,
+    UNTYPED,
+    clingen_matches,
+)
 from dismech.genes.slice import (
     GeneSlice,
     build_gene_index,
@@ -266,7 +272,8 @@ def _clingen_rows(
                         "name": name,
                         "href": f"../disorders/{slugify(name)}.html",
                         "status": status,
-                        "gap": status in {UNTYPED, NO_GENETIC_RECORD, NOT_NAMED},
+                        "gap": status in {UNTYPED, NO_GENETIC_RECORD, NOT_NAMED}
+                        and match.classification.lower() in SUPPORTIVE_TIERS,
                     }
                     for name, status in match.entries.items()
                 ],
