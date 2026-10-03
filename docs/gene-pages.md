@@ -108,6 +108,10 @@ just genes-clingen-gaps                                  # counts by status and 
 just genes-clingen-gaps --format tsv --classification Definitive
 ```
 
+On the page, and in the claims API's `clingen_but_untyped()`, only the tiers
+that support a relationship (Definitive, Strong, Moderate) mark a gap; the
+recipe lists every tier with its classification so the rest can be read too.
+
 Each row is a lead, not a defect. A Definitive tier on an untyped record
 usually means the record can be typed `CAUSATIVE` from evidence ClinGen has
 already assessed, but a Disputed or Refuted tier on a gene an entry does not
@@ -188,6 +192,10 @@ just gen-gene-pages --gene hgnc:9588         # one page plus the index
 just genes-verify                            # summaries only (report-only)
 just genes-verify --strict                   # exit 1 on a stale or refused summary
 ```
+
+The nightly KB sweep runs `just genes-verify --strict` as a non-blocking step,
+so a summary made stale by a curation PR shows up as a failed step the next
+morning without that PR ever having been held up by it.
 
 `pages/genes/` is derived, like `pages/disorders/`, and is written by the page
 build workflow rather than committed by hand. The page build rebuilds every

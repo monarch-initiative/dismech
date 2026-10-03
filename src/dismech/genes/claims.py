@@ -29,8 +29,10 @@ from dismech.genes.join import (
     NO_GENETIC_RECORD,
     NOT_NAMED,
     UNTYPED,
+    SUPPORTIVE_TIERS,
     ClinGenMatch,
     clingen_matches,
+    gene_status_in_entry,
 )
 from dismech.genes.slice import (
     GeneSlice,
@@ -104,14 +106,23 @@ class GeneClaims:
         return set(names)
 
     def relationship(self, entry: str) -> str:
-        """``genetic[].relationship_type`` for this gene in ``entry``, in prose.
+        """How ``entry`` records this gene, in prose: its ``genetic[].relationship_type``.
 
-        Several types are joined with " and "; an entry whose record carries no
-        type reads "untyped", which is a legitimate thing for a summary to say.
+        Several types are joined with " and ". An entry with a genetic record
+        that carries no type reads "untyped"; one that names the gene only
+        elsewhere (a mechanism node, a model) reads "no genetic record". Both
+        are legitimate things for a summary to say. Same vocabulary as the page.
         """
         self._require_entry(entry)
-        types = self.slice.relationship_types(entry)
-        return " and ".join(_prose(t) for t in types) if types else "untyped"
+        return gene_status_in_entry(self.slice, entry)
+
+    def no_genetic_record(self) -> set[str]:
+        """Disorders that name this gene but have no ``genetic[]`` record for it."""
+        return {
+            e
+            for e in self.slice.entries("disorder")
+            if gene_status_in_entry(self.slice, e) == NO_GENETIC_RECORD
+        }
 
     def untyped(self) -> set[str]:
         """Disorders with a ``genetic[]`` record for this gene but no ``relationship_type``."""
@@ -238,12 +249,19 @@ class GeneClaims:
         """ClinGen disease labels for this gene that no dismech entry curates."""
         return {m.row["disease_label"] for m in self._clingen() if not m.entries}
 
-    def clingen_but_untyped(self) -> set[str]:
+    def clingen_but_untyped(self, *tiers: str) -> set[str]:
         """Entries ClinGen classifies this gene for whose own record does not type it
-        (untyped, no genetic record, or the gene not named at all)."""
+        (untyped, no genetic record, or the gene not named at all).
+
+        Only the tiers that support a relationship count by default (Definitive,
+        Strong, Moderate): a Disputed or Refuted tier on an entry that does not
+        name the gene is agreement, not a gap. Pass tiers to choose others.
+        """
+        wanted = {t.lower() for t in tiers} if tiers else SUPPORTIVE_TIERS
         return {
             entry
             for m in self._clingen()
+            if m.classification.lower() in wanted
             for entry, status in m.entries.items()
             if status in {UNTYPED, NO_GENETIC_RECORD, NOT_NAMED}
         }
