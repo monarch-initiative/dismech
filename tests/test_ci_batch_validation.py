@@ -56,9 +56,11 @@ def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
 
 
 def test_validate_module_batch_matches_the_disorder_gate() -> None:
-    """Modules are Disease documents and get the disorder gate, flag for flag.
+    """Modules are Disease documents and get the disorder gate's validator flags.
 
-    In particular ``--no-full-text``: the old per-file ``validate-modules`` loop
+    One deliberate difference: a ``fix-references-cache`` failure also fails
+    the module gate, as it does ``validate-comorbidity-batch``, where
+    ``validate-disorders`` ignores it. In particular ``--no-full-text``: the old per-file ``validate-modules`` loop
     let a snippet pass on a full-text match the disorder gate would reject, and
     decided pass/fail by grepping validator output rather than exit status.
     """
