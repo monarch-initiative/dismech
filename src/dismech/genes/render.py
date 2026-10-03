@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
+from functools import lru_cache
 from pathlib import Path
 
 from dismech.export.utils import slugify
@@ -57,6 +58,42 @@ _SECTION_LABELS = {
 }
 
 _MAX_ITEMS_PER_SECTION = 8
+
+
+#: A gene gets its own page when at least this many disorders name it (or it
+#: has a curated summary). Disorder pages link a gene chip only under the same
+#: rule, through :func:`gene_page_ids`, so the two never disagree.
+MIN_DISORDERS_FOR_PAGE = 2
+
+
+def _has_page(gene: GeneSlice, curated: set[str], min_disorders: int) -> bool:
+    return len(gene.entries("disorder")) >= min_disorders or gene.hgnc_id in curated
+
+
+def _curated_ids(curated_dir: Path) -> set[str]:
+    return {
+        hgnc_id
+        for p in Path(curated_dir).glob("hgnc_*.md")
+        if (hgnc_id := normalize_hgnc_id(p.stem.replace("_", ":", 1)))
+    }
+
+
+@lru_cache(maxsize=4)
+def gene_page_ids(
+    kb_root: str, min_disorders: int = MIN_DISORDERS_FOR_PAGE
+) -> frozenset[str]:
+    """HGNC ids that get a gene page, for linking from other pages.
+
+    Memoised per KB root. The walk goes through the parsed-KB cache, so inside
+    a page build that has already read the disorders it costs about a second.
+    """
+    root = Path(kb_root)
+    curated = _curated_ids(root / "genes" / "curated")
+    return frozenset(
+        hgnc_id
+        for hgnc_id, gene in build_gene_index(root).items()
+        if _has_page(gene, curated, min_disorders)
+    )
 
 
 def gene_page_name(hgnc_id: str) -> str:
@@ -295,7 +332,7 @@ def build_gene_contexts(
         disorders = gene.entries("disorder")
         hgnc_row = ingest.hgnc.get(hgnc_id)
         symbol = (hgnc_row or {}).get("symbol") or gene.label
-        has_page = len(disorders) >= min_disorders or hgnc_id in curated
+        has_page = _has_page(gene, set(curated), min_disorders)
         summary_path = curated.get(hgnc_id)
         row = {
             "hgnc_id": hgnc_id,

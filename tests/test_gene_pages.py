@@ -514,3 +514,15 @@ def test_committed_summaries_are_well_formed_and_safe(path: Path) -> None:
     result = verify_summary(path, execute=False)
     assert result.problems == [], textwrap.indent("\n".join(result.problems), "  ")
     assert result.claims == 0  # not executed
+
+
+def test_disorder_page_links_only_genes_that_have_a_page(kb: Path, tmp_path: Path) -> None:
+    """GENE1 is named by two disorders, so it has a page; GENE2 by one, so not."""
+    from dismech.genes.render import gene_page_ids
+    from dismech.render import render_disorder
+
+    assert gene_page_ids(str(kb.resolve())) == frozenset({"hgnc:1"})
+    out = render_disorder(kb / "disorders" / "Disease_A.yaml", tmp_path / "Disease_A.html")
+    html = out.read_text()
+    assert 'class="gene-page-link" href="../genes/hgnc_1.html"' in html
+    assert "../genes/hgnc_2.html" not in html
