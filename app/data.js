@@ -64878,36 +64878,31 @@ window.searchData = [
     "description": "CNS vasculitis is a rare vasculitic disorder affecting vessels of the brain and spinal cord. This entry focuses on primary angiitis of the central nervous system, an idiopathic vasculitis restricted to the CNS after secondary infectious, systemic autoimmune, malignant, and drug-related causes are excluded.",
     "pathophysiology": [
       "CNS Vessel Wall Inflammation",
-      "Immune Transcriptomic Activation",
-      "Angiographic Large-Vessel CNS Vasculopathy",
-      "Small-Vessel Leptomeningeal Vasculitis",
-      "Amyloid-Associated Granulomatous Vasculitis",
-      "Spinal Cord Vasculitis",
-      "Ischemic and Focal Neurologic Injury"
+      "Vascular Luminal Occlusion",
+      "Cerebral Ischemic Injury",
+      "Necrotizing Vessel Wall Injury",
+      "Immune Transcriptomic Signature"
     ],
     "cell_types": [
+      "T cell",
+      "macrophage",
       "endothelial cell",
-      "leukocyte",
       "natural killer cell",
       "M1 macrophage",
       "memory B cell",
-      "T follicular helper cell",
-      "lymphocyte",
-      "macrophage"
+      "T follicular helper cell"
     ],
     "cell_type_ids": [
+      "CL:0000084",
+      "CL:0000235",
       "CL:0000115",
-      "CL:0000738",
       "CL:0000623",
       "CL:0000863",
       "CL:0000787",
-      "CL:0002038",
-      "CL:0000542",
-      "CL:0000235"
+      "CL:0002038"
     ],
     "biological_processes": [
       "inflammatory response",
-      "leukocyte migration",
       "antigen processing and presentation",
       "neuroinflammatory response"
     ],
@@ -64928,19 +64923,41 @@ window.searchData = [
       "Seizure",
       "Ataxia",
       "Paraparesis",
-      "Intracranial Hemorrhage"
+      "Intracranial Hemorrhage",
+      "Visual Disturbance",
+      "Intellectual Disability in Childhood Disease",
+      "Pseudopapilledema",
+      "Blurred vision",
+      "Diplopia",
+      "Dysarthria",
+      "Parkinsonism",
+      "Fever",
+      "Tetraparesis",
+      "Vertigo",
+      "Reduced visual acuity",
+      "Transient global amnesia",
+      "Constitutional symptom",
+      "Abnormal visual field test",
+      "Amaurosis fugax",
+      "Gait Disturbance",
+      "Encephalopathy"
     ],
     "phenotype_categories": [
       "Vascular",
       "Neurologic",
       "Gastrointestinal",
       "Radiologic",
-      "Laboratory"
+      "Laboratory",
+      "Ophthalmologic",
+      "Constitutional"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Constitutional",
       "Digestive",
+      "Ear",
+      "Eye",
       "Metabolism",
       "Nervous System"
     ],
@@ -64961,12 +64978,30 @@ window.searchData = [
       "HP:0001250",
       "HP:0001251",
       "HP:0002385",
-      "HP:0002170"
+      "HP:0002170",
+      "HP:0000504",
+      "HP:0001249",
+      "HP:0000538",
+      "HP:0000622",
+      "HP:0000651",
+      "HP:0001260",
+      "HP:0001300",
+      "HP:0001945",
+      "HP:0002273",
+      "HP:0002321",
+      "HP:0007663",
+      "HP:0010534",
+      "HP:0025142",
+      "HP:0030588",
+      "HP:0100576",
+      "HP:0001288",
+      "HP:0001298"
     ],
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [],
     "treatments": [
@@ -64974,18 +65009,23 @@ window.searchData = [
       "Glucocorticoid and cyclophosphamide induction",
       "Mycophenolate mofetil steroid-sparing therapy",
       "Azathioprine maintenance immunosuppression",
-      "Rituximab for selected refractory PCNSV"
+      "Rituximab for selected refractory PCNSV",
+      "Methotrexate maintenance immunosuppression",
+      "Infliximab in selected refractory disease"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Circulating endothelial cells",
+      "IL-17 production by cultured CSF CD4 T cells"
+    ],
     "source_file": "CNS_Vasculitis.yaml",
     "page_url": "../pages/disorders/CNS_Vasculitis.html",
-    "num_phenotypes": 17,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 34,
+    "num_pathophysiology": 5,
     "num_genes": 0,
-    "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "2"
+    "num_treatments": 7,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "CN-Related Developmental and Epileptic Encephalopathy",
@@ -65161,26 +65201,25 @@ window.searchData = [
     "creation_date": "2026-09-07T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COA5-related fatal infantile cardioencephalomyopathy (CEMCOX3; mitochondrial complex IV deficiency nuclear type 9, MC4DN9) is an ultra-rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COA5 (formerly C2orf64), the human orthologue of yeast Pet191. COA5 is a small twin-CX9C Complex IV assembly factor that acts at an early stage of holoenzyme biogenesis: patient cells accumulate an MTCO1-containing subassembly that fails to incorporate MTCO2, so the fully assembled holoenzyme is lost while the other respiratory-chain complexes are spared. Every patient reported to date is homozygous for the same missense allele, c.157G>C (p.Ala53Pro), and both reported families are of Turkish descent, raising the possibility of a founder allele. The presentation is cardiac-dominant and neonatal: hypertrophic cardiomyopathy with septal hypertrophy and a non-compaction appearance of the myocardium, elevated blood and urinary lactate, abnormal liver function tests, and death within the first months of life. Despite the \"cardioencephalomyopathy\" in the disease name, documented central nervous system involvement is limited - neuroimaging was normal in the one patient in whom it is reported - and this entry records that discrepancy rather than importing encephalopathy claims from the wider Complex IV deficiency literature. The entry conforms to the conserved Complex IV assembly/biogenesis-deficiency mechanism, with the lesion localized to the MTCO1-to-MTCO2 transition of early assembly.\n",
+    "description": "COA5-related fatal infantile cardioencephalomyopathy (CEMCOX3; mitochondrial complex IV deficiency nuclear type 9, MC4DN9) is an ultra-rare autosomal recessive disorder of cytochrome c oxidase assembly caused by biallelic COA5 variants. Patient fibroblasts accumulate early MTCO1-containing assembly intermediates and have reduced mature complex IV. COA5 knockout cells localize the assembly defect between MTCO1 maturation and MTCO2 incorporation. The 2011 and 2025 clinical reports describe three affected children in two Turkish families, all homozygous for c.157G>C (p.Ala53Pro). Neonatal hypertrophic cardiomyopathy and infantile death dominate the reported course. The 2025 patient also had respiratory insufficiency, lactic acidosis, urinary lactate and ethylmalonic acid elevation, and hepatic abnormalities. Normal brain imaging in that patient does not exclude neurological involvement in the wider disorder. The small case series cannot establish penetrance, phenotype frequencies, or the full clinical spectrum.",
     "pathophysiology": [
-      "COA5 Loss and Arrested Early Complex IV Assembly",
-      "Impaired Terminal Electron Transfer and ATP Synthesis",
-      "Lactic Acidosis and Metabolic Decompensation",
-      "Cardiomyocyte Bioenergetic Failure and Hypertrophic Remodeling"
+      "Impaired COA5 Assembly-Factor Function",
+      "Disrupted COX2 Metallochaperone Interactions",
+      "Arrested Early Complex IV Assembly",
+      "Reduced Complex IV Activity",
+      "Loss of Complex IV-Containing Supercomplexes",
+      "Systemic Lactate Accumulation",
+      "Hypertrophic Myocardial Remodeling"
     ],
     "cell_types": [
-      "cardiac muscle cell",
-      "skeletal muscle fiber"
+      "cardiac muscle cell"
     ],
     "cell_type_ids": [
-      "CL:0000746",
-      "CL:0008002"
+      "CL:0000746"
     ],
     "biological_processes": [
       "mitochondrial respiratory chain complex IV assembly",
-      "mitochondrial electron transport, cytochrome c to oxygen",
-      "mitochondrial ATP synthesis coupled electron transport",
-      "lactate biosynthetic process"
+      "mitochondrial electron transport, cytochrome c to oxygen"
     ],
     "phenotypes": [
       "Hypertrophic Cardiomyopathy",
@@ -65221,10 +65260,7 @@ window.searchData = [
       "HP:0031142",
       "HP:0008347"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "COA5 pathogenic variants causing CEMCOX3 (MC4DN9)"
     ],
@@ -65237,11 +65273,11 @@ window.searchData = [
     "source_file": "COA5-Related_Fatal_Infantile_Cardioencephalomyopathy.yaml",
     "page_url": "../pages/disorders/COA5-Related_Fatal_Infantile_Cardioencephalomyopathy.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "COA6-Related Fatal Infantile Cardioencephalomyopathy",
@@ -65254,14 +65290,15 @@ window.searchData = [
     "creation_date": "2026-09-10T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COA6-related fatal infantile cardioencephalomyopathy (CEMCOX4 / MC4DN13) is an ultra-rare autosomal recessive mitochondrial disorder caused by biallelic loss-of-function variants in COA6, a small twin-CX9C protein of the mitochondrial intermembrane space. Its best-supported role is as a thiol-disulfide oxidoreductase that reduces the copper-coordinating cysteines of SCO1, SCO2 and the mitochondrially encoded subunit COX2, which is the step that allows copper to be loaded into the binuclear CuA centre of COX2 in the oxidizing intermembrane space. Without that reduction, newly synthesized COX2 is not metallated, turns over rapidly, and the cytochrome c oxidase holoenzyme is never completed, leaving stalled COX1-containing assembly intermediates and a cytochrome c oxidase deficiency. Reported patients presented in the neonatal period with severe hypertrophic cardiomyopathy and died in infancy. The disorder sits in the copper-delivery arm of the Complex IV assembly pathway alongside SCO1, SCO2, COX16 and COX17, and is distinct from the earlier assembly step blocked in COA5 deficiency.\nTwo caveats belong in the same breath as the description. The \"encephalo-\" half of the disease name is inherited from the SCO2-defined syndrome the name was coined for and is not established for COA6 from any source cited here, so no encephalopathy phenotype is curated. And whether the enzyme lesion is isolated to Complex IV or also involves Complex I is genuinely contested in the literature; both readings are recorded rather than reconciled.\n",
+    "description": "COA6-related fatal infantile cardioencephalomyopathy (CEMCOX4 / MC4DN13) is an autosomal recessive mitochondrial disorder caused by biallelic COA6 variants. COA6 is an intermembrane-space assembly factor with experimentally demonstrated thiol-disulfide reductase activity that supports formation of the copper-containing CuA centre of COX2. Impaired COA6 function compromises COX2 maturation and cytochrome c oxidase assembly. The two foundational clinical reports describe severe hypertrophic cardiomyopathy with either combined complex I/IV deficiency or isolated complex IV deficiency; muscular hypotonia and lactic acidosis were reported in the W66R patient. The original compound-heterozygous patient died before one year of age. Residual function and tissue-specific biochemical findings vary, and the disease name alone does not establish encephalopathy. Copper binding by COA6 has been demonstrated in vitro, but its physiological role as a metallochaperone remains unresolved.",
     "pathophysiology": [
-      "COA6 Loss and Failure of Thiol-Disulfide Reduction",
+      "COA6 Reductase Dysfunction",
       "Impaired CuA Metallation of COX2",
-      "COX2 Turnover and Stalled Assembly Intermediates",
+      "COX2 Destabilization",
+      "Complex IV Assembly Arrest",
       "Cytochrome c Oxidase Deficiency",
-      "Cardiomyocyte Energy Failure and Hypertrophic Remodeling",
-      "Anaerobic Glycolytic Shift and Lactic Acidosis"
+      "Myocardial Hypertrophic Remodeling",
+      "Systemic Lactate Accumulation"
     ],
     "cell_types": [
       "cardiac muscle cell"
@@ -65271,15 +65308,14 @@ window.searchData = [
     ],
     "biological_processes": [
       "mitochondrial respiratory chain complex IV assembly",
-      "cytochrome complex assembly",
       "mitochondrial electron transport, cytochrome c to oxygen",
-      "oxidative phosphorylation",
-      "lactate biosynthetic process"
+      "oxidative phosphorylation"
     ],
     "phenotypes": [
       "Hypertrophic cardiomyopathy",
       "Lactic acidosis",
-      "Hypotonia"
+      "Hypotonia",
+      "Decreased activity of mitochondrial complex IV"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -65288,13 +65324,15 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Cellular",
       "Metabolism",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0001639",
       "HP:0003128",
-      "HP:0001252"
+      "HP:0001252",
+      "HP:0008347"
     ],
     "frequencies": [],
     "genes": [
@@ -65302,21 +65340,23 @@ window.searchData = [
     ],
     "treatments": [
       "Copper Supplementation",
+      "Elesclomol (experimental)",
       "Supportive and Palliative Care",
       "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [
-      "Cytochrome c oxidase (Complex IV) activity"
+      "Cytochrome c oxidase (Complex IV) activity",
+      "Complex IV subunit abundance"
     ],
     "source_file": "COA6-Related_Fatal_Infantile_Cardioencephalomyopathy.yaml",
     "page_url": "../pages/disorders/COA6-Related_Fatal_Infantile_Cardioencephalomyopathy.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 4,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "COA8-Related COX Deficiency",
@@ -65408,10 +65448,12 @@ window.searchData = [
     "creation_date": "2026-09-23T19:10:03Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CODAS syndrome (cerebral, ocular, dental, auricular and skeletal anomalies) is a rare autosomal recessive multisystem developmental disorder caused by biallelic LONP1 variants that impair the ATP-dependent mitochondrial matrix Lon protease. It presents in infancy with hypotonia, developmental delay and variable intellectual disability, rapidly developing bilateral nuclear cataracts, ptosis, a midline nasal groove, delayed tooth eruption with anomalous cusp morphology, hypoplastic crumpled helices with conductive or mixed hearing loss, and a spondyloepimetaphyseal dysplasia with short stature, delayed epiphyseal ossification, hip dysplasia, scoliosis and vertebral coronal clefts. Vocal cord paresis with airway obstruction causes substantial perinatal mortality. Other biallelic LONP1 genotypes cause infantile cataract with few extraocular findings or a classical mitochondrial encephalomyopathy without CODAS skeletal and dental features.",
+    "description": "CODAS syndrome (cerebral, ocular, dental, auricular and skeletal anomalies) is a rare autosomal recessive developmental disorder caused by biallelic LONP1 variants affecting the mitochondrial Lon protease. Classical findings include developmental delay, cataracts, ptosis, a midline nasal groove, delayed tooth eruption with anomalous cusps, malformed external ears, hearing impairment, and epiphyseal or metaphyseal dysplasia with variable spinal involvement. Expression varies: molecularly confirmed skeletal-ocular presentations can have normal development, intelligence, dentition and hearing. Cataracts often appear in infancy but have also been detected later in childhood. Severe neonatal laryngeal obstruction is particularly documented in the Amish p.Arg721Gly series. Other LONP1-associated neurological, mitochondrial and diaphragmatic phenotypes overlap but do not by themselves establish classical CODAS syndrome.",
     "pathophysiology": [
-      "LONP1 Biallelic Loss of Function",
+      "LONP1 Protease Dysfunction",
       "Impaired Mitochondrial Protein Quality Control",
+      "MT-CO2 Aggregation",
+      "Impaired PDK4 Turnover",
       "Abnormal Mitochondrial Ultrastructure",
       "Reduced Mitochondrial Respiratory Capacity",
       "Spondyloepimetaphyseal Dysplasia",
@@ -65422,8 +65464,7 @@ window.searchData = [
     "biological_processes": [
       "mitochondrial protein quality control",
       "mitochondrion organization",
-      "cellular respiration",
-      "ossification"
+      "cellular respiration"
     ],
     "phenotypes": [
       "Global developmental delay",
@@ -65457,7 +65498,27 @@ window.searchData = [
       "Seizure",
       "Atrial septal defect",
       "Atrioventricular canal defect",
-      "Omphalocele"
+      "Omphalocele",
+      "Cataract",
+      "Ventriculomegaly",
+      "Cerebral hypomyelination",
+      "Hypoplasia of the corpus callosum",
+      "Cerebral atrophy",
+      "Hypoplasia of the odontoid process",
+      "Anal atresia",
+      "Rectovaginal fistula",
+      "Cryptorchidism",
+      "Tongue atrophy",
+      "Cerebellar atrophy",
+      "Truncal ataxia",
+      "Strabismus",
+      "Nystagmus",
+      "Attention deficit hyperactivity disorder",
+      "Knee flexion contracture",
+      "Gastroesophageal reflux",
+      "Subglottic stenosis",
+      "Carpal bone hypoplasia",
+      "Coxa vara"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -65468,13 +65529,20 @@ window.searchData = [
       "Skeletal",
       "Respiratory",
       "Gastrointestinal",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Ocular",
+      "Neurologic",
+      "Musculoskeletal",
+      "Genitourinary",
+      "Head and Neck",
+      "Behavioral"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
       "Ear",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Limbs",
@@ -65515,30 +65583,53 @@ window.searchData = [
       "HP:0001250",
       "HP:0001631",
       "HP:0006695",
-      "HP:0001539"
+      "HP:0001539",
+      "HP:0000518",
+      "HP:0002119",
+      "HP:0006808",
+      "HP:0002079",
+      "HP:0002059",
+      "HP:0003311",
+      "HP:0002023",
+      "HP:0000143",
+      "HP:0000028",
+      "HP:0012473",
+      "HP:0001272",
+      "HP:0002078",
+      "HP:0000486",
+      "HP:0000639",
+      "HP:0007018",
+      "HP:0006380",
+      "HP:0002020",
+      "HP:0001607",
+      "HP:0001498",
+      "HP:0002812"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "LONP1"
     ],
     "treatments": [
       "Comprehensive rehabilitation",
       "Cataract surgery",
-      "Myringotomy tubes and hearing amplification",
+      "Myringotomy with tube placement",
+      "Hearing amplification",
       "Tracheostomy",
-      "Gastrostomy feeding"
+      "Gastrostomy feeding",
+      "Orthotic support",
+      "Corrective knee surgery",
+      "Methylphenidate for attention-deficit hyperactivity",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CODAS_Syndrome.yaml",
     "page_url": "../pages/disorders/CODAS_Syndrome.html",
-    "num_phenotypes": 32,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 52,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "44",
+    "num_treatments": 10,
+    "causal_graph_edges": "78",
     "causal_graph_longest_path": "4"
   },
   {
@@ -65811,14 +65902,15 @@ window.searchData = [
     "creation_date": "2026-09-06T15:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COG4-CDG (CDG-IIj) is an autosomal recessive type II congenital disorder of glycosylation caused by biallelic loss-of-function variants in COG4, a subunit of lobe A of the conserved oligomeric Golgi complex. The COG complex tethers vesicles during intra-Golgi and Golgi-to-ER retrograde transport, which is how the Golgi keeps its resident glycosyltransferases in the right cisternae. Losing that tethering does not disable any single glycosylation enzyme; it lets the enzymes drift, and the result is a combined N- and O-glycosylation defect with deficient galactosylation and sialylation.\nClinically it is a progressive neurometabolic disorder: severe global disability, secondary microcephaly with brain atrophy, seizures, coagulopathy, liver involvement and recurrent infections. Roughly six to ten patients have been reported.\nThe entry's central curation decision is that this is a different disease from Saul-Wilson syndrome, which is also caused by COG4 and is already curated separately. The argument is mechanistic and is set out in the differential and the notes: COG4-CDG is biallelic loss of function with reduced COG4 protein and delayed retrograde transport, while Saul-Wilson is a single recurrent heterozygous de novo allele with normal COG4 protein and accelerated retrograde recycling. They are not two severities of one lesion; they run in opposite directions.\n",
+    "description": "COG4-CDG (CDG-IIj) is an autosomal recessive congenital disorder of glycosylation caused by biallelic deleterious COG4 variants. COG4 is a lobe A subunit of the conserved oligomeric Golgi complex involved in retrograde vesicle trafficking. Patient fibroblasts can show reduced COG4 abundance, delayed retrograde transport and altered Golgi morphology. Abnormal N- and O-glycan processing is reported, although transferrin and broader N-glycan screens can be normal in affected individuals. The clinical spectrum includes developmental impairment, postnatal microcephaly, brain atrophy, seizures, hypotonia, coagulopathy, liver disease and recurrent infections. A progressive course and severe disability are described, with survival ranging from early childhood deaths to adulthood. The recessive disorder is distinct from dominant COG4-related Saul-Wilson syndrome caused by p.Gly516Arg.",
     "pathophysiology": [
+      "Biallelic COG4 dysfunction",
       "Reduced COG4 Expression",
-      "Impaired Golgi Vesicle Tethering and Retrograde Transport",
-      "Disrupted Golgi Glycosyltransferase Localisation",
-      "Combined N- and O-Glycosylation Defect",
-      "Progressive Neurometabolic Multisystem Disease",
-      "Disrupted COG-Dependent Autophagy"
+      "Delayed Golgi retrograde transport",
+      "Proposed altered Golgi enzyme recycling",
+      "Abnormal N-glycan processing",
+      "Abnormal O-glycan processing",
+      "Altered Golgi ultrastructure"
     ],
     "cell_types": [
       "fibroblast"
@@ -65827,11 +65919,10 @@ window.searchData = [
       "CL:0000057"
     ],
     "biological_processes": [
-      "intra-Golgi vesicle-mediated transport",
-      "Golgi organization",
+      "retrograde vesicle-mediated transport, Golgi to endoplasmic reticulum",
       "protein N-linked glycosylation",
       "protein O-linked glycosylation",
-      "autophagy"
+      "Golgi organization"
     ],
     "phenotypes": [
       "Global developmental delay",
@@ -65841,31 +65932,37 @@ window.searchData = [
       "Abnormality of coagulation",
       "Abnormality of the liver",
       "Recurrent infections",
-      "Recurrent fever",
       "Abnormal facial shape",
-      "Intellectual disability",
-      "Hearing impairment",
       "Absent speech",
       "Hypotonia",
-      "Failure to thrive"
+      "Failure to thrive",
+      "Cirrhosis",
+      "Elevated hepatic transaminase",
+      "Thrombocytopenia",
+      "Hyperreflexia",
+      "Ataxia",
+      "Hepatic failure",
+      "Status epilepticus",
+      "Frontotemporal cerebral atrophy",
+      "Limb hypertonia",
+      "Axial hypotonia",
+      "Cognitive impairment"
     ],
     "phenotype_categories": [
       "Neurological",
       "Hematological",
       "Hepatobiliary",
       "Immunological",
-      "Constitutional",
       "Craniofacial",
-      "Otological",
       "Growth"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Digestive",
-      "Ear",
       "Growth",
       "Head and Neck",
       "Immune",
+      "Limbs",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
@@ -65878,32 +65975,42 @@ window.searchData = [
       "HP:0001928",
       "HP:0001392",
       "HP:0002719",
-      "HP:0001954",
       "HP:0001999",
-      "HP:0001249",
-      "HP:0000365",
       "HP:0001344",
       "HP:0001252",
-      "HP:0001508"
+      "HP:0001508",
+      "HP:0001394",
+      "HP:0002910",
+      "HP:0001873",
+      "HP:0001347",
+      "HP:0001251",
+      "HP:0001399",
+      "HP:0002133",
+      "HP:0006892",
+      "HP:0002509",
+      "HP:0008936",
+      "HP:0100543"
     ],
-    "frequencies": [
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "COG4"
     ],
     "treatments": [
-      "Supportive and multidisciplinary care"
+      "Phenobarbital for seizures",
+      "Nutritional and developmental support",
+      "Hepatic and coagulation surveillance",
+      "Genetic counseling and reproductive planning",
+      "Medication precautions with hepatic involvement"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "COG4-Congenital_Disorder_of_Glycosylation.yaml",
     "page_url": "../pages/disorders/COG4-Congenital_Disorder_of_Glycosylation.html",
-    "num_phenotypes": 14,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 22,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "15",
+    "num_treatments": 5,
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
   },
   {
@@ -66054,29 +66161,27 @@ window.searchData = [
     "creation_date": "2026-09-03T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COG8-congenital disorder of glycosylation (COG8-CDG, CDG-IIh) is an ultra-rare autosomal recessive type II congenital disorder of glycosylation caused by biallelic truncating variants in COG8, which encodes a lobe B subunit of the hetero-octameric conserved oligomeric Golgi (COG) tethering complex. Loss of the COG8 C-terminus disrupts the Cog1-Cog8 interaction that bridges the two lobes, so Cog1 is lost alongside Cog8 and the intact complex cannot assemble; only smaller subcomplexes remain. The destabilised complex can no longer tether retrograde intra-Golgi and endosome-to-Golgi transport vesicles or support assembly of the Golgi SNARE complexes that drive their fusion, so Golgi glycosyltransferases and their recycling machinery are mislocalised. The biochemical consequence is a combined N- and O-glycosylation defect dominated by hyposialylation, seen clinically as a type II serum transferrin isoelectric focusing pattern. Reported patients have a multisystem, predominantly neurological phenotype - psychomotor retardation, hypotonia, failure to thrive, seizures, microcephaly, cerebellar atrophy and elevated liver enzymes - with the antenatally ascertained case additionally showing increased nuchal translucency, Dandy-Walker malformation and arthrogryposis. Severity varies considerably between the handful of published patients, from severe psychomotor retardation with seizures to a mild sialylation deficiency. Only four patients had been reported at the time of the most recent case description, and all reported variants lie in or affect exon 5.",
+    "description": "COG8-CDG (CDG-IIh) is an autosomal recessive congenital disorder of glycosylation caused by biallelic COG8 variants. COG8 contributes to the conserved oligomeric Golgi complex. Patient-cell studies show altered complex assembly, SNARE assembly and retrograde trafficking, with genotype-dependent residual protein and effects on Golgi enzymes. Serum and cellular N- and O-glycosylation abnormalities vary in magnitude. The clinical spectrum includes developmental impairment or regression, hypotonia, ataxia, seizures, microcephaly, cerebellar atrophy, growth impairment and variable hepatic or coagulation abnormalities. Prenatal findings include increased nuchal translucency, Dandy-Walker malformation and arthrogryposis in a reported case. The small number of published patients does not establish phenotype frequencies or a reliable genotype-severity rule.",
     "pathophysiology": [
-      "Biallelic COG8 Truncating Variants",
-      "COG Complex Destabilization and Cog1 Loss",
-      "Impaired Golgi Vesicle Tethering and SNARE Assembly",
-      "Mislocalization of Golgi Glycosylation Machinery",
-      "Combined N- and O-Glycan Hyposialylation",
-      "Reduced Proteoglycan Glycosaminoglycan Modification",
-      "Multisystem Glycoprotein Dysfunction"
+      "Biallelic COG8 dysfunction",
+      "Reduced COG8 protein abundance",
+      "Disrupted COG complex assembly",
+      "Impaired Golgi SNARE complex assembly",
+      "Delayed Golgi-to-ER retrograde transport",
+      "Impaired endosome-to-Golgi transport",
+      "Altered Golgi glycosylation enzyme localization",
+      "Reduced beta1,4-galactosyltransferase abundance",
+      "Abnormal N-glycan sialylation",
+      "Abnormal O-glycan sialylation"
     ],
-    "cell_types": [
-      "fibroblast"
-    ],
-    "cell_type_ids": [
-      "CL:0000057"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
-      "intra-Golgi vesicle-mediated transport",
-      "Golgi vesicle transport",
       "SNARE complex assembly",
+      "retrograde vesicle-mediated transport, Golgi to endoplasmic reticulum",
+      "retrograde transport, endosome to Golgi",
       "protein N-linked glycosylation",
-      "protein O-linked glycosylation",
-      "sialylation"
+      "protein O-linked glycosylation"
     ],
     "phenotypes": [
       "Global Developmental Delay",
@@ -66091,7 +66196,26 @@ window.searchData = [
       "Arthrogryposis Multiplex Congenita",
       "Facial Dysmorphism",
       "Increased Nuchal Translucency",
-      "Type II Transferrin Isoelectric Focusing Pattern"
+      "Type II Transferrin Isoelectric Focusing Pattern",
+      "Developmental regression",
+      "Encephalopathy",
+      "Esotropia",
+      "Ataxia",
+      "Action myoclonus",
+      "Oculomotor apraxia",
+      "Absent Achilles reflex",
+      "Foot dorsiflexor weakness",
+      "Brainstem atrophy",
+      "Short stature",
+      "Abnormality of coagulation",
+      "Bruising susceptibility",
+      "Elevated creatine kinase",
+      "Recurrent fever",
+      "Reduced protein C activity",
+      "Reduced protein S activity",
+      "Sandal gap",
+      "Clinodactyly of the 3rd toe",
+      "Clinodactyly of the 4th toe"
     ],
     "phenotype_categories": [
       "Neurological",
@@ -66100,11 +66224,19 @@ window.searchData = [
       "Skeletal",
       "Craniofacial",
       "Prenatal",
-      "Biochemical"
+      "Biochemical",
+      "Ophthalmologic",
+      "Hematological",
+      "Musculoskeletal",
+      "Constitutional"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Eye",
       "Growth",
       "Head and Neck",
+      "Integument",
       "Limbs",
       "Metabolism",
       "Musculoskeletal",
@@ -66124,26 +66256,48 @@ window.searchData = [
       "HP:0002804",
       "HP:0001999",
       "HP:0010880",
-      "HP:0012301"
+      "HP:0012301",
+      "HP:0002376",
+      "HP:0001298",
+      "HP:0000565",
+      "HP:0001251",
+      "HP:0034360",
+      "HP:0000657",
+      "HP:0003438",
+      "HP:0009027",
+      "HP:0007366",
+      "HP:0004322",
+      "HP:0001928",
+      "HP:0000978",
+      "HP:0003236",
+      "HP:0001954",
+      "HP:0005543",
+      "HP:0004855",
+      "HP:0001852",
+      "HP:0008115",
+      "HP:0011918"
     ],
     "frequencies": [],
     "genes": [
       "COG8 pathogenic variants"
     ],
     "treatments": [
-      "Supportive and Multidisciplinary Care",
-      "Genetic Counseling"
+      "Nutritional and developmental support",
+      "Hepatic and coagulation surveillance",
+      "Genetic counseling and reproductive planning",
+      "Medication precautions with hepatic involvement",
+      "Ophthalmologic assessment and strabismus care"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "COG8-Congenital_Disorder_of_Glycosylation.yaml",
     "page_url": "../pages/disorders/COG8-congenital_disorder_of_glycosylation.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 32,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "8"
+    "num_treatments": 5,
+    "causal_graph_edges": "56",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "COL11A2-Related Hearing Loss",
@@ -66452,29 +66606,29 @@ window.searchData = [
     "creation_date": "2026-09-16T20:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COQ2-related primary coenzyme Q10 deficiency (COQ10D1) is an autosomal recessive mitochondrial disorder caused by biallelic variants in COQ2, which encodes para-hydroxybenzoate-polyprenyl transferase. COQ2 performs the condensation step of coenzyme Q biosynthesis, joining the benzoquinone head group to the polyisoprenoid tail, so its loss depletes the one molecule that ferries electrons from complexes I and II to complex III \u2014 and simultaneously removes the principal lipid-soluble antioxidant of the inner mitochondrial membrane. It was the first molecular cause of primary CoQ10 deficiency to be identified.\nThree phenotypes are recognised and appear to be graded by residual enzyme activity: a neonatal multisystem form with encephalopathy, renal dysfunction and early death; an intermediate childhood form with developmental delay, ataxia, hypotonia and steroid-resistant nephrotic syndrome; and a late-onset adult form reported as a subtype of multiple system atrophy. Unlike most CoQ biosynthesis genes, COQ2 shows a demonstrated genotype-phenotype correlation: residual activity of each mutant allele in a yeast complementation assay tracks the clinical severity observed in the patient carrying it.\nThe disease is partially treatable, and the shape of that treatability is the most important thing about it. Oral CoQ10 substantially reduces proteinuria and preserves kidney function, but it does not rescue established neurological disease \u2014 a very lipophilic quinone crosses the blood-brain barrier poorly. A substrate-enhancement strategy using 4-hydroxybenzoic acid, the natural COQ2 substrate, has now moved from a mouse model into a first-in-human individual therapeutic trial precisely to address that gap.",
+    "description": "COQ2-related primary coenzyme Q10 deficiency is an autosomal recessive mitochondrial disorder caused by biallelic COQ2 variants that impair 4-hydroxybenzoate polyprenyltransferase activity and coenzyme Q biosynthesis. Clinical expression ranges from lethal neonatal multisystem disease to childhood nephropathy or encephalomyopathy and later-onset neurological or retinal disease. Kidney involvement is common but is not obligatory. Oral coenzyme Q10 supplementation can improve proteinuria and some neurological manifestations; severe infantile disease may progress despite early treatment. Experimental 4-hydroxybenzoic acid substrate enhancement has rescued cellular and mouse phenotypes and produced encouraging findings in one uncontrolled human treatment attempt.",
     "pathophysiology": [
       "COQ2 Polyprenyltransferase Deficiency",
       "Coenzyme Q10 Biosynthetic Failure",
       "Respiratory Chain Electron Transfer Failure",
-      "Loss of Membrane Antioxidant Capacity",
-      "Podocyte Energetic Failure",
-      "Neuronal Bioenergetic Failure",
-      "Retinal and Optic Nerve Bioenergetic Failure"
+      "Oxidative Stress",
+      "Glomerular Filtration Barrier Injury",
+      "Cerebral Bioenergetic Impairment",
+      "Reactive Astrogliosis",
+      "Retinal Degeneration",
+      "Impaired De Novo Pyrimidine Synthesis",
+      "Optic Nerve Degeneration"
     ],
     "cell_types": [
-      "podocyte",
-      "photoreceptor cell",
-      "retinal ganglion cell"
+      "podocyte"
     ],
     "cell_type_ids": [
-      "CL:0000653",
-      "CL:0000210",
-      "CL:0000740"
+      "CL:0000653"
     ],
     "biological_processes": [
       "ubiquinone biosynthetic process",
-      "respiratory electron transport chain"
+      "respiratory electron transport chain",
+      "'de novo' pyrimidine nucleobase biosynthetic process"
     ],
     "phenotypes": [
       "Steroid-resistant nephrotic syndrome",
@@ -66483,7 +66637,7 @@ window.searchData = [
       "Encephalopathy",
       "Seizure",
       "Global developmental delay",
-      "Generalized hypotonia",
+      "Hypotonia",
       "Ataxia",
       "Lactic acidosis",
       "Failure to thrive",
@@ -66492,7 +66646,13 @@ window.searchData = [
       "Optic atrophy",
       "Hypertrophic cardiomyopathy",
       "Muscle weakness",
-      "Sensorineural hearing impairment"
+      "Sensorineural hearing impairment",
+      "Myopathy",
+      "Hypertension",
+      "Edema",
+      "Liver dysfunction",
+      "Focal segmental glomerulosclerosis",
+      "Rod-cone dystrophy"
     ],
     "phenotype_categories": [
       "Renal",
@@ -66503,10 +66663,13 @@ window.searchData = [
       "Ophthalmologic",
       "Cardiovascular",
       "Musculoskeletal",
-      "Otologic"
+      "Otologic",
+      "Constitutional",
+      "Hepatic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
       "Ear",
       "Endocrine",
       "Eye",
@@ -66523,42 +66686,52 @@ window.searchData = [
       "HP:0001298",
       "HP:0001250",
       "HP:0001263",
-      "HP:0001290",
+      "HP:0001252",
       "HP:0001251",
       "HP:0003128",
       "HP:0001508",
       "HP:0000857",
       "HP:0000548",
       "HP:0000648",
-      "HP:0001638",
+      "HP:0001639",
       "HP:0001324",
-      "HP:0000407"
+      "HP:0000407",
+      "HP:0003198",
+      "HP:0000822",
+      "HP:0000969",
+      "HP:0031865",
+      "HP:0000097",
+      "HP:0000510"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
       "COQ2"
     ],
     "treatments": [
+      "Multisystem evaluation and surveillance",
       "Oral coenzyme Q10 supplementation",
       "4-hydroxybenzoic acid substrate enhancement",
-      "Supportive nephrological and neurological care"
+      "Enalapril for proteinuria",
+      "Ramipril for proteinuria",
+      "Kidney transplantation",
+      "Supportive nephrological and neurological care",
+      "Genetic counseling and family testing",
+      "Avoidance of idebenone substitution"
     ],
     "environmental": [],
     "biochemical": [
-      "Coenzyme Q10 concentration in skeletal muscle"
+      "Coenzyme Q10 concentration in skeletal muscle",
+      "Combined respiratory-chain complex I+III and II+III activities",
+      "Decaprenyl-pyrophosphate accumulation in patient fibroblasts"
     ],
     "source_file": "COQ2-Related_Primary_Coenzyme_Q10_Deficiency.yaml",
     "page_url": "../pages/disorders/COQ2-Related_Primary_Coenzyme_Q10_Deficiency.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 22,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 9,
+    "causal_graph_edges": "54",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "COQ4-Related Neonatal Encephalomyopathy",
@@ -66713,17 +66886,20 @@ window.searchData = [
     "creation_date": "2026-08-27T18:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Biallelic variants in COQ6, a FAD-dependent monooxygenase that performs C5-ring hydroxylation during coenzyme Q10 biosynthesis, cause a primary CoQ10 deficiency (COQ10D6) presenting as steroid-resistant nephrotic syndrome with sensorineural hearing loss. The tissue selectivity follows the protein's expression: COQ6 is found in glomerular podocytes and in the stria vascularis of the inner ear, and those are the two structures that fail. \"Steroid-resistant\" here is a mechanistic prediction rather than an empirical label - the lesion is a biosynthetic deficiency, not an immune one, so immunosuppression has nothing to act on. The corresponding prediction is that the disease should respond to the missing metabolite, and oral CoQ10 does induce remission of proteinuria, with benefit depending strongly on how much irreversible damage has already accrued.",
+    "description": "Biallelic pathogenic COQ6 variants impair coenzyme Q10 biosynthesis and cause primary coenzyme Q10 deficiency-6. Steroid-resistant nephrotic syndrome and sensorineural hearing loss are characteristic, but isolated proteinuria, hearing loss without renal involvement, and additional neurologic, ocular, or severe infantile manifestations occur. Renal and auditory courses vary, including within families. Early oral CoQ10 supplementation can reduce proteinuria and preserve kidney function; hearing benefit is less consistent. Steroid resistance describes an observed treatment response and does not imply that all antiproteinuric therapies are ineffective.",
     "pathophysiology": [
-      "Biallelic COQ6 Loss of Function",
+      "Biallelic COQ6 Dysfunction",
       "Deficient C5-Ring Hydroxylation in CoQ10 Biosynthesis",
       "Coenzyme Q10 Deficiency",
-      "Podocyte Injury and Apoptosis",
-      "Stria Vascularis Dysfunction",
-      "Optic Nerve Involvement",
+      "Deficient CoQ-Dependent Electron Transfer",
+      "Cellular ATP Deficiency",
+      "Altered Cellular Redox State",
+      "Podocyte Cytoskeletal Disorganization",
+      "Podocyte Apoptosis",
+      "Glomerular Filtration Barrier Injury",
       "Focal Segmental Glomerulosclerosis",
-      "Steroid-Resistant Nephrotic Syndrome",
-      "Progressive Sensorineural Hearing Loss"
+      "Cochlear Dysfunction",
+      "Optic Nerve Involvement"
     ],
     "cell_types": [
       "podocyte"
@@ -66733,7 +66909,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "ubiquinone biosynthetic process",
-      "oxidative phosphorylation"
+      "oxidative phosphorylation",
+      "apoptotic process"
     ],
     "phenotypes": [
       "Steroid-Resistant Nephrotic Syndrome",
@@ -66745,7 +66922,17 @@ window.searchData = [
       "Proteinuria",
       "Hypoalbuminemia",
       "Growth Retardation",
-      "Muscle Hypotonia"
+      "Muscle Hypotonia",
+      "Nystagmus",
+      "Limb Muscle Weakness",
+      "Seizures",
+      "Developmental Delay",
+      "Cardiomyopathy",
+      "Edema",
+      "Hypertension",
+      "Atrial Septal Defect",
+      "Elevated Pulmonary Artery Pressure",
+      "Increased Circulating Lactate"
     ],
     "phenotype_categories": [
       "Renal",
@@ -66753,53 +66940,70 @@ window.searchData = [
       "Ophthalmologic",
       "Metabolic",
       "Growth",
-      "Neurologic"
+      "Neurologic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Ear",
       "Eye",
       "Genitourinary",
       "Growth",
+      "Limbs",
       "Metabolism",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0000100",
+      "HP:0012588",
       "HP:0000097",
       "HP:0000407",
-      "HP:0000083",
+      "HP:0003774",
       "HP:0000648",
       "HP:0001942",
       "HP:0000093",
       "HP:0003073",
       "HP:0001510",
-      "HP:0001252"
+      "HP:0001252",
+      "HP:0000639",
+      "HP:0003690",
+      "HP:0001250",
+      "HP:0001263",
+      "HP:0001638",
+      "HP:0000969",
+      "HP:0000822",
+      "HP:0001631",
+      "HP:0004890",
+      "HP:0002151"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL"
-    ],
+    "frequencies": [],
     "genes": [
-      "COQ6"
+      "COQ6",
+      "COQ8B candidate modifier"
     ],
     "treatments": [
       "Oral Coenzyme Q10 Replacement",
+      "Antiproteinuric ACE Inhibition",
+      "Hearing Aids and Audiological Rehabilitation",
       "Cochlear Implantation",
       "Dialysis",
       "Kidney Transplantation",
-      "Idebenone"
+      "Idebenone",
+      "Experimental Vanillic Acid Bypass",
+      "Genetic Counseling and Family Testing",
+      "Multisystem Surveillance and Support"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "COQ6-Related_Steroid-Resistant_Nephrotic_Syndrome.yaml",
     "page_url": "../pages/disorders/COQ6-Related_Steroid-Resistant_Nephrotic_Syndrome_with_Sensorineural_Deafness.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 9,
-    "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "5"
+    "num_phenotypes": 20,
+    "num_pathophysiology": 12,
+    "num_genes": 2,
+    "num_treatments": 10,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "COVID-19",
@@ -67036,52 +67240,108 @@ window.searchData = [
       "Inborn Error of Metabolism"
     ],
     "creation_date": "2026-06-17T00:00:00Z",
-    "updated_date": null,
+    "updated_date": "2026-10-03T00:00:00Z",
     "subtypes": [],
-    "description": "COX14-related COX deficiency (mitochondrial complex IV deficiency nuclear type 10, MC4DN10) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX14 (formerly C12orf62). COX14 is a very small (~6 kDa) single-pass mitochondrial inner-membrane protein that coordinates the early steps of Complex IV assembly with the synthesis of the mtDNA-encoded core subunit COX I (MT-CO1), the subunit that nucleates holoenzyme assembly. Loss of COX14 uncouples COX I synthesis from assembly, leaving the nascent enzyme complex unstable and producing an isolated Complex IV deficiency. It was first identified in an index subject who presented with severe congenital lactic acidosis and dysmorphic features and a fatal neonatal course. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to failed coordination of COX I synthesis with holoenzyme assembly.\n",
+    "description": "COX14-related COX deficiency is an autosomal recessive disorder of mitochondrial complex IV biogenesis caused by biallelic COX14 (formerly C12orf62) variants. COX14 regulates synthesis of the mitochondrial-encoded COX1 subunit in early assembly intermediates. The founding Met19Ile family had severe congenital multisystem disease with neonatal lactic acidosis, dysmorphism and brain, cardiac, hepatic and renal abnormalities. Patient-cell experiments establish a defect in COX1 translation and complex IV assembly. A corresponding mouse model reveals tissue-dependent disease and an experimental ROS-driven hepatic inflammatory pathway; its later survival and inflammatory findings are not established features of the human disorder.",
     "pathophysiology": [
-      "COX14 Loss and Failed Complex IV Assembly",
-      "Impaired Terminal Electron Transfer and ATP Synthesis",
-      "Lactic Acidosis and Metabolic Decompensation"
+      "COX14 Functional Deficiency",
+      "Reduced COX1 Translation",
+      "Deficient Complex IV Assembly",
+      "Reduced Complex IV Respiratory Capacity",
+      "Increased Hepatocyte Mitochondrial ROS",
+      "Cytosolic Mitochondrial RNA Release",
+      "Type I Interferon Response",
+      "Experimental Hepatic Inflammatory Injury"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "hepatocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000182"
+    ],
     "biological_processes": [
+      "mitochondrial translation",
       "mitochondrial respiratory chain complex IV assembly",
       "mitochondrial electron transport, cytochrome c to oxygen",
-      "ATP synthesis coupled electron transport",
-      "lactate biosynthetic process"
+      "reactive oxygen species metabolic process",
+      "response to type I interferon",
+      "inflammatory response"
     ],
     "phenotypes": [
       "Lactic acidosis",
-      "Dysmorphic facial features"
+      "Neonatal respiratory distress",
+      "Hypotelorism",
+      "Microphthalmia",
+      "High palate",
+      "Single transverse palmar crease",
+      "Megalencephaly",
+      "Abnormal CNS myelination",
+      "Intracranial cystic lesions",
+      "Hepatomegaly",
+      "Hypertrophic cardiomyopathy",
+      "Renal hypoplasia",
+      "Adrenal hyperplasia",
+      "Ketonuria",
+      "Increased CSF lactate",
+      "Oligohydramnios"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
       "Head and Neck",
-      "Metabolism"
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
     ],
     "phenotype_ids": [
-      "HP:0003128",
-      "HP:0001999"
+      "HP:0004902",
+      "HP:0002643",
+      "HP:0000601",
+      "HP:0000568",
+      "HP:0000218",
+      "HP:0000954",
+      "HP:0001355",
+      "HP:0011400",
+      "HP:0010576",
+      "HP:0002240",
+      "HP:0001639",
+      "HP:0000089",
+      "HP:0008221",
+      "HP:0002919",
+      "HP:0002490",
+      "HP:0001562"
     ],
     "frequencies": [],
     "genes": [
-      "COX14 pathogenic variants causing MC4DN10"
+      "COX14 pathogenic variants"
     ],
     "treatments": [
-      "Supportive and Metabolic Care"
+      "Acute Supportive and Metabolic Care",
+      "Prevention of Catabolism",
+      "Respiratory Support",
+      "Cardiac and Multisystem Surveillance",
+      "Medication and Anesthesia Precautions",
+      "Genetic Counseling and Reproductive Planning",
+      "N-acetylcysteine in Experimental Hepatocytes",
+      "MitoTEMPO in Experimental Hepatocytes"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "COX14-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COX14-Related_COX_Deficiency.html",
-    "num_phenotypes": 2,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 16,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 8,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "COX15-Related COX Deficiency",
@@ -67094,53 +67354,141 @@ window.searchData = [
     "creation_date": "2026-05-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COX15-related COX deficiency is a nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX15, which encodes heme A synthase, the final enzyme of heme A biosynthesis that generates the heme a prosthetic group of COX. Loss of COX15 produces a defect in heme A biosynthesis and classically causes early-onset fatal hypertrophic cardiomyopathy; Leigh syndrome has also been reported. It conforms to the conserved Complex IV assembly deficiency mechanism, with the defect localized to heme A biosynthesis and dominant cardiac involvement.\n",
+    "description": "COX15-related COX deficiency is an autosomal recessive mitochondrial disease caused by biallelic variants affecting heme A synthase. Reduced heme A availability impairs complex IV biogenesis and respiratory function. The clinical spectrum includes rapidly fatal neonatal cardioencephalomyopathy and more slowly progressive Leigh syndrome spectrum with developmental impairment, movement disorders and variable cardiac involvement. Residual enzyme activity and assembled complex IV vary between tissues and alleles. Muscle-specific mouse models reveal additional mitochondrial quality-control defects and experimental intervention responses that have not established efficacy in patients.",
     "pathophysiology": [
-      "COX15 Loss and Defective Heme A Biosynthesis",
-      "Impaired Terminal Electron Transfer and ATP Synthesis"
+      "COX15 Heme A Synthase Deficiency",
+      "Reduced Heme A Availability",
+      "Deficient Complex IV Biogenesis",
+      "Reduced Complex IV Respiratory Capacity",
+      "Disorganized Mitochondrial Cristae",
+      "Impaired Autophagic Flux",
+      "Accumulation of Damaged Mitochondria"
     ],
-    "cell_types": [
-      "cardiac muscle cell"
-    ],
-    "cell_type_ids": [
-      "CL:0000746"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "heme A biosynthetic process",
       "mitochondrial respiratory chain complex IV assembly",
       "mitochondrial electron transport, cytochrome c to oxygen",
-      "ATP synthesis coupled electron transport"
+      "inner mitochondrial membrane organization",
+      "autophagy"
     ],
     "phenotypes": [
       "Hypertrophic cardiomyopathy",
-      "Lactic acidosis"
+      "Lactic acidosis",
+      "Increased CSF lactate",
+      "Hypotonia",
+      "Global developmental delay",
+      "Developmental regression",
+      "Tremor",
+      "Seizure",
+      "Microcephaly",
+      "Midface retrusion",
+      "Nystagmus",
+      "Tetraparesis",
+      "Pseudobulbar paralysis",
+      "Hearing impairment",
+      "Visual impairment",
+      "Generalized dystonia",
+      "Coarse facial features",
+      "Hirsutism",
+      "Brachydactyly",
+      "Thoracic kyphosis",
+      "Short stature",
+      "Dysarthria",
+      "Esotropia",
+      "Spasticity",
+      "Hyperreflexia",
+      "Failure to thrive",
+      "Osteopenia",
+      "Bilateral basal ganglia lesions",
+      "Cerebellar atrophy",
+      "Hypertriglyceridemia",
+      "Retinopathy",
+      "Hepatic steatosis",
+      "Optic atrophy"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
-      "Metabolism"
+      "Digestive",
+      "Ear",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0001639",
-      "HP:0003128"
+      "HP:0003128",
+      "HP:0002490",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0002376",
+      "HP:0001337",
+      "HP:0001250",
+      "HP:0000252",
+      "HP:0011800",
+      "HP:0000639",
+      "HP:0002273",
+      "HP:0007024",
+      "HP:0000365",
+      "HP:0000505",
+      "HP:0007325",
+      "HP:0000280",
+      "HP:0001007",
+      "HP:0001156",
+      "HP:0002942",
+      "HP:0004322",
+      "HP:0001260",
+      "HP:0000565",
+      "HP:0001257",
+      "HP:0001347",
+      "HP:0001508",
+      "HP:0000938",
+      "HP:0007146",
+      "HP:0001272",
+      "HP:0002155",
+      "HP:0000488",
+      "HP:0001397",
+      "HP:0000648"
     ],
     "frequencies": [],
     "genes": [
-      "COX15 pathogenic variants causing COX deficiency"
+      "COX15 pathogenic variants"
     ],
     "treatments": [
-      "Supportive and Metabolic Care"
+      "Multidisciplinary supportive care",
+      "Cardiac care and surveillance",
+      "Nutrition and feeding support",
+      "Seizure management",
+      "Dystonia management",
+      "Rehabilitation and communication support",
+      "Metabolic and perioperative precautions",
+      "Genetic counseling",
+      "Experimental AICAR",
+      "Experimental bezafibrate",
+      "Experimental rapamycin",
+      "Experimental rilmenidine"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Tissue-dependent complex IV deficiency",
+      "Elevated liver enzymes"
+    ],
     "source_file": "COX15-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COX15-Related_COX_Deficiency.html",
-    "num_phenotypes": 2,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 33,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 12,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "COX16-Related COX Deficiency",
@@ -67436,11 +67784,15 @@ window.searchData = [
     "creation_date": "2026-06-21T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COX4I2-related pancreatic insufficiency-anemia-hyperostosis syndrome (EPIDACH; exocrine pancreatic insufficiency, dyserythropoietic anemia, and calvarial hyperostosis) is a rare autosomal recessive mitochondrial cytochrome c oxidase (COX, Complex IV) disorder caused by biallelic variants in COX4I2. COX4 is an essential structural subunit of cytochrome c oxidase and exists as two tissue-biased isoforms encoded by separate genes: the ubiquitous COX4I1 and the hypoxia-responsive COX4I2, whose mRNA is relatively enriched in human pancreatic acinar cells. Loss-of-function of COX4I2 markedly reduces its expression and blunts the physiologic isoform response to hypoxia, producing a tissue-biased Complex IV deficiency. Unlike the encephalomyopathic / Leigh-like presentation typical of other nuclear COX-assembly defects, the founding cohort of four patients presented with a distinctive non-neurological triad: congenital exocrine pancreatic insufficiency with steatorrhea and malabsorption of lipid-soluble vitamins, dyserythropoietic anemia, and calvarial hyperostosis. The disorder was mapped by homozygosity mapping and conforms to the conserved Complex IV biogenesis-failure mechanism, with the lesion in a nuclear-encoded, acinar-biased COX structural subunit.\n",
+    "description": "COX4I2-related pancreatic insufficiency-anemia-hyperostosis syndrome (EPIDACH, also called Shteyer syndrome) is a rare autosomal recessive multisystem disorder described with homozygous c.412G>A (p.Glu138Lys) in five affected relatives from two consanguineous families. Exocrine pancreatic insufficiency with pancreatic atrophy and fatty replacement, early dyserythropoietic anemia, and variable calvarial hyperostosis are characteristic. Hypotonia, developmental delay and respiratory symptoms also occur. Patient fibroblasts show reduced COX4I2 transcript and attenuated induction by cobalt chloride, but normal measured cytochrome c oxidase activity. The molecular steps connecting this regulatory/structural complex IV subunit to pancreatic, erythroid and skeletal disease remain incompletely demonstrated.",
     "pathophysiology": [
-      "COX4I2 Subunit Loss and Failed Complex IV Assembly",
-      "Impaired Terminal Electron Transfer and ATP Synthesis",
-      "Tissue-Biased Bioenergetic Failure"
+      "Reduced COX4I2 Transcript Abundance",
+      "Attenuated Hypoxia-Mimetic Transcript Induction",
+      "Proposed Tissue-Specific Complex IV Dysfunction",
+      "Pancreatic Parenchymal Loss",
+      "Intestinal Fat Malabsorption",
+      "Disordered Erythropoiesis",
+      "Proposed Impaired Calvarial Bone Resorption"
     ],
     "cell_types": [
       "pancreatic acinar cell"
@@ -67449,54 +67801,111 @@ window.searchData = [
       "CL:0002064"
     ],
     "biological_processes": [
-      "mitochondrial respiratory chain complex IV assembly",
-      "COX4I2 response to hypoxia",
-      "mitochondrial electron transport, cytochrome c to oxygen",
-      "ATP synthesis coupled electron transport",
-      "aerobic respiration"
+      "response to hypoxia",
+      "mitochondrial electron transport, cytochrome c to oxygen"
     ],
     "phenotypes": [
       "Exocrine pancreatic insufficiency",
+      "Pancreatic atrophy",
       "Steatorrhea",
       "Malabsorption",
-      "Dyserythropoietic anemia",
+      "Failure to thrive",
       "Anemia",
-      "Calvarial hyperostosis"
+      "Erythroid dysplasia",
+      "Erythroid hyperplasia",
+      "Anisopoikilocytosis",
+      "Calvarial hyperostosis",
+      "Osteopenia",
+      "Delayed skeletal maturation",
+      "Hepatomegaly",
+      "Splenomegaly",
+      "Unconjugated hyperbilirubinemia",
+      "Elevated hepatic transaminases",
+      "Decreased circulating vitamin E",
+      "Coagulation abnormality",
+      "Generalized hypotonia",
+      "Global developmental delay",
+      "Asthma",
+      "Inguinal hernia",
+      "Umbilical hernia",
+      "Carious teeth",
+      "Skin hyperpigmentation"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Growth",
+      "Hematologic",
+      "Skeletal",
+      "Laboratory",
+      "Neurologic",
+      "Neurodevelopmental",
+      "Respiratory",
+      "Abdominal wall",
+      "Dental",
+      "Dermatologic"
+    ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
       "Digestive",
+      "Growth",
       "Head and Neck",
-      "Musculoskeletal"
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001738",
+      "HP:6000156",
       "HP:0002570",
       "HP:0002024",
-      "HP:0012130",
+      "HP:0001508",
       "HP:0001903",
-      "HP:0004437"
+      "HP:0031688",
+      "HP:0012132",
+      "HP:0004823",
+      "HP:0004437",
+      "HP:0000938",
+      "HP:0002750",
+      "HP:0002240",
+      "HP:0001744",
+      "HP:0008282",
+      "HP:0002910",
+      "HP:0100513",
+      "HP:0001928",
+      "HP:0001290",
+      "HP:0001263",
+      "HP:0002099",
+      "HP:0000023",
+      "HP:0001537",
+      "HP:0000670",
+      "HP:0000953"
     ],
     "frequencies": [],
     "genes": [
-      "COX4I2 pathogenic variants causing EPIDACH"
+      "COX4I2 E138K-associated EPIDACH"
     ],
     "treatments": [
-      "Pancreatic Enzyme Replacement Therapy",
-      "Fat-Soluble Vitamin Supplementation",
-      "Supportive Care"
+      "Pancreatic enzyme replacement",
+      "Fat-soluble vitamin supplementation",
+      "Red-cell transfusion support",
+      "Splenectomy in selected severe hematologic disease",
+      "Multidisciplinary follow-up",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "COX4I2-Related_Pancreatic_Insufficiency-Anemia-Hyperostosis_Syndrome.yaml",
     "page_url": "../pages/disorders/COX4I2-Related_Pancreatic_Insufficiency-Anemia-Hyperostosis_Syndrome.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 25,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 6,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "COX5A-Related COX Deficiency",
@@ -67633,57 +68042,113 @@ window.searchData = [
     "creation_date": "2026-06-15T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COX6B1-related COX deficiency (mitochondrial complex IV deficiency nuclear type 7, MC4DN7) is a rare nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX6B1. COX6B1 is notable for being one of the very few nuclear-encoded *structural* subunits of Complex IV in which disease-causing mutations have been identified \u2014 most nuclear COX defects arise in assembly factors or metallochaperones rather than in the structural subunits themselves. The reported phenotype is severe infantile encephalomyopathy, with additional cases showing hydrocephalus and hypertrophic cardiomyopathy. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to loss of a structural subunit (rather than an assembly factor), destabilizing the holoenzyme and impairing terminal electron transfer and oxidative ATP synthesis.\n",
+    "description": "Autosomal recessive COX6B1-related mitochondrial complex IV deficiency spans neonatal encephalomyopathy with hydrocephalus and cardiomyopathy and childhood-onset progressive cavitating leukodystrophy. Biallelic missense variants impair a nuclear-encoded structural subunit of cytochrome c oxidase. Protein abundance and residual enzyme activity vary by allele and tissue: loss of stable incorporation can occur despite preserved total protein. Human cell models identify both an early role in MT-CO2 maturation or incorporation and a later role in holoenzyme stability. ATP depletion is context dependent, and secondary respiratory-chain defects in complete knockout cells should not be assumed in patients.",
     "pathophysiology": [
-      "COX6B1 Loss and Defective Complex IV Assembly",
-      "Impaired Terminal Electron Transfer and ATP Synthesis"
+      "Biallelic COX6B1 dysfunction",
+      "Reduced COX6B1 abundance",
+      "Impaired stable COX6B1 incorporation",
+      "Defective MT-CO2 maturation or incorporation",
+      "Reduced mature complex IV abundance",
+      "Reduced complex IV activity",
+      "Reductive imbalance in knockout cells",
+      "Glycolytic compensation in knockout cells",
+      "ATP depletion under respiratory dependence",
+      "Integrated stress response in knockout cells",
+      "Reduced mitochondrial ribosomal abundance",
+      "Attenuated mitochondrial translation",
+      "Secondary complex I depletion in knockout cells",
+      "Mitochondrial cristae remodeling in knockout cells",
+      "Increased OPA1 processing in knockout cells",
+      "Mitochondrial fragmentation in knockout cells"
     ],
-    "cell_types": [
-      "neuron",
-      "cardiac muscle cell"
-    ],
-    "cell_type_ids": [
-      "CL:0000540",
-      "CL:0000746"
-    ],
+    "cell_types": [],
+    "cell_type_ids": [],
     "biological_processes": [
       "mitochondrial respiratory chain complex IV assembly",
       "mitochondrial electron transport, cytochrome c to oxygen",
-      "ATP synthesis coupled electron transport"
+      "glycolytic process",
+      "integrated stress response signaling",
+      "mitochondrial translation"
     ],
     "phenotypes": [
       "Encephalopathy",
       "Hydrocephalus",
-      "Hypertrophic cardiomyopathy"
+      "Hypertrophic cardiomyopathy",
+      "Leukodystrophy",
+      "Muscle weakness",
+      "Ataxia",
+      "Visual impairment",
+      "Cognitive deterioration",
+      "Seizures",
+      "Hypotonia",
+      "Feeding difficulties in infancy",
+      "Aspiration",
+      "Cerebral visual impairment",
+      "Short stature",
+      "Pulmonary hypertension",
+      "Elevated circulating lactate",
+      "Lactic acidosis",
+      "Hyperammonemia",
+      "Hyperalaninemia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
-      "Nervous System"
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001298",
       "HP:0000238",
-      "HP:0001639"
+      "HP:0001639",
+      "HP:0002415",
+      "HP:0001324",
+      "HP:0001251",
+      "HP:0000505",
+      "HP:0001268",
+      "HP:0001250",
+      "HP:0001252",
+      "HP:0008872",
+      "HP:0002835",
+      "HP:0100704",
+      "HP:0004322",
+      "HP:0004890",
+      "HP:0002151",
+      "HP:0003128",
+      "HP:0001987",
+      "HP:0003348"
     ],
     "frequencies": [],
     "genes": [
-      "COX6B1 pathogenic variants causing MC4DN7"
+      "COX6B1"
     ],
     "treatments": [
-      "Supportive and Metabolic Care",
-      "Antioxidant and Metabolic Cofactor Supplementation (investigational)"
+      "Ventriculoperitoneal shunting",
+      "Gastrostomy feeding",
+      "Cardiac pharmacotherapy",
+      "Coenzyme Q10 supplementation",
+      "AICAR in patient fibroblasts (preclinical)",
+      "Resveratrol in patient fibroblasts (preclinical)",
+      "Ascorbate in patient fibroblasts (preclinical)"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Reduced tissue complex IV activity",
+      "Elevated blood and CSF lactate"
+    ],
     "source_file": "COX6B1-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COX6B1-Related_COX_Deficiency.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 2,
+    "num_phenotypes": 19,
+    "num_pathophysiology": 16,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 7,
+    "causal_graph_edges": "66",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "COX8A-Related COX Deficiency",
@@ -92316,6 +92781,82 @@ window.searchData = [
     "num_genes": 6,
     "num_treatments": 4,
     "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
+  },
+  {
+    "name": "Congenital Aural Atresia",
+    "disease_id": "MONDO:0011921",
+    "category": "Mendelian",
+    "parents": [
+      "congenital malformation of the ear",
+      "hereditary disease"
+    ],
+    "creation_date": "2026-10-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "TSHZ1-related congenital aural atresia is an autosomal dominant, incompletely penetrant malformation of the external auditory canal, caused by haploinsufficiency of the teashirt zinc finger homeobox transcription factor TSHZ1. Affected individuals have bilateral narrowing or bony atresia of the medial external auditory canal (CAA type IIA) with normally shaped pinnae and conductive hearing loss, and heterozygous carriers tested for smell have hyposmia. TSHZ1 lies in 18q22.3, the critical region for the aural atresia that is common in distal 18q deletion syndrome; the same gene therefore explains the ear phenotype both as an isolated Mendelian trait and as one component of a contiguous deletion.\nThis entry covers the monogenic disease bound to MONDO:0011921 (OMIM 607842), defined by TSHZ1. Congenital aural atresia as a clinical finding is far more common and genetically heterogeneous; it occurs with microtia, in craniofacial syndromes, and in aneuploidies, and most isolated cases have no identified cause. Those are not modelled here.",
+    "pathophysiology": [
+      "TSHZ1 Haploinsufficiency",
+      "Abnormal Middle Ear Skeletal Development",
+      "Failed External Acoustic Meatus Morphogenesis",
+      "Dysregulated PROKR2 Expression",
+      "Failed Olfactory Bulb Interneuron Maturation",
+      "Olfactory Bulb Hypoplasia"
+    ],
+    "cell_types": [
+      "olfactory bulb interneuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001434"
+    ],
+    "biological_processes": [
+      "middle ear morphogenesis",
+      "outer ear morphogenesis",
+      "olfactory bulb interneuron differentiation",
+      "olfactory bulb development"
+    ],
+    "phenotypes": [
+      "Atresia of the External Auditory Canal",
+      "Conductive Hearing Impairment",
+      "Cholesteatoma",
+      "Delayed Speech and Language Development",
+      "Hyposmia"
+    ],
+    "phenotype_categories": [
+      "Otologic",
+      "Neurodevelopmental",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000413",
+      "HP:0000405",
+      "HP:0009797",
+      "HP:0000750",
+      "HP:0004409"
+    ],
+    "frequencies": [],
+    "genes": [
+      "TSHZ1"
+    ],
+    "treatments": [
+      "Bone-Anchored Hearing Aid",
+      "Atresiaplasty"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Aural_Atresia.yaml",
+    "page_url": "../pages/disorders/Congenital_Aural_Atresia.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -239779,6 +240320,100 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Nerve Agent Poisoning",
+    "disease_id": "MONDO:0100331",
+    "category": "Environmental",
+    "parents": [
+      "poisoning"
+    ],
+    "creation_date": "2026-10-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Nerve agent poisoning is acute organophosphorus cholinergic toxicity caused by the chemical-warfare nerve agents (sarin, soman, tabun, cyclosarin, VX and the Novichok agents). These extremely potent compounds inhibit acetylcholinesterase, flooding muscarinic, nicotinic and central synapses with acetylcholine and producing a cholinergic crisis \u2014 miosis, hypersecretion, bronchospasm, fasciculations, paralysis, seizures and respiratory failure \u2014 within minutes of inhalational or dermal exposure. Death is principally respiratory. Survivors of the acute phase, particularly after status epilepticus, can be left with long-term neuropsychiatric and cognitive sequelae. It is a sibling of organophosphate (pesticide) poisoning; the clinically decisive difference is the rapid, oxime-refractory aging of the inhibited enzyme.",
+    "pathophysiology": [
+      "Acetylcholinesterase Inhibition",
+      "Aging of the Nerve Agent-AChE Adduct",
+      "Synaptic Acetylcholine Accumulation",
+      "Muscarinic Receptor Overstimulation",
+      "Nicotinic Receptor Overstimulation",
+      "Central Cholinergic Overstimulation",
+      "Glutamatergic Excitotoxicity",
+      "Seizure-Driven Limbic Neurodegeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "acetylcholine catabolic process",
+      "glutamate secretion",
+      "NMDA receptor-mediated glutamate signalling",
+      "neuron death"
+    ],
+    "phenotypes": [
+      "Miosis",
+      "Rhinorrhea",
+      "Hypersalivation",
+      "Diarrhea",
+      "Vomiting",
+      "Bronchospasm",
+      "Bronchorrhea",
+      "Muscle fasciculation",
+      "Muscle weakness",
+      "Seizure",
+      "Coma",
+      "Respiratory failure",
+      "Memory impairment",
+      "Anxiety"
+    ],
+    "phenotype_categories": [
+      "Nervous System"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000616",
+      "HP:0031417",
+      "HP:0003781",
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0030828",
+      "HP:0002380",
+      "HP:0001324",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0002878",
+      "HP:0002354",
+      "HP:0000739"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Atropine",
+      "Oxime reactivator (pralidoxime)",
+      "Benzodiazepine",
+      "Decontamination and supportive care"
+    ],
+    "environmental": [
+      "Nerve agent vapour or liquid exposure"
+    ],
+    "biochemical": [
+      "Blood cholinesterase activity"
+    ],
+    "source_file": "Nerve_Agent_Poisoning.yaml",
+    "page_url": "../pages/disorders/Nerve_Agent_Poisoning.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Nestor-Guillermo progeria syndrome",
     "disease_id": "MONDO:0013523",
     "category": "Mendelian",
@@ -268365,7 +269000,7 @@ window.searchData = [
       "Excision of Mullerian Remnants",
       "Inguinal Hernia Repair",
       "Long-term Surveillance of Preserved Mullerian Remnants and Pexed Testes",
-      "Semen Analysis and Sperm Cryopreservation",
+      "Sperm Cryopreservation",
       "Testicular Sperm Extraction",
       "Intracytoplasmic Sperm Injection",
       "Orchidectomy for a Nonviable or Malignancy-Suspicious Testis"
@@ -298497,6 +299132,7 @@ window.searchData = [
       "Delayed Skeletal Maturation",
       "Frontal Bossing",
       "Depressed Nasal Bridge",
+      "High-Pitched Voice",
       "Eczema",
       "Chronic Lung Disease",
       "Lymphocytic Interstitial Pneumonia",
@@ -298504,6 +299140,7 @@ window.searchData = [
       "T-Cell Lymphopenia",
       "Decreased Regulatory T Cell Proportion",
       "Reduced NK Cell Count",
+      "Reduced Gamma-Delta T Cells",
       "Hypergammaglobulinemia",
       "Increased Circulating IgE",
       "Autoimmunity",
@@ -298519,6 +299156,7 @@ window.searchData = [
       "Endocrine",
       "Skeletal",
       "Craniofacial",
+      "Otolaryngologic",
       "Dermatologic",
       "Respiratory",
       "Immunologic",
@@ -298550,6 +299188,7 @@ window.searchData = [
       "HP:0002750",
       "HP:0002007",
       "HP:0005280",
+      "HP:0001620",
       "HP:0000964",
       "HP:0006528",
       "HP:0006527",
@@ -298557,6 +299196,7 @@ window.searchData = [
       "HP:0005403",
       "HP:0020113",
       "HP:0040218",
+      "HP:0500271",
       "HP:0010702",
       "HP:0003212",
       "HP:0002960",
@@ -298582,7 +299222,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "STAT5B_Deficiency.yaml",
     "page_url": "../pages/disorders/STAT5B_Deficiency.html",
-    "num_phenotypes": 24,
+    "num_phenotypes": 26,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
@@ -352012,17 +352652,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3288,
+  "total_disorder_pages": 3290,
   "total_subtypes": 4571,
-  "total_disorders_and_subtypes": 7859,
-  "total_unique_evidence_sources": 48931,
-  "total_unique_publications": 45727,
+  "total_disorders_and_subtypes": 7861,
+  "total_unique_evidence_sources": 48971,
+  "total_unique_publications": 45755,
   "total_unique_disease_categories": 62,
-  "total_unique_phenotype_categories": 292,
-  "total_pathographs": 3284,
-  "total_unique_pathological_events": 21357,
+  "total_unique_phenotype_categories": 293,
+  "total_pathographs": 3286,
+  "total_unique_pathological_events": 21412,
   "total_modules": 183,
-  "total_research_reports": 3402,
+  "total_research_reports": 3404,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 111
