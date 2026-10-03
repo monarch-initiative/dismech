@@ -45,7 +45,32 @@ by naive aggregation. A disease that conforms to several modules must have its
 phenotypes attributed by causal branch (which phenotypes are downstream of the
 conforming node), not blanket-assigned to every module it touches — doing
 otherwise would reintroduce exactly the mechanism-conflation the module
-factorization exists to avoid. That attribution is a downstream construction over
-the pathograph and is intentionally left to the next step.
+factorization exists to avoid. That attribution is done separately, over the
+pathograph, by `dismech.export.module_phenotype_anchors` (below).
+
+## Module → phenotype anchors (branch attribution)
+
+`module_phenotype_anchors` completes the anchor matrix by walking **downstream**
+from each conforming pathophysiology node, through the disease's own pathograph
+(`pathographs/MONDO_*.json`), to the phenotype nodes that branch actually
+reaches — and crediting those HPO phenotypes to the module. Aggregated across
+every conformer, the result is the module's *clinical* signature.
+
+```bash
+uv run python -m dismech.export.module_phenotype_anchors
+# -> output/module_map/module_phenotype_anchors.json + .tsv
+```
+
+The signatures come out biologically sensible with no per-disease research —
+`lysosomal_substrate_accumulation` → Seizures / Coarse facial features /
+Hepatosplenomegaly; `cardiac_ion_channel_repolarization` → Syncope / Sudden
+cardiac death / Ventricular fibrillation; `mps_gag_storage` → Dysostosis
+multiplex / Short stature / Coarse facies — because the attribution is by causal
+branch, not by disease. Coverage is reported honestly: only about half of
+conforming branches reach a phenotype node, matching the KB-wide causal-inlink
+figure (a branch that stops at the pathophysiology layer contributes no anchor).
+
+This is the module → phenotype half of the factor-model anchor matrix; the
+module → CL/GO signature and disease ↔ module incidence above are the other half.
 
 Outputs land under the gitignored `output/module_map/`.
