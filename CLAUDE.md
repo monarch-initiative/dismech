@@ -725,6 +725,7 @@ pathophysiology:
 - **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
 
 **Creating a module?** Use the `create-module` skill — it covers the module
 schema shape, the trigger→consequence node chain, the treatment
