@@ -17,6 +17,15 @@ Read on **2026-10-03**; `kb/` as of commit `093f725c24`.
 
 [`data/vamr-endpoint-hit-calls-2026-10-03.tsv`](data/vamr-endpoint-hit-calls-2026-10-03.tsv) is Tables S3 and S4 reduced to one row per chemical, exposure arm and endpoint (884 rows), with a column saying whether the row passes the article's hit rule.
 
+Regenerate it, or check it against the workbook, with `scripts/vamr_endpoint_hit_calls.py`:
+
+```bash
+uv run python scripts/vamr_endpoint_hit_calls.py --check   # downloads the workbook
+uv run python scripts/vamr_endpoint_hit_calls.py --out docs/reports/data/vamr-endpoint-hit-calls-2026-10-03.tsv
+```
+
+The workbook itself is not committed: it is a publisher asset, and while the article is CC BY the supplement's own terms are not stated. The script downloads it, so the numbers below can be re-derived rather than trusted.
+
 ## Assay design
 
 | | |
