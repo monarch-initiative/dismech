@@ -114,7 +114,7 @@ Counts are endpoints passing the hit rule, out of 26, taken from the supplementa
 | ASHsum, total activity across the five habituation bouts | Hexachlorophene, acute, 0.060; haloperidol, acute, 0.52; triethyltin, acute, 2.1; chlorpyrifos, acute, 4.4; ketamine, acute, 32; tebuconazole, acute, 40; phenytoin, acute, 40; triethyltin, developmental, 0.0024; saccharin, developmental, 0.0047; trichlorfon, developmental, 0.021; chlorpyrifos, developmental, 0.10; tebuconazole, developmental, 0.19 |
 | ASR2/3, memory retention | Phenytoin, acute, 16.2; haloperidol, acute, 45.8; hexachlorophene, acute, 0.30; tebuconazole, acute, 59; triethyltin, acute, 4.8; ibuprofen, developmental, 4.5 |
 
-ASHsum has more passing fits than the other three put together, and it is the weakest of them as a learning readout: it sums motor activity across the habituation bouts, so a chemical that simply changes how much a larva moves will move it without any change in the rate of habituation. ASH1 and ASH1/5 are the ratio endpoints that isolate the decrement itself, and between them they pass on six fits.
+ASHsum has as many passing fits as the other three put together — 12 against 12 — and it is the weakest of them as a learning readout: it sums motor activity across the habituation bouts, so a chemical that simply changes how much a larva moves will move it without any change in the rate of habituation. ASH1 and ASH1/5 are the ratio endpoints that isolate the decrement itself, and between them they pass on six fits.
 
 ### Where the article's text and its supplement disagree
 
