@@ -22,11 +22,16 @@ def ingest_refresh_cmd(
         False, "--force", help="Re-download HGNC even if the checksum matches."
     ),
 ) -> None:
-    """Fetch the pinned HGNC file and ai-gene-review commit into data/."""
-    from dismech.genes.ingest import refresh_ai_gene_review, refresh_hgnc
+    """Fetch the pinned HGNC and ClinGen files and ai-gene-review commit into data/."""
+    from dismech.genes.ingest import (
+        refresh_ai_gene_review,
+        refresh_clingen,
+        refresh_hgnc,
+    )
 
     for label, notes in (
         ("data/hgnc/MANIFEST.yaml", refresh_hgnc(force=force, repin=repin)),
+        ("data/clingen-genes/MANIFEST.yaml", refresh_clingen(force=force, repin=repin)),
         ("data/ai-gene-review/MANIFEST.yaml", refresh_ai_gene_review(repin=repin)),
     ):
         for note in notes:
@@ -117,6 +122,83 @@ def slice_cmd(
                 f"{g.hgnc_id}\t{g.label}\t{len(g.entries())} disorders\t"
                 f"{', '.join(g.relationship_types()) or '-'}"
             )
+
+
+@app.command("clingen-gaps")
+def clingen_gaps_cmd(
+    fmt: str = typer.Option("summary", "--format", help="summary | tsv"),
+    classification: list[str] = typer.Option(
+        None,
+        "--classification",
+        help="Only these ClinGen tiers, e.g. Definitive (repeatable).",
+    ),
+) -> None:
+    """Entries ClinGen classifies a gene for whose own record does not type it.
+
+    Report-only. Each row is a curation lead, not a defect: typing the record
+    means reading the ClinGen assertion and the entry, and some pairs (a
+    Disputed or Refuted tier) are reasons *not* to add a causal claim.
+    """
+    from collections import Counter
+
+    from dismech.genes.ingest import load_ingest
+    from dismech.genes.join import (
+        NO_GENETIC_RECORD,
+        NOT_NAMED,
+        UNTYPED,
+        clingen_matches,
+    )
+    from dismech.genes.slice import build_gene_index, entry_mondo_index
+
+    wanted = {c.lower() for c in classification} if classification else None
+    index, mondo, ingest = build_gene_index(), entry_mondo_index(), load_ingest()
+    rows = []
+    for hgnc_id, gene in sorted(index.items(), key=lambda kv: kv[1].label):
+        for match in clingen_matches(gene, ingest.clingen.get(hgnc_id, []), mondo):
+            if wanted and match.classification.lower() not in wanted:
+                continue
+            for entry, status in match.entries.items():
+                if status in {UNTYPED, NO_GENETIC_RECORD, NOT_NAMED}:
+                    rows.append((gene.label, hgnc_id, entry, status, match))
+    if fmt == "tsv":
+        writer = csv.writer(sys.stdout, delimiter="\t", lineterminator="\n")
+        writer.writerow(
+            [
+                "symbol",
+                "hgnc_id",
+                "entry",
+                "kb_status",
+                "clingen_disease",
+                "mondo_id",
+                "moi",
+                "classification",
+                "assertion_id",
+            ]
+        )
+        for symbol, hgnc_id, entry, status, m in rows:
+            writer.writerow(
+                [
+                    symbol,
+                    hgnc_id,
+                    entry,
+                    status,
+                    m.row["disease_label"],
+                    m.row["mondo_id"],
+                    m.row["moi"],
+                    m.classification,
+                    m.row["assertion_id"],
+                ]
+            )
+        return
+    counts = Counter((status, m.classification) for _s, _h, _e, status, m in rows)
+    typer.echo(
+        f"{len(rows)} entry-gene pairs ClinGen classifies that the entry does not type"
+    )
+    for (status, tier), n in sorted(counts.items(), key=lambda kv: -kv[1]):
+        typer.echo(f"  {n:5d}  {status:18s} {tier}")
+    typer.echo(
+        "Use --format tsv for the worklist, --classification Definitive to narrow it."
+    )
 
 
 @app.command("verify")

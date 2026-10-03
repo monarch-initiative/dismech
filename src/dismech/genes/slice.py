@@ -35,6 +35,8 @@ __all__ = [
     "GeneOccurrence",
     "GeneSlice",
     "build_gene_index",
+    "entry_disease_ids",
+    "entry_mondo_index",
     "gene_slice",
     "iter_gene_occurrences",
     "normalize_hgnc_id",
@@ -375,6 +377,61 @@ def build_gene_index(
     for hgnc_id, votes in label_votes.items():
         index[hgnc_id].label = max(sorted(votes), key=lambda lab: votes[lab])
     return index
+
+
+def entry_disease_ids(document: object) -> set[str]:
+    """MONDO identifiers that name an entry's own disease.
+
+    The same rule ``scripts/check_gene_validity.py`` applies when deciding
+    whether a ClinGen assertion is about this entry: the ``disease_term``,
+    each ``has_subtypes[].subtype_term``, and each ``mondo_mappings`` term with
+    ``mapping_predicate: skos:exactMatch``. A broader or related mapping is a
+    different disease.
+    """
+    if not isinstance(document, dict):
+        return set()
+
+    def term_id(holder: object) -> str:
+        if not isinstance(holder, dict):
+            return ""
+        term = holder.get("term")
+        return str(term.get("id") or "") if isinstance(term, dict) else ""
+
+    ids = {term_id(document.get("disease_term"))}
+    for subtype in document.get("has_subtypes") or ():
+        if isinstance(subtype, dict):
+            ids.add(term_id(subtype.get("subtype_term")))
+    mappings = document.get("mappings")
+    if isinstance(mappings, dict):
+        for mapping in mappings.get("mondo_mappings") or ():
+            if (
+                isinstance(mapping, dict)
+                and mapping.get("mapping_predicate") == "skos:exactMatch"
+            ):
+                ids.add(term_id(mapping))
+    return {i for i in ids if i.startswith("MONDO:")}
+
+
+def entry_mondo_index(kb_root: Path = Path("kb")) -> dict[str, list[str]]:
+    """``{MONDO id: [disorder entry names]}`` under :func:`entry_disease_ids`."""
+    index: dict[str, list[str]] = {}
+    directory = Path(kb_root) / "disorders"
+    if not directory.is_dir():
+        return index
+    for path, document in kb_cache.iter_documents(directory):
+        name = (
+            str(document.get("name") or path.stem)
+            if isinstance(document, dict)
+            else path.stem
+        )
+        for mondo in entry_disease_ids(document):
+            index.setdefault(mondo, []).append(name)
+    return index
+
+
+@lru_cache(maxsize=4)
+def _cached_mondo_index(kb_root: str) -> dict[str, list[str]]:
+    return entry_mondo_index(Path(kb_root))
 
 
 @lru_cache(maxsize=4)

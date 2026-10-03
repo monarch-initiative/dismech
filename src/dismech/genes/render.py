@@ -29,7 +29,13 @@ from dismech.genes.curated import (
     verify_summary,
 )
 from dismech.genes.ingest import INGEST_DIR, IngestTables, load_ingest
-from dismech.genes.slice import GeneSlice, build_gene_index, normalize_hgnc_id
+from dismech.genes.join import NO_GENETIC_RECORD, NOT_NAMED, UNTYPED, clingen_matches
+from dismech.genes.slice import (
+    GeneSlice,
+    build_gene_index,
+    entry_mondo_index,
+    normalize_hgnc_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -199,6 +205,39 @@ def _module_rows(gene: GeneSlice) -> list[dict]:
     return rows
 
 
+def _clingen_rows(
+    gene: GeneSlice, ingest: IngestTables, mondo_index: dict[str, list[str]]
+) -> list[dict]:
+    """ClinGen assertions for the gene, each with how the matching entries record it."""
+    rows = []
+    for match in clingen_matches(
+        gene, ingest.clingen.get(gene.hgnc_id, []), mondo_index
+    ):
+        row = match.row
+        rows.append(
+            {
+                "disease": row["disease_label"],
+                "mondo_id": row["mondo_id"],
+                "moi": row["moi"],
+                "classification": row["classification"],
+                "date": row["classification_date"],
+                "panel": row["expert_panel"],
+                "href": "https://search.clinicalgenome.org/kb/gene-validity/"
+                + row["assertion_id"],
+                "entries": [
+                    {
+                        "name": name,
+                        "href": f"../disorders/{slugify(name)}.html",
+                        "status": status,
+                        "gap": status in {UNTYPED, NO_GENETIC_RECORD, NOT_NAMED},
+                    }
+                    for name, status in match.entries.items()
+                ],
+            }
+        )
+    return rows
+
+
 def _function_context(hgnc_id: str, ingest: IngestTables) -> dict | None:
     review = ingest.reviews.get(hgnc_id)
     if not review:
@@ -242,6 +281,7 @@ def build_gene_contexts(
 ) -> tuple[list[dict], list[dict]]:
     """Return ``(page_contexts, index_rows)``."""
     index = build_gene_index(kb_root)
+    mondo_index = entry_mondo_index(kb_root)
     ingest = load_ingest(ingest_dir)
     curated = {
         normalize_hgnc_id(p.stem.replace("_", ":", 1)): p
@@ -299,6 +339,7 @@ def build_gene_contexts(
                         relationship_counts.items(), key=lambda kv: -kv[1]
                     ),
                     "modules": _module_rows(gene),
+                    "clingen": _clingen_rows(gene, ingest, mondo_index),
                     "module_entries": gene.entries("module"),
                     "sources": ingest.sources,
                 }

@@ -25,8 +25,16 @@ from functools import lru_cache
 from pathlib import Path
 
 from dismech.genes.ingest import IngestTables, load_ingest
+from dismech.genes.join import (
+    NO_GENETIC_RECORD,
+    NOT_NAMED,
+    UNTYPED,
+    ClinGenMatch,
+    clingen_matches,
+)
 from dismech.genes.slice import (
     GeneSlice,
+    _cached_mondo_index,
     default_kb_root,
     gene_slice,
     normalize_hgnc_id,
@@ -52,6 +60,7 @@ def _ingest(root: str) -> IngestTables:
 class GeneClaims:
     slice: GeneSlice
     ingest: IngestTables
+    mondo_index: dict[str, list[str]]
 
     # ----- identity (ingest layer) -----
 
@@ -198,6 +207,47 @@ class GeneClaims:
             if process.get("id") in core_ids and process.get("label")
         }
 
+    # ----- ClinGen (ingest layer, joined to the KB by MONDO) -----
+
+    def _clingen(self) -> list[ClinGenMatch]:
+        return clingen_matches(
+            self.slice, self.ingest.clingen.get(self.hgnc_id, []), self.mondo_index
+        )
+
+    def clingen(self, entry: str) -> str:
+        """ClinGen's classification(s) of this gene for ``entry``'s own disease.
+
+        Matched by MONDO identifier under the rule `just check-gene-validity`
+        uses. Several assertions (one per mode of inheritance) are joined with
+        " and " in MONDO / MOI order, lower-cased: "definitive".
+        """
+        values = [
+            m.classification.lower() for m in self._clingen() if entry in m.entries
+        ]
+        if not values:
+            raise ClaimError(
+                f"ClinGen has no assertion for {self.symbol()} and {entry!r}"
+            )
+        return " and ".join(values)
+
+    def clingen_diseases(self) -> int:
+        """How many ClinGen assertions classify this gene, for any disease."""
+        return len(self.ingest.clingen.get(self.hgnc_id, []))
+
+    def clingen_without_entry(self) -> set[str]:
+        """ClinGen disease labels for this gene that no dismech entry curates."""
+        return {m.row["disease_label"] for m in self._clingen() if not m.entries}
+
+    def clingen_but_untyped(self) -> set[str]:
+        """Entries ClinGen classifies this gene for whose own record does not type it
+        (untyped, no genetic record, or the gene not named at all)."""
+        return {
+            entry
+            for m in self._clingen()
+            for entry, status in m.entries.items()
+            if status in {UNTYPED, NO_GENETIC_RECORD, NOT_NAMED}
+        }
+
     # ----- helpers -----
 
     def _require_entry(self, entry: str) -> None:
@@ -211,6 +261,9 @@ def gene(hgnc_id: str, kb_root: Path | str | None = None) -> GeneClaims:
     if canonical is None:
         raise ValueError(f"not an HGNC CURIE: {hgnc_id!r}")
     root = Path(kb_root) if kb_root is not None else default_kb_root()
+    resolved = str(root.resolve())
     return GeneClaims(
-        slice=gene_slice(canonical, root), ingest=_ingest(str(root.resolve()))
+        slice=gene_slice(canonical, root),
+        ingest=_ingest(resolved),
+        mondo_index=_cached_mondo_index(resolved),
     )

@@ -2106,6 +2106,12 @@ genes-ingest-build:
 genes-verify *ARGS:
     uv run python -m dismech.genes verify {{ARGS}}
 
+# Report-only: a lead per pair, never a defect (a Disputed tier argues against typing).
+# Entries ClinGen classifies a gene for whose own genetic record does not type it
+[group('Genes')]
+genes-clingen-gaps *ARGS:
+    uv run python -m dismech.genes clingen-gaps {{ARGS}}
+
 # What the KB says about a gene, e.g. `just gene-slice hgnc:9588 --format tsv`
 [group('Genes')]
 gene-slice *ARGS:

@@ -384,11 +384,14 @@ curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
 
 A gene page merges three layers; see [`docs/gene-pages.md`](docs/gene-pages.md).
 
-- **Ingest** (`kb/genes/ingest/*.tsv`): HGNC identity plus the ai-gene-review
-  function summary, joined on UniProt. **Dropped and reloaded, never
-  hand-edited**: `just genes-ingest-refresh [--repin]` then
-  `just genes-ingest-build`, pinned by `data/hgnc/` and `data/ai-gene-review/`.
-  ai-gene-review content is AI-generated: show it, never cite it as KB evidence.
+- **Ingest** (`kb/genes/ingest/*.tsv`): HGNC identity, the ai-gene-review
+  function summary (joined on UniProt), and ClinGen validity tiers. **Dropped and
+  reloaded, never hand-edited**: `just genes-ingest-refresh [--repin]` then
+  `just genes-ingest-build`, pinned by `data/hgnc/`, `data/ai-gene-review/` and
+  `data/clingen-genes/` (separate from the `data/clingen/` citation pin on
+  purpose). ai-gene-review content is AI-generated: show it, never cite it as KB
+  evidence. `just genes-clingen-gaps` lists entries ClinGen classifies a gene for
+  whose own record does not type it: leads, not defects.
 - **KB slice** (`dismech.genes.slice`): every structural HGNC descriptor in
   `kb/`, computed at build time and never committed. `just gene-slice hgnc:<n>`.
 - **Curated summary** (`kb/genes/curated/hgnc_<n>.md`): agent-written Markdown
