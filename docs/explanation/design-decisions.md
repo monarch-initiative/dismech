@@ -417,7 +417,7 @@ by meeting the stated test of another rung.
 
 | Rung | Represent as | Rule |
 |---|---|---|
-| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`, one node called "Pathogen Invasion and Replication") is retired under this rung |
+| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`; three generic host-response nodes headed by "Pathogen Invasion and Replication") was retired under this rung in #12096 |
 | **1 Grouping** (the treponematoses, the enteric fevers, the viral hepatitides) | `kb/groupings/` | A union of diseases the field already names separately, or an organ syndrome spanning unrelated organisms. Explicit `members`, `grouping_basis`, a `grouping_rationale` that states **the axes on which the members were split** and not only what they share, `mondo_mappings` with an explicit predicate; no `pathophysiology` of its own. `Treponematoses` is the reference implementation. An organ syndrome with an organism-independent mechanism is a `kb/modules/` module plus `conforms_to` instead |
 | **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:narrowMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
 | **3 Organism stratum** (species → subspecies → serovar → serotype) | `has_subtypes` on the rung-2 entry | A stratum earns a subtype when it is **documented to differ** from its siblings on at least one of: presentation or organ involvement; diagnosis; first-line treatment or drug susceptibility; prognosis; transmission route, vector or reservoir; geography or at-risk population. The threshold is documented difference, **not nomenclatural availability, and the default is to lump**. Each subtype's `description` says *what differs* and its `evidence` cites it; `subtype_term` is bound where an honest term exists and omitted rather than bound to the parent |
@@ -591,16 +591,24 @@ when it deferred to WHO/ICC and folded rather than deleted the stage entries.
 
 **Enacted in the same PR.** This clause; `Subtype.curated_in`; `check_granularity.py`
 with `tests/test_granularity.py`; the promoted pointer rows on
-`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`. **Still open
-(work items on #10115):** the
-`infectious_agent` backfill on the 22 entries the checker names and the 10 unbound agents;
-`transmission` on 56 entries; the `Viral_Hemorrhagic_Fever` and `Acute_Hepatitis_C`
-conversions; `agent_life_cycle` on the ~23 vector-borne and zoonotic entries; the rung-3
-review of the 11 undecided lumps, one at a time; the rung-1 groupings (rickettsioses,
-viral hepatitides, soil-transmitted helminthiases, enteric fevers, arboviral haemorrhagic
-fevers); retiring `Infectious_Disease`; the `UNDECIDED` infectious stubs and the
-coverage gaps the review found (typhoid, herpes zoster, anthrax and UTI still have no
-entry; diphtheria and sepsis have since been curated). Two
+`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`.
+**Enacted since (as of 2026-10-03):** the `infectious_agent` and `transmission`
+backfills on 48 entries (#12097, #12099, #12100, #12107), which also bound the
+previously free-text agents on `Choroiditis`, `Cytomegalovirus_Retinitis`, `Tetanus` and
+`Hantavirus_Pulmonary_Syndrome` and left `Southern_Tick-Associated_Rash_Illness` and
+`Paralytic_Poliomyelitis` deliberately unbound with the reason recorded in the agent's
+`description` (an undetermined agent; a virus NCBITaxon names only at serotype rank);
+`Acute_Hepatitis_C_Virus_Infection` merged into `Hepatitis_C` with the phases listed
+(#12098); `Infectious_Disease` retired to an `OUT_OF_SCOPE` stub (#12096); agent-level
+strata able to bind NCBITaxon (#10353). Typhoid fever, anthrax, diphtheria and sepsis
+have since been curated; herpes zoster and UTI still have no entry. **Still open (work
+items on #10115):** the `Viral_Hemorrhagic_Fever` conversion; `transmission` on the
+oral, genitourinary and systemic entries and on entries curated since the ladder
+landed; `agent_life_cycle` wherever the new transmission text names a vector or
+reservoir (the checker's `MISSING_LIFECYCLE` count rose as the backfills named them);
+the rung-3 review of the undecided lumps, one at a time; the rung-1 groupings
+(rickettsioses, viral hepatitides, soil-transmitted helminthiases, enteric fevers,
+arboviral haemorrhagic fevers); the `UNDECIDED` infectious stubs. Two
 decisions this clause does *not* make: an ontology binding for `Transmission`, which is
 free text today so R25's second half is a required string that no query can use — R17
 turns on transmission route and vector, so a bound slot is a prerequisite for enforcing
