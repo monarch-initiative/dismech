@@ -1282,19 +1282,21 @@ def _animal_model_label(model):
     return " ".join(parts) or None
 
 
-def check_linked_animal_model_labels_are_unique(filepath, data=None):
-    """An animal model that reaches the pathograph needs an unambiguous label.
+def check_animal_model_labels_are_unique(filepath, data=None):
+    """No two animal models in one file may share a display label.
 
     `AnimalModel` is the only pathograph-bearing class whose node identity is
     *derived* (`animal_model_label`) rather than a required `name`. Two models
     sharing a derived label collapse into one graph node -- the second
-    description silently overwrites the first -- and render with the same HTML
-    anchor id, so card links land on the wrong one.
+    description silently overwrites the first -- render with the same HTML
+    anchor id, so card links land on the wrong one, and leave an
+    `animal_models#<label>` entity reference unable to say which model it means.
 
-    Gated on `modeled_mechanisms` deliberately: the ~400 legacy entries with no
-    `name`, several of which do collide on species alone, are untouched until
-    someone links them. This is what gives the "`name` is recommended once a
-    model carries mechanism links" guidance teeth.
+    This applies whether or not the models carry `modeled_mechanisms`. A
+    linked-only rule lets an unlinked duplicate sit until the day somebody
+    links it, and the collision then surfaces in that curator's PR rather than
+    in the one that created it. `name` itself stays `recommended`, not
+    required (dismech#8320): naming either model of a colliding pair is enough.
     """
     data = _document(filepath, data)
 
@@ -1307,9 +1309,7 @@ def check_linked_animal_model_labels_are_unique(filepath, data=None):
         f"animal_models[{i}] label={label!r} is shared by "
         f"{label_counts[label]} models in this file; give it a `name`"
         for i, m in enumerate(models)
-        if m.get("modeled_mechanisms")
-        and (label := _animal_model_label(m)) is not None
-        and label_counts[label] > 1
+        if (label := _animal_model_label(m)) is not None and label_counts[label] > 1
     ]
 
     assert not errors, (
@@ -1553,8 +1553,7 @@ def test_duplicate_linked_animal_model_labels_are_caught(tmp_path):
     """Two linked models sharing a derived label must be caught.
 
     Without `name`, both collapse onto the same graph node and the same HTML
-    anchor id. An unlinked duplicate is left alone -- that is the ~400 legacy
-    entries, and flagging them would be noise.
+    anchor id.
     """
     disease = {
         "name": "Colliding Animal Labels",
@@ -1576,23 +1575,44 @@ def test_duplicate_linked_animal_model_labels_are_caught(tmp_path):
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
     with pytest.raises(AssertionError, match="Mus musculus"):
-        check_linked_animal_model_labels_are_unique(str(fake_path))
+        check_animal_model_labels_are_unique(str(fake_path))
 
 
-def test_unlinked_duplicate_animal_model_labels_are_allowed(tmp_path):
-    """The legacy case: same derived label, no mechanism links, no complaint."""
+def test_unlinked_duplicate_animal_model_labels_are_caught(tmp_path):
+    """Unlinked models sharing a derived label are caught too.
+
+    They still collide on HTML anchor id and on `animal_models#` references,
+    and gating on links would defer the failure to whoever links one later.
+    """
     disease = {
-        "name": "Legacy Duplicates",
+        "name": "Unlinked Duplicates",
         "pathophysiology": [{"name": "Real Node"}],
         "animal_models": [
             {"species": "Mus musculus", "description": "First"},
             {"species": "Mus musculus", "description": "Second"},
         ],
     }
-    fake_path = tmp_path / "LegacyDuplicates.yaml"
+    fake_path = tmp_path / "UnlinkedDuplicates.yaml"
     fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
 
-    check_linked_animal_model_labels_are_unique(str(fake_path))
+    with pytest.raises(AssertionError, match="Mus musculus"):
+        check_animal_model_labels_are_unique(str(fake_path))
+
+
+def test_named_animal_models_sharing_species_are_allowed(tmp_path):
+    """Naming the models resolves the collision; species alone is not a defect."""
+    disease = {
+        "name": "Named Mice",
+        "pathophysiology": [{"name": "Real Node"}],
+        "animal_models": [
+            {"name": "Knockout mouse", "species": "Mus musculus"},
+            {"name": "Knock-in mouse", "species": "Mus musculus"},
+        ],
+    }
+    fake_path = tmp_path / "NamedMice.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+
+    check_animal_model_labels_are_unique(str(fake_path))
 
 
 def test_animal_model_mechanism_fk_catches_bad_refs(tmp_path):
@@ -2410,7 +2430,7 @@ DISORDER_CHECKS = (
 # span kb/disorders/ and kb/modules/.
 MODEL_BEARING_CHECKS = (
     check_animal_model_mechanism_targets,
-    check_linked_animal_model_labels_are_unique,
+    check_animal_model_labels_are_unique,
     check_model_readout_targets_match_link,
     check_failure_to_recapitulate_links_are_substantiated,
     check_model_scale_values_are_valid,
