@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import sys
+from itertools import combinations
 from pathlib import Path
 
 import pytest
@@ -65,14 +66,71 @@ def test_matrix_mode(config):
         "haiku",
         "sonnet",
         "opus",
+        "opus",
     ]
     # each entry carries the effort tier and label selector for the fan-out
     assert {entry["effort"] for entry in matrix} == {
         "low_effort",
         "medium_effort",
         "high_effort",
+        "evidence_review",
     }
     assert all(entry.get("selector") for entry in matrix)
+
+
+def _scanner_queues(config, labels):
+    """Apply the scanner's GitHub label search qualifiers to example items."""
+    matches = []
+    for row in resolver.resolve_matrix(config, "curation-scanner"):
+        qualifiers = row["selector"].split()
+        assert all(q.startswith(("label:", "-label:")) for q in qualifiers)
+        required = {
+            q.removeprefix("label:") for q in qualifiers if q.startswith("label:")
+        }
+        excluded = {
+            q.removeprefix("-label:") for q in qualifiers if q.startswith("-label:")
+        }
+        if required <= labels and not excluded & labels:
+            matches.append(row["effort"])
+    return matches
+
+
+@pytest.mark.parametrize(
+    "effort_labels",
+    [
+        set(combo)
+        for size in range(4)
+        for combo in combinations(("low_effort", "medium_effort", "high_effort"), size)
+    ],
+)
+@pytest.mark.parametrize("is_curation", [False, True])
+def test_evidence_tasks_only_reach_the_dedicated_job(
+    config, effort_labels, is_curation
+):
+    """A task label overrides every effort-label combination, including none."""
+    labels = effort_labels | {"evidence-claim-mismatch"}
+    if is_curation:
+        labels.add("curation")
+    assert _scanner_queues(config, labels) == (
+        ["evidence_review"] if is_curation else []
+    )
+
+
+@pytest.mark.parametrize(
+    ("labels", "expected"),
+    [
+        ({"curation"}, ["high_effort"]),
+        ({"curation", "high_effort"}, ["high_effort"]),
+        ({"curation", "medium_effort"}, ["medium_effort"]),
+        ({"curation", "low_effort"}, ["low_effort"]),
+        ({"low_effort"}, []),
+        ({"medium_effort"}, []),
+        ({"high_effort"}, []),
+        (set(), []),
+    ],
+)
+def test_general_curation_keeps_its_effort_routing(config, labels, expected):
+    assert _scanner_queues(config, labels) == expected
 
 
 def test_single_model_mode_rejects_matrix_workflow(config):

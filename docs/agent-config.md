@@ -65,20 +65,29 @@ Every scheduled or manual run of
 [`curation-scanner.yml`](https://github.com/monarch-initiative/dismech/blob/main/.github/workflows/curation-scanner.yml)
 launches all configured rows as parallel jobs:
 
-| Effort tier | Requested model | Candidate routing |
+| Task / effort queue | Requested model | Candidate routing |
 |---|---|---|
-| `low_effort` | `haiku` | Items labelled `curation` and `low_effort` |
-| `medium_effort` | `sonnet` | Items labelled `curation` and `medium_effort`, excluding `low_effort` |
-| `high_effort` | `opus` | Items labelled `curation`, excluding both `low_effort` and `medium_effort` |
+| `low_effort` | `haiku` | Items labelled `curation` and `low_effort`, excluding `evidence-claim-mismatch` |
+| `medium_effort` | `sonnet` | Items labelled `curation` and `medium_effort`, excluding `low_effort` and `evidence-claim-mismatch` |
+| `high_effort` | `opus` | Items labelled `curation`, excluding `low_effort`, `medium_effort`, and `evidence-claim-mismatch` |
+| `evidence_review` | `opus` | Items labelled `curation` and `evidence-claim-mismatch`, regardless of effort labels |
 
 The high tier includes items with **no effort label**; it does not require a
 `high_effort` label. All tiers search for open, unassigned issues and PRs. The
-prompt additionally tells the agent to skip items with multiple effort labels
-and choose only one item to work on **per tier job**. The low tier must route
-new disease creation to the high tier. These effort names describe the task
+prompt additionally tells the general jobs to skip items with multiple effort
+labels and each job to choose only one item to work on **per job**. The low tier
+must route new disease creation to the high tier. These effort names describe the task
 queue and prompt; they do not set Claude Code's reasoning `--effort` option.
 Concurrency is per tier with `cancel-in-progress: true`: a new manual or
 scheduled run cancels an older in-flight job of the same tier.
+
+The evidence job uses the
+[evidence-claim-mismatch skill](../.claude/skills/evidence-claim-mismatch/SKILL.md)
+to review current claims and snippets, validate corrections, and open a PR that
+closes the selected issue. It has its own concurrency group, so evidence reviews
+receive capacity on every scanner run. Evidence PRs carry both task labels to
+keep follow-up work in the same queue. The scanner checks for an existing open
+PR before taking an issue, and rechecks labels and assignment before acting.
 
 The model reaches Claude Code in four steps:
 
