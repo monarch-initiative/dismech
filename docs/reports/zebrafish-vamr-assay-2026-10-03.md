@@ -11,7 +11,7 @@ Read on **2026-10-03**; `kb/` as of commit `093f725c24`.
 | Source | Identifier | What it gives |
 | --- | --- | --- |
 | Article | doi:10.1016/j.neuro.2026.103414, PMID:41780647, *NeuroToxicology* 114:103414, CC BY | PubMed holds the abstract only; not in PMC |
-| Open full text | `url:https://zenodo.org/records/23035979/files/1-s2.0-S0161813X26000355-main.pdf` | Cached as full text by `just fetch-reference`; this is the citable form for anything beyond the abstract |
+| Open full text | `url:https://zenodo.org/records/23035979/files/1-s2.0-S0161813X26000355-main.pdf` | `just fetch-reference` on this URL caches the whole article, so it is the citable form for anything beyond the abstract. The cache file is committed by #13451, not by this PR |
 | Supplementary workbook | `https://ars.els-cdn.com/content/image/1-s2.0-S0161813X26000355-mmc3.xlsx` | Tables S1–S7. S3 and S4 hold every concentration-response fit |
 | Dataset DOI printed in the article | 10.5281/zenodo.17937513 | Not registered; does not resolve |
 
@@ -70,16 +70,20 @@ Twelve chemicals with human or rodent evidence of DNT and five predicted negativ
 
 | | Acute | Developmental |
 | --- | --- | --- |
-| DNT-positive chemicals detected | 11 of 12 | 8 of 12 |
+| DNT-positive chemicals detected, as stated in the text | 11 of 12 | 8 of 12 |
 | The three DNT IVB false negatives | all detected | none detected |
 | Predicted negatives called negative, as stated in the text | 5 of 5 | 4 of 5 (ibuprofen is a hit) |
 | Potency against the DNT IVB | no significant difference | 1–4 orders of magnitude lower AC50 |
+
+Both rows above are the article's own figures. Applying the hit rule to the supplementary tables gives **9** positives with at least one passing developmental endpoint rather than 8; the extra one is ketamine, and the discrepancy is set out below.
 
 The authors state that acute hits "likely reflect short-term, receptor-mediated effects" and that it is not clear whether they predict developmental outcomes.
 
 ### Hits per chemical
 
-Counts are endpoints passing the hit rule, out of 26, taken from the supplementary tables. AC50 in µM.
+Counts are endpoints passing the hit rule, out of 26, taken from the supplementary tables. "Most sensitive" is the passing endpoint with the lowest AC50, which is how the paper's own most-sensitive column can be checked against these. AC50 in µM.
+
+**The two hit columns are not produced by the same rule, so do not read a difference between them as a difference in effect.** The rule has two halves — a hit call of at least 0.9, and fewer than two curve-fit flags — and only the first half does any work in the developmental arm. There, 71 rows clear the hit call and none of them carries a single flag, so the flag half excludes nothing. In the acute arm, 121 rows clear the hit call and the flag half excludes 11 of them. The developmental column is therefore effectively `hitcall >= 0.9` alone. Table S4 records no flags on any row above the threshold, so whether that reflects better-behaved fits or flags that were not published cannot be told from the workbook.
 
 | Chemical | Class in the study | Acute hits | Most sensitive (acute) | Developmental hits | Most sensitive (developmental) |
 | --- | --- | ---: | --- | ---: | --- |
@@ -107,7 +111,10 @@ Counts are endpoints passing the hit rule, out of 26, taken from the supplementa
 | --- | --- |
 | ASH1, habituation | Haloperidol, developmental, 1.25 |
 | ASH1/5, potentiation of habituation | Phenytoin, acute, 18.3; haloperidol, acute, 10.4; hexachlorophene, acute, 0.13; trichlorfon, developmental, 1.65; triethyltin, developmental, 0.14 |
+| ASHsum, total activity across the five habituation bouts | Hexachlorophene, acute, 0.060; haloperidol, acute, 0.52; triethyltin, acute, 2.1; chlorpyrifos, acute, 4.4; ketamine, acute, 32; tebuconazole, acute, 40; phenytoin, acute, 40; triethyltin, developmental, 0.0024; saccharin, developmental, 0.0047; trichlorfon, developmental, 0.021; chlorpyrifos, developmental, 0.10; tebuconazole, developmental, 0.19 |
 | ASR2/3, memory retention | Phenytoin, acute, 16.2; haloperidol, acute, 45.8; hexachlorophene, acute, 0.30; tebuconazole, acute, 59; triethyltin, acute, 4.8; ibuprofen, developmental, 4.5 |
+
+ASHsum has more passing fits than the other three put together, and it is the weakest of them as a learning readout: it sums motor activity across the habituation bouts, so a chemical that simply changes how much a larva moves will move it without any change in the rate of habituation. ASH1 and ASH1/5 are the ratio endpoints that isolate the decrement itself, and between them they pass on six fits.
 
 ### Where the article's text and its supplement disagree
 
@@ -139,7 +146,7 @@ The introduction cites attention deficit hyperactivity disorder and autism spect
 
 ### Matching readouts with no tested chemical behind them
 
-- `Exaggerated Startle Response` is a phenotype in `Hereditary_Hyperekplexia` and about ten other entries. ASR1–3 measure startle magnitude, but none of the 17 chemicals bears on those diseases.
+- `Exaggerated Startle Response` is a phenotype in ten entries, among them `Hereditary_Hyperekplexia`, `Stiff_Person_Syndrome`, `Tay-Sachs_Disease` and `Sandhoff_Disease`. ASR1–3 measure startle magnitude, but none of the 17 chemicals bears on those diseases.
 - The introduction describes the assay as able to detect seizure-like activity. This article reports no seizure-like result, so it gives no tie to `epilepsy_excitation_inhibition_imbalance`.
 
 ### What dismech lacks

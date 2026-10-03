@@ -85,7 +85,12 @@ def fetch_workbook(url: str = WORKBOOK_URL) -> bytes:
 
 
 def build_rows(workbook_bytes: bytes) -> list[list[str]]:
-    import openpyxl
+    try:
+        import openpyxl
+    except ImportError:  # not declared in pyproject.toml; resolves transitively today
+        raise SystemExit(
+            "openpyxl is required to read the workbook: uv pip install openpyxl"
+        ) from None
 
     workbook = openpyxl.load_workbook(io.BytesIO(workbook_bytes), read_only=True)
     rows: list[list[str]] = []
