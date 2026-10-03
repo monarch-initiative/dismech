@@ -2121,6 +2121,15 @@ export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
+# OWL TBox of the pathograph (py-horned-owl): every pathophysiology and
+# phenotype node in kb/disorders + kb/modules becomes a class with its own IRI,
+# under the node-class tree in kb/node_classes/ (whose `=` definitions become
+# GCIs). Pass --scan to also assert the scanner's candidate tier, and an .owx
+# path for OWL/XML. See src/dismech/export/owl_tbox_export.py.
+[group('Export')]
+export-owl-tbox out="output/owl/dismech-pathograph.owl" *args:
+    uv run python -m dismech.export.owl_tbox_export -o {{out}} {{args}}
+
 # Maximal KGX export: the whole KB (disorders, modules, comorbidities,
 # groupings) as one graph with entry-local pathograph nodes promoted to
 # first-class KG nodes (dismech:<stem>#<node> ids). Experimental; see the
