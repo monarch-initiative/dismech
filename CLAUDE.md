@@ -1333,9 +1333,15 @@ rg --files kb/groupings -g "*.yaml" | sort
 sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+Membership criteria are audited over the HP/GO closure committed in
+`cache/closure/`, so the audit is offline and deterministic. After adding an
+HP or GO criterion term, run `just build-grouping-closure-cache` and commit
+the cache; never hand-edit it.
 
 **Check a MONDO mapping by walking members up, not the class down.** A grouping
 mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
