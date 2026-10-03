@@ -2021,6 +2021,12 @@ gen-module-pages:
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
     @echo "Generated $(ls -1 pages/module-collections/*.html 2>/dev/null | wc -l | tr -d ' ') module collection pages"
 
+# gen-pages also writes these; this is the fast path when only a model changed (#13123).
+# Generate one page per models/<model_id>/ folder, plus pages/models/index.html
+[group('Pages')]
+gen-model-pages:
+    uv run python -m dismech.model_pages
+
 # Generate a single disease grouping page
 [group('Pages')]
 gen-grouping-page file:
@@ -3281,6 +3287,21 @@ toxcast-refresh *args="":
 [group('Research')]
 toxcast-coverage *args="":
     uv run python scripts/toxcast_pathograph_coverage.py "$@"
+
+# How far the DNT in vitro battery's endpoints reach into the pathograph: the 17
+# distinct processes of DNT-IVB v1.0 and v2.0 (doi:10.3389/ftox.2024.1359507),
+# matched against pathophysiology and phenotype node names, counted by node, by
+# entry and by whether a model is linked. Lexical matching, never a mapping:
+# dismech records no crosswalk to this battery. Offline and report-only.
+#
+#   just dnt-ivb-coverage
+#   just dnt-ivb-coverage --format tsv --table nodes     # or summary
+#   just dnt-ivb-coverage --json
+#   just dnt-ivb-coverage --check-anchors pages          # needs a rendered pages/ tree
+#   just dnt-ivb-coverage --out docs/reports/dnt-ivb-pathograph-coverage-<date>.md
+[group('Research')]
+dnt-ivb-coverage *args="":
+    uv run python scripts/dnt_ivb_coverage.py "$@"
 
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.

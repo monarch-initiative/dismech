@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idiopathic Gastroparesis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Idiopathic Gastroparesis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Idiopathic Gastroparesis</h1>
+                
+                <p class="report-subtitle">Idiopathic Gastroparesis: A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-30</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0034150" target="_blank" rel="noopener noreferrer">MONDO:0034150</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">30 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Idiopathic Gastroparesis: A Comprehensive Disease Characteristics Report</h1>
+<p><strong>Disease:</strong> Idiopathic Gastroparesis (IGP)
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0034150" target="_blank" rel="noopener noreferrer">MONDO:0034150</a> · <strong>ICD-10:</strong> K31.84 · <strong>MeSH:</strong> D018589 (Gastroparesis)
+<strong>Category:</strong> Complex / multifactorial gastric neuromuscular (sensorimotor) disorder
+<strong>Report type:</strong> Multi-iteration literature synthesis (12 confirmed findings, 52 papers reviewed)</p>
+<hr />
+<h2>Summary</h2>
+<p>Idiopathic gastroparesis (IGP) is a chronic, female-predominant gastric neuromuscular disorder defined by the presence of upper-gastrointestinal symptoms — cardinally <strong>nausea and vomiting</strong>, frequently accompanied by early satiation, postprandial fullness, bloating, and abdominal pain — in the setting of <strong>objectively delayed gastric emptying without mechanical obstruction</strong> and after exclusion of secondary causes (diabetic, post-surgical, medication-induced, connective-tissue, neurological). It is the single largest etiologic category of gastroparesis, accounting for roughly 58% of cases in tertiary series. The authoritative 2025 Rome Foundation/international consensus (<a href="https://pubmed.ncbi.nlm.nih.gov/39674226/">PMID: 39674226</a>) codified this definition and requires demonstration of delayed emptying by 4-hour scintigraphy or gastric emptying breath test of a mixed-composition meal.</p>
+<p>The hallmark cellular lesion, established through full-thickness gastric biopsy studies from the NIDDK Gastroparesis Clinical Research Consortium, is <strong>loss of interstitial cells of Cajal (ICC)</strong> — the pacemaker cells that generate gastric slow waves — accompanied by <strong>depletion of anti-inflammatory CD206+ (M2) muscularis macrophages</strong> and downregulation of smooth-muscle contractile genes. Animal-model evidence (largely diabetic but mechanistically shared) knits these observations into a coherent causal axis: loss of cytoprotective, <strong>heme oxygenase-1 (HO-1)–expressing M2 macrophages</strong> permits unchecked <strong>oxidative stress</strong>, which destroys ICC and <strong>nitrergic (nNOS) enteric neurons</strong>, degrading slow-wave activity, gastric accommodation, and antropyloric coordination — the functional substrate of delayed emptying. Macrophage-deficient mice are protected from the lesion, and HO-1/IL-10 induction reverses it, demonstrating that the macrophage–HO-1–oxidative-stress module is both necessary and sufficient in models.</p>
+<p>IGP is <strong>multifactorial, not Mendelian</strong>: there is no established causal gene, no OMIM entry, and no pathogenic-variant classification; the strongest molecular-genetic lead is the <strong>SCN5A/NaV1.5</strong> sodium-channelopathy, a candidate susceptibility factor expressed by ICC and smooth muscle. A recognized <strong>post-infectious subgroup</strong> follows acute viral illness and is often self-limiting, while the majority of cases run a chronic, fluctuating course. Management remains largely symptomatic and only modestly effective — metoclopramide (the sole FDA-approved agent, boxed warning for tardive dyskinesia) and erythromycin are conditionally recommended, with G-POEM, gastric electrical stimulation, and intrapyloric botulinum toxin reserved for refractory disease — and roughly one-third of patients remain refractory. The strong ~4:1 to ~9:1 female predominance is biologically underpinned by the physiologically slower gastric emptying of healthy women and the inhibitory effects of estrogen and progesterone on gastric motility.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Disease Definition, Cardinal Symptoms, and Diagnostic Criteria (F001)</h3>
+<p>The 2025 Rome Foundation/international neurogastroenterology consensus defined IGP as <em>"the presence of symptoms associated with delayed gastric emptying in the absence of mechanical obstruction,"</em> with <strong>nausea and vomiting</strong> as cardinal symptoms and early satiation/postprandial fullness frequently co-existing (<a href="https://pubmed.ncbi.nlm.nih.gov/39674226/">PMID: 39674226</a>). Diagnosis requires these symptoms <em>plus</em> delayed gastric emptying demonstrated on <strong>4-hour scintigraphy or a gastric emptying breath test of a mixed-composition meal</strong>. Idiopathic disease is the largest category of gastroparesis — <strong>149 of 256 patients (58.2%)</strong> in a 2023 tertiary series were idiopathic, versus 23.4% diabetic and 11.3% postsurgical (<a href="https://pubmed.ncbi.nlm.nih.gov/36730846/">PMID: 36730846</a>).</p>
+<p><strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0034150" target="_blank" rel="noopener noreferrer">MONDO:0034150</a> · ICD-10 <strong>K31.84</strong> · MeSH <strong>D018589</strong> (Gastroparesis). There is no OMIM entry (IGP is not monogenic). <strong>Synonyms/alternative names:</strong> idiopathic delayed gastric emptying; idiopathic gastric stasis; the disorder is increasingly reconceptualized as a <strong>gastric sensorimotor disorder</strong> on a spectrum with functional dyspepsia. Information is drawn from both <strong>aggregated disease-level resources</strong> (consensus guidelines, registries) and <strong>individual-patient sources</strong> (full-thickness biopsy cohorts, EHR/registry studies).</p>
+<h3>2. Core Cellular Pathophysiology: ICC Loss and CD206+ (M2) Macrophage Depletion (F002)</h3>
+<p>Full-thickness gastric biopsy studies remain the decisive evidence. Grover et al. 2017 (<a href="https://pubmed.ncbi.nlm.nih.gov/28066953/">PMID: 28066953</a>) quantified ICC in the antral muscularis: counts were reduced in idiopathic (<strong>2.53/hpf</strong>) and diabetic (<strong>2.28/hpf</strong>) gastroparesis versus controls (<strong>6.05/hpf</strong>), <em>P = 0.004</em>. Anti-inflammatory <strong>CD206+ (M2) macrophages</strong> were lost in circular muscle (IG 4.16 vs control 6.59, <em>P = 0.04</em>) and myenteric plexus (IG 3.59 vs control 7.46, <em>P = 0.004</em>), while overall CD45+ immune cell counts were unchanged — implying a <strong>shift in macrophage phenotype</strong>, not a global immune depletion. Bernard et al. 2014 (<a href="https://pubmed.ncbi.nlm.nih.gov/25041465/">PMID: 25041465</a>) confirmed ICC loss in the gastric body and found CD206+ counts correlated with ICC counts. Herring et al. 2018 (<a href="https://pubmed.ncbi.nlm.nih.gov/29052298/">PMID: 29052298</a>) showed decreased muscularis-externa mRNA for contractile and regulatory genes — <strong>MYH11, MYLK1, PDGFRA, PDGFB, and HMOX1 (HO-1)</strong> — in IG, with preserved KIT/ANO1.</p>
+<blockquote>
+<p><em>"Both diabetic and idiopathic gastroparesis patients showed loss of ICC as compared to controls (Mean/hpf: diabetic, 2.28; idiopathic, 2.53; controls, 6.05; P=.004)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/28066953/">PMID: 28066953</a></p>
+</blockquote>
+<p><strong>Suggested ontology terms:</strong> ICC (<a href="http://purl.obolibrary.org/obo/CL_0002088" target="_blank" rel="noopener noreferrer">CL:0002088</a>); M2/muscularis macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>); smooth muscle cell (<a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" rel="noopener noreferrer">CL:0000192</a>); GO: <em>macrophage activation</em> (<a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" rel="noopener noreferrer">GO:0042116</a>), <em>regulation of smooth muscle contraction</em> (<a href="http://purl.obolibrary.org/obo/GO_0006940" target="_blank" rel="noopener noreferrer">GO:0006940</a>).</p>
+<h3>3. Demographics and Clinical Features — NIDDK GpCRC Registry (F003)</h3>
+<p>Parkman et al. 2011 (<a href="https://pubmed.ncbi.nlm.nih.gov/20965184/">PMID: 20965184</a>) characterized 243 IG patients: <strong>mean age 41 years; 88% female; 46% overweight; 50% acute symptom onset; 19% reported an initial infectious prodrome</strong> (the post-viral subset). Severe emptying delay (&gt;35% retention at 4 h) occurred in 28%. Predominant presenting symptoms were nausea (34%), abdominal pain (23%), and vomiting (19%); women had more severe nausea, satiety, and constipation. Psychiatric comorbidity was prominent — <strong>severe anxiety in 36% and depression in 18%</strong> — and <strong>86% met criteria for functional dyspepsia</strong> (predominantly postprandial distress syndrome), underscoring the overlap with FD.</p>
+<blockquote>
+<p><em>"The mean age of 243 patients with IG studied was 41 years; 88% were female, 46% were overweight, 50% had acute onset of symptoms, and 19% reported an initial infectious prodrome."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/20965184/">PMID: 20965184</a></p>
+</blockquote>
+<h3>4. Epidemiology and Strong Female Predominance (F004)</h3>
+<p>The Olmsted County, Minnesota population study (Jung et al. 2009, <a href="https://pubmed.ncbi.nlm.nih.gov/19249393/">PMID: 19249393</a>) provides the foundational epidemiology:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Metric (per 100,000)</th>
+<th>Men</th>
+<th>Women</th>
+<th>Ratio</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Age-adjusted <strong>incidence</strong> (per person-year)</td>
+<td>2.4 (95% CI 1.2–3.8)</td>
+<td>9.8 (7.5–12.1)</td>
+<td>~4:1 F:M</td>
+</tr>
+<tr>
+<td>Age-adjusted <strong>prevalence</strong> (Jan 1, 2007)</td>
+<td>9.6 (1.8–17.4)</td>
+<td>37.8 (23.3–52.4)</td>
+<td>~4:1 F:M</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Overall diagnosed prevalence was <strong>≈24.2/100,000</strong> (Rey et al. 2012, <a href="https://pubmed.ncbi.nlm.nih.gov/22323986/">PMID: 22323986</a>), and community modeling suggested up to <strong>~1.8% of adults</strong> may harbor undiagnosed ("hidden") delayed gastric emptying — the gastroparesis "iceberg." Overall survival in the Olmsted cohort was reduced relative to the age- and sex-matched expected population.</p>
+<h3>5. Treatment Landscape — AGA 2025 Guideline (F005)</h3>
+<p>The AGA Clinical Practice Guideline on Management of Gastroparesis (2025, <a href="https://pubmed.ncbi.nlm.nih.gov/40976635/">PMID: 40976635</a>) issued 12 GRADE recommendations: <strong>conditionally FOR metoclopramide and erythromycin</strong>, and <strong>AGAINST domperidone, prucalopride, aprepitant, nortriptyline, buspirone, and cannabidiol as first-line therapies</strong>; it favored 4-hour over 2-hour scintigraphy. <strong>Metoclopramide</strong> (dopamine D2 antagonist / 5-HT4 agonist) is the <strong>only FDA-approved drug</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28721575/">PMID: 28721575</a>) and carries a boxed warning for <strong>tardive dyskinesia</strong>, with risk elevated by continuous dosing (0.77% continuous vs 0.55% intermittent in a gastroparesis cohort; <a href="https://pubmed.ncbi.nlm.nih.gov/42702756/">PMID: 42702756</a>). Refractory options include <strong>gastric electrical stimulation, intrapyloric botulinum toxin, and endoscopic pyloromyotomy (G-POEM)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/36970885/">PMID: 36970885</a>). Foundational care — dietary modification (small, low-fat, low-fiber meals), nutritional support, glycemic control, opioid cessation, and antiemetics — remains central (<a href="https://pubmed.ncbi.nlm.nih.gov/39674226/">PMID: 39674226</a>).</p>
+<blockquote>
+<p><em>"There are conditional recommendations for the use of metoclopramide and erythromycin in patients with gastroparesis. Conditional recommendations were issued against the use of domperidone, prucalopride, aprepitant, nortriptyline, buspirone, and cannabidiol as first-line therapies."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40976635/">PMID: 40976635</a></p>
+</blockquote>
+<p><strong>Suggested NCIT terms:</strong> Metoclopramide (C62035); Erythromycin (C557); Domperidone; Botulinum Toxin; Gastric Electrical Stimulation.</p>
+<h3>6. Mechanistic Causal Axis — Macrophage Polarization, HO-1/Oxidative Stress, ICC and nNOS Loss (F006)</h3>
+<p>Mouse-model evidence establishes the neuromuscular-injury axis (largely from NOD/streptozotocin diabetic models but mechanistically shared with IGP, which exhibits the same ICC/CD206 lesions):</p>
+<ol>
+<li><strong>Choi et al. 2008</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/18926825/">PMID: 18926825</a>): loss of HO-1 upregulation in gastric macrophages → increased reactive oxygen species → loss of Kit (ICC) and nNOS → delayed gastric emptying. HO-1 induction by hemin restored Kit/nNOS and normalized emptying; HO-1 inhibition <em>caused</em> gastroparesis in normal mice.</li>
+<li><strong>Cipriani et al. 2018</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29501441/">PMID: 29501441</a>): macrophage-deficient <strong>Csf1op/op</strong> mice do <em>not</em> develop delayed emptying or ICC damage when made diabetic — proving muscularis macrophages are <strong>necessary</strong> for the injury.</li>
+<li><strong>Choi et al. 2016</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/27795979/">PMID: 27795979</a>): <strong>IL-10</strong> activates M2/cytoprotective macrophages and induces HO-1, restoring gastric emptying, slow-wave activity, and ICC networks in diabetic mice.</li>
+</ol>
+<blockquote>
+<p><em>"Induction of HO-1 by hemin decreased reactive oxygen species, rapidly restored Kit and neuronal nitric oxide synthase expression, and completely normalized gastric emptying... Inhibition of HO-1 activity in mice with normal gastric emptying caused a loss of Kit expression and development of diabetic gastroparesis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/18926825/">PMID: 18926825</a></p>
+</blockquote>
+<p><strong>Suggested GO terms:</strong> <em>response to oxidative stress</em> (<a href="http://purl.obolibrary.org/obo/GO_0006979" target="_blank" rel="noopener noreferrer">GO:0006979</a>), <em>heme oxygenase activity</em> (<a href="http://purl.obolibrary.org/obo/GO_0004392" target="_blank" rel="noopener noreferrer">GO:0004392</a>), <em>nitric oxide biosynthetic process</em> (<a href="http://purl.obolibrary.org/obo/GO_0006809" target="_blank" rel="noopener noreferrer">GO:0006809</a>), <em>macrophage activation</em> (<a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" rel="noopener noreferrer">GO:0042116</a>). <strong>CHEBI:</strong> heme (<a href="http://purl.obolibrary.org/obo/CHEBI_30413" target="_blank" rel="noopener noreferrer">CHEBI:30413</a>), nitric oxide (<a href="http://purl.obolibrary.org/obo/CHEBI_16480" target="_blank" rel="noopener noreferrer">CHEBI:16480</a>), reactive oxygen species (<a href="http://purl.obolibrary.org/obo/CHEBI_26523" target="_blank" rel="noopener noreferrer">CHEBI:26523</a>).</p>
+<h3>7. Etiology and Risk Factors (F007)</h3>
+<p>IGP is a <strong>diagnosis of exclusion</strong> — of diabetic, post-surgical/iatrogenic, medication-induced, connective-tissue, neurological, and identifiable post-viral causes (<a href="https://pubmed.ncbi.nlm.nih.gov/30385743/">PMID: 30385743</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/36970885/">PMID: 36970885</a>). A recognized <strong>post-infectious/post-viral subgroup (PIGP)</strong> follows acute viral illness (CMV, EBV documented) and is typically self-limiting — <strong>4 of 7 PIGP patients resolved spontaneously within 4 weeks–12 months</strong> (Naftali et al. 2007, <a href="https://pubmed.ncbi.nlm.nih.gov/17716347/">PMID: 17716347</a>); ~19% of registry patients reported an infectious prodrome. Key non-genetic risk associations: <strong>female sex</strong> (~4:1 to ~9:1), overweight status (46%), anxiety/depression (36%/18%), overlap with functional dyspepsia (86%), and a suggested bidirectional relationship with <strong>eating disorders</strong> (nondiabetic gastroparesis carries higher malnutrition/mortality; Fagan et al. 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/41638531/">PMID: 41638531</a>). There is <strong>no established Mendelian cause</strong>.</p>
+<blockquote>
+<p><em>"Gastroparesis can have idiopathic, diabetic, iatrogenic, post-surgical or post-viral aetiologies."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30385743/">PMID: 30385743</a></p>
+<p><em>"Post-infectious gastroparesis (PIGP) is a subgroup of idiopathic gastroparesis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/17716347/">PMID: 17716347</a></p>
+</blockquote>
+<h3>8. Diagnostic Evaluation (F008)</h3>
+<p>Diagnosis requires objective delayed gastric emptying without mechanical obstruction. <strong>Gastric emptying scintigraphy (GES)</strong> is the gold standard: a standardized <strong>4-hour solid-meal</strong> (low-fat egg-white "EggBeaters" meal) protocol, key threshold <strong>&gt;10% retention at 4 hours</strong> (and/or &gt;60% at 2 h); severe delay is <strong>&gt;35% at 4 h</strong> (Rao et al. 2011 ANMS/ESNM position paper, <a href="https://pubmed.ncbi.nlm.nih.gov/21138500/">PMID: 21138500</a>). AGA 2025 recommends 4-hour over 2-hour testing (<a href="https://pubmed.ncbi.nlm.nih.gov/40976635/">PMID: 40976635</a>). Validated alternatives include the <strong>¹³C-breath test</strong> (spirulina/octanoate) and the <strong>wireless motility capsule</strong>, which correlate with scintigraphy but lack full standardization (<a href="https://pubmed.ncbi.nlm.nih.gov/41128532/">PMID: 41128532</a>). Mechanical obstruction is excluded by upper endoscopy/imaging. Research/specialist tools: EndoFLIP (pyloric distensibility), electrogastrography, antroduodenal manometry, full-thickness gastric biopsy. <strong>No blood biomarker or genetic test is diagnostic.</strong></p>
+<blockquote>
+<p><em>"The tests include measurements of: gastric emptying with scintigraphy, wireless motility capsule, and (13)C breath tests."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/21138500/">PMID: 21138500</a></p>
+</blockquote>
+<h3>9. Prognosis, Quality of Life, and Disease Course (F009)</h3>
+<p>IGP is typically <strong>chronic</strong>; spontaneous remission is uncommon except in the post-viral subset. In a multicenter GpCRC registry (Parkman et al. 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/41833524/">PMID: 41833524</a>; N=1013, 607 idiopathic), predominant symptoms were nausea (31%), vomiting (20%), abdominal pain (20%). <strong>Abdominal pain was more often predominant in idiopathic</strong> (vs vomiting in diabetic) and that group had the <strong>lowest quality-of-life scores</strong>. Over 48 weeks, GCSI improved by ≥1 point in only <strong>26% overall</strong> — more often with predominant nausea (32%) or bloating (35%), less often with fullness (13%) or abdominal pain (15%), indicating modest, symptom-dependent improvement. Complications include malnutrition, dehydration, electrolyte disturbance, weight loss, bezoar formation, impaired glycemic control, frequent hospitalization, and reduced QoL. Overall survival is reduced (<a href="https://pubmed.ncbi.nlm.nih.gov/19249393/">PMID: 19249393</a>). QoL instruments: PAGI-SYM, GCSI, SF-12/SF-36, EQ-5D, GIQLI.</p>
+<blockquote>
+<p><em>"Of 555 patients followed over 48 weeks, GCSI improved by ≥ 1 in 26% overall, more often in patients with initial PrS of nausea (32%) and bloating (35%) and less often for initial PrS of fullness (13%) or abdominal pain (15%)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41833524/">PMID: 41833524</a></p>
+</blockquote>
+<h3>10. Genetic/Molecular Basis — No Mendelian Cause; SCN5A/NaV1.5 as Candidate (F010)</h3>
+<p>IGP has <strong>no established causal gene, OMIM entry, or pathogenic-variant classification</strong> — it is complex/multifactorial and is not listed as monogenic in OMIM/ClinVar. The strongest molecular-genetic lead across GI neuromuscular motility disorders is <strong>SCN5A</strong>, encoding the voltage-gated sodium channel <strong>NaV1.5</strong> expressed by ICC and smooth muscle. Beyder et al. 2014 (<a href="https://pubmed.ncbi.nlm.nih.gov/24613995/">PMID: 24613995</a>) found SCN5A missense mutations in <strong>13/584 (2.2%)</strong> IBS patients, 10/13 disrupting NaV1.5 function (9 loss-of-function, 1 gain-of-function); mexiletine restored function and normalized bowel habits in a p.A997T carrier. Verstraelen et al. 2015 (<a href="https://pubmed.ncbi.nlm.nih.gov/25898860/">PMID: 25898860</a>) review NaV1.5 channelopathy in GI motility disorders. At the tissue level, IGP shows decreased muscularis-externa mRNA for <strong>MYH11, MYLK1, PDGFRA, PDGFB, and HMOX1</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29052298/">PMID: 29052298</a>) and macrophage-based immune-gene dysregulation on transcriptomic/proteomic profiling (Chikkamenahalli et al. 2020, <a href="https://pubmed.ncbi.nlm.nih.gov/32718570/">PMID: 32718570</a>; datasets GEO <strong>GSE115601</strong>, single-cell <strong>GSE252126</strong>). No recurrent chromosomal abnormality, epigenetic signature, or founder effect is established.</p>
+<blockquote>
+<p><em>"Missense mutations were found in SCN5A in 13 of 584 patients (2.2%, probands)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/24613995/">PMID: 24613995</a></p>
+</blockquote>
+<p><strong>Suggested gene annotations:</strong> SCN5A (<a href="https://bioregistry.io/HGNC:10593" target="_blank" rel="noopener noreferrer">HGNC:10593</a>, candidate); HMOX1 (<a href="https://bioregistry.io/HGNC:5013" target="_blank" rel="noopener noreferrer">HGNC:5013</a>); NOS1/nNOS (<a href="https://bioregistry.io/HGNC:7872" target="_blank" rel="noopener noreferrer">HGNC:7872</a>); KIT (<a href="https://bioregistry.io/HGNC:6342" target="_blank" rel="noopener noreferrer">HGNC:6342</a>); ANO1 (<a href="https://bioregistry.io/HGNC:21625" target="_blank" rel="noopener noreferrer">HGNC:21625</a>); PDGFRA (<a href="https://bioregistry.io/HGNC:8803" target="_blank" rel="noopener noreferrer">HGNC:8803</a>).</p>
+<h3>11. Animal/Model Systems and the Nitrergic-Oxidative-Stress Axis (F011)</h3>
+<p>Principal model systems (mostly mouse/rat):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Key feature</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>nNOS-deficient (Nos1⁻/⁻) mice</strong></td>
+<td>Established <em>genetic</em> model; delayed emptying, impaired pyloric relaxation. Neural stem cell transplant → nNOS+ neurons, improved emptying (49.7% vs 35.1%, <em>P&lt;0.01</em>)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16344050/">PMID: 16344050</a></td>
+</tr>
+<tr>
+<td><strong>NOD / streptozotocin diabetic mice</strong></td>
+<td>Delayed emptying + ICC loss, reversible by HO-1/IL-10</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18926825/">PMID: 18926825</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/27795979/">PMID: 27795979</a></td>
+</tr>
+<tr>
+<td><strong>Csf1op/op macrophage-deficient mice</strong></td>
+<td>Protected from delayed emptying/ICC damage</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29501441/">PMID: 29501441</a></td>
+</tr>
+<tr>
+<td><strong>Kit mutant (W/Wv) mice</strong></td>
+<td>Model ICC deficiency</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>ApoE-knockout mice</strong></td>
+<td>Hyperlipidemia/oxidative-stress model; reduced nitrergic relaxation with decreased nNOS, GCH-1, NRF2 (NFE2L2)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22302246/">PMID: 22302246</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"nNOS-/- mice, a well-established genetic model of gastroparesis... Gastric emptying was significantly increased in mice that received NSCs as compared with vehicle-injected controls (49.67% vs 35.09%; P &lt; .01)."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/16344050/">PMID: 16344050</a></p>
+</blockquote>
+<p>In vitro/cellular models: isolated ICC, muscularis macrophage cultures, and human full-thickness gastric biopsy tissue. <strong>Limitation:</strong> most causal-mechanism models are diabetic; no dedicated, validated <em>idiopathic</em> genetic model exists.</p>
+<h3>12. Anatomy, Hormonal Basis of Female Predominance, and Temporal Features (F012)</h3>
+<p><strong>ANATOMY:</strong> Primary organ is the <strong>stomach</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000945" target="_blank" rel="noopener noreferrer">UBERON:0000945</a>), especially the <strong>antrum</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001165" target="_blank" rel="noopener noreferrer">UBERON:0001165</a>) and <strong>pylorus</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001166" target="_blank" rel="noopener noreferrer">UBERON:0001166</a>), within the digestive system (<a href="http://purl.obolibrary.org/obo/UBERON_0001007" target="_blank" rel="noopener noreferrer">UBERON:0001007</a>). The lesion localizes to the <strong>muscularis propria/externa</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0006909" target="_blank" rel="noopener noreferrer">UBERON:0006909</a>): circular/longitudinal smooth muscle (<a href="http://purl.obolibrary.org/obo/CL_0000192" target="_blank" rel="noopener noreferrer">CL:0000192</a>), <strong>myenteric (Auerbach) plexus</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002439" target="_blank" rel="noopener noreferrer">UBERON:0002439</a>), ICC (<a href="http://purl.obolibrary.org/obo/CL_0002088" target="_blank" rel="noopener noreferrer">CL:0002088</a>), nitrergic/nNOS enteric neurons (<a href="http://purl.obolibrary.org/obo/CL_0000540" target="_blank" rel="noopener noreferrer">CL:0000540</a>), and muscularis macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>). Extrinsic vagal/autonomic innervation and the brain-gut axis are implicated.</p>
+<p><strong>FEMALE PREDOMINANCE &amp; HORMONES:</strong> Healthy women physiologically empty solids and liquids more slowly than men ("postprandial physiologic gastroparesis"; Caballero-Plasencia et al. 1999, <a href="https://pubmed.ncbi.nlm.nih.gov/10499477/">PMID: 10499477</a>); sex steroids (progesterone, estrogen) inhibit gastric emptying (Hutson et al. 1989, <a href="https://pubmed.ncbi.nlm.nih.gov/2909416/">PMID: 2909416</a>) — a biological basis for the ~4:1–9:1 female predominance.</p>
+<blockquote>
+<p><em>"These findings support the hypothesis that sex steroid hormones have variable inhibitory effects on gastric emptying of a mixed meal."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/2909416/">PMID: 2909416</a></p>
+</blockquote>
+<p><strong>TEMPORAL:</strong> Adult-onset (mean ~41 y), can be childhood-onset; onset acute in ~50% (often post-infectious) or insidious; course typically chronic and fluctuating/episodic, lifelong in most, but self-limiting in the post-viral subset over weeks–months.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<h3>Ordered Causal Chain (initiating lesion → clinical manifestation)</h3>
+<pre><code>[Initiating triggers — branch point]
+  ├─ Acute viral infection (CMV/EBV) ─┐         (post-infectious subtype; ~19% of cases)
+  ├─ Unknown idiopathic trigger ───────┤
+  └─ Candidate SCN5A/NaV1.5 ───────────┘  (inferred susceptibility, not proven causal)
+    │
+    ▼
+(1) Loss of cytoprotective CD206+ / HO-1+ (M2) muscularis macrophages
+│  (demonstrated in human IGP biopsy: CD206 IG 4.16 vs 6.59, P=0.04)
+▼  &quot;leads to&quot;
+(2) Failure of HO-1–mediated antioxidant defense
+│  (HMOX1 mRNA reduced in IGP muscularis; model-proven axis)
+▼  &quot;results in&quot;
+(3) Unchecked oxidative stress (↑ reactive oxygen species) in muscularis propria
+│  (direct in diabetic models; INFERRED in idiopathic)
+▼  &quot;causes&quot;
+(4) Injury/loss of interstitial cells of Cajal (ICC)  ──┐
+    and loss of nitrergic (nNOS) enteric neurons  ──────┤  (ICC IG 2.53 vs 6.05/hpf, P=0.004)
+│                                                │
+▼                                                ▼
+(5) Impaired gastric slow-wave pacemaking     Loss of nitrergic pyloric relaxation
+    + downregulated contractile genes          + impaired accommodation
+    (MYH11, MYLK1, PDGFRA/B)                    (antropyloric dyscoordination)
+│                                                │
+└───────────────┬────────────────────────────────┘
+        ▼  &quot;results in&quot;
+(6) Delayed gastric emptying + gastric sensorimotor dysfunction
+        ▼  &quot;manifests as&quot;
+(7) Nausea, vomiting, early satiety, postprandial fullness, bloating, abdominal pain
+    (modulated by visceral hypersensitivity, gut-brain axis, anxiety/depression)
+</code></pre>
+<p><strong>Upstream vs downstream.</strong> The <strong>macrophage phenotype shift</strong> (M2/HO-1 depletion) is the most upstream demonstrable node; <strong>oxidative stress</strong> is the central effector; <strong>ICC and nNOS loss</strong> are the proximate lesions producing the <strong>downstream</strong> physiology of delayed emptying. The female-predominant epidemiology sits <em>alongside</em> this chain as a permissive modifier: hormonally slower baseline emptying lowers the threshold at which neuromuscular injury becomes symptomatic.</p>
+<p><strong>Important caveat on evidence strength.</strong> The <em>human</em> IGP data are strongest for the <strong>static histological endpoints</strong> (ICC loss, CD206 loss, contractile-gene downregulation). The <strong>dynamic causal links</strong> (macrophage → HO-1 → ROS → ICC/nNOS loss) are proven chiefly in <strong>diabetic/oxidative-stress mouse models</strong>; their application to idiopathic disease is a well-supported inference grounded in the shared histological lesion, not a directly demonstrated mechanism in humans. A parallel, increasingly emphasized view reframes IGP as a <strong>sensorimotor disorder on a spectrum with functional dyspepsia</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/33548234/">PMID: 33548234</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/42235947/">PMID: 42235947</a>), in which delayed emptying correlates poorly with symptoms and gut-brain/visceral-hypersensitivity mechanisms carry substantial weight.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Title (abbrev.)</th>
+<th>Role in this report</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39674226/">39674226</a></td>
+<td>Rome Foundation consensus on IGP</td>
+<td>Authoritative definition + diagnostic criteria (F001)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36730846/">36730846</a></td>
+<td>Atypical causes of gastroparesis</td>
+<td>IGP = 58.2% of cases (F001)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28066953/">28066953</a></td>
+<td>CD206 macrophage loss in gastroparesis</td>
+<td>Quantifies ICC + M2 macrophage loss (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29052298/">29052298</a></td>
+<td>Transcriptional changes in IGP muscularis</td>
+<td>Contractile/HMOX1 gene downregulation (F002, F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25041465/">25041465</a></td>
+<td>CD206 &amp; ICC in gastric body</td>
+<td>Confirms ICC loss + CD206 correlation (F002)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20965184/">20965184</a></td>
+<td>Clinical features of IG (NIDDK)</td>
+<td>Demographics, 88% female, prodrome (F003, F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19249393/">19249393</a></td>
+<td>Olmsted County epidemiology</td>
+<td>Incidence/prevalence, female predominance, survival (F004, F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22323986/">22323986</a></td>
+<td>Hidden gastroparesis "iceberg"</td>
+<td>Overall diagnosed prevalence 24.2/100k (F004)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40976635/">40976635</a></td>
+<td>AGA 2025 guideline</td>
+<td>Pharmacotherapy + 4-h scintigraphy (F005, F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/28721575/">28721575</a></td>
+<td>Gastroparesis therapeutic advances</td>
+<td>Metoclopramide sole FDA-approved agent (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42702756/">42702756</a></td>
+<td>TD with metoclopramide</td>
+<td>Continuous &gt; intermittent TD risk (F005)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36970885/">36970885</a></td>
+<td>2023 clinical management update</td>
+<td>Refractory interventions; etiologic categories (F005, F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18926825/">18926825</a></td>
+<td>HO-1 protects ICC</td>
+<td>Core HO-1/ROS/ICC/nNOS axis (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29501441/">29501441</a></td>
+<td>Macrophages &amp; delayed emptying</td>
+<td>Csf1op/op mice protected — macrophages necessary (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27795979/">27795979</a></td>
+<td>IL-10 restores gastric emptying</td>
+<td>M2/HO-1 activation reverses lesion (F006)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30385743/">30385743</a></td>
+<td>Gastroparesis (Nat Rev Dis Primers)</td>
+<td>Etiologic classification (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17716347/">17716347</a></td>
+<td>Post-infectious gastroparesis</td>
+<td>PIGP subgroup, self-limiting course (F007)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21138500/">21138500</a></td>
+<td>ANMS/ESNM transit position paper</td>
+<td>GES/breath test/WMC diagnostics (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41128532/">41128532</a></td>
+<td>Pediatric GES review</td>
+<td>Breath test + WMC alternatives (F008)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41833524/">41833524</a></td>
+<td>Predominant symptom &amp; QoL</td>
+<td>Modest, symptom-dependent improvement (F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41638531/">41638531</a></td>
+<td>Nondiabetic gastroparesis diet review</td>
+<td>Higher malnutrition/mortality (F007, F009)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24613995/">24613995</a></td>
+<td>NaV1.5 channelopathy in IBS</td>
+<td>SCN5A candidate susceptibility (F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25898860/">25898860</a></td>
+<td>SCN5A channelopathy review</td>
+<td>NaV1.5 in ICC/smooth muscle (F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32718570/">32718570</a></td>
+<td>Gastric biopsies review</td>
+<td>Macrophage immune dysregulation, omics (F010)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16344050/">16344050</a></td>
+<td>NSC transplant in nNOS⁻/⁻ mice</td>
+<td>nNOS⁻/⁻ genetic model; rescue (F011)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22302246/">22302246</a></td>
+<td>ApoE-KO gastric nitrergic/NRF2</td>
+<td>Oxidative-stress model (F011)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10499477/">10499477</a></td>
+<td>Gastric emptying &amp; menstrual cycle</td>
+<td>Physiologic slower emptying in women (F012)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/2909416/">2909416</a></td>
+<td>Gender/menopause &amp; gastric emptying</td>
+<td>Sex steroids inhibit emptying (F012)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33548234/">33548234</a></td>
+<td>FD &amp; gastroparesis interchangeable</td>
+<td>Spectrum/sensorimotor reframing (interpretation)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42235947/">42235947</a></td>
+<td>GESA position statement on IGP</td>
+<td>Sensorimotor-disorder reconceptualization (interpretation)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Supporting vs challenging.</strong> The biopsy and animal-model literature <em>support</em> the ICC/macrophage/oxidative-stress mechanistic core. The functional-dyspepsia-overlap and GESA sensorimotor papers <em>challenge</em> a purely "delayed-emptying" framing — noting that emptying rates correlate poorly with symptoms and are labile (37–42% of patients reclassify between FD and gastroparesis over a year; <a href="https://pubmed.ncbi.nlm.nih.gov/33548234/">PMID: 33548234</a>). Both perspectives are integrated above.</p>
+<hr />
+<h2>Sections With Limited or Not-Applicable Data</h2>
+<ul>
+<li><strong>Causal genes / pathogenic variants / ACMG classification (Section 4):</strong> None established. No OMIM entry; not in ClinVar as monogenic. SCN5A/NaV1.5 is a <em>candidate susceptibility</em> factor only.</li>
+<li><strong>Epigenetics, chromosomal abnormalities, founder effects, carrier frequency, inheritance pattern, penetrance, anticipation, consanguinity (Sections 4, 9):</strong> Not applicable / none established — IGP is multifactorial, not Mendelian.</li>
+<li><strong>Infectious agents (Section 5):</strong> Only the post-infectious subtype has documented triggers (CMV, EBV); no single causative pathogen.</li>
+<li><strong>Other species / natural disease / veterinary relevance / zoonosis (Section 14):</strong> No naturally occurring idiopathic gastroparesis is described in companion animals or wildlife; relevant data are limited to induced laboratory rodent models (Section 15). Orthologous genes exist (e.g., mouse <em>Nos1</em>, <em>Hmox1</em>, <em>Kit</em>, <em>Scn5a</em>) but no OMIA natural-disease entry corresponds to human IGP.</li>
+<li><strong>Gene therapy, cell therapy, RNA-based therapy, immunotherapy, pharmacogenomics (Section 12):</strong> No approved advanced therapeutics; IL-10/HO-1 induction and neural stem cell transplantation are experimental (model-stage only).</li>
+</ul>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Mechanism is inferred, not proven, in humans.</strong> The macrophage→HO-1→ROS→ICC/nNOS causal chain is demonstrated primarily in <strong>diabetic mouse models</strong>; human IGP evidence is largely <strong>cross-sectional histology</strong>. The direction of causation and the initiating trigger in idiopathic disease remain unknown.</li>
+<li><strong>Poor symptom–physiology correlation.</strong> Gastric emptying rate correlates weakly with symptom severity and is labile over time, undermining delayed emptying as a unifying pathophysiological endpoint and blurring the boundary with functional dyspepsia.</li>
+<li><strong>No molecular diagnostic or biomarker.</strong> Diagnosis rests on a functional test (scintigraphy) with imperfect reproducibility; no blood/genetic biomarker exists.</li>
+<li><strong>Heterogeneous entity.</strong> IGP almost certainly aggregates several distinct pathophysiologies (post-viral, sensorimotor/FD-overlap, eating-disorder-associated, channelopathy-related), limiting the generalizability of any single mechanism.</li>
+<li><strong>Modest, refractory treatment landscape.</strong> Only ~26% achieve meaningful symptom improvement; ~one-third are refractory; the sole FDA-approved drug carries a serious neurological risk.</li>
+<li><strong>No dedicated idiopathic animal model.</strong> Existing genetic models (nNOS⁻/⁻, Kit-mutant) recapitulate <em>lesions</em> but not the idiopathic <em>etiology</em>.</li>
+<li><strong>Sex-difference mechanism underexplored.</strong> The estrogen/progesterone contribution is established physiologically but not mechanistically linked to the ICC/macrophage lesion.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Human muscularis single-cell + spatial transcriptomics</strong> (extend GSE252126) comparing IGP, diabetic gastroparesis, FD, and controls to test whether the M2/HO-1 macrophage-depletion axis operates in <em>idiopathic</em> tissue and to resolve disease subtypes.</li>
+<li><strong>Prospective post-viral cohort</strong> with serial GES, biopsy, and viral serology to define which triggers produce self-limiting vs chronic disease and to capture the earliest cellular events.</li>
+<li><strong>Targeted SCN5A/NaV1.5 sequencing</strong> in a well-phenotyped IGP registry (mirroring the IBS 2.2% finding) with functional electrophysiology of variants, and a pilot of <strong>mexiletine</strong> in loss-of-function carriers.</li>
+<li><strong>Translational HO-1/IL-10 or NRF2-activator trial</strong> (e.g., dimethyl fumarate) targeting the oxidative-stress node validated in ApoE-KO and diabetic models.</li>
+<li><strong>Sex-hormone mechanistic studies</strong> linking estrogen/progesterone signaling to ICC survival and macrophage polarization, to explain female predominance.</li>
+<li><strong>Biomarker discovery</strong> (serum proteomics/metabolomics; circulating macrophage-phenotype or ICC-injury markers) to replace or complement scintigraphy.</li>
+<li><strong>Redefinition initiative</strong> — adopt the sensorimotor-spectrum framework (<a href="https://pubmed.ncbi.nlm.nih.gov/42235947/">PMID: 42235947</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39674226/">PMID: 39674226</a>) with symptom-plus-physiology endpoints in future trials rather than emptying rate alone.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 12 confirmed findings and 52 reviewed papers across 5 investigation iterations. Evidence source types are indicated throughout: human clinical (registry/biopsy), model organism (mouse/rat), in vitro (isolated ICC/macrophage), and computational (transcriptomic/proteomic datasets).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Idiopathic_Gastroparesis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Idiopathic_Gastroparesis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>32</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>10</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>6</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>UBERON:0006909</code> (1 mention) - the report calls it "muscularis propria/externa"; UBERON calls it <strong>lumen of digestive tract</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0004392</code> (1 mention) - the report calls it "heme oxygenase activity"; GO calls it <strong>heme oxygenase (decyclizing) activity</strong>, and lists "heme oxygenase activity" among its other names</li>
+<li><code>UBERON:0001165</code> (1 mention) - the report calls it "antrum"; UBERON calls it <strong>pyloric antrum</strong>, and lists "antrum" among its other names</li>
+<li><code>UBERON:0002439</code> (1 mention) - the report calls it "myenteric (Auerbach) plexus"; UBERON calls it <strong>myenteric nerve plexus</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="IDH_Mutant_Cholangiocarcinoma-falcon.html">← IDH-Mutant Cholangiocarcinoma (Falcon)</a>
+                
+                
+                <a href="Idiopathic_Hypereosinophilic_Syndrome-falcon.html">Idiopathic Hypereosinophilic Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Idiopathic_Gastroparesis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Idiopathic_Gastroparesis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
