@@ -28,7 +28,7 @@ import logging
 import re
 import subprocess
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -47,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 HGNC_DIR = Path("data/hgnc")
 AGR_DIR = Path("data/ai-gene-review")
+CLINGEN_DIR = Path("data/clingen-genes")
 INGEST_DIR = Path("kb/genes/ingest")
 SOURCES_FILE = "sources.json"
 
@@ -83,6 +84,18 @@ AGR_FUNCTION_COLUMNS: tuple[str, ...] = (
     "symbol",
     "function_index",
     "description",
+)
+
+CLINGEN_COLUMNS: tuple[str, ...] = (
+    "hgnc_id",
+    "symbol",
+    "disease_label",
+    "mondo_id",
+    "moi",
+    "classification",
+    "classification_date",
+    "expert_panel",
+    "assertion_id",
 )
 
 AGR_FUNCTION_TERM_COLUMNS: tuple[str, ...] = (
@@ -134,10 +147,15 @@ def _write_manifest_fields(path: Path, updates: dict[str, str]) -> None:
 # refresh
 
 
-def refresh_hgnc(
-    data_dir: Path = HGNC_DIR, *, force: bool = False, repin: bool = False
+def refresh_pinned_files(
+    data_dir: Path, *, force: bool = False, repin: bool = False
 ) -> list[str]:
-    """Download the pinned HGNC file; with ``repin`` accept a new upstream release."""
+    """Download a manifest's bulk files; with ``repin`` accept a new upstream release.
+
+    The download lands beside the target and replaces it only once its
+    checksum matches the pin (or ``repin`` accepts it), so a refused refresh
+    never leaves an unpinned file where a build would read it.
+    """
     manifest_path = data_dir / "MANIFEST.yaml"
     manifest = _load_manifest(manifest_path)
     changes: list[ChecksumChange] = []
@@ -147,10 +165,12 @@ def refresh_hgnc(
             logger.info("OK  %s", entry["name"])
             continue
         logger.info("downloading %s", entry["url"])
-        StructuredSource._download(entry["url"], target)
-        actual = _sha256_of(target)
+        staged = target.with_name(target.name + ".download")
+        StructuredSource._download(entry["url"], staged)
+        actual = _sha256_of(staged)
         if entry.get("sha256") and actual != entry["sha256"]:
             if not repin:
+                staged.unlink()
                 raise ChecksumMismatchError(
                     name=entry["name"],
                     url=entry["url"],
@@ -162,10 +182,40 @@ def refresh_hgnc(
                     name=entry["name"],
                     old_sha256=entry["sha256"],
                     new_sha256=actual,
-                    size_bytes=target.stat().st_size,
+                    size_bytes=staged.stat().st_size,
                 )
             )
+        staged.replace(target)
     return repin_manifest(manifest_path, changes) if changes else []
+
+
+def refresh_hgnc(
+    data_dir: Path = HGNC_DIR, *, force: bool = False, repin: bool = False
+) -> list[str]:
+    return refresh_pinned_files(data_dir, force=force, repin=repin)
+
+
+def refresh_clingen(
+    data_dir: Path = CLINGEN_DIR, *, force: bool = False, repin: bool = False
+) -> list[str]:
+    return refresh_pinned_files(data_dir, force=force, repin=repin)
+
+
+def pinned_file(data_dir: Path) -> Path:
+    """The manifest's single bulk file, refusing one that does not match its pin."""
+    manifest = _load_manifest(data_dir / "MANIFEST.yaml")
+    entry = manifest["bulk_files"][0]
+    path = data_dir / entry["name"]
+    if not path.exists():
+        raise FileNotFoundError(f"{path} not found; run `just genes-ingest-refresh`")
+    if _sha256_of(path) != entry["sha256"]:
+        raise ChecksumMismatchError(
+            name=entry["name"],
+            url=entry["url"],
+            expected=entry["sha256"],
+            actual=_sha256_of(path),
+        )
+    return path
 
 
 def _git(repo: Path, *args: str) -> str:
@@ -318,6 +368,7 @@ class BuildReport:
     reviews_symbol_only: list[str] | None = None
     function_rows: int = 0
     function_term_rows: int = 0
+    clingen_rows: int = 0
 
     def lines(self) -> list[str]:
         out = [
@@ -328,6 +379,7 @@ class BuildReport:
             f"  symbol matches, UniProt does not: {len(self.reviews_symbol_only or [])}",
             f"core functions:                   {self.function_rows}",
             f"core-function term rows:          {self.function_term_rows}",
+            f"ClinGen validity rows:            {self.clingen_rows}",
         ]
         if self.hgnc_missing:
             out.append("  absent: " + ", ".join(self.hgnc_missing[:20]))
@@ -341,6 +393,7 @@ def build_ingest(
     kb_root: Path = Path("kb"),
     hgnc_dir: Path = HGNC_DIR,
     agr_dir: Path = AGR_DIR,
+    clingen_dir: Path = CLINGEN_DIR,
     out_dir: Path = INGEST_DIR,
     gene_ids: Iterable[str] | None = None,
 ) -> BuildReport:
@@ -354,7 +407,7 @@ def build_ingest(
     report.kb_genes = len(wanted)
 
     hgnc_manifest = _load_manifest(hgnc_dir / "MANIFEST.yaml")
-    hgnc_file = hgnc_dir / hgnc_manifest["bulk_files"][0]["name"]
+    hgnc_file = pinned_file(hgnc_dir)
     hgnc = read_hgnc(hgnc_file)
     hgnc_rows = []
     missing = []
@@ -368,6 +421,12 @@ def build_ingest(
     report.hgnc_rows = _write_tsv(out_dir / "hgnc.tsv", HGNC_COLUMNS, hgnc_rows)
 
     agr_manifest = _load_manifest(agr_dir / "MANIFEST.yaml")
+    checked_out = _git(agr_dir / "repo", "rev-parse", "HEAD")
+    if checked_out != agr_manifest["commit"]:
+        raise RuntimeError(
+            f"{agr_dir}/repo is at {checked_out[:12]}, not the pinned commit "
+            f"{str(agr_manifest['commit'])[:12]}; run `just genes-ingest-refresh`"
+        )
     reviews = read_ai_gene_reviews(agr_dir / "repo", agr_manifest["review_glob"])
     by_uniprot = {r.uniprot_id: r for r in reviews}
     by_symbol = {r.symbol: r for r in reviews}
@@ -420,7 +479,48 @@ def build_ingest(
         term_rows,
     )
 
+    clingen_rows = []
+    clingen_manifest = _load_manifest(clingen_dir / "MANIFEST.yaml")
+    wanted_set = set(wanted)
+    from dismech.structured_sources.clingen import ClinGenSource
+
+    pinned_file(clingen_dir)  # refuses an unpinned CSV before the parser reads it
+    for record in (
+        ClinGenSource(clingen_dir, include_report_text=False).build_index().values()
+    ):
+        hgnc_id = normalize_hgnc_id(record.gene_hgnc_id)
+        if hgnc_id not in wanted_set:
+            continue
+        clingen_rows.append(
+            {
+                "hgnc_id": hgnc_id,
+                "symbol": record.gene_symbol,
+                "disease_label": record.disease_label,
+                "mondo_id": record.disease_mondo_id,
+                "moi": record.mode_of_inheritance,
+                "classification": record.classification,
+                "classification_date": record.classification_date[:10],
+                "expert_panel": record.expert_panel,
+                "assertion_id": record.assertion_id,
+            }
+        )
+    clingen_rows.sort(
+        key=lambda r: (
+            _hgnc_sort_key(r["hgnc_id"]),
+            r["mondo_id"],
+            r["moi"],
+            r["assertion_id"],
+        )
+    )
+    report.clingen_rows = _write_tsv(
+        out_dir / "clingen_gene_validity.tsv", CLINGEN_COLUMNS, clingen_rows
+    )
+
     sources = {
+        "clingen": {
+            "snapshot_date": str(clingen_manifest.get("snapshot_date")),
+            "sha256": clingen_manifest["bulk_files"][0]["sha256"],
+        },
         "hgnc": {
             "snapshot_date": str(hgnc_manifest.get("snapshot_date")),
             "sha256": hgnc_manifest["bulk_files"][0]["sha256"],
@@ -436,7 +536,8 @@ def build_ingest(
     # values, titles) never mistake this provenance record for KB content.
     sources["generated_by"] = (
         "just genes-ingest-build; every file in this directory is dropped and "
-        "reloaded from the pins in data/hgnc/ and data/ai-gene-review/"
+        "reloaded from the pins in data/hgnc/, data/ai-gene-review/ and "
+        "data/clingen/"
     )
     (out_dir / SOURCES_FILE).write_text(
         json.dumps(sources, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -461,6 +562,7 @@ class IngestTables:
     reviews: dict[str, dict[str, str]]
     functions: dict[str, list[dict]]
     sources: dict
+    clingen: dict[str, list[dict[str, str]]] = field(default_factory=dict)
 
 
 def load_ingest(out_dir: Path = INGEST_DIR) -> IngestTables:
@@ -482,6 +584,9 @@ def load_ingest(out_dir: Path = INGEST_DIR) -> IngestTables:
             function["terms"].setdefault(row["relation"], []).append(
                 (row["term_id"], row["term_label"])
             )
+    clingen: dict[str, list[dict[str, str]]] = {}
+    for row in _read_tsv(out_dir / "clingen_gene_validity.tsv"):
+        clingen.setdefault(row["hgnc_id"], []).append(row)
     sources_path = out_dir / SOURCES_FILE
     sources = (
         json.loads(sources_path.read_text(encoding="utf-8"))
@@ -493,4 +598,5 @@ def load_ingest(out_dir: Path = INGEST_DIR) -> IngestTables:
         reviews={r["hgnc_id"]: r for r in _read_tsv(out_dir / "ai_gene_review.tsv")},
         functions=functions,
         sources=sources or {},
+        clingen=clingen,
     )

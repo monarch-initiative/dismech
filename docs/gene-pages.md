@@ -23,7 +23,7 @@ Each page is assembled from three sources with different rules.
 
 ### Ingest: identity and normal function
 
-Two sources, each pinned in `data/<source>/MANIFEST.yaml`:
+Three sources, each pinned in `data/<source>/MANIFEST.yaml`:
 
 - **HGNC complete set**, pinned by sha256: symbol, name, locus type, location,
   previous symbols and cross-references.
@@ -33,6 +33,14 @@ Two sources, each pinned in `data/<source>/MANIFEST.yaml`:
   each a molecular function with the processes it drives and where it acts);
   the per-annotation reviews and deep-research files stay upstream and are
   linked.
+
+- **ClinGen gene–disease validity**, pinned by sha256 in `data/clingen-genes/`:
+  one row per assertion (gene, MONDO disease, mode of inheritance, tier). This
+  is the same CSV `data/clingen/` pins for the quotable `CGGV:` citation cache,
+  pinned separately so that moving the gene-page snapshot does not rewrite
+  hundreds of cached citation files. A gene page shows the tier and links to
+  ClinGen; it is not a citation, and a KB entry still records a tier by copying
+  it into `gene_disease_validity` with `CGGV:` evidence.
 
 ai-gene-review is keyed on the UniProt accession, so it is joined to HGNC on
 UniProt, never on the folder's gene symbol: symbols are renamed (GBA became
@@ -44,13 +52,17 @@ Its content is AI-generated. Gene pages show it as a labelled outside source,
 and only for reviews whose upstream `status` is `COMPLETE`. It is never cited
 as evidence in a KB entry.
 
+The build refuses an input that does not match its pin: a downloaded file
+whose checksum differs, or an ai-gene-review checkout at another commit. A
+refresh that fails its checksum leaves the previous pinned file in place.
+
 Only genes some KB entry names are written, so the tables follow the KB rather
 than all 45,000 HGNC genes. To pick up a new upstream release:
 
 ```bash
 just genes-ingest-refresh --repin   # rewrites the manifests' pins
 just genes-ingest-build             # rewrites kb/genes/ingest/
-git diff data/hgnc data/ai-gene-review kb/genes/ingest
+git diff data/hgnc data/ai-gene-review data/clingen-genes kb/genes/ingest
 ```
 
 Commit the manifest change and the table diff together, as with the Orphanet
@@ -79,6 +91,28 @@ common, including in the entries most closely identified with a gene (Cowden
 Syndrome and PTEN Hamartoma Tumor Syndrome both record PTEN only as
 `association: Causative`), so the gene page doubles as a worklist for typing
 them.
+
+### ClinGen against the KB
+
+Each ClinGen assertion is matched to the dismech entries whose own disease it
+is: the entry's `disease_term`, a `has_subtypes[].subtype_term`, or a
+`mondo_mappings` term with `skos:exactMatch`. That is the same rule
+`just check-gene-validity` uses. The page then says how each matched entry
+records the gene: its relationship type, **untyped**, **no genetic record**,
+or **not named**. A ClinGen disease no entry curates is listed as such.
+
+The mismatches are a worklist across the whole KB:
+
+```bash
+just genes-clingen-gaps                                  # counts by status and tier
+just genes-clingen-gaps --format tsv --classification Definitive
+```
+
+Each row is a lead, not a defect. A Definitive tier on an untyped record
+usually means the record can be typed `CAUSATIVE` from evidence ClinGen has
+already assessed, but a Disputed or Refuted tier on a gene an entry does not
+name is a reason *not* to add one. Only genes some KB entry already names are
+in scope, because the ingest tables are limited to those.
 
 ### Curated summary: prose that is checked
 
@@ -166,7 +200,6 @@ page.
   annotated with PI3K/AKT signalling, and its ai-gene-review core function with
   the negative regulation of that process, so the two share no identifier even
   though they agree. A closure-aware comparison needs the GO hierarchy.
-- ClinGen validity tiers appear on a page only where a disease entry has copied
-  them into `gene_disease_validity`. Ingesting ClinGen and GenCC per gene is a
-  natural next source.
+- GenCC, which aggregates ClinGen with other submitters (Orphanet, PanelApp,
+  Genomics England), is not ingested yet.
 - Comorbidity entries are walked but currently name no genes.
