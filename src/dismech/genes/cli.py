@@ -10,6 +10,8 @@ from pathlib import Path
 
 import typer
 
+from dismech.genes.render import MIN_DISORDERS_FOR_PAGE
+
 app = typer.Typer(help="Gene pages: ingest, KB slice, curated summaries, rendering.")
 
 
@@ -230,7 +232,9 @@ def verify_cmd(
 def render_cmd(
     output_dir: Path = typer.Option(Path("pages/genes"), "--output-dir"),
     min_disorders: int = typer.Option(
-        2, "--min-disorders", help="Full page threshold; others are index rows."
+        MIN_DISORDERS_FOR_PAGE,
+        "--min-disorders",
+        help="Full page threshold; others are index rows.",
     ),
     gene: list[str] = typer.Option(
         None, "--gene", help="Render only these hgnc:<n> pages (plus the index)."
