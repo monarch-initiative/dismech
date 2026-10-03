@@ -67,9 +67,16 @@ launches all configured rows as parallel jobs:
 
 | Effort tier | Requested model | Candidate routing |
 |---|---|---|
-| `low_effort` | `haiku` | Items labelled `curation` and `low_effort` |
-| `medium_effort` | `sonnet` | Items labelled `curation` and `medium_effort`, excluding `low_effort` |
-| `high_effort` | `opus` | Items labelled `curation`, excluding both `low_effort` and `medium_effort` |
+| `low_effort` | `haiku` | Items labelled `curation` and `low_effort`, excluding `very-hard` |
+| `medium_effort` | `sonnet` | Items labelled `curation` and `medium_effort`, excluding `low_effort` and `very-hard` |
+| `high_effort` | `opus` | Items labelled `curation`, excluding `low_effort`, `medium_effort`, and `very-hard` |
+| `very-hard` | `claude-fable-5-1` | Items labelled `curation` and `very-hard`, excluding all other effort labels |
+
+The `very-hard` tier is explicitly pinned to Fable 5.1 for its initial rollout,
+as requested on 2026-09-15; revisit the pin after evaluating the first runs.
+It handles complex curation requiring extensive reasoning across mechanisms or
+entries. Apply exactly one effort label: combining `very-hard` with another
+effort label excludes the item from every tier.
 
 The high tier includes items with **no effort label**; it does not require a
 `high_effort` label. All tiers search for open, unassigned issues and PRs. The
