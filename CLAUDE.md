@@ -1532,6 +1532,19 @@ the pathophysiology node's "models informing this mechanism" crosslink: a system
 exists only inside a proposal has not informed anything, and listing it there would
 present a hypothetical as curated evidence.
 
+**A link has four homes, and `dismech.model_links.iter_model_links` is the single
+walk over them** — the three top-level model sections plus a proposed experiment's
+`model_systems` (and its `controls[].model_systems`). Route a new consumer through it
+rather than looping over the sections yourself. Both `tests/test_data.py` and
+`scripts/model_scale_audit.py` used to walk only the top-level three, so every check
+on this object — divergence typing, scale agreement, readout targets, the caveat
+requirements — silently had no opinion on a link inside a proposal, and
+`just model-scale-audit` would report `model->mechanism links: 0` for an entry that
+had one. 27 such links across `Alveolar_Rhabdomyosarcoma`, `Ewing_Sarcoma` and
+`Prolidase_Deficiency` were unchecked before #13375 closed the gap. They all pass,
+which is luck rather than process: an unreachable gate reports success, so "the check
+exits 0" says nothing until you have confirmed the check can see your data.
+
 ```yaml
 animal_models:
 - name: Canine degenerative myelopathy (SOD1 E40K homozygous dog)
