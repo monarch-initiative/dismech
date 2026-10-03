@@ -55,6 +55,56 @@ def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
     assert 'just validate-comorbidity "$f"' not in changed_step
 
 
+def test_validate_module_batch_matches_the_disorder_gate() -> None:
+    """Modules are Disease documents and get the disorder gate, flag for flag.
+
+    In particular ``--no-full-text``: the old per-file ``validate-modules`` loop
+    let a snippet pass on a full-text match the disorder gate would reject, and
+    decided pass/fail by grepping validator output rather than exit status.
+    """
+    justfile = (ROOT / "project.justfile").read_text()
+    body = _recipe_body(justfile, "validate-module-batch *files")
+
+    assert 'for f in "$@"; do' in body
+    assert '"$f" == {{modules_dir}}/*.yaml' in body
+    assert (
+        "uv run linkml-validate --schema {{schema_path}} "
+        '--target-class Disease "${existing[@]}"' in body
+    )
+    assert (
+        '{{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} '
+        "-t Disease" in body
+    )
+    assert (
+        '{{ref_validator}} validate data "${existing[@]}" '
+        "--schema {{schema_path}} --target-class Disease" in body
+    )
+    assert "--no-full-text" in body
+    assert "grep" not in body, "pass/fail must come from exit status"
+    assert body.count("|| exit_code=1") == 5
+    assert '_normalize-cache-if-changed "$cache_stamp"' in body
+
+    whole = _recipe_body(justfile, "validate-modules")
+    assert 'just validate-module-batch "${files[@]}"' in whole
+
+
+def test_ci_changed_module_validation_uses_batched_recipe() -> None:
+    """A module-only PR is validated on the PR, not first in the merge queue."""
+    step = _step_named("main.yaml", "Validate changed module KB files")
+    assert step["if"] == "steps.changes.outputs.kb_modules == 'true'"
+    assert "just validate-module-batch" in step["run"]
+    assert "kb_modules_files" in step["run"]
+
+    workflow = safe_load((ROOT / ".github" / "workflows" / "main.yaml").read_text())
+    filters = next(
+        safe_load(s["with"]["filters"])
+        for job in workflow["jobs"].values()
+        for s in job.get("steps", [])
+        if s.get("id") == "changes"
+    )
+    assert filters["kb_modules"] == ["kb/modules/*.yaml"]
+
+
 def test_ci_validates_hypothesis_review_artifacts_on_report_or_yaml_changes() -> None:
     """Raw-report edits can break quote anchors, so the whole subtree triggers QC."""
     workflow_text = (ROOT / ".github" / "workflows" / "main.yaml").read_text()

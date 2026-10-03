@@ -496,59 +496,72 @@ validate-surrogate-endpoints:
         uv run linkml-validate --schema {{schema_path}} --target-class FDASurrogateEndpointCollection "$f"
     done
 
-# Validate all mechanism module YAML files (schema + terms + references)
+# Validate all mechanism module YAML files (schema + terms + references).
+# Same gate as CI's changed-module step: modules validate against the Disease
+# class and get exactly the checks `validate-disorders` applies, including
+# abstract-only (--no-full-text) snippet matching.
 [group('QC')]
 validate-modules:
     #!/usr/bin/env bash
+    set -u
     shopt -s nullglob
     files=({{modules_dir}}/*.yaml)
     if [ ${#files[@]} -eq 0 ]; then
         echo "No module files found in {{modules_dir}}"
         exit 0
     fi
-    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
-    failed_files=()
-    echo "Validating all mechanism module files..."
-    for f in "${files[@]}"; do
-        echo "=== $(basename $f) ==="
-        errors=""
-        # Schema validation (modules use the Disease class)
-        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
-            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
-        fi
-        # Term validation
-        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
-        if ! echo "$term_output" | grep -q "Validation passed"; then
-            errors+="  [TERMS] $term_output\n"
-        fi
-        # Reference validation
-        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
-        if echo "$ref_output" | grep -q "\[ERROR\]"; then
-            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
-        fi
-        if [ -n "$errors" ]; then
-            failed_files+=("$f")
-            echo -e "$errors"
+    just validate-module-batch "${files[@]}"
+
+# Validate the given mechanism module files (schema + terms + references),
+# batched like `validate-disorders` so each validator process is reused across
+# files. Exit status, not grepped output, decides pass/fail. CI runs this over
+# the module files a PR changes.
+[group('QC')]
+validate-module-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Iterate real positional args (see `set positional-arguments` in justfile).
+    for f in "$@"; do
+        if [[ "$f" == {{modules_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
         else
-            # Surface the wrapper's affirmative snippet count (issue #7252):
-            # without it this loop prints a wall of "✓ OK" that is
-            # indistinguishable from having checked nothing.
-            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
-            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
+            echo "Skipping non-module file: $f"
         fi
     done
-    echo ""
-    echo "================================"
-    if [ ${#failed_files[@]} -eq 0 ]; then
-        echo "✓ All module files validated successfully!"
-    else
-        echo "✗ ${#failed_files[@]} module file(s) with errors:"
-        for f in "${failed_files[@]}"; do
-            echo "  - $f"
-        done
-        exit 1
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing module YAML files to validate."
+        exit 0
     fi
+
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
+    exit_code=0
+    echo "Validating ${#existing[@]} module file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache "${existing[@]}" || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more module files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} module file(s) passed validation."
 
 # Validate a single mechanism module file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
@@ -556,13 +569,18 @@ validate-modules:
 validate-module file:
     #!/usr/bin/env bash
     set -e
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just _normalize-cache-if-changed "$cache_stamp"
     echo "✓ All validations passed for {{file}}"
 
 # ModuleCollection currently has no ontology-bound slots, so term validation

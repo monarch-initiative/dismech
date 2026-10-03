@@ -316,9 +316,9 @@ def check_valid_module_files(filepath, validator, data=None):
     A schema tightening invalidates a module exactly as it invalidates a
     disorder entry, but the whole-KB conformance sweep covered disorders,
     comorbidities and groupings and left ``kb/modules/`` out (dismech#8320).
-    ``just validate-modules`` catches this locally and is in ``just qc``, but
-    CI only ever runs it over *changed* files — which is the blind spot #8320
-    was filed about.
+    ``just validate-modules`` catches this locally and is in ``just qc``, and
+    CI runs ``just validate-module-batch`` over the module files a PR changes;
+    this sweep covers the modules a schema change touches without editing them.
     """
     data = _document(filepath, data)
 
@@ -2499,12 +2499,22 @@ def test_disorder_file(filepath, validator):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
 def test_module_file(filepath, validator):
-    """Schema conformance plus model-link and conforms_to checks for one module."""
+    """Schema conformance plus every structural check a disorder entry gets.
+
+    A module is a ``Disease`` document, so nothing in ``DISORDER_CHECKS`` is
+    specific to disorders: required fields, reference prefixes, subtype and
+    mechanism-target foreign keys, and dataset accession shape all apply.
+    """
     data = _document(filepath)
     failures = _failures(
         filepath,
         data,
-        (check_valid_module_files, *MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS),
+        (
+            check_valid_module_files,
+            *DISORDER_CHECKS,
+            *MODEL_BEARING_CHECKS,
+            *CONFORMS_TO_CHECKS,
+        ),
         validator=validator,
     )
     _assert_all_passed(filepath, failures)
