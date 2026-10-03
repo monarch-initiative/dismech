@@ -5,10 +5,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import io
-from pathlib import Path
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
+from pathlib import Path
 
 import yaml
 
