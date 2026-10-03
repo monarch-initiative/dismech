@@ -8625,12 +8625,17 @@ window.searchData = [
     ],
     "creation_date": "2026-10-01T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "An early-onset epilepsy and neurodevelopmental disorder caused by heterozygous, usually de novo, variants in ATP6V0C, which encodes the c subunit of the membrane-embedded V0 domain of the vacuolar H+-ATPase (V-ATPase). The c subunits form the proteolipid ring through which the pump translocates protons, and on synaptic vesicles that proton gradient drives neurotransmitter loading. The phenotype is a spectrum: at the mild end, familial febrile seizures and epilepsy with febrile seizures plus with normal development; most reported individuals have developmental delay, intellectual disability and seizures beginning in the first two years of life, frequently fever-sensitive; at the severe end, a Dravet-like developmental and epileptic encephalopathy. Corpus callosum hypoplasia and cardiac abnormalities occur in a minority. ATP6V0C is also the gene thought to drive the neurodevelopmental phenotype of 16p13.3 microdeletions that remove it together with TBC1D24 and PDPK1.",
+    "subtypes": [
+      "Familial febrile seizures and epilepsy with febrile seizures plus",
+      "Neurodevelopmental disorder with or without epilepsy",
+      "Dravet-like developmental and epileptic encephalopathy"
+    ],
+    "description": "An epilepsy and neurodevelopmental disorder caused by heterozygous, often de novo, variants in ATP6V0C, encoding the c subunit of the membrane V0 domain of the vacuolar H+-ATPase. Its clinical spectrum includes familial febrile seizures or epilepsy with febrile seizures plus and normal development, developmental delay and intellectual disability with or without epilepsy, and Dravet-like developmental and epileptic encephalopathy persisting into adulthood. Seizures often begin in infancy or early childhood and can be fever-sensitive. Callosal or cerebellar vermian abnormalities and delayed myelination occur in some patients; brain MRI can also be normal. Yeast and invertebrate experiments support impaired V-ATPase function, but the intervening mechanisms producing the human neurological phenotype remain incompletely resolved. ATP6V0C is a proposed contributor to overlapping multigene 16p13.3 deletion phenotypes; these deletions do not isolate its effect.",
     "pathophysiology": [
       "ATP6V0C Heterozygous Variant",
       "Reduced V-ATPase Proton Pumping",
-      "Impaired Synaptic Vesicle Acidification and Neurotransmitter Loading",
+      "Impaired Synaptic Vesicle Acidification",
+      "Reduced Neurotransmitter Loading",
       "Impaired V0c-Dependent Facilitation of Vesicle Fusion",
       "Reduced Neurotransmitter Release",
       "Neuronal Hyperexcitability and Seizure Susceptibility"
@@ -8658,16 +8663,35 @@ window.searchData = [
       "Multifocal EEG Abnormalities",
       "Global Developmental Delay",
       "Intellectual Disability",
-      "Hypoplasia of the Corpus Callosum",
+      "Aplasia or Hypoplasia of the Corpus Callosum",
       "Delayed Myelination",
-      "Cardiac Abnormalities"
+      "Aplasia or Hypoplasia of the Cerebellar Vermis",
+      "Dental Enamel Defects",
+      "Pulmonary Valve Stenosis",
+      "Left Ventricular Wall Thickening",
+      "Heart Murmur",
+      "Status Epilepticus",
+      "Atypical Absence Seizures",
+      "Autism",
+      "Crouch Gait",
+      "Parkinsonism",
+      "Delayed Speech and Language Development",
+      "Axial Hypotonia",
+      "Ataxia",
+      "Aggressive Behavior",
+      "Infantile Spasms",
+      "Absent Speech",
+      "Developmental Regression"
     ],
     "phenotype_categories": [
       "Neurological",
+      "Dental",
       "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Head and Neck",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -8677,34 +8701,46 @@ window.searchData = [
       "HP:0007359",
       "HP:0010819",
       "HP:0032794",
-      "HP:0002353",
+      "HP:0010841",
       "HP:0001263",
       "HP:0001249",
       "HP:0007370",
       "HP:0002188",
-      "HP:0001626"
+      "HP:0006817",
+      "HP:0000682",
+      "HP:0034350",
+      "HP:0001712",
+      "HP:0030148",
+      "HP:0002133",
+      "HP:0007270",
+      "HP:0000717",
+      "HP:0025682",
+      "HP:0001300",
+      "HP:0000750",
+      "HP:0008936",
+      "HP:0001251",
+      "HP:0000718",
+      "HP:0012469",
+      "HP:0001344",
+      "HP:0002376"
     ],
-    "frequencies": [
-      "FREQUENT",
-      "OCCASIONAL",
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "ATP6V0C"
     ],
     "treatments": [
-      "Antiseizure Medication"
+      "Individualized Antiseizure Pharmacotherapy"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "ATP6V0C-Related_Epilepsy.yaml",
     "page_url": "../pages/disorders/ATP6V0C-Related_Epilepsy.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 28,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "ATR-X-Related Syndrome",
@@ -10581,13 +10617,20 @@ window.searchData = [
       "Mechanobullous",
       "Inflammatory"
     ],
-    "description": "Epidermolysis bullosa acquisita (EBA) is an acquired, autoimmune subepidermal blistering disease caused by IgG autoantibodies against type VII collagen (COL7), the main component of the anchoring fibrils that tether the epidermal basement membrane to the papillary dermis. The autoantibodies target the non-collagenous NC1 domain and act in two ways: they directly impair anchoring-fibril function (the non-inflammatory, mechanobullous variant, with skin fragility, tense blisters, scarring and milia at trauma-prone sites) and they recruit complement and neutrophils whose reactive oxygen species and proteases split the skin below the lamina densa (the inflammatory variants, which mimic bullous pemphigoid and other autoimmune bullous dermatoses). Diagnosis rests on linear IgG at the dermal-epidermal junction with a u-serrated pattern, dermal-floor binding on salt-split skin, and anti-COL7 ELISA. EBA is distinct from the inherited epidermolysis bullosa forms.",
+    "description": "Epidermolysis bullosa acquisita (EBA) is an acquired autoimmune subepidermal blistering disease with antibodies against type VII collagen (COL7), the principal anchoring-fibril protein. IgG predominates, but IgA-only and mixed IgG/IgA disease occur; NC1 is the major, not exclusive, antigenic domain. Mechanobullous and inflammatory presentations can coexist or change over time. Complement, neutrophil Fc-receptor signaling, reactive oxygen species and proteases contribute to inflammatory tissue injury, with causal dissection mainly from mouse and human ex vivo models. Direct antibody interference with anchoring-fibril adhesion is a proposed explanation for mechanobullous disease. Diagnosis integrates clinical findings with tissue immunofluorescence and COL7-specific testing; dermal-floor binding alone is not specific, and negative serum assays do not exclude EBA. Mucosal scarring may threaten swallowing, vision or the airway. EBA is distinct from inherited dystrophic epidermolysis bullosa.",
     "pathophysiology": [
-      "HLA-DRB1-Associated Loss of Tolerance to Type VII Collagen",
-      "Anti-Type-VII-Collagen IgG Autoantibody Response",
+      "HLA-Associated Susceptibility to COL7 Autoimmunity",
+      "COL7-Reactive CD4 T-Cell Response",
+      "Anti-Type-VII-Collagen Autoantibody Production",
+      "FcRn-Mediated Persistence of Anti-COL7 IgG",
       "Autoantibody Binding to Type VII Collagen at the Dermal-Epidermal Junction",
-      "Complement Activation and Neutrophil Recruitment",
-      "Neutrophil Reactive Oxygen Species and Protease-Mediated Dermal-Epidermal Separation",
+      "Complement Activation at the Dermal-Epidermal Junction",
+      "Neutrophil Recruitment to the Skin",
+      "Immune-Complex-Induced Neutrophil Activation",
+      "Neutrophil NADPH-Oxidase-Dependent Reactive Oxygen Species Production",
+      "Neutrophil Protease Release",
+      "IFN-Gamma-Dependent Amplification of Cutaneous Inflammation",
+      "Proposed Direct Impairment of Anchoring-Fibril Adhesion",
       "Subepidermal Blister Formation"
     ],
     "cell_types": [
@@ -10601,10 +10644,13 @@ window.searchData = [
       "CL:0000775"
     ],
     "biological_processes": [
+      "CD4-positive, alpha-beta T cell activation",
       "immunoglobulin production",
       "complement activation",
       "neutrophil migration",
-      "respiratory burst"
+      "neutrophil activation",
+      "respiratory burst",
+      "neutrophil degranulation"
     ],
     "phenotypes": [
       "Subepidermal blistering",
@@ -10615,7 +10661,10 @@ window.searchData = [
       "Nail dystrophy",
       "Postinflammatory dyspigmentation",
       "Esophageal stricture",
-      "Cicatrizing ocular involvement"
+      "Cicatrizing ocular involvement",
+      "Pruritus",
+      "Dysphagia",
+      "Laryngeal stenosis"
     ],
     "phenotype_categories": [
       "Cutaneous",
@@ -10626,7 +10675,9 @@ window.searchData = [
       "Digestive",
       "Head and Neck",
       "Integument",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0008066",
@@ -10637,12 +10688,12 @@ window.searchData = [
       "HP:0008404",
       "HP:0001000",
       "HP:0002043",
-      "HP:0500039"
+      "HP:0500039",
+      "HP:0000989",
+      "HP:0002015",
+      "HP:0001602"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "HLA-DRB1"
     ],
@@ -10652,18 +10703,31 @@ window.searchData = [
       "Dapsone",
       "Cyclosporine",
       "Rituximab",
-      "Intravenous immunoglobulin"
+      "Intravenous immunoglobulin",
+      "Mycophenolate mofetil",
+      "Methotrexate",
+      "Azathioprine",
+      "Cyclophosphamide",
+      "Infliximab in EBA associated with Crohn disease",
+      "Ustekinumab in EBA associated with Crohn disease",
+      "Immunoadsorption",
+      "Extracorporeal photopheresis",
+      "Multidisciplinary mucosal assessment and supportive care",
+      "Experimental IFN-gamma blockade",
+      "Experimental FcRn blockade",
+      "Experimental GM-CSF blockade",
+      "Experimental IL-1 receptor blockade with anakinra"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Acquired_Epidermolysis_Bullosa.yaml",
     "page_url": "../pages/disorders/Acquired_Epidermolysis_Bullosa.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 12,
+    "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 6,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 19,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Acquired Immunodeficiency Syndrome",
@@ -40501,14 +40565,17 @@ window.searchData = [
     "creation_date": "2026-10-01T20:20:26Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNB28 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic truncating variants in TRIOBP (TRIO and F-actin binding protein). The locus was mapped in consanguineous Palestinian kindreds with prelingual, profound deafness, and the gene was identified in 2006 by two groups working in Palestinian and Pakistani families.\nTRIOBP is a gene with three classes of product, and the disease belongs to only two of them. TRIOBP-1 is ubiquitous and essential for embryonic survival; TRIOBP-4 and the long TRIOBP-5 isoform carry the actin-binding repeat motifs and are expressed mainly in the inner ear and retina. Every pathogenic allele lies in the exons that encode TRIOBP-4/5 and spares TRIOBP-1, which is why the disease is confined to hearing even though the gene is expressed everywhere.\nTRIOBP-4/5 builds the stereocilia rootlet: the very densely packed actin bundle that runs through the narrowed base of each stereocilium and anchors it into the cuticular plate. Purified TRIOBP-4 bundles actin into uniquely dense, rootlet-like arrays. Mice lacking TRIOBP-4/5 grow stereocilia normally but never form rootlets; their bundles are about twice as compliant and are damaged by deflection, then fuse and degenerate, and the mice are profoundly deaf even though the mechanotransduction machinery itself works. TRIOBP-5 is also present in the Deiters' and pillar supporting cells, where its loss softens the apical surface of the organ of Corti, a second mechanical lesion whose contribution to human hearing loss has not been measured.\nDFNB28 shares its structural compartment with DFNB79 (TPRN). Taperin sits at the taper where the rootlet crosses the pivot point, and taperin-null hair cells progressively lose TRIOBP-5 and its partner ANKRD24 from the rootlets. The two entries describe the same rootlet from opposite ends: here the rootlet is never built properly, in DFNB79 it is built and then not maintained.\nThe clinical picture is wider than the founding description. Families truncating both TRIOBP-4 and TRIOBP-5 have prelingual severe-to-profound loss, but patients with one allele that truncates only TRIOBP-5 have had congenital moderate, stable loss or peri- to postlingual moderate-to-severe loss. That isoform-specific pattern is reported in only a handful of families and is recorded below as an open question rather than an established genotype-phenotype rule. Vestibular function is normal. Cochlear implantation gives good outcomes, consistent with a lesion confined to the hair bundle.",
+    "description": "DFNB28 is autosomal recessive nonsyndromic sensorineural hearing loss caused by biallelic pathogenic TRIOBP variants, commonly nonsense or frameshift alleles. Initial Palestinian and Indian/Pakistani families had prelingual severe-to-profound hearing loss. Dutch and Polish reports expanded the spectrum to congenital moderate and peri- or postlingual moderate-to-severe loss. The available families do not establish a general genotype-based prognosis or a uniform rate of progression.\nTRIOBP-4 and TRIOBP-5 organize densely bundled actin rootlets at the bases of cochlear hair-cell stereocilia. Combined loss of these isoforms in mice prevents rootlet formation, weakens bundle mechanics and precedes stereocilia degeneration. Selective TRIOBP-5 deficiency produces malformed rootlets and also reduces supporting-cell stiffness. These experimental lesions support the human disease mechanism, but their relative contributions and time courses have not been measured in patient cochleae. The widely expressed TRIOBP-1 isoform is spared by the established truncating alleles discussed here; isoform-specific expression alone does not prove why the clinical phenotype is predominantly auditory.\nNormal vestibular function has been reported in examined patients, without establishing its universal preservation. Cochlear implantation improved aided thresholds in three siblings from one Afghan family, with differing speech-perception outcomes during short follow-up. These results support consideration of implantation according to individual candidacy, rather than a guaranteed outcome for every TRIOBP genotype.",
     "pathophysiology": [
       "TRIOBP-4/5 Loss of Function",
       "Loss of Dense F-Actin Bundling by TRIOBP-4/5",
-      "Failure of Stereocilia Rootlet Formation",
-      "Reduced Stereocilia Pivot Stiffness and Fragility",
+      "Abnormal Stereocilia Rootlet Assembly",
+      "Reduced Stereocilia Pivot Stiffness",
       "Stereocilia Fusion and Hair Bundle Degeneration",
-      "Reduced Apical Stiffness of Organ of Corti Supporting Cells"
+      "Reduced Apical Stiffness of Organ of Corti Supporting Cells",
+      "Impaired TRIOBP-5 Self-Association",
+      "Disrupted Cuticular Plate Actin Organization",
+      "Disrupted Supporting-Cell Apical Cytoskeleton"
     ],
     "cell_types": [
       "cochlear inner hair cell",
@@ -40529,41 +40596,38 @@ window.searchData = [
     ],
     "phenotypes": [
       "Prelingual Profound Sensorineural Hearing Impairment",
-      "Moderate to Severe Sensorineural Hearing Impairment",
-      "Normal Vestibular Function"
+      "Moderate to Severe Sensorineural Hearing Impairment"
     ],
     "phenotype_categories": [
-      "Auditory",
-      "Vestibular"
+      "Auditory"
     ],
     "phenotype_hpo_categories": [
       "Ear"
     ],
     "phenotype_ids": [
       "HP:0000399",
-      "HP:0008504",
-      "HP:0001751"
+      "HP:0000407"
     ],
-    "frequencies": [
-      "EXCLUDED"
-    ],
+    "frequencies": [],
     "genes": [
       "TRIOBP"
     ],
     "treatments": [
       "Cochlear Implantation",
       "Hearing Amplification",
-      "Genetic Counselling"
+      "Genetic Counselling",
+      "Communication and language support",
+      "Counseling to avoid additional noise injury"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_28.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_28.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 2,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "14",
+    "num_treatments": 5,
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "6"
   },
   {
@@ -40715,25 +40779,27 @@ window.searchData = [
       "DFNB32",
       "HIIMS"
     ],
-    "description": "DFNB32 is autosomal recessive sensorineural hearing loss caused by biallelic variants in CDC14A, which encodes a dual-specificity phosphoprotein phosphatase. The locus was mapped in a Tunisian family with congenital profound deafness in 2003; the gene was found in 2016, when it was briefly given a second locus name, DFNB105, that was later shown to lie entirely inside the DFNB32 interval. Reported families are mostly consanguineous and come from Iran, Pakistan, Tunisia, Mauritania and the United Arab Emirates. Hearing loss is bilateral and ranges from moderate to profound; onset is congenital or early childhood in most families, progression is reported in some and explicitly absent in others, and balance is normal.\nThe name says nonsyndromic, and for females, and for males carrying certain alleles, that is accurate. For other alleles it is not. In several families affected men are infertile, with low or absent sperm counts and largely immotile, misshapen sperm, while affected women in the same families have children. Mouse Cdc14a mutants reproduce this sex-limited pattern exactly: deaf females breed, deaf males do not. The discoverers named the syndromic form hearing impairment and infertile male syndrome (HIIMS). MONDO now carries HIIMS as a separate syndromic disease (MONDO:0100069), while OMIM keeps a single phenotype entry (608653) for deafness \"with or without immotile sperm\". This entry follows OMIM's lumping because the hearing loss and its mechanism are shared across the whole allelic series, and records HIIMS as a subtype bound to its own MONDO term so the distinction stays queryable.\nWhich form a family has tracks the allele, not chance. Missense changes in the catalytic domain, a splice variant in exon 10 and N-terminal truncations abolish phosphatase activity and cause HIIMS. Truncations in exon 11 or further 3' remove the long, intrinsically disordered C-terminal tail but leave the two globular phosphatase domains intact; the truncated protein is stable, retains phosphatase activity, and supports male fertility, but it is trapped in the nucleus and fails to reach the hair bundle, so hearing is still lost. The boundary is not airtight: the catalytic-domain missense p.Arg312Gly, an HIIMS allele in the founding report, was the second commonest deafness variant in an Emirati cohort with no fertility problems reported, although fertility was not tested there.\nMechanistically, CDC14A sits in hair cell kinocilia, basal bodies and the upper stereocilia. The first report proposed a kinocilium growth defect, based on zebrafish morpholino knockdown, but germline mouse and zebrafish mutants have kinocilia of normal length. In Cdc14a mutant mice the cochlea develops normally, and hair cells then degenerate after the onset of hearing, with stereocilia fusion and inner hair cells lost before outer ones. The phosphatase's substrates in the ear and testis are unknown, so the chain between loss of activity and hair cell death is not filled in.",
+    "description": "CDC14A-related autosomal recessive hearing loss ranges from congenital severe-to-profound loss to moderate or later-recognized impairment, with variable progression. Some affected males also have infertility and abnormal semen parameters, termed hearing impairment and infertile male syndrome (HIIMS); other affected men have children or semen results within or near reference ranges. Published families do not establish a reliable fertility prognosis for every allele. Normal bedside balance testing has been reported, without proving universal preservation of vestibular function.\nThis entry covers the CDC14A allelic spectrum represented by OMIM:608653 and retains HIIMS as a subtype bound to MONDO:0100069. MONDO:0012091 names nonsyndromic hearing loss, so this is a broader curation scope than that term alone. Clinical subtype assignment requires reproductive assessment where informative; an affected child or a family containing only affected females cannot establish the fertility phenotype of that allele.\nLoss of CDC14A phosphatase function in mice produces progressive cochlear hair-cell degeneration and male reproductive abnormalities. For the human p.Arg345Ter allele, leukocyte RNA remains detectable, and engineered truncated mouse protein retains catalytic activity but localizes abnormally in transfected inner-ear explants. These findings support allele-dependent mechanisms, but neither the exact human cochlear lesion nor the critical physiological substrates have been established. Other exon-11 variants cannot automatically be assigned the same RNA, protein or fertility consequences.",
     "pathophysiology": [
       "Loss of CDC14A Catalytic Phosphatase Activity",
       "Loss of the CDC14A C-Terminal Disordered Region",
       "Nuclear Retention and Hair Bundle Mislocalization of CDC14A",
+      "Outer Hair Cell Functional Impairment",
       "Postnatal Hair Cell Degeneration",
-      "Seminiferous Tubule Degeneration and Spermiation Failure"
+      "Seminiferous Tubule Degeneration",
+      "Impaired Spermiation"
     ],
     "cell_types": [
       "auditory hair cell",
-      "cochlear inner hair cell",
       "cochlear outer hair cell",
+      "cochlear inner hair cell",
       "spermatid",
       "Sertoli cell"
     ],
     "cell_type_ids": [
       "CL:0000202",
-      "CL:0000589",
       "CL:0000601",
+      "CL:0000589",
       "CL:0000018",
       "CL:0000216"
     ],
@@ -40750,13 +40816,11 @@ window.searchData = [
       "Reduced Sperm Motility",
       "Oligozoospermia",
       "Azoospermia",
-      "Abnormal Sperm Morphology",
-      "Normal Vestibular Function"
+      "Abnormal Sperm Morphology"
     ],
     "phenotype_categories": [
       "Auditory",
-      "Reproductive",
-      "Vestibular"
+      "Reproductive"
     ],
     "phenotype_hpo_categories": [
       "Ear",
@@ -40770,30 +40834,28 @@ window.searchData = [
       "HP:0012207",
       "HP:0000798",
       "HP:0000027",
-      "HP:0012864",
-      "HP:0001751"
+      "HP:0012864"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "EXCLUDED"
-    ],
+    "frequencies": [],
     "genes": [
       "CDC14A"
     ],
     "treatments": [
       "Genetic Counseling",
       "Hearing Amplification",
-      "Cochlear Implantation"
+      "Cochlear Implantation",
+      "Communication and language support",
+      "Avoidance of additional noise injury"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_32.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_32.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "21",
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
   },
   {
@@ -63477,20 +63539,26 @@ window.searchData = [
     "category": "Mendelian",
     "parents": [
       "sterol biosynthesis disorder",
-      "X-linked ichthyosis syndrome",
-      "multiple congenital anomalies/dysmorphic syndrome without intellectual disability"
+      "X-linked ichthyosis syndrome"
     ],
     "creation_date": "2026-08-13T19:20:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CHILD syndrome (Congenital Hemidysplasia with Ichthyosiform nevus and Limb Defects) is an X-linked dominant, usually male-lethal disorder of the distal (post-squalene) cholesterol biosynthetic pathway, caused by loss-of-function variants in NSDHL at Xq28. NSDHL encodes the NAD(P)H steroid dehydrogenase-like protein, the 3-beta-hydroxysteroid dehydrogenase and C4-decarboxylase that removes the C-4 methyl groups from lanosterol-derived intermediates. Its mechanistic interest is that the lesion is dual rather than single: affected cells are simultaneously starved of the pathway end product, cholesterol, and poisoned by the methylsterol intermediates that pile up above the enzymatic block. Neither arm alone explains the disease, and the therapeutic proof of this came from a topical trial in which cholesterol replacement alone failed while cholesterol combined with a statin, which shuts off the flux generating the toxic intermediates, cleared the skin. The syndrome's other signature is its striking lateralization: because NSDHL is X-linked and subject to random X inactivation, a heterozygous female is a functional mosaic, and lesional skin is populated by keratinocytes expressing the mutant allele while contralateral clinically normal skin expresses only the wild-type allele. Mutant-expressing cells are under continuing negative selection, which accounts both for that asymmetry and for the tendency of skin lesions to improve with age; what remains unexplained is why the boundary is a sharp body midline rather than the finer Blaschko striping seen in most X-linked mosaic genodermatoses. Cholesterol is also required for Hedgehog signal transduction, which links NSDHL deficiency to the ipsilateral limb defects, to the hair-follicle failure that persists even after the skin clears, and to the placental labyrinth defect that appears to underlie male lethality. Hypomorphic NSDHL alleles cause a clinically distinct allelic disorder in males, CK syndrome.",
+    "description": "CHILD syndrome (congenital hemidysplasia with ichthyosiform nevus and limb defects) is an X-linked, usually male-lethal disorder caused by pathogenic NSDHL variants that impair post-squalene cholesterol biosynthesis. Heterozygous females have variable cutaneous and skeletal involvement, typically with unilateral ichthyosiform lesions and ipsilateral limb defects; bilateral or mild presentations and rare mosaic males are reported. Intellect is usually normal. NSDHL participates in sterol C4-demethylation, and experimental models distinguish effects of reduced cholesterol availability from effects of accumulated intermediates. Patient skin shows abnormal epidermal lipid secretion. X-inactivation creates mosaic expression, but the mechanism of the characteristic body-half distribution and any contribution of longitudinal clone depletion in human skin remain unresolved. Topical statins, alone or combined with cholesterol, have improved skin lesions in uncontrolled reports; these observations do not prove that cholesterol supplementation is required or that congenital skeletal defects are corrected. Hypomorphic NSDHL variants cause the distinct allelic disorder CK syndrome.",
     "pathophysiology": [
       "NSDHL Loss of Function",
-      "Blocked C4-Demethylation with Cholesterol Deficiency and Methylsterol Accumulation",
-      "X-Inactivation Mosaicism and Negative Selection of Mutant-Expressing Cells",
-      "Impaired Epidermal Lamellar Body Secretion and Barrier Formation",
+      "Impaired Sterol C4-Demethylation",
+      "Reduced Cholesterol Availability",
+      "C4-Methylsterol Accumulation",
+      "X-Inactivation-Dependent NSDHL Expression Mosaicism",
+      "Age-Dependent Depletion of NSDHL-Deficient Cells",
+      "Impaired Epidermal Lamellar Body Secretion",
+      "Disorganized Stratum Corneum Lipid Lamellae",
       "Impaired Hedgehog Signal Transduction",
-      "Placental Labyrinth Failure and Male Lethality"
+      "Placental Labyrinth Dysmorphogenesis",
+      "Increased Receptor Lysosomal Trafficking",
+      "Reduced EGFR Signaling",
+      "Impaired Anagen Hair Growth"
     ],
     "cell_types": [
       "keratinocyte",
@@ -63504,9 +63572,8 @@ window.searchData = [
     ],
     "biological_processes": [
       "cholesterol biosynthetic process",
-      "random X inactivation",
+      "random inactivation of X chromosome",
       "establishment of skin barrier",
-      "keratinocyte differentiation",
       "smoothened signaling pathway",
       "placenta development"
     ],
@@ -63519,11 +63586,21 @@ window.searchData = [
       "Alopecia of affected skin",
       "Stippled epiphyseal calcification",
       "Scoliosis",
-      "Cardiac malformation",
-      "Kidney malformation",
-      "Lung malformation",
+      "Cardiac septal defect",
+      "Hydronephrosis",
+      "Renal agenesis",
+      "Pulmonary hypoplasia",
       "Joint contracture",
-      "Normal intellect"
+      "Unilateral brain hypoplasia",
+      "Type II lissencephaly",
+      "Cerebellar malformation",
+      "Sensorineural hearing loss",
+      "Oligodactyly",
+      "Polydactyly",
+      "Syndactyly",
+      "Optic atrophy",
+      "Unilateral vocal cord paralysis",
+      "Gastrointestinal mucosal xanthomas"
     ],
     "phenotype_categories": [
       "Cutaneous",
@@ -63532,17 +63609,23 @@ window.searchData = [
       "Renal",
       "Respiratory",
       "Musculoskeletal",
-      "Neurological"
+      "Neurologic",
+      "Auditory",
+      "Ophthalmologic",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Ear",
+      "Eye",
       "Genitourinary",
       "Growth",
       "Integument",
       "Limbs",
       "Musculoskeletal",
       "Nervous System",
-      "Respiratory"
+      "Respiratory",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0010816",
@@ -63552,40 +63635,46 @@ window.searchData = [
       "HP:0001596",
       "HP:0002764",
       "HP:0002650",
-      "HP:0001627",
-      "HP:0012210",
-      "HP:0002088",
+      "HP:0001671",
+      "HP:0000126",
+      "HP:0000104",
+      "HP:0002089",
       "HP:0034392",
-      "HP:0001249"
+      "HP:0007260",
+      "HP:0001317",
+      "HP:0000407",
+      "HP:0012165",
+      "HP:0010442",
+      "HP:0001159",
+      "HP:0000648",
+      "HP:0008757"
     ],
-    "frequencies": [
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
-      "NSDHL",
-      "EBP"
+      "NSDHL"
     ],
     "treatments": [
       "Topical Cholesterol plus Statin (Pathogenesis-Based Therapy)",
+      "Topical Simvastatin Monotherapy",
+      "Topical Ketoconazole",
       "Symptomatic Topical Care",
       "Skin Grafting from the Unaffected Side",
       "Orthopedic and Rehabilitative Management of the Limb and Spine Defects",
-      "Long-Term Surveillance",
+      "Initial Multisystem Assessment and Surveillance",
       "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [
-      "Methylsterol accumulation in affected tissue",
-      "Plasma 8-dehydrocholesterol and 8(9)-cholestenol elevation in the EBP-related minority"
+      "Methylsterol accumulation in affected tissue"
     ],
     "source_file": "CHILD_Syndrome.yaml",
     "page_url": "../pages/disorders/CHILD_Syndrome.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 6,
-    "num_genes": 2,
-    "num_treatments": 6,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "5"
+    "num_phenotypes": 23,
+    "num_pathophysiology": 13,
+    "num_genes": 1,
+    "num_treatments": 8,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "CHIME_syndrome",
@@ -64674,27 +64763,32 @@ window.searchData = [
     "creation_date": "2026-08-25T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CNGB1-related retinopathy is an autosomal recessive rod-cone dystrophy (historically retinitis pigmentosa type 45, RP45) caused by biallelic loss-of-function variants in CNGB1, which encodes the beta subunit of the rod photoreceptor cyclic nucleotide-gated (CNG) channel. The native rod channel is a heterotetramer of three CNGA1 (alpha) subunits and one CNGB1 (beta) subunit; CNGB1a is dispensable for channel formation in isolation but is required for trafficking the complex to the outer segment membrane and setting its normal gating properties. Loss of CNGB1 causes secondary degradation and mistrafficking of the partner CNGA1 subunit, so rods are left with essentially no functional CNG channel at the outer segment, abolishing rod-mediated phototransduction from early childhood. Photoreceptor apoptosis and retinal degeneration follow, but unlike many other phototransduction-cascade RP genes, the loss of rod function and the loss of rod photoreceptor structure are markedly dissociated in time: patients are night-blind from childhood yet typically retain good visual acuity and macular structure into the fourth decade or later, giving an unusually wide therapeutic window that has made this one of the more advanced translational gene-augmentation programs among inherited retinal degenerations. CNGB1 mutations account for approximately 4% of autosomal recessive RP. Because CNGB1 also has a splice isoform (CNGB1b) expressed in olfactory sensory neuron CNG channels, patients frequently also have olfactory dysfunction, distinguishing this entry clinically from most other single-gene rod-cone dystrophies.",
+    "description": "CNGB1-related retinopathy is an autosomal recessive rod-cone dystrophy, historically retinitis pigmentosa 45. Biallelic pathogenic variants affect the beta subunit of the rod cyclic nucleotide-gated channel. Rod dysfunction commonly precedes extensive photoreceptor loss. Night blindness often begins in childhood, but reported symptom onset and disease severity vary, and one series reported onset between ages 4 and 49 years. Central visual acuity and foveal structure may remain useful into adulthood, while some patients develop severe visual loss. These observations suggest an opportunity for intervention but do not establish a universal treatment window or a human gene-therapy benefit.\nCNGB1 also encodes an olfactory-channel isoform. Formal testing has identified hyposmia or anosmia in selected patients, many of whom had not noticed impaired smell. Neither olfactory penetrance nor a reliable variant-specific retinal or olfactory prognosis has been established. Cystoid macular edema, epiretinal membranes and cataract can accompany the retinal disease and affect clinical measurements. Animal gene-augmentation studies provide preclinical evidence that restoring CNGB1 can improve rod function and preserve retinal structure.",
     "pathophysiology": [
-      "CNGB1 Loss-of-Function Variant",
-      "CNGA1 Subunit Degradation and CNG Channel Assembly Failure",
-      "Loss of Rod CNG Channel Function and cGMP Dysregulation",
-      "Rod Photoreceptor Apoptosis and Progressive Degeneration",
+      "Biallelic CNGB1 Dysfunction",
+      "Variant-Specific CNGB1 Protein Instability",
+      "Reduced Rod Outer-Segment CNG Channel Abundance",
+      "Impaired Rod Light Responses",
+      "Rod cGMP Accumulation",
+      "Progressive Rod Photoreceptor Loss",
       "Secondary Cone Dysfunction and Degeneration",
-      "Progressive Visual Field Loss and Blindness"
+      "Reactive Retinal Gliosis",
+      "Photoreceptor Synaptic Ribbon Loss",
+      "Impaired Retinal Ganglion Cell Signaling",
+      "Impaired Olfactory Signal Transduction"
     ],
     "cell_types": [
       "retinal rod cell",
-      "retinal cone cell"
+      "retinal cone cell",
+      "Mueller cell"
     ],
     "cell_type_ids": [
       "CL:0000604",
-      "CL:0000573"
+      "CL:0000573",
+      "CL:0000636"
     ],
     "biological_processes": [
-      "Phototransduction",
-      "Neuron apoptotic process",
-      "Visual perception"
+      "phototransduction"
     ],
     "phenotypes": [
       "Nyctalopia",
@@ -64704,8 +64798,13 @@ window.searchData = [
       "Pigmentary retinopathy",
       "Constriction of peripheral visual field",
       "Cystoid macular edema",
-      "Cataract",
-      "Hyposmia"
+      "Posterior subcapsular cataract",
+      "Hyposmia",
+      "Anosmia",
+      "Epiretinal membrane",
+      "Optic disc pallor",
+      "Color vision defect",
+      "Reduced visual acuity"
     ],
     "phenotype_categories": [
       "Ophthalmological",
@@ -64725,8 +64824,13 @@ window.searchData = [
       "HP:0000580",
       "HP:0001133",
       "HP:0011505",
-      "HP:0000518",
-      "HP:0004409"
+      "HP:0007787",
+      "HP:0004409",
+      "HP:0000458",
+      "HP:0100014",
+      "HP:0000543",
+      "HP:0000551",
+      "HP:0007663"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -64737,17 +64841,20 @@ window.searchData = [
     ],
     "treatments": [
       "AAV-Mediated CNGB1 Gene Augmentation Therapy",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Low-vision rehabilitation",
+      "Carbonic anhydrase inhibition for cystoid macular edema",
+      "Cataract surgery when visually significant"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CNGB1-Related_Retinopathy.yaml",
     "page_url": "../pages/disorders/CNGB1-Related_Retinopathy.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "16",
+    "num_treatments": 5,
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "7"
   },
   {
@@ -351906,14 +352013,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3288,
-  "total_subtypes": 4568,
-  "total_disorders_and_subtypes": 7856,
-  "total_unique_evidence_sources": 48905,
-  "total_unique_publications": 45713,
+  "total_subtypes": 4571,
+  "total_disorders_and_subtypes": 7859,
+  "total_unique_evidence_sources": 48929,
+  "total_unique_publications": 45726,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 292,
   "total_pathographs": 3284,
-  "total_unique_pathological_events": 21333,
+  "total_unique_pathological_events": 21357,
   "total_modules": 183,
   "total_research_reports": 3402,
   "total_classifications": 21,
