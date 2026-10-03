@@ -1566,6 +1566,18 @@ list-qualifier-terms *files:
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
 
+# #10179. unsourced / backfill / other_disease / unplaced / overstated / uncached are
+# reported; exit 1 only when a recorded ClinGen tier contradicts its CGGV: record.
+# Compare Genetic.gene_disease_validity with the ClinGen CGGV: assertions it cites.
+[group('QC')]
+check-gene-validity *files:
+    uv run python scripts/check_gene_validity.py "$@"
+
+# Census of the same, exit 0. `--format tsv --kind backfill` is the worklist.
+[group('QC')]
+list-gene-validity *args:
+    uv run python scripts/check_gene_validity.py --report "$@"
+
 # Report gene bindings whose HGNC label is not the gene the entry names (#10948).
 # `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
 # against nothing else, so a self-consistent binding to the WRONG gene passes --
@@ -2008,6 +2020,12 @@ gen-module-pages:
     uv run python -m dismech.render --module {{modules_dir}}
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
     @echo "Generated $(ls -1 pages/module-collections/*.html 2>/dev/null | wc -l | tr -d ' ') module collection pages"
+
+# gen-pages also writes these; this is the fast path when only a model changed (#13123).
+# Generate one page per models/<model_id>/ folder, plus pages/models/index.html
+[group('Pages')]
+gen-model-pages:
+    uv run python -m dismech.model_pages
 
 # Generate a single disease grouping page
 [group('Pages')]
@@ -3254,6 +3272,36 @@ ictrp-list limit="20":
 [group('Research')]
 toxcast-refresh *args="":
     uv run python -m dismech.toxcast_assays {{args}}
+
+# How far ToxCast assay endpoints reach into the pathograph: endpoints whose
+# declared gene target is named by a pathophysiology node, counted by node, by
+# gene and by disease (issue #12858, projects/TOXCAST.md). A shared gene is a
+# candidate, never a mapping. Offline and report-only once `just toxcast-refresh`
+# has cached the annotations; exits 2 naming that recipe when it has not.
+#
+#   just toxcast-coverage
+#   just toxcast-coverage --format tsv --table targets   # or nodes, endpoints, diseases
+#   just toxcast-coverage --json
+#   just toxcast-coverage --check-symbols                # needs the local HGNC build
+#   just toxcast-coverage --out docs/reports/toxcast-pathograph-coverage-<date>.md
+[group('Research')]
+toxcast-coverage *args="":
+    uv run python scripts/toxcast_pathograph_coverage.py "$@"
+
+# How far the DNT in vitro battery's endpoints reach into the pathograph: the 17
+# distinct processes of DNT-IVB v1.0 and v2.0 (doi:10.3389/ftox.2024.1359507),
+# matched against pathophysiology and phenotype node names, counted by node, by
+# entry and by whether a model is linked. Lexical matching, never a mapping:
+# dismech records no crosswalk to this battery. Offline and report-only.
+#
+#   just dnt-ivb-coverage
+#   just dnt-ivb-coverage --format tsv --table nodes     # or summary
+#   just dnt-ivb-coverage --json
+#   just dnt-ivb-coverage --check-anchors pages          # needs a rendered pages/ tree
+#   just dnt-ivb-coverage --out docs/reports/dnt-ivb-pathograph-coverage-<date>.md
+[group('Research')]
+dnt-ivb-coverage *args="":
+    uv run python scripts/dnt_ivb_coverage.py "$@"
 
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.

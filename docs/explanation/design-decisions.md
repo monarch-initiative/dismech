@@ -115,6 +115,18 @@ groupings); it may refer to a module in membership criteria or a differentiating
 mechanism, but a module cannot be one of its members. This separation prevents framework
 navigation such as the Hallmarks of Aging from acquiring disease-membership semantics.
 
+**Parallel drug targets may share one mechanism module (2026-08-08).** The
+`fungal_ergosterol_synthesis_inhibition` module keeps the allylamine target Erg1
+(squalene epoxidase) and the azole target Cyp51/Erg11 (sterol
+14-alpha-demethylase) as parallel therapeutic-vulnerability branches in one module.
+The targets are separated by many biosynthetic intermediates, so neither is modeled
+as directly causing the other. They belong together because both normal dependencies
+converge on ergosterol production and ergosterol-dependent fungal plasma-membrane
+organization. Conformance is branch-specific: a disorder duplicates the applicable
+target-to-ergosterol-to-membrane slice and need not duplicate the other target branch.
+This is analogous to retaining distinct DHPS and DHFR targets within one conserved
+bacterial folate-pathway module.
+
 **Causal graph / pathograph.** Pathophysiology nodes connect via `downstream` causal
 edges with a `causal_link_type`, forming a directed graph from etiology to phenotypes.
 This graph backs the rendered pathographs and the computational-model integration
@@ -594,6 +606,94 @@ free text today so R25's second half is a required string that no query can use 
 turns on transmission route and vector, so a bound slot is a prerequisite for enforcing
 rung 4, tracked in §12; and whether `Subtype.classification` should become an enum now that
 it carries the rung-3a axis.
+
+### 3f. Injury and trauma granularity (2026-10-01)
+
+**Status: ACCEPTED as the working rule (`@cmungall`, 2026-10-01), to be tested on a
+pilot before any wider curation.** The schema change it needed is enacted (see *MONDO
+constraint* below); no KB entry has yet been written under it. The first test case is the
+[traumatic brain injury pilot](../superpowers/specs/2026-10-01-traumatic-brain-injury-pilot.md).
+
+**Problem.** §1 puts exposure-related disease in scope but says nothing about physical
+injury, and the KB has handled it only implicitly. There is no entry for an injury itself
+(no traumatic brain injury, spinal cord injury, burn, fracture or crush injury), while the
+diseases that follow injury are curated with the trauma as their cause:
+`Post-Traumatic_Epilepsy` and `Chronic_Traumatic_Encephalopathy` each carry the head
+trauma as an `environmental:` record. That is a sound default, but it cannot represent
+the cases where the tissue's response to the injury is itself the disease being studied
+and treated, nor the biomechanics of the injury.
+
+**Rule: the entry sits where most of the mechanism is.**
+
+| Situation | Represent as | Examples |
+|---|---|---|
+| The injury is a one-off trigger and the disease then runs on its own mechanism | An entry for the **sequela**; the injury is an `environmental:` record linked with `influences_mechanisms` (`TRIGGERS`) and, where the entry models it, a root pathophysiology node | post-traumatic epilepsy, chronic traumatic encephalopathy, post-traumatic stress disorder |
+| The tissue response to the injury is the clinical entity managed as a unit, with its own phases and treatment window | An entry for the **injury**, its phases (primary injury, secondary injury, chronic) in `progression:` | traumatic brain injury, spinal cord injury, crush syndrome |
+| A response cascade recurs across several injuries or sequelae | A **mechanism module** that both injury and sequela entries conform to | secondary injury after neurotrauma, ischemia-reperfusion injury |
+| An anatomical or mechanical category with no single mechanism | A `GROUPING`, or an `OUT_OF_SCOPE` stub | *injury*, *head injury*, *bone fracture* as a class |
+
+This mirrors §3e: a phase is never an entry, and a sequela is its own entry. A module
+holds the shared injury biology once, so curating the sequela and modelling the injury in
+detail do not compete.
+
+**Biomechanics.** The pathograph starts at biology, and mechanical load sits upstream of
+every GO, CL or HP term. Handling, with no schema change:
+
+- The mechanical event is a root pathophysiology node at `TISSUE` or `ORGANISM`
+  `biological_scale`, with `locations` bound to UBERON. `Post-Traumatic_Epilepsy`'s
+  `Traumatic Brain Injury` node already has this shape.
+- Quantitative biomechanics (finite-element tissue-strain models, injury-threshold
+  models) goes in `computational_models:`, linked with `modeled_mechanisms`. The scale
+  gap between a tissue-strain model and an axonal or cellular node is what §3b's
+  `model_scale` records, and strain standing in for tissue damage is a `PROXY_QUANTITY`
+  divergence under §3c.
+
+**MONDO constraint.** MONDO files injuries under `MONDO:0021178` *injury*, a root that
+is **not** a subclass of `MONDO:0000001` *disease*, and `DiseaseTerm` admits only
+descendants of `disease` and `inherited disease susceptibility`. Of the 23 descendants
+of *injury* checked against OLS on 2026-10-01, those reachable from *disease* through a
+second parent validate as a `disease_term` (`MONDO:0858950` traumatic brain injury,
+`MONDO:0043797` spinal cord injury, `MONDO:0015796` acute lung injury, `MONDO:0043510`
+brain injury); those under *injury* alone do not (`MONDO:0043519` burn, `MONDO:0800177`
+frostbite, `MONDO:0005315` bone fracture and its children, `MONDO:0005203` ischemia
+reperfusion injury, `MONDO:0043458` radiation injury, `MONDO:0800482` head injury).
+**Enacted:** `MONDO:0021178` is now a source node of both `DiseaseTerm` and
+`DiseaseOrSubtypeTerm`, so every MONDO injury term can anchor an entry or a subtype.
+This admits every fracture and ankle injury as a *candidate*; the granularity table
+above, not the enum, decides which of them become entries. The widening was accepted
+partly because MONDO's top-level category is expected to become an input to curation
+rules and possibly a type designator for an entry, so injuries should sit in the KB
+under their own root rather than be forced under *disease*.
+
+**ECTO constraint.** ECTO has no term for mechanical or traumatic injury exposure:
+searches of the local build on 2026-10-01 for `l~injur`, `l~trauma`, `l~concuss`,
+`l~impact`, `l~crush`, `l~collision`, `l~acceleration` and `l~force` returned nothing.
+`ExposureTerm` also admits XCO, which does have injury terms (`XCO:0000968` experimental
+traumatic brain injury, `XCO:0001041` experimental spinal cord contusion), but those
+describe experimental procedures on animals and are wrong for a human exposure; they fit
+`animal_models:` context only. **Decided:** no ECTO term request is filed. A human trauma
+exposure is left unbound with the searches recorded in `notes`, which is the state of
+both existing entries.
+
+**Severity and lesion type are not subtypes by default.** Injury severity (mild,
+moderate, severe) is a gradient of one exposure, recorded in the environmental record
+and in `progression:`, not a `has_subtypes` split. Lesion types that usually co-occur in
+one patient (focal contusion and diffuse axonal injury in traumatic brain injury) are
+parallel pathophysiology branches from the mechanical node, not subtypes either; a
+subtype must be a stratum a patient belongs to.
+
+**Shared cascades are small modules.** Where an injury cascade overlaps existing modules
+(`glutamate_excitotoxicity`, `neuroinflammation_glial_activation`), entries conform to
+those. New modules are added per mechanism (barrier breakdown, axonal injury) so they
+are reusable outside trauma, not as one trauma-specific "secondary injury" module.
+
+**Worked example.** `Traumatic_Brain_Injury`, with the modules
+`blood_brain_barrier_breakdown` and `focal_axonal_injury_wallerian_degeneration`, and
+conformance from `Post-Traumatic_Epilepsy`. Its finite-element head model is the first
+`BIOMECHANICAL` computational model.
+
+**Still open.** Whether injury entries need their own `check-granularity`-style audit,
+or §3e's checks are enough to copy. Decide after the pilot.
 
 ## 4. Ontology constraints
 
