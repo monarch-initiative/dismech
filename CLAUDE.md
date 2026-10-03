@@ -36,6 +36,8 @@ Claude Code skills are available in `.claude/skills/`:
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
+- **somatic-mosaicism**: Use when encoding a post-zygotic origin, or deciding
+  whether `HP:0001442` applies.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
@@ -1849,6 +1851,15 @@ versus activity split is the axis deferred in design decisions §12; the
 experiment is recorded as a way to measure it, and settles nothing about the
 schema question. See [`projects/AUTONOMOUS_LABS.md`](projects/AUTONOMOUS_LABS.md)
 for the wider execution-layer project.
+
+### Somatic Mosaicism (Post-zygotic Disorders)
+
+A disorder whose causal variant arose after fertilization is encoded through its
+mode of inheritance, like a digenic one: an `inheritance` block bound to
+`HP:0001442` **Typified by somatic mosaicism** with its own evidence, plus
+`variant_origin: SOMATIC` on the causal gene. Use the `somatic-mosaicism` skill
+for the tiers, the cases that must not be bound (X-inactivation, parental
+mosaicism), and the `Somatic_Mosaic_Disorders` grouping.
 
 ### Hypothesis-Based Phenotype Algorithms
 
