@@ -36,6 +36,8 @@ Claude Code skills are available in `.claude/skills/`:
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
+- **somatic-mosaicism**: Use when encoding a post-zygotic origin, or deciding
+  whether `HP:0001442` applies.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
@@ -1852,44 +1854,12 @@ for the wider execution-layer project.
 
 ### Somatic Mosaicism (Post-zygotic Disorders)
 
-A disorder whose causal variant arose **after fertilization** — obligate mosaic
-overgrowth syndromes (Proteus, CLOVES), vascular and pigmentary anomalies
-(Sturge-Weber, nevus of Ota), lesion-restricted brain disorders
-(hemimegalencephaly, FCD II), and acquired clonal haematopoietic disorders
-(VEXAS, PNH) — is encoded the same way a digenic one is: through the mode of
-inheritance, so the set is queryable. Before this convention existed the
-flagship entries said the same thing four different ways (an HP term, a block
-bound to `Sporadic`, a free-text "Not applicable" block, or prose only) and no
-query could recover them.
-
-- Add an `inheritance` block with `inheritance_term` **bound** to
-  `HP:0001442` **Typified by somatic mosaicism**, with its own snippet-backed
-  evidence — typically the paired lesion-versus-blood
-  sequencing sentence or a tissue-restricted allele-fraction sentence. A block
-  bound to `HP:0003745` (Sporadic) is not a substitute: sporadic describes the
-  pedigree, not the mechanism.
-- Set `variant_origin: SOMATIC` on the causal `genetic:` row, or
-  `GERMLINE_AND_SOMATIC` for a two-hit repressor. Use `DE_NOVO` only for a
-  germline de novo variant present in every cell.
-- A disorder with a **recognized mosaic arm** alongside a germline form
-  (tuberous sclerosis complex, porokeratosis, the MOGHE arm of SLC35A2-CDG)
-  carries a second inheritance block for that arm; it does not replace the
-  germline block.
-- `HP:0001442` means DNA-level post-zygotic mosaicism. Do **not** bind it for
-  functional mosaicism from X inactivation (`CHILD_Syndrome` records why), and
-  note that the KB also uses it for an incidental mosaic proband or for parental
-  germline mosaicism — those entries are correctly bound but are not somatic
-  mosaic disorders.
-- Keep `category` in the standard vocabulary (`Genetic`, not `Somatic mosaic`,
-  and never `Mendelian` for an obligate-mosaic disorder); the mosaic claim lives
-  in the bound term.
-
-The `Somatic_Mosaic_Disorders` grouping collects the members under a
-`NECESSARY` `HAS_INHERITANCE` criterion on `HP:0001442`, with each row saying
-which tier it sits on; its rationale records the exclusions. There is no
-structured slot yet for variant allele fraction, affected tissue, or clone
-timing — `projects/COMMONFUND/SMAHT.md` and `docs/todo/inheritance-enrichment.md`
-carry that open schema question; record those values in `notes:` for now.
+A disorder whose causal variant arose after fertilization is encoded through its
+mode of inheritance, like a digenic one: an `inheritance` block bound to
+`HP:0001442` **Typified by somatic mosaicism** with its own evidence, plus
+`variant_origin: SOMATIC` on the causal gene. Use the `somatic-mosaicism` skill
+for the tiers, the cases that must not be bound (X-inactivation, parental
+mosaicism), and the `Somatic_Mosaic_Disorders` grouping.
 
 ### Hypothesis-Based Phenotype Algorithms
 
