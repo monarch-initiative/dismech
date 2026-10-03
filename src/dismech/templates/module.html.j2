@@ -12,6 +12,7 @@
     <style>
         {% include '_palette.css.j2' %}
         {% include '_disclaimer.css.j2' %}
+        {% include '_model_cards.css.j2' %}
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1431,6 +1432,29 @@
     {% endif %}
     {% endmacro %}
 
+    {# Model-card macros. The markup lives in shared includes that
+       disorder.html.j2 uses too, so a model renders the same on both pages
+       (#13123). Only render_evidence differs: this template renders no evidence
+       expanders anywhere, so evidence is summarised as a count. #}
+    {% macro render_evidence(evidence_list, max_visible=3, accent_color="#64748b") %}
+    {% if evidence_list %}
+    <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: {{ evidence_list | length }}</span>
+    {% endif %}
+    {% endmacro %}
+    {% macro render_descriptor_tag(descriptor, tag_class="tag-bio", show_term_id=false, role="") %}{% include "_descriptor_tag.html.j2" %}{% endmacro %}
+    {% macro render_descriptor_tags(descriptors, tag_class="tag-bio", show_term_id=false, role="") %}
+    {% if descriptors %}
+    <div class="item-meta">
+        {% for descriptor in descriptors %}
+        {{ render_descriptor_tag(descriptor, tag_class, show_term_id, role) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+    {% macro render_findings(findings_list) %}{% include "_findings.html.j2" %}{% endmacro %}
+    {% macro render_experiment_readout(readout, show_target=true) %}{% include "_model_readout.html.j2" %}{% endmacro %}
+    {% macro render_model_mechanism_links(links) %}{% include "_model_mechanism_links.html.j2" %}{% endmacro %}
+
     {# Treatment platform rows. Twin of render_treatment_platform in
        disorder.html.j2 -- update both. The enum display labels come from the
        shared `treatment_platform_label` global rather than a per-template map,
@@ -1754,96 +1778,10 @@
         </div>
         {% endif %}
 
-        {% if module.computational_models %}
-        <div class="card" id="models">
-            <div class="card-header">
-                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
-                <h2 class="card-title">Computational Models</h2>
-                <span class="card-count">{{ module.computational_models | length }}</span>
-            </div>
-            {% for model in module.computational_models %}
-            <div class="item-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %} data-dismech-node="{{ model.name | e }}" data-dismech-type="computational_model">
-                <div class="item-name">
-                    {{ model.name }}
-                    <span class="tag-list" style="display: inline-flex; margin-left: 8px; vertical-align: middle;">
-                        {% if model.model_type %}
-                        <span class="tag tag-role">{{ model.model_type }}</span>
-                        {% endif %}
-                        {% if model.model_format %}
-                        <span class="tag tag-component">{{ model.model_format }}</span>
-                        {% endif %}
-                        {% if model.model_software %}
-                        <span class="tag tag-bio">{{ model.model_software }}</span>
-                        {% endif %}
-                    </span>
-                </div>
-                {% if model.description %}
-                <div class="item-desc">{{ model.description }}</div>
-                {% endif %}
-                {% if model.modeled_mechanisms %}
-                <div class="item-meta">
-                    Models:
-                    {% for link in model.modeled_mechanisms %}{% if loop.index > 1 %}, {% endif %}{{ link.target }}{% endfor %}
-                </div>
-                {% endif %}
-                <div class="item-meta">
-                    {% if model.repository_url %}
-                    <a href="{{ model.repository_url }}" target="_blank" class="linkout">Repository ↗</a>
-                    {% endif %}
-                    {% if model.publication %}
-                    {{ render_curie_link(model.publication) }}
-                    {% endif %}
-                    {% if model.base_model %}
-                    <span>Base model: {{ model.base_model }}</span>
-                    {% endif %}
-                </div>
-                {% if model.notes %}
-                <div class="item-desc">{{ model.notes }}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if module.experimental_models %}
-        <div class="card" id="experimental-models">
-            <div class="card-header">
-                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">🧫</div>
-                <h2 class="card-title">Experimental Models / Non-animal Systems</h2>
-                <span class="card-count">{{ module.experimental_models | length }}</span>
-            </div>
-            {% for model in module.experimental_models %}
-            <div class="item-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %} data-dismech-node="{{ model.name | e }}" data-dismech-type="experimental_model">
-                <div class="item-name">
-                    {{ model.name }}
-                    {% if model.experimental_model_type %}
-                    <span class="tag tag-role" style="margin-left: 8px;">{{ model.experimental_model_type | replace('_', ' ') }}</span>
-                    {% endif %}
-                </div>
-                {% if model.description %}
-                <div class="item-desc">{{ model.description }}</div>
-                {% endif %}
-                {% if model.modeled_mechanisms %}
-                <div class="item-meta">
-                    Models:
-                    {% for link in model.modeled_mechanisms %}{% if loop.index > 1 %}, {% endif %}{{ link.target }}{% if link.relationship %} ({{ link.relationship | replace('_', ' ') | lower }}){% endif %}{% endfor %}
-                </div>
-                {% endif %}
-                <div class="item-meta">
-                    {% if model.publication %}
-                    {{ render_curie_link(model.publication) }}
-                    {% endif %}
-                    {% if is_preprint(model.publication) %}
-                    <span class="badge-preprint" title="This publication is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
-                    {% endif %}
-                </div>
-                {% if model.notes %}
-                <div class="item-desc" style="color: #6b7280;">{{ model.notes }}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        {% set experimental_models = module.experimental_models or [] %}
+        {% set animal_models = module.animal_models or [] %}
+        {% set computational_models = module.computational_models or [] %}
+        {% include "_model_cards.html.j2" %}
 
         {% if module._module_collections %}
         <div class="card" id="module-collections">
