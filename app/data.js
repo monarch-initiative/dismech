@@ -77798,14 +77798,22 @@ window.searchData = [
       "CMT4C",
       "CMT4D",
       "CMT4F",
-      "CMT4J"
+      "CMT4J",
+      "CMT4B3",
+      "CMT4E",
+      "CMT4G",
+      "CMT4H",
+      "CMT4K"
     ],
-    "description": "Charcot-Marie-Tooth disease type 4 (CMT4) is the autosomal-recessive compartment of Charcot-Marie-Tooth disease. It is the recessive counterpart of the dominant demyelinating (CMT1) and axonal (CMT2) compartments: the primary lesion is again in the myelinating Schwann cell (most CMT4 subtypes are demyelinating, with slowed nerve conduction and, in several forms, redundant myelin outfoldings or onion-bulb formation on nerve biopsy), but inheritance is autosomal recessive and the clinical course is generally earlier in onset and more severe than in the dominant forms. CMT4 is genetically heterogeneous, with each subtype defined by biallelic loss of a distinct Schwann-cell or neuronal gene: GDAP1 (CMT4A, mitochondrial dynamics), MTMR2 (CMT4B1) and SBF2 / MTMR13 (CMT4B2) in the myotubularin phosphoinositide-phosphatase family, SH3TC2 (CMT4C, the most common CMT4 subtype and a cause of early-onset scoliosis), NDRG1 (CMT4D / HMSN-Lom), PRX / periaxin (CMT4F), and FIG4 (CMT4J). Whatever the upstream gene, the subtypes converge on the same terminal node as the other CMT compartments \u2014 demyelination with secondary, length-dependent axonal degeneration \u2014 producing the shared clinical phenotype of distal weakness, wasting, sensory loss, foot deformity, and depressed reflexes.",
+    "description": "Charcot-Marie-Tooth disease type 4 (CMT4) is the autosomal-recessive compartment of Charcot-Marie-Tooth disease. It is the recessive counterpart of the dominant demyelinating (CMT1) and axonal (CMT2) compartments: the primary lesion is again in the myelinating Schwann cell (most CMT4 subtypes are demyelinating, with slowed nerve conduction and, in several forms, redundant myelin outfoldings or onion-bulb formation on nerve biopsy), but inheritance is autosomal recessive and the clinical course is generally earlier in onset and more severe than in the dominant forms. CMT4 is genetically heterogeneous, with each subtype defined by biallelic loss of a distinct Schwann-cell or neuronal gene: GDAP1 (CMT4A, mitochondrial dynamics), MTMR2 (CMT4B1) and SBF2 / MTMR13 (CMT4B2) in the myotubularin phosphoinositide-phosphatase family, SBF1 / MTMR5 (CMT4B3) completing that family, SH3TC2 (CMT4C, the most common CMT4 subtype and a cause of early-onset scoliosis), NDRG1 (CMT4D / HMSN-Lom), EGR2 (CMT4E, a myelination transcription factor), PRX / periaxin (CMT4F), HK1 (CMT4G / HMSN-Russe), FGD4 / frabin (CMT4H, a Cdc42 exchange factor), FIG4 (CMT4J), and SURF1 (CMT4K, a cytochrome c oxidase assembly factor rather than a myelin or membrane-traffic protein). Several of these genes also cause dominant disease - GDAP1 axonal CMT2K, EGR2 dominant demyelinating CMT - so a gene appearing in both the CMT4 roster and a dominant compartment is expected rather than a contradiction. Whatever the upstream gene, the subtypes converge on the same terminal node as the other CMT compartments \u2014 demyelination with secondary, length-dependent axonal degeneration \u2014 producing the shared clinical phenotype of distal weakness, wasting, sensory loss, foot deformity, and depressed reflexes.",
     "pathophysiology": [
       "GDAP1 Mitochondrial Dynamics Defect",
       "Myotubularin Phosphoinositide Dysregulation and Myelin Outfolding",
       "SH3TC2 Endosomal Recycling Defect in Schwann Cells",
       "Impaired Axon-Glia Interaction",
+      "EGR2-Dependent Schwann Cell Differentiation Block",
+      "Frabin Cdc42 Exchange Factor Defect",
+      "Endosome-Lysosome Trafficking Defect",
       "Demyelination and Secondary Axonal Loss"
     ],
     "cell_types": [
@@ -77822,7 +77830,11 @@ window.searchData = [
       "Mitochondrial fission",
       "Phosphatidylinositol dephosphorylation",
       "Endocytic recycling",
-      "Myelination in the peripheral nervous system"
+      "Myelination in the peripheral nervous system",
+      "Schwann cell differentiation",
+      "actin cytoskeleton organization",
+      "phosphatidylinositol dephosphorylation",
+      "lysosome organization"
     ],
     "phenotypes": [
       "Distal Muscle Weakness",
@@ -77857,7 +77869,10 @@ window.searchData = [
       "SH3TC2",
       "NDRG1",
       "PRX",
-      "FIG4"
+      "FIG4",
+      "EGR2",
+      "HK1",
+      "FGD4"
     ],
     "treatments": [
       "Physical and Occupational Therapy",
@@ -77870,10 +77885,10 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease_Type_4.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_4.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 5,
-    "num_genes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 10,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "3"
   },
   {
@@ -127546,12 +127561,25 @@ window.searchData = [
     ],
     "creation_date": "2026-04-14T05:27:49Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Erythrokeratodermia variabilis (EKV), also called erythrokeratodermia variabilis et progressiva (EKVP) or Mendes da Costa disease, is a rare connexin-associated disorder of cornification. The disease is defined by transient figurate erythematous patches together with fixed hyperkeratotic plaques, often begins at birth or during infancy, and may be accompanied by palmoplantar keratoderma. Most reported families show autosomal dominant inheritance with incomplete penetrance, although recessive transmission has also been described. Established causal genes at this disease root include GJB3, GJB4, and GJA1, all encoding epidermal connexins whose dysfunction perturbs keratinocyte gap-junction communication and epidermal homeostasis.",
+    "subtypes": [
+      "EKVP1",
+      "EKVP2",
+      "EKVP3",
+      "EKVP4",
+      "EKVP5",
+      "EKVP6",
+      "EKVP7"
+    ],
+    "description": "Erythrokeratodermia variabilis (EKV), also called erythrokeratodermia variabilis et progressiva (EKVP) or Mendes da Costa disease, is a rare connexin-associated disorder of cornification. The disease is defined by transient figurate erythematous patches together with fixed hyperkeratotic plaques, often begins at birth or during infancy, and may be accompanied by palmoplantar keratoderma. Most reported families show autosomal dominant inheritance with incomplete penetrance, although recessive transmission has also been described. The disease root is subdivided into a numbered EKVP series, and only its first three members are connexinopathies: GJB3 (EKVP1), GJB4 (EKVP2) and GJA1 (EKVP3) encode epidermal connexins whose dysfunction perturbs keratinocyte gap-junction communication and epidermal homeostasis. The remaining four subtypes are not connexin diseases. KDSR (EKVP4) is an enzyme of the ceramide synthesis pathway, KRT83 (EKVP5) a hair keratin allelic with dominant monilethrix, TRPM4 (EKVP6) a calcium-activated cation channel acting by gain of function, and PERP (EKVP7) a desmosomal component that also causes Olmsted syndrome through a different allele class. The first three of those four were reported as progressive symmetric erythrokeratoderma and PERP as widespread erythrokeratoderma, so a reader looking for the classic Mendes da Costa picture of migratory patches should read EKVP1 to EKVP3. All seven converge on abnormal epidermal homeostasis and keratinization.",
     "pathophysiology": [
       "Connexin Mislocalization",
       "Impaired Gap Junction Assembly",
-      "Abnormal Epidermal Homeostasis and Keratinization"
+      "Abnormal Epidermal Homeostasis and Keratinization",
+      "Epidermal Ceramide Synthesis Deficiency",
+      "TRPM4 Cation Channel Hyperactivity",
+      "Desmosome Maturation Failure",
+      "Keratinocyte Hyperproliferation",
+      "Keratin 83 Loss of Function"
     ],
     "cell_types": [
       "keratinocyte"
@@ -127563,7 +127591,10 @@ window.searchData = [
       "protein localization to plasma membrane",
       "gap junction assembly",
       "cell-cell signaling",
-      "keratinization"
+      "keratinization",
+      "ceramide biosynthetic process",
+      "desmosome organization",
+      "keratinocyte proliferation"
     ],
     "phenotypes": [
       "Transient figurate erythematous patches",
@@ -127587,7 +127618,11 @@ window.searchData = [
     "genes": [
       "GJB3",
       "GJB4",
-      "GJA1"
+      "GJA1",
+      "KDSR",
+      "KRT83",
+      "TRPM4",
+      "PERP"
     ],
     "treatments": [
       "Acitretin"
@@ -127597,11 +127632,11 @@ window.searchData = [
     "source_file": "Erythrokeratodermia_Variabilis.yaml",
     "page_url": "../pages/disorders/Erythrokeratodermia_Variabilis.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 3,
-    "num_genes": 3,
+    "num_pathophysiology": 8,
+    "num_genes": 7,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Erythropoietic Protoporphyria",
@@ -352653,15 +352688,15 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3290,
-  "total_subtypes": 4571,
-  "total_disorders_and_subtypes": 7861,
-  "total_unique_evidence_sources": 48971,
-  "total_unique_publications": 45755,
+  "total_subtypes": 4583,
+  "total_disorders_and_subtypes": 7873,
+  "total_unique_evidence_sources": 48979,
+  "total_unique_publications": 45763,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 293,
   "total_pathographs": 3286,
-  "total_unique_pathological_events": 21412,
-  "total_modules": 183,
+  "total_unique_pathological_events": 21419,
+  "total_modules": 184,
   "total_research_reports": 3404,
   "total_classifications": 21,
   "total_comorbidities": 51,
