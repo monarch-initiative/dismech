@@ -399,9 +399,12 @@ A gene page merges three layers; see [`docs/gene-pages.md`](docs/gene-pages.md).
   `dismech.genes.claims`. `just genes-verify` re-runs them; a summary that no
   longer matches the KB is shown as stale on its page. A summary may only say
   what the KB or ingest layer says; a missing fact goes into the disease entry,
-  not the summary. The verifier refuses to execute any code beyond
-  `from dismech.genes.claims import gene`, `g = gene("hgnc:<n>")`, and method
-  calls on `g` with literal arguments. Lists use `data-compare="names"`,
+  not the summary. Headings and connecting prose count as claims: state a
+  variant origin only through `g.variant_origin()` / `g.disorders(rel, origin)`,
+  never as a section title. The verifier refuses to execute any code beyond
+  `from dismech.genes.claims import gene`, `g = gene("hgnc:<n>")`, and claims
+  shaped exactly `g.<GeneClaims method>(literals)` (optionally in `len()`), and
+  refuses raw HTML beyond provedown's markup. Lists use `data-compare="names"`,
   semicolon-separated, because names contain commas.
 
 ### Curation Projects (`projects/*.md` → `pages/projects/`)

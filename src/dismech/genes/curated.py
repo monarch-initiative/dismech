@@ -13,9 +13,11 @@ matches the KB fails, and the gene page shows it as stale rather than hiding it.
 verifier. Summaries are written by agents and can merge through the
 approve-then-merge path with no human in it, so before anything runs this
 module checks that the document's code does exactly two things: import
-``gene`` from :mod:`dismech.genes.claims`, and call methods on what it
-returns. Anything else (another import, an attribute starting with ``_``, a
-builtin other than ``len``, SQL) is refused and nothing is executed.
+``gene`` from :mod:`dismech.genes.claims` and bind its result, and, in each
+claim, call one public :class:`~dismech.genes.claims.GeneClaims` method on
+that result with literal arguments, optionally inside ``len(...)``. Anything
+else (another import, an attribute chain such as ``g.slice.occurrences``, a
+non-literal argument, SQL) is refused and nothing is executed.
 """
 
 from __future__ import annotations
@@ -37,18 +39,7 @@ REQUIRED_FRONTMATTER = ("hgnc_id", "symbol", "status")
 SUMMARY_STATUSES = ("DRAFT", "REVIEWED")
 
 _ALLOWED_IMPORT = ("dismech.genes.claims", frozenset({"gene"}))
-_ALLOWED_BUILTINS = frozenset({"len"})
-_ALLOWED_EXPR_NODES = (
-    ast.Expression,
-    ast.Call,
-    ast.Attribute,
-    ast.Name,
-    ast.Constant,
-    ast.Load,
-    ast.keyword,
-    ast.Tuple,
-    ast.List,
-)
+_ALLOWED_WRAPPERS = frozenset({"len"})
 
 
 class UnsafeSummaryError(ValueError):
@@ -136,22 +127,71 @@ def _check_code_block(code: str, bound: set[str]) -> None:
         )
 
 
+def claim_methods() -> frozenset[str]:
+    """Public methods of :class:`dismech.genes.claims.GeneClaims`: all a claim may call."""
+    import inspect
+
+    from dismech.genes.claims import GeneClaims
+
+    return frozenset(
+        name
+        for name, member in inspect.getmembers(GeneClaims, inspect.isfunction)
+        if not name.startswith("_")
+    )
+
+
+def _is_literal(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and isinstance(
+        node.value, (str, int, float, bool, type(None))
+    )
+
+
+def _check_method_call(node: ast.AST, expression: str, bound: set[str]) -> None:
+    """``<bound name>.<GeneClaims method>(<literals>, key=<literal>)`` and nothing else."""
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id in bound
+    ):
+        raise UnsafeSummaryError(
+            f"claim {expression!r} must be a method call on a gene, e.g. g.disorders('causative')"
+        )
+    if node.func.attr not in claim_methods():
+        raise UnsafeSummaryError(
+            f"claim {expression!r} calls {node.func.attr!r}, which is not a GeneClaims method"
+        )
+    arguments = [*node.args, *(k.value for k in node.keywords)]
+    if any(k.arg is None for k in node.keywords) or not all(
+        _is_literal(a) for a in arguments
+    ):
+        raise UnsafeSummaryError(
+            f"claim {expression!r} may pass only literal arguments"
+        )
+
+
 def _check_expression(expression: str, bound: set[str]) -> None:
+    """A claim is ``g.method(literals)``, optionally wrapped in ``len(...)``.
+
+    The shape is checked exactly rather than by allowing node types, because a
+    permissive walk admits ``g.slice.occurrences.clear()``: a call on a public
+    attribute chain that mutates the cached KB index every later summary and
+    page in the same build is computed from.
+    """
     try:
         tree = ast.parse(expression, mode="eval")
     except SyntaxError as exc:
         raise UnsafeSummaryError(f"claim does not parse: {expression!r}") from exc
-    for node in ast.walk(tree):
-        if not isinstance(node, _ALLOWED_EXPR_NODES):
-            raise UnsafeSummaryError(
-                f"claim {expression!r} uses {type(node).__name__}, which is not allowed"
-            )
-        if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
-            raise UnsafeSummaryError(
-                f"claim {expression!r} reaches a private attribute"
-            )
-        if isinstance(node, ast.Name) and node.id not in bound | _ALLOWED_BUILTINS:
-            raise UnsafeSummaryError(f"claim {expression!r} names {node.id!r}")
+    body = tree.body
+    if (
+        isinstance(body, ast.Call)
+        and isinstance(body.func, ast.Name)
+        and body.func.id in _ALLOWED_WRAPPERS
+    ):
+        if len(body.args) != 1 or body.keywords:
+            raise UnsafeSummaryError(f"claim {expression!r} wraps more than one call")
+        body = body.args[0]
+    _check_method_call(body, expression, bound)
 
 
 def check_document_safety(document) -> None:
@@ -176,6 +216,70 @@ def check_document_safety(document) -> None:
                     "claims must be expressions, not named-code references"
                 )
             _check_expression(event.code, bound)
+
+
+# ---------------------------------------------------------------------------
+# raw HTML
+
+#: The raw HTML a summary may contain: provedown's own markup plus the
+#: disclosure wrapper. Everything else is written as Markdown, which the
+#: renderer turns into HTML itself.
+_ALLOWED_TAGS: dict[str, frozenset[str]] = {
+    "span": frozenset({"class", "data-code", "data-compare", "data-tol", "tol"}),
+    "code": frozenset({"name", "use"}),
+    "pre": frozenset(),
+    "details": frozenset(),
+    "summary": frozenset(),
+}
+_ALLOWED_SPAN_CLASSES = frozenset({"result", "method"})
+_LINK_TARGET_RE = re.compile(r"\]\(\s*<?([^)\s>]*)")
+_SAFE_LINK_RE = re.compile(r"^(https?://|#|\.{0,2}/|[\w./-]+$)", re.IGNORECASE)
+
+
+class _TagCollector:
+    """Every start tag in a document, with its attributes, via the stdlib parser."""
+
+    def __init__(self, text: str) -> None:
+        from html.parser import HTMLParser
+
+        self.tags: list[tuple[str, list[tuple[str, str | None]]]] = []
+        collector = self
+
+        class _Parser(HTMLParser):
+            def handle_starttag(self, tag, attrs):
+                collector.tags.append((tag, attrs))
+
+            def handle_startendtag(self, tag, attrs):
+                collector.tags.append((tag, attrs))
+
+        _Parser(convert_charrefs=True).feed(text)
+
+
+def html_problems(body: str) -> list[str]:
+    """Raw HTML in a summary body that falls outside the allowlist.
+
+    Summaries are agent-written and published, so a ``<script>`` or an event
+    handler attribute would otherwise reach the gene page as live markup.
+    """
+    problems: list[str] = []
+    for tag, attrs in _TagCollector(body).tags:
+        allowed = _ALLOWED_TAGS.get(tag)
+        if allowed is None:
+            problems.append(f"raw HTML <{tag}> is not allowed; write Markdown instead")
+            continue
+        for name, value in attrs:
+            if name not in allowed:
+                problems.append(f"attribute {name!r} is not allowed on <{tag}>")
+            elif (
+                tag == "span" and name == "class" and value not in _ALLOWED_SPAN_CLASSES
+            ):
+                problems.append(f"<span class={value!r}> is not provedown markup")
+    for target in _LINK_TARGET_RE.findall(body):
+        if target and not _SAFE_LINK_RE.match(target):
+            problems.append(
+                f"link target {target!r} is not an http(s) or relative link"
+            )
+    return problems
 
 
 # ---------------------------------------------------------------------------
@@ -268,6 +372,11 @@ def verify_summary(path: Path, *, execute: bool = True) -> SummaryResult:
         result.problems.append(f"status must be one of {', '.join(SUMMARY_STATUSES)}")
     result.problems.extend(f"parser: {d}" for d in document.diagnostics)
 
+    from dismech.frontmatter import split_frontmatter
+
+    split = split_frontmatter(document.source)
+    result.problems.extend(html_problems(split.body if split else document.source))
+
     spans = [e for e in document.events if isinstance(e, ResultAssertion)]
     if not spans:
         result.problems.append(
@@ -314,9 +423,9 @@ def verify_summary(path: Path, *, execute: bool = True) -> SummaryResult:
 
 _CODE_DETAILS_RE = re.compile(
     r"<details>\s*<summary>[^<]*</summary>\s*<pre><code.*?</code></pre>\s*</details>",
-    re.S,
+    re.DOTALL,
 )
-_PRE_CODE_RE = re.compile(r"<pre><code.*?</code></pre>", re.S)
+_PRE_CODE_RE = re.compile(r"<pre><code.*?</code></pre>", re.DOTALL)
 _CODE_USE_RE = re.compile(r"<code\s+use=\"[^\"]*\"\s*/>")
 _SPAN_OPEN_RE = re.compile(r'<span class="result"')
 _METHOD_RE = re.compile(r'<span class="method"></span>')
@@ -333,6 +442,11 @@ def summary_body_html(path: Path, result: SummaryResult) -> str:
     text = Path(path).read_text(encoding="utf-8")
     split = split_frontmatter(text)
     body = split.body if split else text
+    if html_problems(body):
+        # Never publish markup the allowlist refused; show the source instead.
+        import html
+
+        return f"<pre>{html.escape(body)}</pre>"
     offset_lines = text[: len(text) - len(body)].count("\n")
 
     # Tag spans by their (line, column) in the original file before anything moves.

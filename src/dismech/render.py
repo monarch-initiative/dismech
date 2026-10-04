@@ -416,11 +416,13 @@ def _build_gene_page_url_filter(disorders_dir: Path) -> Callable[[str], str | No
     from dismech.genes.render import gene_page_ids, gene_page_name
     from dismech.genes.slice import normalize_hgnc_id
 
-    with_pages = gene_page_ids(str(disorders_dir.resolve().parent))
+    kb_root = str(disorders_dir.resolve().parent)
 
     def _gene_page_url(curie: str) -> str | None:
         hgnc_id = normalize_hgnc_id(curie)
-        if hgnc_id is None or hgnc_id not in with_pages:
+        # Resolved on first use, not when the filter is built, so a page
+        # with no gene chip never pays for the KB walk. Memoised per KB root.
+        if hgnc_id is None or hgnc_id not in gene_page_ids(kb_root):
             return None
         return f"../genes/{gene_page_name(hgnc_id)}"
 

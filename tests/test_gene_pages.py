@@ -443,6 +443,19 @@ def test_unsafe_code_is_refused_before_anything_runs(
         "open('x')",
         "[x for x in g.disorders()]",
         "g.disorders().__class__",
+        # Public attribute chains that mutate the cached, shared KB index.
+        "g.slice.occurrences.clear()",
+        "g.mondo_index.clear()",
+        "g.ingest.hgnc.pop(1)",
+        "g.disorders().pop()",
+        # Not a GeneClaims method, or not literal arguments.
+        "g.hgnc_id",
+        "g.symbol",
+        "g.disorders(g.symbol())",
+        "g.includes(*['A'])",
+        "g.includes(**{'relationship': 'x'})",
+        "len(g.disorders(), g.modules())",
+        "sorted(g.disorders())",
     ],
 )
 def test_unsafe_claim_expressions_are_refused(expression: str) -> None:
@@ -454,6 +467,25 @@ def test_unsafe_claim_expressions_are_refused(expression: str) -> None:
     )
     with pytest.raises(UnsafeSummaryError):
         check_document_safety(doc)
+
+
+@pytest.mark.parametrize(
+    "expression",
+    [
+        "g.disorders()",
+        "g.disorders('causative', 'germline')",
+        "g.includes('A', 'B', relationship='somatic driver')",
+        "len(g.nodes('Disease A'))",
+    ],
+)
+def test_claim_shapes_the_contract_allows(expression: str) -> None:
+    from provedown.parser import parse_document
+
+    doc = parse_document(
+        '<code>from dismech.genes.claims import gene\ng = gene("hgnc:1")</code>\n'
+        f'<span class="result" data-code="{expression}">x</span>'
+    )
+    check_document_safety(doc)
 
 
 def test_summary_frontmatter_must_match_file_name(summary_kb: Path) -> None:
@@ -549,3 +581,41 @@ def test_clingen_gaps_count_only_supportive_tiers_by_default(summary_kb: Path) -
     g = gene("hgnc:1")
     assert g.clingen_but_untyped() == {"Disease B, Type 2"}  # Definitive
     assert g.clingen_but_untyped("Limited") == set()  # disease c has no entry
+
+
+def test_variant_origin_claims(summary_kb: Path) -> None:
+    from dismech.genes.claims import ClaimError, gene
+
+    g = gene("hgnc:1")
+    assert g.variant_origin("Disease A") == "germline"
+    assert g.variant_origin("Disease B, Type 2") == "unrecorded"
+    assert g.disorders("causative", "germline") == {"Disease A"}
+    assert g.disorders(origin="unrecorded") == {"Disease B, Type 2"}
+    assert g.includes("Disease A", relationship="causative") == {"Disease A"}
+    with pytest.raises(ClaimError):
+        g.includes("Disease B, Type 2", relationship="causative")
+
+
+@pytest.mark.parametrize(
+    "injection",
+    [
+        "<script>alert(1)</script>",
+        '<img src="x" onerror="alert(1)">',
+        '<span class="result" onclick="alert(1)" data-code="g.disorders()">x</span>',
+        '<span class="sneaky">x</span>',
+        "[click](javascript:alert(1))",
+    ],
+)
+def test_summary_html_outside_the_allowlist_is_refused_and_not_rendered(
+    summary_kb: Path, injection: str
+) -> None:
+    from dismech.genes.curated import summary_body_html
+
+    path = summary_kb / "genes" / "curated" / "hgnc_1.md"
+    path.write_text(SUMMARY.format(count=2) + "\n" + injection + "\n", encoding="utf-8")
+    result = verify_summary(path)
+    assert result.state == "unverified"
+    html = summary_body_html(path, result)
+    assert html.startswith("<pre>") and html.endswith("</pre>")
+    inner = html[len("<pre>") : -len("</pre>")]
+    assert "<" not in inner  # every tag in the source arrives escaped

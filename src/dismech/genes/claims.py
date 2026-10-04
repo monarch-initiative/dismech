@@ -28,8 +28,8 @@ from dismech.genes.ingest import IngestTables, load_ingest
 from dismech.genes.join import (
     NO_GENETIC_RECORD,
     NOT_NAMED,
-    UNTYPED,
     SUPPORTIVE_TIERS,
+    UNTYPED,
     ClinGenMatch,
     clingen_matches,
     gene_status_in_entry,
@@ -86,24 +86,55 @@ class GeneClaims:
         """How many disorder entries name this gene anywhere."""
         return len(self.slice.entries("disorder"))
 
-    def disorders(self, relationship: str | None = None) -> set[str]:
+    def disorders(
+        self, relationship: str | None = None, origin: str | None = None
+    ) -> set[str]:
         """Disorders naming the gene; with ``relationship``, only those whose
-        ``genetic[]`` record types it that way (e.g. ``"causative"``)."""
-        if relationship is None:
-            return set(self.slice.entries("disorder"))
-        return set(self.slice.entries_with_relationship(relationship.replace(" ", "_")))
+        ``genetic[]`` record types it that way (e.g. ``"causative"``); with
+        ``origin``, only those whose record gives that ``variant_origin``
+        (e.g. ``"germline"``, or ``"unrecorded"`` for a record that gives none)."""
+        names = set(self.slice.entries("disorder"))
+        if relationship is not None:
+            names &= set(
+                self.slice.entries_with_relationship(relationship.replace(" ", "_"))
+            )
+        if origin is not None:
+            names = {n for n in names if origin in self._origins(n)}
+        return names
 
-    def includes(self, *names: str) -> set[str]:
-        """The given disorder names, provided every one of them names this gene.
+    def includes(self, *names: str, relationship: str | None = None) -> set[str]:
+        """The given disorder names, provided every one of them names this gene
+        (and, with ``relationship``, types it that way).
 
         For "includes X and Y" statements that should survive the KB adding a
-        third disease. Use with ``data-compare="set"``.
+        third disease. Use with ``data-compare="names"``.
         """
-        known = set(self.slice.entries("disorder"))
+        known = self.disorders(relationship)
         missing = [n for n in names if n not in known]
         if missing:
-            raise ClaimError(f"no disorder entry naming {self.symbol()}: {missing}")
+            qualifier = f" as {relationship}" if relationship else ""
+            raise ClaimError(
+                f"no disorder entry naming {self.symbol()}{qualifier}: {missing}"
+            )
         return set(names)
+
+    def variant_origin(self, entry: str) -> str:
+        """``genetic[].variant_origin`` recorded for this gene in ``entry``, in prose.
+
+        "unrecorded" when the entry's genetic records give none, which is the
+        only honest thing a summary can say about the origin then: the
+        entry's prose may say more, but nothing a claim can check does.
+        """
+        self._require_entry(entry)
+        return " and ".join(sorted(self._origins(entry)))
+
+    def _origins(self, entry: str) -> set[str]:
+        origins = {
+            _prose(o.details["variant_origin"])
+            for o in self.slice.for_entry(entry)
+            if o.section == "genetic" and o.details.get("variant_origin")
+        }
+        return origins or {"unrecorded"}
 
     def relationship(self, entry: str) -> str:
         """How ``entry`` records this gene, in prose: its ``genetic[].relationship_type``.
@@ -126,16 +157,11 @@ class GeneClaims:
 
     def untyped(self) -> set[str]:
         """Disorders with a ``genetic[]`` record for this gene but no ``relationship_type``."""
-        out = set()
-        for occ in self.slice.occurrences:
-            if (
-                occ.entry_kind == "disorder"
-                and occ.section == "genetic"
-                and not occ.relationship_type
-            ):
-                if not self.slice.relationship_types(occ.entry_name):
-                    out.add(occ.entry_name)
-        return out
+        return {
+            e
+            for e in self.slice.entries("disorder")
+            if gene_status_in_entry(self.slice, e) == UNTYPED
+        }
 
     def node(self, entry: str, node_name: str) -> str:
         """``node_name`` if it is a pathophysiology node of ``entry`` that names this gene."""

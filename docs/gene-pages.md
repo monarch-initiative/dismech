@@ -172,6 +172,17 @@ Rules for writing a summary:
   lists to the page's tables.
 - **Name mechanism nodes through `g.node(entry, name)`**, which fails if the
   node is renamed or no longer carries the gene.
+- **Headings and connecting prose make claims too.** A heading "Germline
+  disease" over a checked list of causative entries asserts something no span
+  checks. KRAS's causative records include Evans syndrome and melorheostosis,
+  both recorded `SOMATIC`, so that heading over them would be false while every
+  span passed. Name sections after what
+  the KB records ("Causative records"), and state an origin only through
+  `g.variant_origin(entry)` or `g.disorders('causative', 'germline')`. Where
+  an entry records no origin, the claim reads "unrecorded" and so should the
+  summary. Likewise `g.includes(..., relationship='somatic driver')` checks the
+  relationship a sentence attributes, where a bare `g.includes(...)` only
+  checks that the entry names the gene.
 - `status: DRAFT` for agent-written text, `REVIEWED` once a person has read it.
   Verification is computed and is not recorded in the file.
 
@@ -179,10 +190,20 @@ Rules for writing a summary:
 agents and can merge through the automated approve-and-merge path, and
 provedown executes the Python a document contains. Before anything runs,
 `dismech.genes.curated` checks that the code cells only import `gene` from
-`dismech.genes.claims` and bind its result to a name, and that each claim is a
-method call on that name with literal arguments. Anything else (another
-import, a private attribute, a builtin other than `len`, SQL) is refused and
-the summary is reported as not verified, with nothing executed.
+`dismech.genes.claims` and bind its result to a name, and that each claim has
+exactly the shape `g.<GeneClaims method>(literals)`, optionally inside
+`len(...)`. The shape is checked rather than a list of allowed syntax, because
+a permissive check admits `g.slice.occurrences.clear()`: no file or process
+access, but a call that empties the cached KB index every later summary and
+page in the same build reads from. Anything else (another import, an attribute
+chain, a non-literal argument, SQL) is refused and the summary is reported as
+not verified, with nothing executed.
+
+The same applies to the HTML a summary contains. Raw HTML is limited to
+provedown's markup (`<span class="result">`, `<span class="method">`,
+`<code>`, `<pre>`) and `<details>`/`<summary>`; everything else is written as
+Markdown, and link targets must be http(s) or relative. A summary outside that
+allowlist is reported as not verified and its page shows the source escaped.
 
 ## Building
 
