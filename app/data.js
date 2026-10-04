@@ -189877,6 +189877,131 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Intellectual Disability X-linked 93",
+    "disease_id": "MONDO:0010393",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "X-linked intellectual disability"
+    ],
+    "creation_date": "2026-10-01T14:46:12Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual disability, X-linked 93 (MRX93, XLID93) is the X-linked neurodevelopmental disorder caused by loss-of-function variants in BRWD3, a bromodomain and WD40-repeat protein encoded at Xq21.1. Affected individuals are overwhelmingly hemizygous males carrying stop-gain, frameshift or canonical splice variants or partial or whole-gene deletions, most often inherited from an unaffected carrier mother and less often de novo.\nAlthough MONDO files it under non-syndromic X-linked intellectual disability, the published series describe a recognisable syndrome: mild-to-moderate intellectual disability with speech delay, postnatal macrocephaly (mean head circumference about +2.8 SD), a tendency to obesity, behavioural difficulties (aggression, attention deficit, autism spectrum features, shyness), and a shared face with a prominent or broad forehead, large or cupped ears, a tall or pointed chin, prognathism and prominent supraorbital ridges. Because of the macrocephaly and mild tall stature it is now discussed within the overgrowth-intellectual disability (OGID) group.\nThe molecular mechanism in human neurons is not established. BRWD3 is a substrate receptor of the CUL4-DDB1 (CRL4) E3 ubiquitin ligase and a chromatin reader; in Drosophila cells it targets the H3K4 demethylase KDM5 for degradation, and fly dBRWD3 mutants accumulate histone H3.3 through HIRA/Yemanuclein, with transcriptome and dendrite defects that are suppressed by reducing H3.3 deposition. dBRWD3 was also identified as a positive regulator of JAK/STAT signalling in a Drosophila RNAi screen. None of these links has been tested in a mammalian model of the disease, and the route from BRWD3 loss to macrocephaly and obesity is unexplained.",
+    "pathophysiology": [
+      "BRWD3 Loss of Function",
+      "KDM5 Stabilization and H3K4 Methylation Imbalance",
+      "Excess Histone H3.3 Deposition",
+      "Neuronal Transcriptional Dysregulation",
+      "Impaired Dendrite Morphogenesis",
+      "Reduced JAK-STAT Pathway Signaling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "CRL4-BRWD3-dependent KDM5 degradation",
+      "HIRA/YEM-mediated H3.3 nucleosome assembly",
+      "regulation of transcription",
+      "dendrite morphogenesis",
+      "JAK-STAT signaling"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Macrocephaly",
+      "Obesity",
+      "Tall Stature",
+      "Prominent Forehead",
+      "Macrotia",
+      "Cupped Ear",
+      "Tall Chin",
+      "Pointed Chin",
+      "Mandibular Prognathia",
+      "Prominent Supraorbital Ridges",
+      "Aggressive Behavior",
+      "Attention Deficit Hyperactivity Disorder",
+      "Autistic Behavior",
+      "Excessive Shyness",
+      "Cryptorchidism",
+      "Neonatal Hypotonia",
+      "Small Joint Hypermobility",
+      "Pes Planus",
+      "Deeply Set Eye",
+      "Broad Foot",
+      "Scoliosis",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Craniofacial",
+      "Behavioral",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000256",
+      "HP:0001513",
+      "HP:0000098",
+      "HP:0011220",
+      "HP:0000400",
+      "HP:0000378",
+      "HP:0400000",
+      "HP:0000307",
+      "HP:0000303",
+      "HP:0000336",
+      "HP:0000718",
+      "HP:0007018",
+      "HP:0000729",
+      "HP:0100962",
+      "HP:0000028",
+      "HP:0001319",
+      "HP:0430046",
+      "HP:0001763",
+      "HP:0000490",
+      "HP:0001769",
+      "HP:0002650",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BRWD3"
+    ],
+    "treatments": [
+      "Developmental and Therapy Support",
+      "Occupational Therapy",
+      "Speech and Language Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_X-linked_93.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability_X-linked_93.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Intellectual Disability, X-linked, Syndromic 33",
     "disease_id": "MONDO:0010500",
     "category": "Mendelian",
@@ -246706,6 +246831,122 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Neuronopathy, Distal Hereditary Motor, Autosomal Recessive 5",
+    "disease_id": "MONDO:0013947",
+    "category": "Genetic",
+    "parents": [
+      "neuronopathy, distal hereditary motor, autosomal recessive"
+    ],
+    "creation_date": "2026-10-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive distal hereditary motor neuronopathy type 5 (distal spinal muscular atrophy, autosomal recessive 5; DSMA5) is caused by biallelic loss-of-function variants in DNAJB2, which encodes HSJ1, a neuron-enriched J-domain co-chaperone of HSP70. HSJ1 stimulates the ATPase activity of HSP70 (HSPA8) and, through two C-terminal ubiquitin-interacting motifs, binds polyubiquitylated clients and the proteasome, so that it steers HSP70 clients to degradation by the ubiquitin-proteasome system rather than to refolding; the membrane-anchored HSJ1b isoform also takes part in ER-associated degradation. Reported alleles are splice-site, frameshift and deletion variants that abolish HSJ1 protein, plus rare missense changes. The founding family, a large Moroccan Jewish kindred, had a pure lower motor neuron disease with early-adult onset and predominantly lower-limb paralysis, and carried a homozygous splice-donor variant later shown to be a founder allele shared with Spanish families. Subsequent families showed that the same genotypes produce a continuum from pure distal motor neuropathy to axonal sensorimotor Charcot-Marie-Tooth disease type 2, with sensory loss commonly appearing with age and dHMN presentations evolving into CMT2. Onset is typically in the second decade; weakness and wasting begin in the distal legs, spread slowly to the proximal legs and hands, and lead to wheelchair dependence in severe families, with bulbar involvement at advanced stages. A minority of patients have early-onset parkinsonism with presynaptic dopaminergic deficit, and one family had sensorineural deafness. Which client proteins matter is not established; phospho-TDP-43 accumulation in patient skin and the potent anti-aggregation activity of HSJ1a toward TDP-43 and mutant SOD1 in experimental systems implicate failed clearance of aggregation-prone proteins.\n",
+    "pathophysiology": [
+      "Biallelic DNAJB2 Loss-of-Function Variants",
+      "Loss of HSJ1 Co-chaperone Protein",
+      "Impaired Ubiquitin-Proteasome Targeting of HSP70 Client Proteins",
+      "Accumulation of Aggregation-Prone Client Proteins",
+      "Length-Dependent Degeneration of Lower Motor Neuron Axons",
+      "Length-Dependent Sensory Axon Loss",
+      "Chronic Neurogenic Denervation of Distal Limb Muscle",
+      "Nigrostriatal Dopaminergic Terminal Degeneration"
+    ],
+    "cell_types": [
+      "lower motor neuron",
+      "spinal cord motor neuron",
+      "skeletal muscle fiber",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0008039",
+      "CL:0011001",
+      "CL:0008002",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "proteasomal degradation of HSP70 client proteins",
+      "chaperone-mediated quality control of misfolded proteins",
+      "HSJ1b-dependent ER-associated degradation"
+    ],
+    "phenotypes": [
+      "Distal lower limb muscle weakness",
+      "Distal lower limb amyotrophy",
+      "Proximal lower limb muscle weakness",
+      "Distal upper limb muscle weakness",
+      "Gait disturbance",
+      "Motor axonal neuropathy",
+      "Peripheral axonal neuropathy",
+      "Distal sensory impairment",
+      "Absent Achilles reflex",
+      "Hyporeflexia",
+      "Pes cavus",
+      "Scoliosis",
+      "Dysphagia",
+      "Respiratory insufficiency",
+      "Loss of ambulation",
+      "Parkinsonism",
+      "Postural tremor",
+      "Sensorineural hearing impairment",
+      "Restless legs",
+      "Rimmed vacuoles"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0009053",
+      "HP:0008944",
+      "HP:0008994",
+      "HP:0008959",
+      "HP:0001288",
+      "HP:0007002",
+      "HP:0003477",
+      "HP:0002936",
+      "HP:0003438",
+      "HP:0001265",
+      "HP:0001761",
+      "HP:0002650",
+      "HP:0002015",
+      "HP:0002093",
+      "HP:0002505",
+      "HP:0001300",
+      "HP:0002174",
+      "HP:0000407",
+      "HP:0012452",
+      "HP:0003805"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAJB2"
+    ],
+    "treatments": [
+      "Physical Therapy and Rehabilitation",
+      "Ankle-Foot Orthosis for Distal Leg Weakness",
+      "Levodopa for Associated Parkinsonism",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neuronopathy_Distal_Hereditary_Motor_Autosomal_Recessive_5.yaml",
+    "page_url": "../pages/disorders/Neuronopathy,_Distal_Hereditary_Motor,_Autosomal_Recessive_5.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Neuronopathy, Distal Hereditary Motor, Autosomal Recessive 7",
@@ -354358,17 +354599,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3300,
+  "total_disorder_pages": 3302,
   "total_subtypes": 4601,
-  "total_disorders_and_subtypes": 7901,
-  "total_unique_evidence_sources": 49199,
-  "total_unique_publications": 45945,
+  "total_disorders_and_subtypes": 7903,
+  "total_unique_evidence_sources": 49232,
+  "total_unique_publications": 45977,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 294,
-  "total_pathographs": 3296,
-  "total_unique_pathological_events": 21549,
+  "total_pathographs": 3298,
+  "total_unique_pathological_events": 21562,
   "total_modules": 187,
-  "total_research_reports": 3415,
+  "total_research_reports": 3417,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
