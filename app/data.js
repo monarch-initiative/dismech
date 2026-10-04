@@ -21090,6 +21090,7 @@ window.searchData = [
       "Necroptotic Neuronal Death",
       "Senescent Cell Accumulation",
       "Oligodendrocyte and Myelin Dysfunction",
+      "Glial and Pericyte Mesenchymal Drift",
       "Microglial Lipid Droplet Accumulation",
       "Interneuron Dysfunction and Network Hypersynchrony",
       "Tau-Induced Nucleocytoplasmic Transport Failure",
@@ -21110,6 +21111,9 @@ window.searchData = [
       "Oligodendrocyte precursor cell",
       "Excitatory neuron",
       "Oligodendrocyte",
+      "astrocyte",
+      "oligodendrocyte",
+      "brain pericyte",
       "Parvalbumin-expressing inhibitory interneuron",
       "GABAergic neuron",
       "Neuron"
@@ -21126,6 +21130,7 @@ window.searchData = [
       "CL:0000598",
       "CL:0002453",
       "CL:0000128",
+      "CL:2000043",
       "CL:4023018",
       "CL:0000617"
     ],
@@ -21173,6 +21178,7 @@ window.searchData = [
       "Cellular senescence",
       "Myelination",
       "Cholesterol metabolic process in oligodendrocytes",
+      "mesenchymal drift (aberrant acquisition of mesenchymal identity)",
       "Lipid droplet organization",
       "Microglial phagocytosis",
       "Inhibitory synaptic transmission",
@@ -21246,7 +21252,7 @@ window.searchData = [
     "source_file": "Alzheimer_Disease.yaml",
     "page_url": "../pages/disorders/Alzheimer_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 25,
+    "num_pathophysiology": 26,
     "num_genes": 9,
     "num_treatments": 7,
     "causal_graph_edges": "63",
@@ -57564,6 +57570,92 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Bronchopulmonary Dysplasia",
+    "disease_id": "MONDO:0019091",
+    "category": "Complex",
+    "parents": [
+      "respiratory system disorder"
+    ],
+    "creation_date": "2026-10-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Bronchopulmonary dysplasia is the chronic lung disease of prematurity. In a very preterm infant whose lungs are still in the saccular stage and deficient in surfactant, the supplemental oxygen and mechanical ventilation required to survive, together with pre- and postnatal inflammation, injure the immature lung and arrest its development. Inflammation is the shared downstream pathway; impaired VEGF-driven microvascular growth and arrested alveolar septation then produce the \"new BPD\" lesion of simplified, enlarged alveoli with a reduced, dysmorphic capillary bed. The result is a lasting loss of gas-exchange surface (oxygen dependence, diagnosed at 36 weeks postmenstrual age) and, in a subset, pulmonary vascular disease with pulmonary hypertension.",
+    "pathophysiology": [
+      "Preterm Birth with Saccular-Stage Lung and Surfactant Deficiency",
+      "Hyperoxic Oxidative Lung Injury",
+      "Ventilator-Induced Lung Injury",
+      "Antenatal Inflammation (Chorioamnionitis)",
+      "Postnatal Sepsis or Necrotizing Enterocolitis",
+      "Pulmonary Inflammation",
+      "Disrupted VEGF Signaling",
+      "Impaired Microvascular Growth",
+      "Arrested Alveolar Septation",
+      "Reduced Gas-Exchange Surface Area",
+      "Pulmonary Hypertension"
+    ],
+    "cell_types": [
+      "pulmonary alveolar type 2 cell",
+      "alveolar macrophage",
+      "lung endothelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002063",
+      "CL:0000583",
+      "CL:1001567"
+    ],
+    "biological_processes": [
+      "response to hyperoxia",
+      "inflammatory response",
+      "vascular endothelial growth factor signaling",
+      "angiogenesis",
+      "lung alveolus development"
+    ],
+    "phenotypes": [
+      "Hypoxemia",
+      "Respiratory failure",
+      "Pulmonary arterial hypertension",
+      "Wheezing",
+      "Chronic pulmonary obstruction",
+      "Neurodevelopmental abnormality"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0012418",
+      "HP:0002878",
+      "HP:0002092",
+      "HP:0030828",
+      "HP:0006510",
+      "HP:0012759"
+    ],
+    "frequencies": [],
+    "genes": [
+      "Multifactorial genetic susceptibility"
+    ],
+    "treatments": [
+      "Caffeine Therapy",
+      "Postnatal Corticosteroid Therapy",
+      "Surfactant Replacement Therapy"
+    ],
+    "environmental": [
+      "Supplemental oxygen therapy",
+      "Mechanical ventilation (positive pressure)"
+    ],
+    "biochemical": [],
+    "source_file": "Bronchopulmonary_Dysplasia.yaml",
+    "page_url": "../pages/disorders/Bronchopulmonary_Dysplasia.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Brown-Vialetto-Van Laere Syndrome",
     "disease_id": "MONDO:0008891",
     "category": "Mendelian",
@@ -68278,11 +68370,14 @@ window.searchData = [
     "creation_date": "2026-07-06T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "An autosomal-recessive developmental and epileptic encephalopathy caused by biallelic loss-of-function variants in CPLX1, which encodes complexin-1, a cytosolic regulator of the neuronal SNARE complex. Complexin-1 both clamps the assembled SNARE complex to prevent premature fusion and cooperates with the calcium sensor synaptotagmin-1 to synchronize calcium-triggered synaptic vesicle fusion; loss of complexin-1 dysregulates neurotransmitter release. Affected individuals present with marked developmental delay, intellectual disability, and a severe infantile epilepsy (migrating myoclonic seizures). It is one of the synaptic vesicle cycle disorders and completes the fusion-machinery arm of the module, representing the SNARE-complex regulator/fusion clamp alongside the SNARE subunits (SNAP25, STX1B, VAMP2) and the calcium sensor (SYT1).",
+    "description": "An autosomal recessive developmental and epileptic encephalopathy associated with biallelic CPLX1 variants. Complexin-1 regulates presynaptic SNARE-mediated neurotransmitter release. Founding reports described C-terminal truncating variants in two sibling pairs and p.Leu128Met in a third family; the missense allele remains disputed. Clinical findings include severe developmental impairment, hypotonia and drug-resistant myoclonic epilepsy, with overt seizure onset ranging from early infancy to two years in the 2017 series. Structural brain findings are variable. Experimental complexin depletion impairs evoked release, but spontaneous and asynchronous release effects depend on the model; the intervening human circuit mechanism remains unresolved.",
     "pathophysiology": [
       "Complexin-1 Loss of Function",
-      "Dysregulated SNARE-Mediated Vesicle Fusion",
-      "Cortical Hyperexcitability and Seizures"
+      "Reduced Evoked Synaptic Vesicle Release",
+      "Increased Spontaneous Release in Dual-Knockdown Cortical Neurons",
+      "Excessive Poststimulus Asynchronous Release",
+      "Mistimed Postsynaptic Firing in the Calyx Model",
+      "Epileptiform Brain Activity"
     ],
     "cell_types": [
       "neuron"
@@ -68291,26 +68386,84 @@ window.searchData = [
       "CL:0000540"
     ],
     "biological_processes": [
-      "synaptic vesicle cycle",
       "calcium-dependent activation of synaptic vesicle fusion",
-      "synaptic vesicle exocytosis",
-      "chemical synaptic transmission"
+      "synaptic vesicle exocytosis"
     ],
     "phenotypes": [
       "Epilepsy",
       "Global Developmental Delay",
-      "Intellectual Disability"
+      "Intellectual Disability",
+      "Epileptic Spasms",
+      "Tonic Seizures",
+      "Generalized Seizures",
+      "Hypotonia",
+      "Absent Speech",
+      "Poor Head Control",
+      "Delayed Sitting",
+      "Inability to Walk",
+      "Microcephaly",
+      "Short Stature",
+      "Low Body Weight",
+      "Feeding Difficulties",
+      "Hypertelorism",
+      "Midface Retrusion",
+      "Thin Upper Lip",
+      "Long Philtrum",
+      "Full Cheeks",
+      "Bulbous Nasal Tip",
+      "Cerebral Cortical Atrophy",
+      "Cleft Palate",
+      "Conductive Hearing Impairment",
+      "Myopia",
+      "Strabismus",
+      "Hypothyroidism",
+      "Cerebellar Cleft",
+      "Cerebral Palsy",
+      "Choreoathetosis in the iPSC Donor"
     ],
     "phenotype_categories": [
       "Clinical"
     ],
     "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0032794",
       "HP:0001263",
-      "HP:0001249"
+      "HP:0001249",
+      "HP:0011097",
+      "HP:0032792",
+      "HP:0002197",
+      "HP:0001252",
+      "HP:0001344",
+      "HP:0002421",
+      "HP:0025336",
+      "HP:0002540",
+      "HP:0000252",
+      "HP:0004322",
+      "HP:0004325",
+      "HP:0011968",
+      "HP:0000316",
+      "HP:0011800",
+      "HP:0000219",
+      "HP:0000343",
+      "HP:0000293",
+      "HP:0000414",
+      "HP:0002120",
+      "HP:0000175",
+      "HP:0000405",
+      "HP:0000545",
+      "HP:0000486",
+      "HP:0000821",
+      "HP:0100021",
+      "HP:0001266"
     ],
     "frequencies": [],
     "genes": [
@@ -68318,6 +68471,7 @@ window.searchData = [
     ],
     "treatments": [
       "Antiseizure Medication",
+      "Ketogenic Diet",
       "Supportive and Developmental Care",
       "Genetic Counseling"
     ],
@@ -68325,12 +68479,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "CPLX1-Related_DEE.yaml",
     "page_url": "../pages/disorders/CPLX1-Related_Developmental_and_Epileptic_Encephalopathy.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 30,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "CPT1C-Related Hereditary Spastic Paraplegia",
@@ -68342,12 +68496,18 @@ window.searchData = [
     "creation_date": "2026-07-07T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CPT1C-related hereditary spastic paraplegia (SPG73) is a rare, pure autosomal dominant form of hereditary spastic paraplegia caused by a heterozygous variant in CPT1C, the gene encoding the neuronal (brain-specific) isoform of carnitine palmitoyltransferase 1. Unlike the liver (CPT1A) and muscle (CPT1B) isozymes, CPT1C localizes to the endoplasmic reticulum rather than the mitochondrion, is expressed predominantly in neurons, and has little or no enzymatic activity in fatty acid oxidation; it instead participates in the ER protein-interaction network (including atlastin-1/ATL1, the SPG3A protein) that shapes the tubular ER and regulates neuronal lipid-droplet biogenesis. The disease was first defined in a three-generation southern Italian family carrying the c.109C>T (p.Arg37Cys) substitution, which strictly cosegregated with disease and impairs lipid-droplet formation, apparently through a dominant-negative mechanism. Clinically it presents as slowly progressive, adult-onset, pure spastic paraparesis of the lower limbs (spasticity, hyperreflexia, extensor plantar responses, mild weakness) with normal cognition and normal peripheral nerve conduction, reflecting a length-dependent distal axonopathy of the corticospinal tract. Because the disease is placed within the carnitine-cycle/fatty-acid metabolism family by gene homology (a CPT1 isoform) but manifests as a neurodegenerative corticospinal disorder rather than a systemic fatty-acid oxidation defect, it is curated here as a distinct entry rather than folded into the hepatic/muscle carnitine palmitoyltransferase deficiencies.",
+    "description": "CPT1C-associated hereditary spastic paraplegia (SPG73) was defined in a three-generation family with adult-onset pure spastic paraparesis and the heterozygous p.Arg37Cys variant. CPT1C is a neuronal endoplasmic-reticulum protein involved in lipid-droplet homeostasis, nutrient-sensitive organelle transport and AMPA-receptor trafficking, rather than a conventional mitochondrial fatty-acid-oxidation enzyme. Later reports attributed childhood-onset pure or complex HSP to truncating and splice variants, but a 2026 population/cohort study found no support for loss-of-function variants as a cause of HSP. The original missense-specific association and the disputed loss-of-function model therefore require separate interpretation. Reported phenotypes span mild or improving childhood motor impairment to progressive spasticity, with additional cognitive, seizure and behavioral findings in individual candidate cases; these do not establish a uniform CPT1C loss-of-function syndrome.",
     "pathophysiology": [
-      "CPT1C Dysfunction (Neuronal ER Isoform)",
-      "Disrupted ER Protein-Interaction Network",
-      "Impaired Neuronal Lipid Droplet Biogenesis",
-      "Corticospinal Tract Axonal Degeneration"
+      "Arg37Cys Regulatory-Domain Destabilization",
+      "Reduced Lipid Droplet Formation",
+      "CPT1C Protein Depletion in Experimental Systems",
+      "Reduced Anterograde Late Endosome and Lysosome Transport",
+      "Reduced Axon Extension in Cortical Cultures",
+      "Increased SAC1 Phosphatase Activity",
+      "Reduced Trans-Golgi PI4P",
+      "GluA1 Retention at the Trans-Golgi Network",
+      "Corticospinal Tract Dysfunction",
+      "Dorsal Column Dysfunction"
     ],
     "cell_types": [
       "neuron",
@@ -68358,20 +68518,42 @@ window.searchData = [
       "CL:0008048"
     ],
     "biological_processes": [
-      "endoplasmic reticulum organization",
-      "lipid droplet formation"
+      "lipid droplet formation",
+      "lysosome localization",
+      "axon extension"
     ],
     "phenotypes": [
       "Spastic paraplegia",
       "Lower limb spasticity",
-      "Progressive gait impairment",
+      "Spastic gait",
+      "Lower limb muscle weakness",
       "Lower limb hyperreflexia",
-      "Babinski sign"
+      "Babinski sign",
+      "Pes cavus",
+      "Motor delay",
+      "Ankle clonus",
+      "Ankle contracture",
+      "Chiari malformation",
+      "Moderate intellectual disability",
+      "Attention deficit hyperactivity disorder",
+      "Anxiety",
+      "Autism",
+      "Depression",
+      "Aggressive behavior",
+      "Skeletal muscle atrophy",
+      "Urinary dysfunction",
+      "Impaired vibration sensation at ankles",
+      "Foot deformity",
+      "Bilateral tonic-clonic seizures"
     ],
     "phenotype_categories": [
-      "Neurological"
+      "Neurological",
+      "Musculoskeletal",
+      "Behavioral"
     ],
     "phenotype_hpo_categories": [
+      "Genitourinary",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -68379,28 +68561,48 @@ window.searchData = [
       "HP:0001258",
       "HP:0002061",
       "HP:0002064",
+      "HP:0007340",
       "HP:0002395",
-      "HP:0003487"
+      "HP:0003487",
+      "HP:0001761",
+      "HP:0001270",
+      "HP:0011448",
+      "HP:0034677",
+      "HP:0002308",
+      "HP:0002342",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000717",
+      "HP:0000716",
+      "HP:0000718",
+      "HP:0003202",
+      "HP:0010936",
+      "HP:0006938",
+      "HP:0010219",
+      "HP:0002069"
     ],
     "frequencies": [],
     "genes": [
-      "CPT1C pathogenic variant"
+      "CPT1C reported HSP association"
     ],
     "treatments": [
-      "Supportive and symptomatic care",
-      "Physical therapy",
-      "Antispasticity pharmacotherapy"
+      "Supportive multidisciplinary care",
+      "Physical therapy and mobility support",
+      "Baclofen and other antispasmodic therapy",
+      "Management of associated seizures",
+      "Management of behavioral and psychiatric symptoms",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CPT1C-Related_Hereditary_Spastic_Paraplegia.yaml",
     "page_url": "../pages/disorders/CPT1C-Related_Hereditary_Spastic_Paraplegia.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 22,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "CRADD-Related Thin Lissencephaly",
@@ -68412,63 +68614,122 @@ window.searchData = [
     "creation_date": "2026-06-10T12:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CRADD-related thin lissencephaly (TLIS) is an autosomal recessive malformation of cortical development that is mechanistically distinct from the classical microtubule/neuronal-migration lissencephalies. It is caused by biallelic loss-of-function missense variants in CRADD (RAIDD), a caspase-recruitment-domain and death-domain (DD) adaptor protein that oligomerizes with PIDD1 and caspase-2 to form the apoptosis-initiating PIDDosome. Rather than arresting neuronal migration, the pathogenic variants cluster in the CRADD death domain and abolish CRADD's ability to activate caspase-2, reducing caspase-2-mediated programmed cell death in the developing neocortex. The resulting failure to appropriately prune neurons and neuropil produces a characteristic \"thin\" lissencephaly: an anterior-predominant pachygyria with shallow, unusually wide sulci and only a mildly thick cortex (5-7 mm, versus 10-20 mm in classical lissencephaly), often with megalencephaly, intellectual disability, and seizures, and without non-cortical brain malformations. CRADD-TLIS is therefore the exemplar of a reduced-apoptosis (rather than impaired-migration) cortical malformation mechanism, and was identified through review of more than 1,400 individuals with lissencephaly. Notably, Cradd-null mice reproduce the megalencephaly and seizures but not the human cortical lamination defect, highlighting a possible species difference in the developmental importance of caspase-2 signaling.",
+    "description": "An autosomal recessive neurodevelopmental disorder caused by biallelic CRADD variants, characterized by frontotemporal predominant pachygyria with mildly thickened cortex and variable intellectual and language impairment. Behavioral symptoms and strabismus are common in the Finnish founder series; seizures and megalencephaly are variable. Reported alleles include death-domain missense, frameshift, start-loss and a multigene deletion in trans with a missense allele. Experimental variants impair CRADD-dependent caspase-2 activation and cell death, but the exact developmental link to human cortical malformation remains unresolved. Cradd-null mice develop brain enlargement and handling-induced seizures without the human cortical pattern.",
     "pathophysiology": [
-      "Loss of CRADD Death-Domain Function and PIDDosome Signaling",
-      "Reduced Caspase-2-Mediated Developmental Neuronal Apoptosis",
-      "Impaired Cortical Sculpting with Megalencephaly and Thin Lissencephaly"
+      "Loss of CRADD Adaptor Activity",
+      "Gly128Arg CRADD Protein Depletion",
+      "Impaired PIDDosome Assembly",
+      "Reduced Caspase-2 Activation",
+      "Reduced Caspase-2-Dependent Neuronal Apoptosis",
+      "Abnormal Cortical Gyration",
+      "Brain Overgrowth"
     ],
     "cell_types": [
-      "Neuron",
-      "Cerebral cortex neuron"
+      "neuron"
     ],
     "cell_type_ids": [
-      "CL:0000540",
-      "CL:0010012"
+      "CL:0000540"
     ],
     "biological_processes": [
-      "Regulation of neuron apoptotic process",
-      "Neuron apoptotic process",
-      "Cerebral cortex development",
-      "Synapse pruning"
+      "neuron apoptotic process"
     ],
     "phenotypes": [
-      "Thin Lissencephaly (Anterior-Predominant Pachygyria)",
-      "Megalencephaly",
+      "Thin Lissencephaly",
       "Intellectual Disability",
-      "Seizures"
+      "Delayed Speech and Language",
+      "Global Developmental Delay",
+      "Megalencephaly",
+      "Seizures",
+      "Aggressive Behavior",
+      "Hyperactivity",
+      "Short Attention Span",
+      "Strabismus",
+      "EEG Abnormality",
+      "Echolalia",
+      "Hypotonia",
+      "Enuresis",
+      "Constipation",
+      "Attention Deficit Hyperactivity Disorder",
+      "Anxiety",
+      "Hallucinations",
+      "Amblyopia",
+      "Esotropia",
+      "Dilated Perivascular Spaces",
+      "Photoparoxysmal EEG Response",
+      "Slow EEG Background"
     ],
     "phenotype_categories": [
-      "Neurologic"
+      "Neurological",
+      "Behavioral",
+      "Ophthalmological",
+      "Genitourinary",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Musculoskeletal",
       "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0020188",
-      "HP:0001355",
       "HP:0001249",
-      "HP:0001250"
+      "HP:0000750",
+      "HP:0001263",
+      "HP:0001355",
+      "HP:0001250",
+      "HP:0000718",
+      "HP:0000752",
+      "HP:0000736",
+      "HP:0000486",
+      "HP:0002353",
+      "HP:0010529",
+      "HP:0001252",
+      "HP:0000805",
+      "HP:0002019",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000738",
+      "HP:0000646",
+      "HP:0000565",
+      "HP:0012520",
+      "HP:0010852",
+      "HP:0011203"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
     "genes": [
       "CRADD"
     ],
     "treatments": [
-      "Antiseizure Pharmacotherapy",
-      "Supportive and Developmental Care",
-      "Genetic Counseling"
+      "Speech therapy and communication support",
+      "Occupational therapy and developmental follow-up",
+      "Special education and daily-living support",
+      "Carbamazepine",
+      "Methylphenidate",
+      "Risperidone",
+      "Diazepam",
+      "Asenapine",
+      "Alprazolam",
+      "Perazine",
+      "Ophthalmological care",
+      "Genetic counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CRADD-Related_Thin_Lissencephaly.yaml",
     "page_url": "../pages/disorders/CRADD-Related_Thin_Lissencephaly.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 23,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "num_treatments": 12,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "CRB1 Retinal Dystrophies",
@@ -73070,6 +73331,82 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Catamenial Pneumothorax",
+    "disease_id": "MONDO:0022098",
+    "category": "Complex",
+    "parents": [
+      "pneumothorax"
+    ],
+    "creation_date": "2026-10-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Catamenial pneumothorax is recurrent spontaneous pneumothorax occurring in a fixed temporal relationship to menstruation (typically within 72 hours of onset), almost always right-sided, in women of reproductive age. It is the commonest manifestation of thoracic endometriosis syndrome. The leading pathogenic account is ectopic, hormone-responsive endometrial tissue on the diaphragm and visceral pleura that breaks down cyclically to create air leaks; two further theories \u2014 transdiaphragmatic passage of air from the peritoneal cavity through diaphragmatic fenestrations, and prostaglandin-F2-driven alveolar rupture during menses \u2014 are also proposed and are not mutually exclusive. Treatment combines hormonal ovarian suppression with surgery (diaphragmatic repair, pleural implant excision, pleurodesis).",
+    "pathophysiology": [
+      "Cyclical Ovarian Hormone Stimulation",
+      "Abdominopelvic Endometriosis",
+      "Thoracic Endometriosis",
+      "Visceral Pleural and Diaphragmatic Defects",
+      "Transdiaphragmatic Air Passage",
+      "Menstrual Prostaglandin F2alpha Elevation",
+      "Bronchiolar and Vascular Smooth Muscle Contraction",
+      "Alveolar Rupture",
+      "Air Accumulation in the Pleural Space"
+    ],
+    "cell_types": [
+      "endometrial glandular epithelial cell",
+      "endometrial stromal cell"
+    ],
+    "cell_type_ids": [
+      "CL:0002656",
+      "CL:0002255"
+    ],
+    "biological_processes": [
+      "smooth muscle contraction"
+    ],
+    "phenotypes": [
+      "Spontaneous pneumothorax",
+      "Chest pain",
+      "Shoulder pain",
+      "Dyspnea",
+      "Hemothorax",
+      "Hemoptysis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002108",
+      "HP:0100749",
+      "HP:0030834",
+      "HP:0002094",
+      "HP:0012151",
+      "HP:0002105"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "GnRH agonist therapy",
+      "Hormonal ovarian suppression",
+      "Thoracoscopic surgery",
+      "Pleurodesis",
+      "Chest tube drainage (acute management)"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum CA-125"
+    ],
+    "source_file": "Catamenial_Pneumothorax.yaml",
+    "page_url": "../pages/disorders/Catamenial_Pneumothorax.html",
+    "num_phenotypes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cataract 13 With Adult I Phenotype",
@@ -83784,6 +84121,7 @@ window.searchData = [
       "Glomerulosclerosis",
       "Klotho Deficiency",
       "IL-11 Signalling in Renal Fibroblasts",
+      "Tubular and Podocyte Mesenchymal Drift",
       "Tubulointerstitial Fibrosis",
       "RAAS Activation"
     ],
@@ -83791,12 +84129,15 @@ window.searchData = [
       "Podocyte",
       "Tubular Epithelial Cell",
       "Kidney interstitial fibroblast",
+      "tubular epithelial cell",
+      "podocyte",
       "Myofibroblast"
     ],
     "cell_type_ids": [
       "CL:0000653",
       "CL:0002306",
       "CL:1000692",
+      "CL:1000507",
       "CL:0000186"
     ],
     "biological_processes": [
@@ -83804,6 +84145,7 @@ window.searchData = [
       "TGF-beta Receptor Signaling",
       "Interleukin-11-mediated signaling pathway",
       "ERK1 and ERK2 cascade",
+      "mesenchymal drift (aberrant acquisition of mesenchymal identity)",
       "RAAS Signaling"
     ],
     "phenotypes": [
@@ -83878,10 +84220,10 @@ window.searchData = [
     "source_file": "Chronic_Kidney_Disease.yaml",
     "page_url": "../pages/disorders/Chronic_Kidney_Disease.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 3,
     "num_treatments": 9,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "6"
   },
   {
@@ -177310,6 +177652,7 @@ window.searchData = [
       "Alveolar epithelial telomere dysfunction",
       "AT2 progenitor exhaustion and impaired alveolar regeneration",
       "Aberrant basaloid cell emergence",
+      "Epithelial and endothelial mesenchymal drift",
       "Gut dysbiosis and microbial metabolite dysregulation",
       "Profibrotic macrophage recruitment and amplification",
       "IL-11 Autocrine Signalling in Lung Fibroblasts",
@@ -177329,6 +177672,8 @@ window.searchData = [
     "cell_types": [
       "type II pneumocyte",
       "aberrant basaloid epithelial cell",
+      "lung epithelial cell",
+      "lung endothelial cell",
       "alveolar macrophage",
       "lung fibroblast",
       "fibroblast",
@@ -177337,6 +177682,8 @@ window.searchData = [
     "cell_type_ids": [
       "CL:0002063",
       "CL:0000646",
+      "CL:0000066",
+      "CL:0000115",
       "CL:0000583",
       "CL:0002553",
       "CL:0000057",
@@ -177352,6 +177699,7 @@ window.searchData = [
       "stem cell population maintenance",
       "tissue regeneration",
       "epithelial to mesenchymal transition",
+      "mesenchymal drift (aberrant acquisition of mesenchymal identity)",
       "inflammatory response",
       "leukocyte migration",
       "Interleukin-11-mediated signaling pathway",
@@ -177431,10 +177779,10 @@ window.searchData = [
     "source_file": "Idiopathic_Pulmonary_Fibrosis.yaml",
     "page_url": "../pages/disorders/Idiopathic_Pulmonary_Fibrosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 20,
+    "num_pathophysiology": 21,
     "num_genes": 8,
     "num_treatments": 9,
-    "causal_graph_edges": "61",
+    "causal_graph_edges": "62",
     "causal_graph_longest_path": "10"
   },
   {
@@ -352687,17 +353035,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3290,
+  "total_disorder_pages": 3292,
   "total_subtypes": 4583,
-  "total_disorders_and_subtypes": 7873,
-  "total_unique_evidence_sources": 48979,
-  "total_unique_publications": 45763,
+  "total_disorders_and_subtypes": 7875,
+  "total_unique_evidence_sources": 49024,
+  "total_unique_publications": 45801,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 293,
-  "total_pathographs": 3286,
-  "total_unique_pathological_events": 21419,
-  "total_modules": 184,
-  "total_research_reports": 3404,
+  "total_pathographs": 3288,
+  "total_unique_pathological_events": 21454,
+  "total_modules": 185,
+  "total_research_reports": 3406,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 111
