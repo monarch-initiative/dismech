@@ -13791,6 +13791,89 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Acute Opioid Poisoning",
+    "disease_id": "MONDO:0018173",
+    "category": "Toxic Exposure Disorder",
+    "parents": [],
+    "creation_date": "2026-10-04T04:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acute opioid poisoning is the toxidrome produced when an opioid agonist occupies central mu-opioid receptors in excess, whether the exposure is therapeutic, recreational, accidental (including pediatric ingestion), or iatrogenic. The classic toxidrome is the triad of depressed consciousness, respiratory depression, and miosis (pinpoint pupils), with reduced gastrointestinal motility, hypothermia, and non-cardiogenic pulmonary edema as further features. Respiratory depression is the sine qua non and the proximate cause of death. Naloxone, a competitive mu-opioid receptor antagonist, reverses the toxidrome and serves as both antidote and near-diagnostic test. This entry models the acute pharmacodynamic toxidrome and is deliberately distinct from the chronic neuroadaptive disease of opioid use disorder.",
+    "pathophysiology": [
+      "Systemic Opioid Exposure",
+      "Central Mu-Opioid Receptor Overactivation",
+      "Brainstem Respiratory Center Suppression",
+      "Parasympathetic Pupillary Constriction",
+      "Reduced Gastrointestinal Motility"
+    ],
+    "cell_types": [
+      "central nervous system neuron",
+      "brainstem respiratory neuron",
+      "enteric neuron"
+    ],
+    "cell_type_ids": [
+      "CL:2000029",
+      "CL:0007011"
+    ],
+    "biological_processes": [
+      "adenylate cyclase-inhibiting opioid receptor signaling",
+      "nervous-system control of respiratory gas exchange",
+      "peristalsis"
+    ],
+    "phenotypes": [
+      "Respiratory depression",
+      "Depressed consciousness",
+      "Miosis",
+      "Gastrointestinal dysmotility",
+      "Respiratory arrest",
+      "Noncardiogenic pulmonary edema",
+      "Hypothermia",
+      "Hypoxemia",
+      "Rhabdomyolysis",
+      "Seizure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002791",
+      "HP:0004372",
+      "HP:0000616",
+      "HP:0002579",
+      "HP:0005943",
+      "HP:0100598",
+      "HP:0002045",
+      "HP:0012418",
+      "HP:0003201",
+      "HP:0001250"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Naloxone",
+      "Assisted ventilation and airway support"
+    ],
+    "environmental": [
+      "Opioid agonist exposure",
+      "Co-ingested benzodiazepines or other sedative-hypnotics"
+    ],
+    "biochemical": [],
+    "source_file": "Acute_Opioid_Poisoning.yaml",
+    "page_url": "../pages/disorders/Acute_Opioid_Poisoning.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 2,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Acute Post-Surgical Pain",
     "disease_id": null,
     "category": "Iatrogenic",
@@ -69236,12 +69319,19 @@ window.searchData = [
     "creation_date": "2026-04-12T17:04:40Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CTLA4 haploinsufficiency, also known as CHAI disease, is an autosomal dominant inborn error of immunity caused by heterozygous CTLA4 variants that reduce CTLA-4 dosage or impair ligand binding. Loss of this inhibitory checkpoint disrupts regulatory T-cell suppression, amplifies CD28-dependent effector T-cell activation, and destabilizes B-cell homeostasis. The clinical spectrum is variably penetrant and includes hypogammaglobulinemia, lymphoproliferation, autoimmune cytopenias, enteropathy, recurrent infections, and multi-organ lymphocytic infiltration.",
+    "description": "CTLA4 haploinsufficiency, also called CHAI or CTLA4 insufficiency, is an autosomal dominant inborn error of immunity caused by heterozygous germline CTLA4 variants. Reduced CTLA4 abundance or defective protein function impairs regulatory T-cell control of CD80/CD86-dependent costimulation. Variable immune dysregulation includes hypogammaglobulinemia, lymphoproliferation, autoimmune cytopenias, enteropathy, lung disease and lymphocytic infiltration of other organs. Clinical penetrance is incomplete; functional defects can occur in apparently unaffected carriers. Missense alleles may impair dimerization, surface availability or ligand capture even when total protein staining is preserved.",
     "pathophysiology": [
-      "CTLA-4 Checkpoint Failure in Regulatory T Cells",
+      "Reduced CTLA4 protein abundance",
+      "Impaired CTLA4 dimerization",
+      "Deficient CTLA4 ligand capture",
+      "Reduced CD80/CD86 transendocytosis",
+      "Impaired regulatory T-cell suppression",
       "Excess Effector T Cell Activation",
       "Lymphocytic Tissue Infiltration",
-      "B Cell Compartment Dysregulation"
+      "Autoreactive CD21-low B-cell expansion",
+      "Enhanced B-cell apoptosis",
+      "Peripheral B-cell depletion",
+      "Non-malignant lymphoproliferation"
     ],
     "cell_types": [
       "regulatory T cell",
@@ -69256,59 +69346,163 @@ window.searchData = [
       "CL:0000236"
     ],
     "biological_processes": [
+      "CTLA4-mediated transendocytosis",
       "negative regulation of T cell activation",
-      "T cell activation",
-      "cytokine production",
-      "leukocyte migration",
-      "B cell differentiation"
+      "T cell activation"
     ],
     "phenotypes": [
       "Hypogammaglobulinemia",
       "Autoimmunity",
       "Lymphadenopathy",
+      "Splenomegaly",
+      "Hepatomegaly",
       "Autoimmune thrombocytopenia",
       "Autoimmune hemolytic anemia",
-      "Autoimmune enteropathy"
+      "Autoimmune neutropenia",
+      "Lymphopenia",
+      "Reduced circulating B-cell count",
+      "Reduced class-switched memory B-cell proportion",
+      "Increased CD21-low B-cell proportion",
+      "Recurrent respiratory infections",
+      "Pulmonary lymphocytic infiltration",
+      "Bronchiectasis",
+      "Autoimmune enteropathy",
+      "Chronic diarrhea",
+      "Intestinal villous atrophy",
+      "Colitis",
+      "Inflammatory central nervous system lesions",
+      "Eczema",
+      "Alopecia",
+      "Vitiligo",
+      "Arthritis",
+      "Hashimoto thyroiditis",
+      "Primary adrenal insufficiency",
+      "Type I diabetes mellitus",
+      "Autoimmune hepatitis",
+      "Failure to thrive",
+      "Renal involvement",
+      "Liver involvement",
+      "Lymphoma",
+      "Gastric carcinoma",
+      "Growth delay",
+      "Atrophic gastritis",
+      "Psoriasiform dermatitis"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Lymphatic",
+      "Hepatic",
       "Hematologic",
-      "Gastrointestinal"
+      "Respiratory",
+      "Gastrointestinal",
+      "Neurologic",
+      "Dermatologic",
+      "Musculoskeletal",
+      "Endocrine",
+      "Growth",
+      "Renal",
+      "Neoplastic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
       "Cellular",
       "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
       "Immune",
-      "Metabolism"
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0004313",
       "HP:0002960",
       "HP:0002716",
+      "HP:0001744",
+      "HP:0002240",
       "HP:0001973",
       "HP:0001890",
-      "HP:0011024"
+      "HP:0001904",
+      "HP:0001888",
+      "HP:0010976",
+      "HP:0030388",
+      "HP:0033207",
+      "HP:0002205",
+      "HP:0033582",
+      "HP:0002110",
+      "HP:0011024",
+      "HP:0002028",
+      "HP:0011473",
+      "HP:0002583",
+      "HP:5210423",
+      "HP:0000964",
+      "HP:0001596",
+      "HP:0001045",
+      "HP:0001369",
+      "HP:0000872",
+      "HP:0008207",
+      "HP:0100651",
+      "HP:5210421",
+      "HP:0001508",
+      "HP:0000077",
+      "HP:0001392",
+      "HP:0002665",
+      "HP:0012126",
+      "HP:0001510",
+      "HP:0002582",
+      "HP:0003765"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
     "genes": [
       "CTLA4"
     ],
     "treatments": [
-      "Abatacept"
+      "Abatacept",
+      "Belatacept",
+      "Sirolimus",
+      "Rituximab",
+      "Systemic corticosteroids",
+      "Oral budesonide",
+      "Azathioprine",
+      "Mycophenolate",
+      "Anti-TNF therapy",
+      "Vedolizumab",
+      "Methotrexate",
+      "Cyclosporine",
+      "Cyclophosphamide",
+      "Mercaptopurine",
+      "Topical anti-inflammatory treatment",
+      "Immunoglobulin replacement",
+      "Immunomodulatory intravenous immunoglobulin",
+      "Thrombopoietin receptor agonists",
+      "Hematopoietic stem cell transplantation",
+      "Splenectomy considerations",
+      "Antibiotic prophylaxis and infection treatment",
+      "Nutritional support",
+      "Endocrine replacement for associated autoimmunity",
+      "Longitudinal surveillance and family counseling",
+      "Sulfasalazine"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Soluble interleukin-2 receptor",
+      "CTLA4 mRNA expression"
+    ],
     "source_file": "CTLA4_Haploinsufficiency.yaml",
     "page_url": "../pages/disorders/CTLA4_Haploinsufficiency.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 36,
+    "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 25,
+    "causal_graph_edges": "50",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "CTNNB1 Neurodevelopmental Disorder",
@@ -70376,9 +70570,15 @@ window.searchData = [
     ],
     "creation_date": "2026-05-03T17:22:49Z",
     "updated_date": null,
-    "subtypes": [],
-    "description": "Canavan disease is an autosomal recessive leukodystrophy caused by biallelic pathogenic variants in ASPA, encoding aspartoacylase. Aspartoacylase deficiency impairs hydrolysis of N-acetyl-L-aspartate to acetate and aspartate, leading to NAA accumulation in the central nervous system and body fluids, spongiform white-matter degeneration, dysmyelination, severe infantile-onset neurodevelopmental impairment, macrocephaly, tone abnormalities, visual impairment, feeding difficulty, and progressive neurologic disability.\n",
+    "subtypes": [
+      "Typical infantile Canavan disease",
+      "Atypical Canavan disease"
+    ],
+    "description": "Canavan disease is an autosomal recessive leukodystrophy caused by biallelic pathogenic ASPA variants and deficient aspartoacylase activity. Impaired N-acetyl-L-aspartate (NAA) hydrolysis causes substrate accumulation and spongiform white-matter disease. The spectrum includes typical infantile disease with profound developmental impairment, macrocephaly, early hypotonia, later spasticity, visual and feeding problems, and increasingly prevalent seizures, and less common atypical disease with milder or later manifestations. The contribution of NAA toxicity, altered water homeostasis, and deficient acetate-dependent metabolism remains incompletely resolved.",
     "pathophysiology": [
+      "Deep intronic ASPA SVA_E insertion",
+      "Aberrant ASPA splicing",
+      "Degradation of aberrant ASPA transcripts",
       "ASPA variant protein destabilization",
       "Aspartoacylase enzyme deficiency",
       "NAA accumulation in CNS and body fluids",
@@ -70400,6 +70600,7 @@ window.searchData = [
       "CL:0000540"
     ],
     "biological_processes": [
+      "mRNA splicing, via spliceosome",
       "protein folding",
       "N-acetylaspartate/aspartate metabolism",
       "lipid biosynthetic process",
@@ -70424,7 +70625,9 @@ window.searchData = [
       "Reduced consciousness",
       "Abnormal retinal pigmentation",
       "Feeding difficulties in infancy",
-      "Cognitive impairment"
+      "Cognitive impairment",
+      "Leukodystrophy",
+      "Ataxia"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -70461,7 +70664,9 @@ window.searchData = [
       "HP:0004372",
       "HP:0007703",
       "HP:0008872",
-      "HP:0100543"
+      "HP:0100543",
+      "HP:0002415",
+      "HP:0001251"
     ],
     "frequencies": [
       "Frequent (79-30%)",
@@ -70474,7 +70679,10 @@ window.searchData = [
     "treatments": [
       "Multidisciplinary supportive care",
       "ASPA gene replacement therapy",
-      "NAT8L/NAA-lowering strategy"
+      "NAT8L/NAA-lowering strategy",
+      "Individualized antiseizure treatment",
+      "Feeding and swallowing support",
+      "Genetic counseling and family testing"
     ],
     "environmental": [],
     "biochemical": [
@@ -70483,12 +70691,12 @@ window.searchData = [
     ],
     "source_file": "Canavan_Disease.yaml",
     "page_url": "../pages/disorders/Canavan_disease.html",
-    "num_phenotypes": 19,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 21,
+    "num_pathophysiology": 12,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "40",
-    "causal_graph_longest_path": "7"
+    "num_treatments": 6,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Cannabis Hyperemesis Syndrome",
@@ -353666,17 +353874,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3298,
-  "total_subtypes": 4597,
-  "total_disorders_and_subtypes": 7895,
-  "total_unique_evidence_sources": 49111,
-  "total_unique_publications": 45888,
+  "total_disorder_pages": 3299,
+  "total_subtypes": 4599,
+  "total_disorders_and_subtypes": 7898,
+  "total_unique_evidence_sources": 49132,
+  "total_unique_publications": 45905,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 293,
-  "total_pathographs": 3294,
-  "total_unique_pathological_events": 21491,
+  "total_pathographs": 3295,
+  "total_unique_pathological_events": 21505,
   "total_modules": 187,
-  "total_research_reports": 3413,
+  "total_research_reports": 3414,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
