@@ -11292,6 +11292,83 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Acrodermatitis Enteropathica",
+    "disease_id": "MONDO:0008713",
+    "category": "Mendelian",
+    "parents": [
+      "inborn error of metal metabolism"
+    ],
+    "creation_date": "2026-10-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Acrodermatitis enteropathica is an autosomal recessive inborn error of zinc absorption caused by biallelic loss-of-function variants in SLC39A4, which encodes the apical enterocyte zinc importer ZIP4. Failure to take up dietary zinc at the intestinal brush border produces systemic zinc deficiency, which impairs the many zinc-dependent metalloenzymes and zinc-finger transcription factors on which rapidly renewing epithelia and immune cells depend. The result is the classic triad of periorificial and acral dermatitis, alopecia, and diarrhea, together with growth retardation, recurrent infection, and a low serum alkaline phosphatase. Onset is typically in infancy, often at weaning from breast milk, and the disease is progressive and once frequently fatal; lifelong oral zinc supplementation produces rapid and durable remission.",
+    "pathophysiology": [
+      "SLC39A4 (ZIP4) Loss of Function",
+      "Impaired Intestinal Zinc Absorption",
+      "Systemic Zinc Deficiency",
+      "Impaired Zinc-Dependent Enzyme and Zinc-Finger Function",
+      "Intestinal Epithelial Dysfunction",
+      "Cutaneous Bacterial and Fungal Superinfection"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "Paneth cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000510"
+    ],
+    "biological_processes": [
+      "zinc ion transmembrane transport"
+    ],
+    "phenotypes": [
+      "Periorificial and Acral Dermatitis",
+      "Alopecia",
+      "Diarrhea",
+      "Failure to thrive",
+      "Irritability",
+      "Fever",
+      "Decreased alkaline phosphatase"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0000964",
+      "HP:0001596",
+      "HP:0002014",
+      "HP:0001508",
+      "HP:0000737",
+      "HP:0001945",
+      "HP:0003282"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SLC39A4"
+    ],
+    "treatments": [
+      "Zinc Supplementation"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum zinc"
+    ],
+    "source_file": "Acrodermatitis_Enteropathica.yaml",
+    "page_url": "../pages/disorders/Acrodermatitis_Enteropathica.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Acrodysostosis",
     "disease_id": "MONDO:0019797",
     "category": "Mendelian",
@@ -45778,7 +45855,12 @@ window.searchData = [
     ],
     "creation_date": "2026-05-10T14:07:24Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "B. microti",
+      "B. divergens",
+      "B. duncani",
+      "B. venatorum"
+    ],
     "description": "Babesiosis is an intraerythrocytic protozoal infection caused by Babesia species. Most U.S. cases are caused by Babesia microti and acquired through Ixodes scapularis tick bites, although transfusion, organ-transplant, and congenital transmission also occur. Infection ranges from asymptomatic parasitemia to febrile hemolytic anemia and life-threatening pulmonary, renal, hepatic, coagulation, cardiovascular, or neurologic complications. Older, asplenic, and immunocompromised people are at greatest risk of severe, persistent, or relapsing disease.",
     "pathophysiology": [
       "Tick- or blood-mediated Babesia host entry",
@@ -46323,7 +46405,12 @@ window.searchData = [
     ],
     "creation_date": "2025-12-04T16:57:31Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Meningococcal",
+      "Pneumococcal",
+      "Hib",
+      "Listerial"
+    ],
     "description": "Bacterial meningitis is a severe infection of the meninges caused by invasive bacteria that overcome neurovascular barriers and replicate in the cerebrospinal fluid. The disease is characterized by robust neuroinflammation that damages brain tissue and raises intracranial pressure. Major causative bacteria include Streptococcus pneumoniae, Neisseria meningitidis, Haemophilus influenzae type b, and Listeria monocytogenes.",
     "pathophysiology": [
       "Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)",
@@ -92518,6 +92605,78 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Complement Component 4A Deficiency",
+    "disease_id": "MONDO:0013721",
+    "category": "Mendelian",
+    "parents": [
+      "Complement Disorder"
+    ],
+    "creation_date": "2026-09-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Complement component 4A (C4A) deficiency is the absence of functional C4A protein, most often from homozygous zero copy number of the C4A gene in the MHC class III region on chromosome 6p21.33, with C4B still present. It is best understood as a genetic risk state rather than a high-penetrance Mendelian disease: low C4A copy number is one of the strongest common genetic risk factors for systemic lupus erythematosus (SLE), and homozygous C4A deficiency carries a several-fold increased odds of SLE. C4A is more effective than C4B at binding immune complexes and enhancing their clearance via CR1, so its loss reduces clearance of immune complexes and apoptotic debris. This entry is scoped to homozygous C4A deficiency (zero functional C4A, C4B present).",
+    "pathophysiology": [
+      "Absent Functional C4A Protein",
+      "Reduced Immune Complex and Apoptotic Debris Clearance",
+      "Breakdown of Self-Tolerance and Autoantibody Production"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "immune complex clearance",
+      "apoptotic cell clearance",
+      "B cell tolerance induction"
+    ],
+    "phenotypes": [
+      "Systemic Lupus Erythematosus",
+      "Decreased Circulating Complement C4",
+      "Lymphoma",
+      "Celiac Disease",
+      "Sarcoidosis",
+      "Adverse Drug Response",
+      "Pericarditis"
+    ],
+    "phenotype_categories": [
+      "Immunological",
+      "Laboratory",
+      "Neoplastic",
+      "Gastrointestinal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0002725",
+      "HP:0045042",
+      "HP:0002665",
+      "HP:0002608",
+      "HP:0020172",
+      "HP:0001701"
+    ],
+    "frequencies": [],
+    "genes": [
+      "C4A",
+      "C4A copy number (heterozygous deficiency)"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Complement_Component_4A_Deficiency.yaml",
+    "page_url": "../pages/disorders/Complement_Component_4A_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 3,
+    "num_genes": 2,
+    "num_treatments": 0,
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Complex Hereditary Spastic Paraplegia",
     "disease_id": "MONDO:0015150",
     "category": "Mendelian",
@@ -109112,6 +109271,84 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "17",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Dentin Dysplasia Type II",
+    "disease_id": "MONDO:0007437",
+    "category": "Mendelian",
+    "parents": [
+      "Dentin Dysplasia",
+      "Hereditary Dentin Defect",
+      "Tooth Disease"
+    ],
+    "creation_date": "2026-10-03T21:57:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dentin dysplasia type II (DD-II, coronal dentin dysplasia) is a rare, non-syndromic, autosomal dominant hereditary dentin defect caused by heterozygous pathogenic variants in DSPP, the gene encoding dentin sialophosphoprotein, the most abundant non-collagenous protein of dentin. The primary dentition is amber, opalescent and translucent with pulp chambers obliterated by abnormal dentin, resembling dentinogenesis imperfecta, whereas the permanent teeth have crowns of normal or near-normal colour and shape but show radiographic thistle-tube (flame-shaped) pulp chambers, pulp stones and eventual pulp obliteration; roots are of normal length. DD-II is allelic with dentinogenesis imperfecta types II and III and sits at the mild end of a continuous DSPP phenotype spectrum. Most DD-II alleles are -1 frameshifts in the N-terminal part of the dentin phosphoprotein (DPP) repeat region of exon 5; a signal-peptide missense (p.Asp6Tyr) and an intron 2 splice-acceptor variant are also reported. Mutant DSPP is retained in the rough endoplasmic reticulum, where it can capture normal DSPP and reduce its secretion; the milder DD-II phenotype is thought to reflect less efficient capture of wild-type protein than in dentinogenesis imperfecta. The disorder causes dental morbidity (discoloration, attrition of primary teeth, difficult endodontic access) without systemic involvement.",
+    "pathophysiology": [
+      "Heterozygous DSPP Pathogenic Variant",
+      "Mutant DSPP Retention in the Rough Endoplasmic Reticulum",
+      "Entrapment of Wild-Type DSPP and Reduced DSPP Secretion",
+      "Defective Dentin Mineralization",
+      "Aberrant Pulpal Dentin Deposition and Pulp Calcification"
+    ],
+    "cell_types": [
+      "odontoblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000060"
+    ],
+    "biological_processes": [
+      "endoplasmic reticulum to Golgi vesicle-mediated transport",
+      "protein secretion",
+      "dentin mineralization",
+      "dentinogenesis"
+    ],
+    "phenotypes": [
+      "Dentinogenesis imperfecta-like primary dentition",
+      "Amber discoloration of primary teeth",
+      "Excessive attrition of primary teeth",
+      "Abnormal dentin morphology",
+      "Pulp obliteration",
+      "Thistle tube shaped pulp",
+      "Pulp stones"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Histological",
+      "Radiological"
+    ],
+    "phenotype_hpo_categories": [
+      "Head and Neck",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0011060",
+      "HP:0006286",
+      "HP:4000181",
+      "HP:0010299",
+      "HP:0006350",
+      "HP:0033790",
+      "HP:0003771"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DSPP heterozygous variants"
+    ],
+    "treatments": [
+      "Stage-appropriate restorative and preventive dental care",
+      "Endodontic treatment of calcified canals"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dentin_Dysplasia_Type_II.yaml",
+    "page_url": "../pages/disorders/Dentin_Dysplasia_Type_II.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Denys-Drash Syndrome",
@@ -139728,7 +139965,13 @@ window.searchData = [
     ],
     "creation_date": "2026-01-26T15:56:41Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Clonorchiasis",
+      "Opisthorchiasis",
+      "Fascioliasis",
+      "Paragonimiasis",
+      "Echinostomiasis"
+    ],
     "description": "Foodborne trematodiases are infections with food-borne trematodes, including liver, lung, and intestinal flukes.",
     "pathophysiology": [],
     "cell_types": [],
@@ -155544,7 +155787,11 @@ window.searchData = [
     ],
     "creation_date": "2026-03-09T12:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "EV-A71",
+      "CVA6",
+      "CVA16"
+    ],
     "description": "A common acute viral illness predominantly affecting children under 5 years old, caused by enteroviruses (most commonly Coxsackievirus A16 and Enterovirus A71), characterized by fever, oral enanthema (painful mouth ulcers), and a vesicular exanthem on the hands, feet, and buttocks. Usually self-limiting, but EV-A71 strains can cause severe neurological and cardiopulmonary complications.",
     "pathophysiology": [
       "Receptor-mediated viral entry and endosomal uncoating",
@@ -173013,6 +173260,155 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hypomyelinating Leukodystrophy 4",
+    "disease_id": "MONDO:0012824",
+    "category": "Mendelian",
+    "parents": [
+      "Pelizaeus-Merzbacher-like disease",
+      "Hypomyelinating leukodystrophy",
+      "Mitochondrial disease"
+    ],
+    "creation_date": "2026-10-03T21:57:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Recessive MitCHAP-60",
+      "De novo heterozygous HSPD1 HLD"
+    ],
+    "description": "Hypomyelinating leukodystrophy 4 (HLD4, MitCHAP-60 disease) is an autosomal recessive, infantile-onset hypomyelinating leukodystrophy caused by pathogenic variants in HSPD1, which encodes HSP60, the large subunit of the mitochondrial HSP60/HSP10 chaperonin that folds proteins imported into the mitochondrial matrix. It was delineated in a large consanguineous Israeli Bedouin kindred homozygous for HSPD1 c.86A>G (p.Asp29Gly), which destabilizes the HSP60 oligomer and leaves a temperature-sensitive chaperonin with reduced folding and ATPase activity. Affected children present in the first months of life with rotatory nystagmus, hypotonia and psychomotor delay, then develop progressive spastic paraplegia, severe motor impairment without head control, profound intellectual disability, deceleration of head growth, seizures in many, and regression; death usually occurs in the first two decades. Brain MRI shows absent myelination of the cerebral and cerebellar white matter with a thin corpus callosum and brainstem, and a subset of patients has intermittent ethylmalonic aciduria. Heterozygous de novo HSPD1 variants (p.Leu47Val, p.Ala536Val/Pro) cause an overlapping, generally milder hypomyelinating phenotype, recorded here as a subtype. Treatment is supportive.",
+    "pathophysiology": [
+      "HSPD1 Pathogenic Missense Variant",
+      "HSP60 Chaperonin Oligomer Destabilization",
+      "Impaired Mitochondrial Matrix Protein Folding",
+      "Depletion of the Mitochondrial Matrix Proteome",
+      "Mitochondrial Dynamics and Membrane Potential Defect",
+      "Dysregulated Cholesterol Biosynthesis",
+      "Reduced Mature Oligodendrocytes",
+      "Diffuse CNS Hypomyelination",
+      "Progressive Neurodegeneration and Brain Atrophy"
+    ],
+    "cell_types": [
+      "oligodendrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000128"
+    ],
+    "biological_processes": [
+      "protein complex oligomerization",
+      "protein folding",
+      "mitochondrial unfolded protein response",
+      "mitochondrial fission",
+      "cholesterol biosynthetic process",
+      "oligodendrocyte differentiation",
+      "central nervous system myelination"
+    ],
+    "phenotypes": [
+      "CNS hypomyelination",
+      "Rotary nystagmus",
+      "Hypotonia",
+      "Global developmental delay",
+      "Spastic paraplegia",
+      "Poor head control",
+      "Profound intellectual disability",
+      "Developmental regression",
+      "Seizure",
+      "Postnatal deceleration of headgrowth",
+      "Strabismus",
+      "Choreoathetosis",
+      "Joint contracture",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Apnea",
+      "Aspiration pneumonia",
+      "Hydrops fetalis",
+      "Thin corpus callosum",
+      "Ventriculomegaly",
+      "Hypoplasia of the brainstem",
+      "Cerebellar atrophy",
+      "Delayed brainstem auditory evoked response conduction time",
+      "Abnormality of visual evoked potentials",
+      "Ethylmalonic aciduria",
+      "Elevated circulating C4-acylcarnitine concentration",
+      "Increased circulating lactate concentration",
+      "Postural tremor",
+      "Ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Ophthalmological",
+      "Musculoskeletal",
+      "Gastrointestinal",
+      "Growth",
+      "Respiratory",
+      "Prenatal",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0003429",
+      "HP:0001583",
+      "HP:0001252",
+      "HP:0001263",
+      "HP:0001258",
+      "HP:0002421",
+      "HP:0002187",
+      "HP:0002376",
+      "HP:0001250",
+      "HP:6001484",
+      "HP:0000486",
+      "HP:0001266",
+      "HP:0034392",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002104",
+      "HP:0011951",
+      "HP:0001789",
+      "HP:0033725",
+      "HP:0002119",
+      "HP:0002365",
+      "HP:0001272",
+      "HP:0004466",
+      "HP:0000649",
+      "HP:0003219",
+      "HP:0035016",
+      "HP:0002151",
+      "HP:0002174",
+      "HP:0001251"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "HSPD1"
+    ],
+    "treatments": [
+      "Supportive and symptomatic care",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypomyelinating_Leukodystrophy_4.yaml",
+    "page_url": "../pages/disorders/Hypomyelinating_Leukodystrophy_4.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Hypomyelinating Leukodystrophy 7",
     "disease_id": "MONDO:0011897",
     "category": "Mendelian",
@@ -189570,7 +189966,9 @@ window.searchData = [
     ],
     "creation_date": "2026-09-27T11:01:35Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "ST313"
+    ],
     "description": "Invasive non-typhoidal salmonellosis is extraintestinal infection, most often bacteremia and sometimes meningitis or focal sterile-site infection, caused by non-typhoidal serovars of Salmonella enterica. In sub-Saharan Africa, the disease is driven largely by invasive Salmonella Typhimurium ST313 and Salmonella Enteritidis pathovars in infants, young children, and immunocompromised adults; HIV infection, malaria, malnutrition, anemia, and sickle cell disease are major host contexts for invasion.",
     "pathophysiology": [
       "Salmonella Peptidoglycan Cross-Linking (Beta-Lactam Target)",
@@ -288046,6 +288444,125 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "RAPADILINO Syndrome",
+    "disease_id": "MONDO:0009955",
+    "category": "Mendelian",
+    "parents": [
+      "Genetic Disease",
+      "Skeletal Disease",
+      "Congenital Limb Malformation",
+      "Autosomal Recessive Disease"
+    ],
+    "creation_date": "2026-10-03T21:57:14Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "RAPADILINO syndrome is a rare autosomal recessive multiple-malformation syndrome named for its cardinal features: RAdial ray aplasia or hypoplasia, PAtellar aplasia or hypoplasia and cleft or high-arched PAlate, DIarrhea in infancy and DIslocated joints, LIttle size and LImb malformation, and a slender NOse with NOrmal intelligence. It is one of three allelic disorders caused by biallelic variants in RECQL4, a RecQ-family DNA helicase gene, the others being Rothmund-Thomson syndrome type 2 and Baller-Gerold syndrome. It is distinguished from both by the absence of poikiloderma, and from Rothmund-Thomson syndrome also by the absence of alopecia and loss of eyebrows and eyelashes. Most reported patients are Finnish and carry at least one copy of the founder splice variant c.1390+2delT, which causes in-frame skipping of exon 7 (p.Ala420_Ala463del) and yields a protein that retains strand-annealing activity but lacks helicase and ATPase activity and is retained poorly in the nucleus. Growth restriction begins before birth. The syndrome was first thought to carry no significant cancer risk, but longer follow-up of the Finnish cohort recorded osteosarcoma or lymphoma in 6 of 15 patients.",
+    "pathophysiology": [
+      "Biallelic RECQL4 Pathogenic Variants",
+      "Loss of RECQL4 Helicase and ATPase Activity",
+      "Failure of RECQL4 Nuclear Retention",
+      "Impaired DNA Replication Initiation",
+      "Progenitor Cell Proliferation Failure",
+      "p53 Activation in the Developing Skeleton",
+      "Defective Skeletal Development",
+      "Generalized Growth Restriction",
+      "Predisposition to Osteosarcoma and Lymphoma"
+    ],
+    "cell_types": [
+      "osteoblast progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0007010"
+    ],
+    "biological_processes": [
+      "protein localization to nucleus",
+      "DNA replication initiation",
+      "cell population proliferation",
+      "apoptotic process",
+      "signal transduction by p53 class mediator",
+      "limb development",
+      "ossification"
+    ],
+    "phenotypes": [
+      "Radial Aplasia or Hypoplasia",
+      "Thumb Aplasia or Hypoplasia",
+      "Patellar Aplasia or Hypoplasia",
+      "Joint Dislocation",
+      "Cleft Palate",
+      "High Palate",
+      "Slender Nose",
+      "Short Stature",
+      "Intrauterine Growth Retardation",
+      "Infantile Diarrhea",
+      "Vomiting",
+      "Feeding Difficulties",
+      "Hypermelanotic Macules",
+      "Osteosarcoma",
+      "Lymphoma",
+      "Lymphopenia",
+      "Decreased Circulating IgG"
+    ],
+    "phenotype_categories": [
+      "Skeletal",
+      "Craniofacial",
+      "Growth",
+      "Gastrointestinal",
+      "Integument",
+      "Neoplasm",
+      "Immunological"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cellular",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm"
+    ],
+    "phenotype_ids": [
+      "HP:0006501",
+      "HP:0009601",
+      "HP:0006498",
+      "HP:0001373",
+      "HP:0000175",
+      "HP:0000218",
+      "HP:0000460",
+      "HP:0004322",
+      "HP:0001511",
+      "HP:0002014",
+      "HP:0002013",
+      "HP:0011968",
+      "HP:0001034",
+      "HP:0002669",
+      "HP:0002665",
+      "HP:0001888",
+      "HP:0004315"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RECQL4"
+    ],
+    "treatments": [
+      "Osteosarcoma and Lymphoma Surveillance",
+      "Immunoglobulin Substitution Therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Rapadilino_Syndrome.yaml",
+    "page_url": "../pages/disorders/RAPADILINO_Syndrome.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Rasmussen Encephalitis",
     "disease_id": "MONDO:0016019",
     "category": "Complex",
@@ -342384,126 +342901,6 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
-    "name": "Viral Hemorrhagic Fever",
-    "disease_id": "MONDO:0018087",
-    "category": "Infectious Disease",
-    "parents": [
-      "Viral infectious disease",
-      "Hemorrhagic fever"
-    ],
-    "creation_date": "2026-05-09T13:23:18Z",
-    "updated_date": null,
-    "subtypes": [
-      "Ebola virus disease",
-      "Marburg virus disease",
-      "Lassa fever",
-      "Crimean-Congo hemorrhagic fever",
-      "Dengue hemorrhagic fever",
-      "Yellow fever",
-      "Rift Valley fever",
-      "Hantavirus hemorrhagic fever with renal syndrome"
-    ],
-    "description": "Viral hemorrhagic fever is a heterogeneous group of severe infections caused by selected enveloped RNA viruses. The umbrella entry models recurring vascular, immune, and hemostatic patterns rather than one uniform disease: individual viruses differ in transmission, organ tropism, bleeding mechanism, clinical course, diagnostics, prevention, and treatment, and overt hemorrhage is not present in every infection. Severe disease can include acute febrile illness, impaired antiviral immunity, high viremia, endothelial dysfunction, capillary leak, coagulopathy, hemorrhagic manifestations, shock, and organ dysfunction.",
-    "pathophysiology": [
-      "Endothelial activation and damage",
-      "Increased vascular permeability",
-      "Consumptive coagulopathy",
-      "Decreased coagulation factor production",
-      "Reduced platelet number",
-      "Platelet dysfunction"
-    ],
-    "cell_types": [
-      "endothelial cell",
-      "platelet"
-    ],
-    "cell_type_ids": [
-      "CL:0000115",
-      "CL:0000233"
-    ],
-    "biological_processes": [
-      "endothelial cell activation",
-      "regulation of vascular permeability",
-      "blood coagulation",
-      "platelet activation"
-    ],
-    "phenotypes": [
-      "Fever",
-      "Myalgia",
-      "Headache",
-      "Nausea",
-      "Vomiting",
-      "Diarrhea",
-      "Capillary leak",
-      "Hemorrhage",
-      "Coagulopathy",
-      "Petechiae",
-      "Epistaxis",
-      "Thrombocytopenia",
-      "Leukopenia",
-      "Elevated liver enzymes",
-      "Shock",
-      "Acute kidney injury"
-    ],
-    "phenotype_categories": [
-      "Systemic",
-      "Neurologic",
-      "Gastrointestinal",
-      "Cardiovascular",
-      "Hematologic",
-      "Hepatic",
-      "Renal"
-    ],
-    "phenotype_hpo_categories": [
-      "Blood",
-      "Cardiovascular",
-      "Constitutional",
-      "Digestive",
-      "Genitourinary",
-      "Head and Neck",
-      "Immune",
-      "Integument",
-      "Metabolism",
-      "Nervous System"
-    ],
-    "phenotype_ids": [
-      "HP:0001945",
-      "HP:0003326",
-      "HP:0002315",
-      "HP:0002018",
-      "HP:0002013",
-      "HP:0002014",
-      "HP:0030005",
-      "HP:0001892",
-      "HP:0003256",
-      "HP:0000967",
-      "HP:0000421",
-      "HP:0001873",
-      "HP:0001882",
-      "HP:0002910",
-      "HP:0031273",
-      "HP:0001919"
-    ],
-    "frequencies": [],
-    "genes": [],
-    "treatments": [
-      "Supportive care",
-      "Ribavirin antiviral pharmacotherapy",
-      "Ebola monoclonal antibody therapy",
-      "Isolation, contact tracing, and PPE-based infection control",
-      "Selected VHF vaccination"
-    ],
-    "environmental": [],
-    "biochemical": [],
-    "source_file": "Viral_Hemorrhagic_Fever.yaml",
-    "page_url": "../pages/disorders/Viral_Hemorrhagic_Fever.html",
-    "num_phenotypes": 16,
-    "num_pathophysiology": 6,
-    "num_genes": 0,
-    "num_treatments": 5,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "2"
-  },
-  {
     "name": "Visceral heterotaxy",
     "disease_id": "MONDO:0018677",
     "category": "Complex",
@@ -353269,19 +353666,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3294,
-  "total_subtypes": 4586,
-  "total_disorders_and_subtypes": 7880,
-  "total_unique_evidence_sources": 49047,
-  "total_unique_publications": 45824,
+  "total_disorder_pages": 3298,
+  "total_subtypes": 4597,
+  "total_disorders_and_subtypes": 7895,
+  "total_unique_evidence_sources": 49111,
+  "total_unique_publications": 45888,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 293,
-  "total_pathographs": 3290,
-  "total_unique_pathological_events": 21468,
-  "total_modules": 186,
-  "total_research_reports": 3408,
+  "total_pathographs": 3294,
+  "total_unique_pathological_events": 21491,
+  "total_modules": 187,
+  "total_research_reports": 3413,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 111
+  "total_groupings": 112
 };
 window.dispatchEvent(new Event('searchDataReady'));
