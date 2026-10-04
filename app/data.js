@@ -35544,6 +35544,92 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Autosomal Dominant Mendelian Susceptibility To Mycobacterial Diseases Due To Partial IFNgammaR1 Deficiency",
+    "disease_id": "MONDO:0014429",
+    "category": "Mendelian",
+    "parents": [
+      "Primary immunodeficiency",
+      "Mendelian susceptibility to mycobacterial disease"
+    ],
+    "creation_date": "2026-09-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal dominant partial interferon-gamma receptor 1 (IFN-gammaR1) deficiency is an inborn error of immunity and one of the genetic etiologies of Mendelian susceptibility to mycobacterial disease (MSMD): a selective predisposition to clinical disease caused by weakly virulent mycobacteria \u2014 the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria (NTM) \u2014 in individuals whose routine immunological work-up is otherwise unremarkable.\nAlmost every genetic etiology of MSMD converges on interferon gamma (IFN-gamma), either impairing production of the cytokine or the cellular response to it. This disorder sits on the response arm. It is caused by heterozygous truncating mutations of IFNGR1 clustered in exon 6, of which the 4-bp microdeletion 818del4 is a recurrent hotspot; the related 811del4 and 774del4 alleles behave identically. Each introduces a premature stop codon in the intracellular domain, producing a receptor that binds IFN-gamma normally but lacks the cytoplasmic JAK1-docking and STAT1-docking motifs and the membrane-proximal region required for receptor internalisation and degradation. The truncated receptors are therefore not recycled or degraded and accumulate at the cell surface, where they compete with the wild-type receptor encoded by the intact allele for ligand and receptor-complex formation. This is the dominant-negative mechanism: a single mutant allele blunts signalling below the protective threshold even though one wild-type allele remains. Residual IFN-gamma signalling persists \u2014 partial STAT1 phosphorylation and HLA class II induction are detectable \u2014 which is why the disease is milder and later in onset than autosomal recessive complete IFN-gammaR1 deficiency.\nThe clinical hallmark is BCG or environmental mycobacterial disease presenting as unifocal or multifocal osteomyelitis, often with regional or generalized lymphadenopathy; Mycobacterium avium complex is the commonest environmental agent. Onset is later than in the recessive complete form (mean 13.4 years against 3.1 years in the largest comparative series), and the course is relapsing-remitting but generally survivable, in contrast to the early, often fatal disseminated disease of the recessive complete form. Because residual receptor function is present, prolonged antimycobacterial chemotherapy plus, where needed, adjunctive recombinant IFN-gamma is the mainstay, and live BCG vaccine is contraindicated in affected individuals and at-risk relatives. Hematopoietic stem-cell transplantation is reserved for MSMD patients whose response to IFN-gamma is abolished, which is not the case in this partial form.\nThis entry curates the autosomal dominant partial IFN-gammaR1 deficiency (IMD27B, MONDO:0014429) only. Autosomal recessive complete IFN-gammaR1 deficiency (MONDO:0020530) and autosomal recessive partial IFN-gammaR1 deficiency (MONDO:0017901) are distinct MONDO concepts and appear here only as differential diagnoses.\n",
+    "pathophysiology": [
+      "Heterozygous IFNGR1 Exon 6 Truncating Mutation",
+      "Cell-Surface Accumulation of Truncated IFN-gammaR1",
+      "Dominant-Negative Impairment of IFN-gamma Signaling",
+      "Insufficient IFN-gamma-Dependent Macrophage Activation",
+      "Impaired Control of Intramacrophagic Mycobacteria"
+    ],
+    "cell_types": [
+      "monocyte",
+      "macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000576",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "receptor catabolic process",
+      "type II interferon-mediated signaling pathway",
+      "macrophage activation"
+    ],
+    "phenotypes": [
+      "Multifocal mycobacterial osteomyelitis",
+      "BCG-associated disease",
+      "Non-tuberculous mycobacterial infection",
+      "Mycobacterium avium complex infection",
+      "Granulomatous lymphadenitis",
+      "Cutaneous mycobacterial granuloma",
+      "Tuberculosis",
+      "Disseminated histoplasmosis",
+      "Increased cell-surface IFN-gammaR1 on monocytes",
+      "Reduced STAT1 phosphorylation in response to IFN-gamma"
+    ],
+    "phenotype_categories": [
+      "Infectious",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Immune",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:5210276",
+      "HP:5210408",
+      "HP:5210115",
+      "HP:5210364",
+      "HP:0002840",
+      "HP:6000070",
+      "HP:5210111",
+      "HP:0032256"
+    ],
+    "frequencies": [],
+    "genes": [
+      "IFNGR1"
+    ],
+    "treatments": [
+      "Antimycobacterial Therapy",
+      "Recombinant Interferon Gamma",
+      "Avoidance of BCG Vaccination",
+      "Genetic Counseling"
+    ],
+    "environmental": [
+      "Bacille Calmette-Guerin (BCG) vaccination"
+    ],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IFNgammaR1_Deficiency.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IFNgammaR1_Deficiency.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Autosomal Dominant Non-Syndromic Intellectual Disability",
     "disease_id": "MONDO:0015802",
     "category": "Genetic",
@@ -187752,6 +187838,151 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "Intellectual Disability, Autosomal Dominant 48",
+    "disease_id": "MONDO:0030913",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "intellectual disability"
+    ],
+    "creation_date": "2026-10-01T14:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Microcephalic",
+      "Normocephalic",
+      "Macrocephalic"
+    ],
+    "description": "Intellectual disability, autosomal dominant 48 (MRD48) is a syndromic neurodevelopmental disorder caused by heterozygous, de novo missense variants in RAC1, a Rho-family GTPase that cycles between GDP- and GTP-bound states and, when active, drives actin cytoskeleton remodelling through effectors such as PAK1 and the WAVE regulatory complex. All reported individuals have developmental delay and intellectual disability, usually with speech delay and brain malformations (corpus callosum and cerebellar vermis hypoplasia, polymicrogyria, white matter changes); hypotonia, feeding difficulties, behavioural problems, congenital heart defects, epilepsy, eczematous or ichthyosiform skin changes and a recognisable but evolving facial gestalt are common. The disorder splits by variant mechanism. Dominant-negative or presumed dominant-negative variants (for example p.Cys18Tyr, p.Asn39Ser and variants in the C-terminal part of switch II, P69-Q74) reduce RAC1 signalling and cause microcephaly; activating variants, mostly in the N-terminal part of switch II (Q61-R68) but also p.Ala159Thr in the G5 box, over-activate PAK and the WAVE regulatory complex and cause normocephaly or milder head-size changes; and two variants at Val51 cause macrocephaly by an unresolved mechanism. Head circumference across the reported variants spans about 10 standard deviations.",
+    "pathophysiology": [
+      "De Novo RAC1 Missense Variant Altering the GTPase Switch",
+      "Reduced RAC1 Effector Signalling",
+      "RAC1 Over-Activation",
+      "Reduced Neural Progenitor Proliferation",
+      "Impaired Neuronal Morphogenesis and Synaptic Plasticity",
+      "Abnormal Neuronal Morphology from Excess Actin Branching",
+      "Disturbed Neural Crest-Derived Tissue Development"
+    ],
+    "cell_types": [
+      "neural progenitor cell",
+      "neuron",
+      "neural crest cell"
+    ],
+    "cell_type_ids": [
+      "CL:0011020",
+      "CL:0000540",
+      "CL:0011012"
+    ],
+    "biological_processes": [
+      "Rac protein signal transduction",
+      "neural precursor cell proliferation",
+      "neuron projection morphogenesis",
+      "long-term synaptic potentiation"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Global Developmental Delay",
+      "Delayed Speech and Language Development",
+      "Microcephaly",
+      "Macrocephaly",
+      "Hypoplasia of the Corpus Callosum",
+      "Cerebellar Vermis Hypoplasia",
+      "Polymicrogyria",
+      "Periventricular White Matter Lesions",
+      "Behavioural Abnormalities",
+      "Hypotonia",
+      "Feeding Difficulties",
+      "Congenital Heart Defects",
+      "Seizures",
+      "Eczematous and Ichthyosiform Skin Changes",
+      "Ichthyosis",
+      "Prominent Nasolabial Folds",
+      "Thin Upper Lip",
+      "Sparse Lateral Eyebrows",
+      "Prominent Nasal Bridge",
+      "Long Pointed Chin",
+      "Abnormally Spaced Teeth",
+      "Hydronephrosis",
+      "Short Feet",
+      "High Anterior Hairline",
+      "Highly Arched Eyebrows",
+      "Hypertelorism",
+      "Short Philtrum",
+      "Small Hands"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Behavioral",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Dermatological",
+      "Craniofacial",
+      "Renal",
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0000252",
+      "HP:0000256",
+      "HP:0002079",
+      "HP:0001320",
+      "HP:0002126",
+      "HP:0002518",
+      "HP:0000708",
+      "HP:0001252",
+      "HP:0011968",
+      "HP:0001627",
+      "HP:0001250",
+      "HP:0000964",
+      "HP:0008064",
+      "HP:0005272",
+      "HP:0000219",
+      "HP:0005338",
+      "HP:0000426",
+      "HP:0000307",
+      "HP:0000687",
+      "HP:0000126",
+      "HP:0001773",
+      "HP:0009890",
+      "HP:0002553",
+      "HP:0000316",
+      "HP:0000322",
+      "HP:0200055"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "RAC1"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_Autosomal_Dominant_48.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability,_Autosomal_Dominant_48.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Intellectual Disability Autosomal Dominant 52",
     "disease_id": "MONDO:0030918",
     "category": "Mendelian",
@@ -198071,6 +198302,8 @@ window.searchData = [
       "Mucosal Reservoir and Sterile-Site Invasion",
       "Capsule and Siderophore Immune Evasion",
       "Carbapenemase-Mediated Antibiotic Resistance",
+      "Klebsiella FMN Riboswitch-Gated Riboflavin Supply (Investigational Target)",
+      "Riboswitch Target-Site Resistance in Klebsiella",
       "Pulmonary Klebsiella Bacterial Burden",
       "NLRC4-Dependent IL-1beta Production",
       "Neutrophil-Mediated Lung Inflammation",
@@ -198086,6 +198319,7 @@ window.searchData = [
       "CL:0000235"
     ],
     "biological_processes": [
+      "Response to Antibiotic",
       "interleukin-1 production",
       "inflammatory response",
       "phagocytosis"
@@ -198121,10 +198355,10 @@ window.searchData = [
     "source_file": "Klebsiella_Pneumonia.yaml",
     "page_url": "../pages/disorders/Klebsiella_Pneumonia.html",
     "num_phenotypes": 3,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "7"
   },
   {
@@ -353035,17 +353269,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3292,
-  "total_subtypes": 4583,
-  "total_disorders_and_subtypes": 7875,
-  "total_unique_evidence_sources": 49024,
-  "total_unique_publications": 45801,
+  "total_disorder_pages": 3294,
+  "total_subtypes": 4586,
+  "total_disorders_and_subtypes": 7880,
+  "total_unique_evidence_sources": 49047,
+  "total_unique_publications": 45824,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 293,
-  "total_pathographs": 3288,
-  "total_unique_pathological_events": 21454,
-  "total_modules": 185,
-  "total_research_reports": 3406,
+  "total_pathographs": 3290,
+  "total_unique_pathological_events": 21468,
+  "total_modules": 186,
+  "total_research_reports": 3408,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 111
