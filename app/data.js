@@ -35714,13 +35714,15 @@ window.searchData = [
     "creation_date": "2026-09-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal dominant partial interferon-gamma receptor 1 (IFN-gammaR1) deficiency is an inborn error of immunity and one of the genetic etiologies of Mendelian susceptibility to mycobacterial disease (MSMD): a selective predisposition to clinical disease caused by weakly virulent mycobacteria \u2014 the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria (NTM) \u2014 in individuals whose routine immunological work-up is otherwise unremarkable.\nAlmost every genetic etiology of MSMD converges on interferon gamma (IFN-gamma), either impairing production of the cytokine or the cellular response to it. This disorder sits on the response arm. It is caused by heterozygous truncating mutations of IFNGR1 clustered in exon 6, of which the 4-bp microdeletion 818del4 is a recurrent hotspot; the related 811del4 and 774del4 alleles behave identically. Each introduces a premature stop codon in the intracellular domain, producing a receptor that binds IFN-gamma normally but lacks the cytoplasmic JAK1-docking and STAT1-docking motifs and the membrane-proximal region required for receptor internalisation and degradation. The truncated receptors are therefore not recycled or degraded and accumulate at the cell surface, where they compete with the wild-type receptor encoded by the intact allele for ligand and receptor-complex formation. This is the dominant-negative mechanism: a single mutant allele blunts signalling below the protective threshold even though one wild-type allele remains. Residual IFN-gamma signalling persists \u2014 partial STAT1 phosphorylation and HLA class II induction are detectable \u2014 which is why the disease is milder and later in onset than autosomal recessive complete IFN-gammaR1 deficiency.\nThe clinical hallmark is BCG or environmental mycobacterial disease presenting as unifocal or multifocal osteomyelitis, often with regional or generalized lymphadenopathy; Mycobacterium avium complex is the commonest environmental agent. Onset is later than in the recessive complete form (mean 13.4 years against 3.1 years in the largest comparative series), and the course is relapsing-remitting but generally survivable, in contrast to the early, often fatal disseminated disease of the recessive complete form. Because residual receptor function is present, prolonged antimycobacterial chemotherapy plus, where needed, adjunctive recombinant IFN-gamma is the mainstay, and live BCG vaccine is contraindicated in affected individuals and at-risk relatives. Hematopoietic stem-cell transplantation is reserved for MSMD patients whose response to IFN-gamma is abolished, which is not the case in this partial form.\nThis entry curates the autosomal dominant partial IFN-gammaR1 deficiency (IMD27B, MONDO:0014429) only. Autosomal recessive complete IFN-gammaR1 deficiency (MONDO:0020530) and autosomal recessive partial IFN-gammaR1 deficiency (MONDO:0017901) are distinct MONDO concepts and appear here only as differential diagnoses.\n",
+    "description": "Autosomal dominant partial interferon-gamma receptor 1 deficiency is an inherited immune defect causing susceptibility to BCG and environmental mycobacteria, often with osteomyelitis and granulomatous lymphadenitis. Heterozygous truncating IFNGR1 variants clustered in exon 6 produce surface-accumulating receptors with impaired intracellular signaling. These interfere with the retained wild-type receptor through a dominant-negative mechanism. Residual IFN-gamma responses distinguish this disorder from autosomal recessive complete IFN-gammaR1 deficiency. Clinical severity is variable and some carriers remain asymptomatic. In a 2004 comparative series, the mean age at the first environmental-mycobacterial episode was 13.4 years; BCG-associated illness can begin in infancy. Management centers on prolonged, organism-directed antimycobacterial therapy, sometimes with adjunctive recombinant IFN-gamma. Severe refractory cases are reported despite the generally milder course relative to complete receptor deficiency. This entry covers IMD27B (OMIM:615978; MONDO:0014429); recessive complete and recessive partial IFNGR1 deficiencies are separate disorders.",
     "pathophysiology": [
-      "Heterozygous IFNGR1 Exon 6 Truncating Mutation",
+      "Heterozygous IFNGR1 Exon 6 Frameshift Deletion",
+      "Heterozygous IFNGR1 Exon 6 Frameshift Insertion",
+      "Heterozygous IFNGR1 Exon 6 Nonsense Substitution",
       "Cell-Surface Accumulation of Truncated IFN-gammaR1",
       "Dominant-Negative Impairment of IFN-gamma Signaling",
       "Insufficient IFN-gamma-Dependent Macrophage Activation",
-      "Impaired Control of Intramacrophagic Mycobacteria"
+      "Susceptibility to Intracellular Pathogen Infection"
     ],
     "cell_types": [
       "monocyte",
@@ -35745,13 +35747,18 @@ window.searchData = [
       "Tuberculosis",
       "Disseminated histoplasmosis",
       "Increased cell-surface IFN-gammaR1 on monocytes",
-      "Reduced STAT1 phosphorylation in response to IFN-gamma"
+      "Reduced STAT1 phosphorylation in response to IFN-gamma",
+      "Transient dendritic-cell depletion during mycobacterial infection",
+      "Unusual Salmonella infection",
+      "Coccidioidomycosis"
     ],
     "phenotype_categories": [
       "Infectious",
-      "Laboratory"
+      "Laboratory",
+      "Immunologic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Immune",
       "Musculoskeletal"
@@ -35764,9 +35771,14 @@ window.searchData = [
       "HP:0002840",
       "HP:6000070",
       "HP:5210111",
-      "HP:0032256"
+      "HP:0032256",
+      "HP:0020178",
+      "HP:5210093",
+      "HP:0032249"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT"
+    ],
     "genes": [
       "IFNGR1"
     ],
@@ -35774,7 +35786,9 @@ window.searchData = [
       "Antimycobacterial Therapy",
       "Recombinant Interferon Gamma",
       "Avoidance of BCG Vaccination",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Hematopoietic transplantation considered for severe refractory disease",
+      "Debridement of necrotic lesions"
     ],
     "environmental": [
       "Bacille Calmette-Guerin (BCG) vaccination"
@@ -35782,12 +35796,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IFNgammaR1_Deficiency.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IFNgammaR1_Deficiency.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Dominant Non-Syndromic Intellectual Disability",
@@ -72173,11 +72187,13 @@ window.searchData = [
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CMD1OO is the VEZF1-attributed member of the numbered familial dilated cardiomyopathy series (OMIM 620247). VEZF1 encodes vascular endothelial zinc finger 1, a zinc-finger transcription factor originally characterized in vasculogenesis and angiogenesis. What makes this entity mechanistically distinct from most of the series is that the lesion is not in the contractile apparatus at all: it is in a transcription factor that sets how much contractile protein a cardiomyocyte makes. The reported disease allele, c.490A>T p.(Lys164*), truncates the protein early, and a dual-luciferase assay showed the mutant fails to transactivate the promoters of MYH7 and ET1, two genes already implicated in DCM.\n\nThe zebrafish and cell work fills in what that loss does to a heart. Vezf1 expression is reduced in diseased human and mouse myocardium; knocking it down in zebrafish reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation; and the effect runs through cardiomyocyte Myh7/beta-MHC, with an MCAT box in the Myh7 promoter and TEAD-1 as a binding partner. One negative result in that study is informative rather than incidental: calcium transient kinetics are NOT disturbed, which places the defect at the contractile apparatus and its transcriptional supply rather than in excitation-contraction coupling.\n\nFrom there the disease joins the conserved final common pathway that every cardiomyopathy converges on, and this entry declares `conforms_to` against `cardiomyopathy_maladaptive_remodeling` at three nodes rather than re-deriving the neurohormonal and remodeling chain.\n\nTwo cautions belong up front. First, the name is a trap. The OMIM designation is CMD1**OO**, with two letter Os continuing the alphabetical series, and it is the label \"cardiomyopathy, dilated, 100\" that misreads them as digits. This is not the hundredth numbered dilated cardiomyopathy locus. Second, the evidence base is one family. A single nonsense allele segregating with autosomal dominant DCM at complete penetrance, absent from 200 unrelated DCM patients, 400 controls and the population databases, plus a reporter assay. There is no ClinGen gene-disease validity assertion for VEZF1 and no second reported family, so the gene-disease relationship should be read as provisional.",
+    "description": "CMD1OO (OMIM 620247; MONDO:0859381) is a historically proposed VEZF1-associated form of familial dilated cardiomyopathy. The current ClinGen report also records the OMIM designation with a provisional question mark (?Cardiomyopathy, dilated, 1OO). ClinGen classifies the autosomal dominant gene-disease relationship as No Known Disease Relationship. Its expert panel excluded the genetic evidence in the defining Shi et al. report (PMID:36657711) because of concerns about suspect data. The reported heterozygous c.490A>T p.(Lys164*) allele and its promoter-reporter results are therefore historical observations from an excluded study, not an established molecular diagnosis. Independent zebrafish and rat cardiomyocyte experiments support roles for Vezf1 in contractile-gene transcription, cardiomyocyte growth and contractile reserve, but do not demonstrate that human VEZF1 variants cause DCM. Clinical evaluation, surveillance and treatment should follow the observed DCM phenotype and family history; the VEZF1 attribution does not establish variant-specific prognosis or predictive testing.",
     "pathophysiology": [
-      "VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation",
+      "Reported VEZF1 p.Lys164Ter Allele",
+      "Reported Loss of VEZF1 Promoter Transactivation",
       "Reduced Transcription of Cardiomyocyte Contractile and Growth Targets",
-      "Impaired Cardiomyocyte Contractile Function and Compensatory Growth",
+      "Impaired Cardiomyocyte Contractile Function",
+      "Reduced Cardiomyocyte Growth",
       "Left Ventricular Dilation and Systolic Dysfunction"
     ],
     "cell_types": [
@@ -72189,44 +72205,41 @@ window.searchData = [
     "biological_processes": [
       "positive regulation of transcription by RNA polymerase II",
       "cardiac muscle contraction",
-      "cardiac muscle tissue growth",
-      "heart contraction"
+      "cardiac muscle tissue growth"
     ],
     "phenotypes": [
-      "Dilated Cardiomyopathy",
-      "Congestive Heart Failure",
-      "Sudden Cardiac Death"
+      "Dilated Cardiomyopathy"
     ],
     "phenotype_categories": [
       "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
-      "Cardiovascular",
-      "Constitutional"
+      "Cardiovascular"
     ],
     "phenotype_ids": [
-      "HP:0001644",
-      "HP:0001635",
-      "HP:0001645"
+      "HP:0001644"
     ],
     "frequencies": [],
     "genes": [
       "VEZF1"
     ],
     "treatments": [
-      "Cascade Genetic Testing and Surveillance of At-Risk Relatives",
+      "Genetic counseling",
       "Guideline-Directed Heart Failure Pharmacotherapy",
-      "Cardiac Transplantation"
+      "Implantable cardioverter-defibrillator",
+      "Cardiac resynchronization therapy",
+      "Left ventricular assist device",
+      "Cardiac transplantation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiomyopathy_Dilated_100.yaml",
     "page_url": "../pages/disorders/Cardiomyopathy_Dilated_100.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 1,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "num_treatments": 6,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -354166,12 +354179,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3300,
   "total_subtypes": 4601,
   "total_disorders_and_subtypes": 7901,
-  "total_unique_evidence_sources": 49163,
-  "total_unique_publications": 45930,
+  "total_unique_evidence_sources": 49170,
+  "total_unique_publications": 45933,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 293,
   "total_pathographs": 3296,
-  "total_unique_pathological_events": 21521,
+  "total_unique_pathological_events": 21525,
   "total_modules": 187,
   "total_research_reports": 3415,
   "total_classifications": 21,
