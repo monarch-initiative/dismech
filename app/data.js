@@ -138421,7 +138421,7 @@ window.searchData = [
   {
     "name": "Fibrous Dysplasia",
     "disease_id": "MONDO:0000845",
-    "category": "Somatic mosaic",
+    "category": "Genetic",
     "parents": [
       "Bone remodeling disease",
       "Acquired disease"
@@ -158548,7 +158548,7 @@ window.searchData = [
   {
     "name": "Hemimegalencephaly",
     "disease_id": "MONDO:0020492",
-    "category": "Somatic mosaic",
+    "category": "Genetic",
     "parents": [
       "Epilepsy",
       "Neurological Disease"
@@ -174072,7 +174072,7 @@ window.searchData = [
   {
     "name": "Hypothalamic Hamartoma with Gelastic Seizures",
     "disease_id": "MONDO:0019484",
-    "category": "Somatic mosaic",
+    "category": "Genetic",
     "parents": [
       "Epilepsy Syndrome",
       "Cerebral Malformation"
@@ -282077,7 +282077,7 @@ window.searchData = [
   {
     "name": "Proteus syndrome",
     "disease_id": "MONDO:0008318",
-    "category": "Mendelian",
+    "category": "Genetic",
     "parents": [],
     "creation_date": "2026-01-27T17:46:29Z",
     "updated_date": null,
@@ -353671,7 +353671,7 @@ window.searchMetrics = {
   "total_disorders_and_subtypes": 7895,
   "total_unique_evidence_sources": 49111,
   "total_unique_publications": 45888,
-  "total_unique_disease_categories": 62,
+  "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 293,
   "total_pathographs": 3294,
   "total_unique_pathological_events": 21491,
@@ -353679,6 +353679,6 @@ window.searchMetrics = {
   "total_research_reports": 3413,
   "total_classifications": 21,
   "total_comorbidities": 51,
-  "total_groupings": 112
+  "total_groupings": 113
 };
 window.dispatchEvent(new Event('searchDataReady'));
