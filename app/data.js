@@ -71136,27 +71136,26 @@ window.searchData = [
     "creation_date": "2026-07-07T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Carbonic anhydrase VA (CA-VA) deficiency is an autosomal recessive inborn error of metabolism caused by biallelic loss-of-function variants in CA5A, which encodes the mitochondrial carbonic anhydrase isoform VA. CA-VA supplies bicarbonate to four bicarbonate-dependent mitochondrial liver enzymes \u2014 carbamoyl phosphate synthetase 1 (urea cycle), pyruvate carboxylase (anaplerosis and gluconeogenesis), propionyl-CoA carboxylase, and 3-methylcrotonyl-CoA carboxylase (branched-chain amino acid catabolism). Deficient bicarbonate provision impairs all four reactions simultaneously, producing an early-onset, life-threatening metabolic crisis with hyperammonemia, hyperlactatemia, ketonuria, metabolic acidosis, hypoglycemia, and urinary excretion of carboxylase substrates. Presentation is typically in the neonatal period or early childhood with lethargy and hyperammonemic encephalopathy. Unlike most causes of neonatal hyperammonemia, CA-VA deficiency is treatable, and prompt recognition with carglumic acid and ammonia-lowering measures can resolve hyperammonemia and prevent neurologic sequelae.\n",
+    "description": "Carbonic anhydrase VA (CA-VA) deficiency is an autosomal recessive metabolic disorder caused by biallelic pathogenic CA5A variants. Reduced mitochondrial bicarbonate production limits carbamoyl phosphate synthetase 1 and three biotin-dependent carboxylases, impairing ureagenesis, pyruvate metabolism and organic-acid metabolism. Presentation often involves neonatal or childhood hyperammonemic encephalopathy with variable hyperlactatemia, ketosis, acid-base disturbance and hypoglycemia. These findings are not obligatory: asymptomatic adults and children with developmental difficulties without recognized crises have been reported. Clinical outcomes range from normal development to persistent impairment and rare fatal decompensation. Acute anticatabolic and ammonia-lowering treatment and individualized sick-day management are used; recurrence can extend into later childhood.",
     "pathophysiology": [
       "Mitochondrial carbonic anhydrase VA deficiency",
-      "Impaired bicarbonate supply to mitochondrial carboxylases",
-      "Acute hyperammonemic metabolic crisis",
+      "Reduced mitochondrial bicarbonate availability",
+      "Impaired CPS1-dependent ureagenesis",
+      "Secondary pyruvate carboxylase dysfunction",
+      "Secondary propionyl-CoA carboxylase dysfunction",
+      "Secondary 3-methylcrotonyl-CoA carboxylase dysfunction",
+      "Organic acid accumulation",
       "Hyperammonemic encephalopathy"
     ],
     "cell_types": [
-      "hepatocyte",
-      "astrocyte",
-      "neuron"
+      "hepatocyte"
     ],
     "cell_type_ids": [
-      "CL:0000182",
-      "CL:0000127",
-      "CL:0000540"
+      "CL:0000182"
     ],
     "biological_processes": [
       "urea cycle",
-      "gluconeogenesis",
-      "glucose homeostasis"
+      "gluconeogenesis"
     ],
     "phenotypes": [
       "Hyperammonemia",
@@ -71164,13 +71163,38 @@ window.searchData = [
       "Ketonuria",
       "Metabolic acidosis",
       "Hypoglycemia",
-      "Lethargy"
+      "Lethargy",
+      "Vomiting",
+      "Tachypnea",
+      "Seizures",
+      "Coma",
+      "Respiratory alkalosis",
+      "Global developmental delay",
+      "Microcephaly",
+      "Failure to thrive",
+      "Elevated circulating creatine kinase activity",
+      "Hypotonia",
+      "Delayed speech and language development",
+      "Thin corpus callosum",
+      "Cerebral edema",
+      "Feeding difficulties"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Biochemical",
+      "Neurological",
+      "Gastrointestinal",
+      "Respiratory",
+      "Growth"
+    ],
     "phenotype_hpo_categories": [
+      "Digestive",
       "Genitourinary",
+      "Growth",
+      "Head and Neck",
       "Metabolism",
-      "Nervous System"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001987",
@@ -71178,29 +71202,50 @@ window.searchData = [
       "HP:0002919",
       "HP:0001942",
       "HP:0001943",
-      "HP:0001254"
+      "HP:0001254",
+      "HP:0002013",
+      "HP:0002789",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0001950",
+      "HP:0001263",
+      "HP:0000252",
+      "HP:0001508",
+      "HP:0003236",
+      "HP:0001252",
+      "HP:0000750",
+      "HP:0033725",
+      "HP:0002181",
+      "HP:0011968"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "CA5A variants"
     ],
     "treatments": [
       "Carglumic acid",
-      "Acute hyperammonemia management"
+      "Acute anticatabolic support",
+      "Nitrogen scavengers",
+      "Extracorporeal ammonia removal",
+      "Sick-day nutrition and fasting avoidance",
+      "Planned neonatal care after familial diagnosis",
+      "Avoidance of carbonic anhydrase inhibitors",
+      "Metabolic and developmental surveillance",
+      "Genetic counseling and family testing"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Carbonic_Anhydrase_VA_Deficiency.yaml",
     "page_url": "../pages/disorders/Carbonic_Anhydrase_VA_Deficiency.html",
-    "num_phenotypes": 6,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 9,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Carboxypeptidase N Deficiency",
@@ -71213,17 +71258,19 @@ window.searchData = [
     "creation_date": "2026-09-11T12:30:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Carboxypeptidase N deficiency is a recessive loss of the plasma zinc metallocarboxypeptidase that terminates the action of several potent vasoactive peptides at once. Carboxypeptidase N is made in the liver and circulates as a tetramer of two catalytic subunits, encoded by CPN1, and two large subunits that shield them from clearance. Its chemistry is minimal and its consequences are not: it removes a single C-terminal arginine or lysine, and that one residue is what distinguishes an active mediator from an inert des-Arg fragment. Its substrates include the complement anaphylatoxins C3a, C4a and C5a, bradykinin and kallidin.\nThe disease is therefore a catabolic failure rather than an overproduction state, which is what separates it from the rest of hereditary angioedema. Bradykinin persists and keeps signalling at the endothelial B2 receptor; C5a persists and keeps signalling at C5aR on mast cells. Both converge on increased microvascular permeability, which is why affected people have deep subcutaneous and submucosal angioedema and superficial urticarial wheals together, rather than the textbook either/or.\nTwo things about this entry are worth stating plainly. Only a handful of families have been reported, all of them with partial rather than absolute enzyme loss, so almost every human claim here rests on small numbers; the one complete-deficiency dataset is the Cpn1-null mouse, and it is recorded as model-organism evidence. And the deficiency is clinically latent until something else removes a parallel route of bradykinin disposal, which is why the angiotensin-converting-enzyme-inhibitor interaction is curated as an environmental factor rather than as a footnote.\nNo pathophysiology node declares conforms_to. kb/modules/complement_dysregulation was read and rejected as a target: that module is built around unrestrained alternative-pathway amplification and terminal-pathway assembly, whereas the lesion here leaves complement activation itself normal and removes only the downstream inactivation of the anaphylatoxins it releases. Asserting conformance would claim a mechanism this disease does not have.",
+    "description": "Carboxypeptidase N deficiency is a rare disorder of plasma peptide regulation associated with reduced activity of the CPN1-encoded catalytic subunit. Recurrent peripheral, abdominal or laryngeal angioedema can occur with urticaria. CPN normally removes C-terminal basic residues from kinins and complement anaphylatoxins, altering their receptor activity. In particular, des-Arg kinins lose B2-receptor activity but can act at B1 receptors; the products are not uniformly inert.\nMost early families were interpreted as showing recessive inheritance, with homozygous or compound heterozygous CPN1 variants. A later family with a heterozygous p.Thr245Met variant suggests possible dominant inheritance, but the independent contribution of that allele and proposed modifiers remains unresolved. Reported human deficiency is partial, with variable symptoms and treatment response. A drug trigger is not required in every case.\nReduced mediator degradation is central to the proposed mechanism. Increased plasminogen-dependent kinin production is an additional hypothesis, not an established patient-level pathway. Evidence from knockout mice demonstrates susceptibility to experimental complement activation and vascular leakage but does not establish the relative contributions of kinins and histamine to each human attack.",
     "pathophysiology": [
-      "Biallelic CPN1 Loss of Function",
+      "CPN1 variants associated with reduced enzyme activity",
       "Reduced Plasma Carboxypeptidase N Activity",
       "Persistence of Active Anaphylatoxins",
       "Persistence of B2 Receptor Kinins",
       "Mast Cell Histamine Release",
-      "Increased Microvascular Permeability"
+      "Increased Microvascular Permeability",
+      "Enhanced cell-surface plasminogen binding",
+      "Increased kinin generation"
     ],
     "cell_types": [
-      "dermal mast cell"
+      "mast cell"
     ],
     "cell_type_ids": [
       "CL:0000097"
@@ -71231,21 +71278,22 @@ window.searchData = [
     "biological_processes": [
       "inactivation of complement anaphylatoxins",
       "bradykinin catabolic process",
-      "mast cell degranulation",
-      "positive regulation of vascular permeability"
+      "mast cell degranulation"
     ],
     "phenotypes": [
       "Angioedema",
       "Urticaria",
       "Abdominal pain",
       "Laryngeal edema",
-      "Asthma"
+      "Asthma",
+      "Decreased circulating carboxypeptidase N activity"
     ],
     "phenotype_categories": [
       "Immunologic",
       "Dermatologic",
       "Gastrointestinal",
-      "Respiratory"
+      "Respiratory",
+      "Biochemical"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -71261,14 +71309,10 @@ window.searchData = [
       "HP:0001025",
       "HP:0002027",
       "HP:0012027",
-      "HP:0002099"
+      "HP:0002099",
+      "HP:6000560"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT",
-      "OCCASIONAL",
-      "VERY_RARE"
-    ],
+    "frequencies": [],
     "genes": [
       "CPN1"
     ],
@@ -71277,24 +71321,28 @@ window.searchData = [
       "Icatibant",
       "Tranexamic acid prophylaxis",
       "Montelukast",
-      "Antihistamine therapy"
+      "Antihistamine therapy",
+      "Plasma-derived C1 inhibitor",
+      "Family evaluation and genetic counseling",
+      "Individualized attack plan and follow-up"
     ],
     "environmental": [
       "Angiotensin-converting-enzyme inhibitor and dipeptidyl-peptidase-4 inhibitor exposure",
       "Hormonal triggers of attacks",
-      "Cold exposure"
+      "Cold exposure",
+      "Fatigue and stress"
     ],
     "biochemical": [
       "Plasma carboxypeptidase N activity"
     ],
     "source_file": "Carboxypeptidase_N_Deficiency.yaml",
     "page_url": "../pages/disorders/Carboxypeptidase_N_Deficiency.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 8,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cardiac, Facial, and Digital Anomalies with Developmental Delay",
@@ -71307,14 +71355,15 @@ window.searchData = [
     "creation_date": "2026-09-03T23:59:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "A multisystem congenital-anomaly and neurodevelopmental syndrome caused by heterozygous germline TRAF7 missense variants, most of them de novo and clustered in the C-terminal WD40 repeats. Affected individuals have a recognizable facial gestalt with blepharophimosis, congenital cardiovascular malformations in which patent ductus arteriosus is the most frequent lesion, digital deviations and other skeletal findings including pectus carinatum and a short neck, and developmental delay of variable severity. TRAF7 is an E3 ubiquitin ligase and signalling scaffold; the mutant protein is thought to act dominantly on the wild-type protein rather than through haploinsufficiency. Somatic TRAF7 mutations cause meningioma and other tumours, but those are a separate, non-overlapping mutation set and a different disease.",
+    "description": "A multisystem congenital-anomaly and neurodevelopmental syndrome associated with heterozygous TRAF7 missense variants, usually de novo and clustered in the C-terminal WD40 repeats. Familial transmission and postzygotic mosaic presentations also occur. Characteristic findings include blepharophimosis, congenital cardiovascular malformations, digital and vertebral anomalies, short neck, pectus carinatum, hearing loss and variable developmental impairment. TRAF7 is an E3 ubiquitin ligase and signaling adaptor. Allele-specific disruption of protein interactions, cilia and developmental signaling is under investigation. Somatic TRAF7-associated tumors are a distinct clinical context, with limited variant overlap and unresolved tumor risk in constitutional carriers.",
     "pathophysiology": [
-      "Germline TRAF7 WD40-repeat missense variant",
-      "Dominant-negative inhibition of wild-type TRAF7",
-      "Disrupted TRAF7-IFT57 interaction and ciliary loss",
-      "Altered ERK1/2 signalling in patient-derived cells",
+      "Heterozygous TRAF7 missense variant",
+      "Destabilization of the TRAF7 coiled-coil trimer",
+      "Reduced TRAF7-IFT57 binding",
+      "Reduced cilium maintenance",
+      "Reduced ERK1/2 phosphorylation in overexpression assays",
       "Dysregulation of developmental gene expression",
-      "Neural-crest-derived tissue maldevelopment"
+      "Perturbed neural crest development"
     ],
     "cell_types": [
       "fibroblast",
@@ -71345,10 +71394,57 @@ window.searchData = [
       "Delayed speech and language development",
       "Hypotonia",
       "Seizure",
-      "Abnormality of vision",
+      "Optic atrophy",
       "Brain imaging abnormality",
       "Obstructive sleep apnea",
-      "Craniosynostosis"
+      "Craniosynostosis",
+      "Motor delay",
+      "Intellectual disability",
+      "Feeding difficulties",
+      "Short stature",
+      "Epicanthus",
+      "Telecanthus",
+      "Ptosis",
+      "Hypertelorism",
+      "Low-set ears",
+      "Posteriorly rotated ears",
+      "Protruding ears",
+      "Bulbous nose",
+      "Micrognathia",
+      "Retrognathia",
+      "Submucous cleft palate",
+      "Velopharyngeal insufficiency",
+      "Camptodactyly",
+      "Brachydactyly",
+      "Syndactyly",
+      "Overlapping toes",
+      "Pes planus",
+      "Sandal gap",
+      "Cervical spinal stenosis",
+      "Atrial septal defect",
+      "Ventricular septal defect",
+      "Strabismus",
+      "Refractive error",
+      "Renal anomalies",
+      "Cryptorchidism",
+      "Hernia",
+      "Inverted nipples",
+      "Ventriculomegaly",
+      "Scoliosis",
+      "Kyphosis",
+      "Joint hypermobility",
+      "Joint contracture",
+      "Bicuspid aortic valve",
+      "Coarctation of aorta",
+      "Hypospadias",
+      "Myopia",
+      "Gastroesophageal reflux",
+      "Dysphagia",
+      "High forehead",
+      "Wide nasal bridge",
+      "Depressed nasal bridge",
+      "Low body weight",
+      "Clinodactyly"
     ],
     "phenotype_categories": [
       "Neurologic",
@@ -71359,12 +71455,18 @@ window.searchData = [
       "Otologic",
       "Growth",
       "Behavioral",
-      "Respiratory"
+      "Respiratory",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Integument"
     ],
     "phenotype_hpo_categories": [
+      "Breast",
       "Cardiovascular",
+      "Digestive",
       "Ear",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Limbs",
@@ -71373,7 +71475,7 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001263",
-      "HP:0001626",
+      "HP:0001627",
       "HP:0001643",
       "HP:0001999",
       "HP:0000581",
@@ -71387,28 +71489,81 @@ window.searchData = [
       "HP:0000750",
       "HP:0001252",
       "HP:0001250",
-      "HP:0000504",
+      "HP:0000648",
       "HP:0410263",
       "HP:0002870",
-      "HP:0001363"
+      "HP:0001363",
+      "HP:0001270",
+      "HP:0001249",
+      "HP:0011968",
+      "HP:0004322",
+      "HP:0000286",
+      "HP:0000506",
+      "HP:0000508",
+      "HP:0000316",
+      "HP:0000369",
+      "HP:0000358",
+      "HP:0000411",
+      "HP:0000414",
+      "HP:0000347",
+      "HP:0000278",
+      "HP:5201016",
+      "HP:0000220",
+      "HP:0012385",
+      "HP:0001156",
+      "HP:0001159",
+      "HP:0001845",
+      "HP:0001763",
+      "HP:0001852",
+      "HP:0008445",
+      "HP:0001631",
+      "HP:0001629",
+      "HP:0000486",
+      "HP:0000539",
+      "HP:0000077",
+      "HP:0000028",
+      "HP:0100790",
+      "HP:0003186",
+      "HP:0002119",
+      "HP:0002650",
+      "HP:0002808",
+      "HP:0001382",
+      "HP:0034392",
+      "HP:0001647",
+      "HP:0001680",
+      "HP:0000047",
+      "HP:0000545",
+      "HP:0002020",
+      "HP:0002015",
+      "HP:0000348",
+      "HP:0000431",
+      "HP:0005280",
+      "HP:0004325",
+      "HP:0030084"
     ],
     "frequencies": [],
     "genes": [
-      "TRAF7"
+      "TRAF7",
+      "TRAF7 mosaicism"
     ],
     "treatments": [
-      "Supportive multidisciplinary care"
+      "Supportive multidisciplinary care",
+      "Assisted learning and augmentative communication",
+      "Enteral feeding support",
+      "Cardiac surgery for structural lesions",
+      "Hearing assessment and rehabilitation",
+      "Continuous positive airway pressure"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiac_Facial_And_Digital_Anomalies_With_Developmental_Delay.yaml",
     "page_url": "../pages/disorders/Cardiac,_Facial,_and_Digital_Anomalies_with_Developmental_Delay.html",
-    "num_phenotypes": 19,
-    "num_pathophysiology": 6,
-    "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "6"
+    "num_phenotypes": 66,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 6,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cardiac Sarcoidosis",
@@ -71538,40 +71693,77 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Cardiac valvular Ehlers-Danlos syndrome (cvEDS) is an ultra-rare autosomal recessive connective-tissue disorder caused by biallelic null variants in COL1A2 that abolish production of the pro\u03b12(I) chain of type I collagen. Splice-site variants drive use of cryptic donor sites, creating a downstream premature termination codon and extremely unstable mRNA; homozygous nonsense variants act the same way. Nonsense-mediated decay of COL1A2 mRNA leaves no pro\u03b12(I) protein, so type I collagen is assembled as an \u03b11(I) homotrimer rather than the normal heterotrimer. The clinical consequence is distinctive: generalized joint hypermobility and skin hyperextensibility with moderate-to-severe, progressive cardiac valve disease that affects the mitral valve first, and \u2014 critically \u2014 without the bone fragility that biallelic COL1A2 variants cause in recessive osteogenesis imperfecta. Because the valve disease often becomes apparent only in adolescence or adulthood while the childhood picture can resemble mild hypermobile EDS, lifelong echocardiographic surveillance is the central management issue.\n",
+    "description": "Cardiac-valvular Ehlers-Danlos syndrome (cvEDS) is an ultra-rare autosomal recessive connective tissue disorder associated with biallelic COL1A2 null variants and loss of the proalpha2(I) collagen chain. Nonsense, frameshift and splice-altering alleles can produce unstable transcripts; type I collagen is assembled as alpha1(I) homotrimers. Joint hypermobility, skin hyperextensibility and tissue fragility accompany progressive mitral and/or aortic valve disease, which may be inconspicuous in childhood. Valve replacement has been successful in some patients, but severe procedural tissue fragility is also documented. Most well-characterized null cases lack the recurrent fractures of osteogenesis imperfecta; reduced bone density and overlapping COL1A2 phenotypes require a qualified differential diagnosis. Molecular confirmation and continuing echocardiographic surveillance are important even with a mild childhood presentation.",
     "pathophysiology": [
-      "COL1A2 Null Allele and Nonsense-Mediated mRNA Decay",
-      "Complete Absence of proalpha2(I) Collagen Chains",
-      "Progressive Cardiac Valve Matrix Failure",
-      "Cardiac Valvular Insufficiency and Heart Failure Risk",
-      "Generalized Soft Tissue Laxity Without Bone Fragility"
+      "COL1A2 splice-altering variants",
+      "Aberrant COL1A2 splicing",
+      "COL1A2 nonsense variant",
+      "COL1A2 frameshift insertion",
+      "COL1A2 transcript depletion",
+      "Loss of proalpha2(I) collagen chains",
+      "Type I collagen homotrimer formation",
+      "Cardiac valve insufficiency",
+      "Connective tissue mechanical fragility"
     ],
     "cell_types": [
-      "fibroblast",
-      "valve interstitial cell"
+      "fibroblast"
     ],
     "cell_type_ids": [
-      "CL:0000057",
-      "CL:4030032"
+      "CL:0000057"
     ],
     "biological_processes": [
-      "nonsense-mediated mRNA decay",
-      "extracellular matrix organization"
+      "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay"
     ],
     "phenotypes": [
       "Mitral Regurgitation",
       "Aortic Regurgitation",
       "Generalized Joint Hypermobility",
       "Skin Hyperextensibility",
-      "Bilateral Flatfoot with Hindfoot Pronation"
+      "Bilateral Flatfoot with Hindfoot Pronation",
+      "Mitral valve prolapse",
+      "Left ventricular dilatation",
+      "Left atrial enlargement",
+      "Ventricular hypertrophy",
+      "Atrial fibrillation",
+      "Secundum atrial septal defect",
+      "Atrophic scars",
+      "Thin skin",
+      "Soft skin",
+      "Bruising susceptibility",
+      "Striae distensae",
+      "Inguinal hernia",
+      "Pectus excavatum",
+      "Recurrent shoulder dislocation",
+      "Tendon rupture",
+      "Genu recurvatum",
+      "Calcaneovalgus deformity",
+      "Myopia",
+      "Astigmatism",
+      "Delayed wound healing",
+      "Hallux valgus",
+      "Hypotonia",
+      "Pyloric stenosis",
+      "Arachnodactyly",
+      "Reduced bone density",
+      "Lower eyelid ptosis",
+      "Hypoplastic interphalangeal creases",
+      "Toe subluxations",
+      "Muscle tears"
     ],
     "phenotype_categories": [
       "Cardiovascular",
       "Musculoskeletal",
-      "Dermatologic"
+      "Dermatologic",
+      "Hematologic",
+      "Gastrointestinal",
+      "Ophthalmologic",
+      "Neurologic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
+      "Digestive",
+      "Eye",
       "Integument",
       "Limbs",
       "Musculoskeletal"
@@ -71581,29 +71773,52 @@ window.searchData = [
       "HP:0001659",
       "HP:0001382",
       "HP:0000974",
-      "HP:0001763"
+      "HP:0001763",
+      "HP:0001634",
+      "HP:4000141",
+      "HP:0031295",
+      "HP:0001714",
+      "HP:0005110",
+      "HP:0001684",
+      "HP:0001075",
+      "HP:0000963",
+      "HP:0000977",
+      "HP:0000978",
+      "HP:0001065",
+      "HP:0000023",
+      "HP:0000767",
+      "HP:0031610",
+      "HP:0100550",
+      "HP:0002816",
+      "HP:0001848",
+      "HP:0000545",
+      "HP:0000483",
+      "HP:0001058",
+      "HP:0001822",
+      "HP:0001252",
+      "HP:0002021",
+      "HP:0001166",
+      "HP:0000938"
     ],
-    "frequencies": [
-      "VERY_FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "COL1A2"
     ],
     "treatments": [
-      "Echocardiographic Surveillance",
-      "Cardiac Valve Repair or Replacement",
-      "Genetic Counseling"
+      "Cardiac valve replacement",
+      "Genetic Counseling",
+      "Physiotherapy for hypotonia and joint instability"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiac_Valvular_Ehlers-Danlos_Syndrome.yaml",
     "page_url": "../pages/disorders/Cardiac_Valvular_Ehlers-Danlos_Syndrome.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 34,
+    "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cardiofaciocutaneous Syndrome",
@@ -144928,6 +145143,80 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "GYG1-Related Disorder of Glycogen Metabolism",
+    "disease_id": "MONDO:0100314",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-04T12:30:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "GSD XV",
+      "PGBM2"
+    ],
+    "description": "GYG1-related disorder of glycogen metabolism is an autosomal recessive condition caused by biallelic loss-of-function variants in GYG1, which encodes glycogenin-1, the self-glucosylating protein that primes glycogen synthesis in skeletal and cardiac muscle. Loss of normal glycogenin-1 autoglucosylation disrupts glycogen synthesis; depending on the variant, affected muscle accumulates abnormal, poorly branched glycogen (polyglucosan) or is depleted of glycogen. The disorder spans two poles: a skeletal myopathy with polyglucosan storage (polyglucosan body myopathy type 2) and a cardiomyopathy driven by a deleterious mutant glycogenin-1 in the heart (glycogen storage disease XV).",
+    "pathophysiology": [
+      "GYG1 Loss of Function",
+      "Impaired Glycogenin-1 Autoglucosylation",
+      "Polyglucosan and Glycogen Accumulation in Skeletal Muscle",
+      "Skeletal Muscle Glycogen Depletion",
+      "Mutant Glycogenin-1 Cardiotoxicity"
+    ],
+    "cell_types": [
+      "skeletal muscle fiber",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008002",
+      "CL:0000746"
+    ],
+    "biological_processes": [],
+    "phenotypes": [
+      "Skeletal myopathy",
+      "Limb-girdle muscle weakness",
+      "Exercise intolerance",
+      "Muscle weakness",
+      "Type 1 muscle fiber predominance",
+      "Cardiomyopathy",
+      "Arrhythmia",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003198",
+      "HP:0003325",
+      "HP:0003546",
+      "HP:0001324",
+      "HP:0003803",
+      "HP:0001638",
+      "HP:0011675",
+      "HP:0001635"
+    ],
+    "frequencies": [],
+    "genes": [
+      "GYG1"
+    ],
+    "treatments": [
+      "Supportive care",
+      "Cardiac transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "GYG1-related_Disorder_Of_Glycogen_Metabolism.yaml",
+    "page_url": "../pages/disorders/GYG1-Related_Disorder_of_Glycogen_Metabolism.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Galactosemia",
     "disease_id": "MONDO:0018116",
     "category": "Genetic",
@@ -206631,7 +206920,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "6"
   },
   {
@@ -353874,17 +354163,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3299,
-  "total_subtypes": 4599,
-  "total_disorders_and_subtypes": 7898,
-  "total_unique_evidence_sources": 49132,
-  "total_unique_publications": 45905,
+  "total_disorder_pages": 3300,
+  "total_subtypes": 4601,
+  "total_disorders_and_subtypes": 7901,
+  "total_unique_evidence_sources": 49163,
+  "total_unique_publications": 45930,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 293,
-  "total_pathographs": 3295,
-  "total_unique_pathological_events": 21505,
+  "total_pathographs": 3296,
+  "total_unique_pathological_events": 21521,
   "total_modules": 187,
-  "total_research_reports": 3414,
+  "total_research_reports": 3415,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
