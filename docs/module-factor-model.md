@@ -15,10 +15,10 @@ uv run python scripts/module_factor_model.py
 #    output/module_map/conformance_candidates.tsv
 ```
 
-This is the **inference half** of the factor model: fixed, curated anchors now.
-Learned de-novo factors for the residual structure the anchors don't explain
-(the candidate *new* modules) are the next step and are deliberately not built
-yet.
+This is the **inference half** of the factor model: fixed, curated anchors. The
+learned de-novo factors that explain the residual structure the anchors don't —
+the candidate *new* modules — are built as a companion step; see
+[Learned de-novo factors](#learned-de-novo-factors) below.
 
 ## What it computes
 
@@ -78,6 +78,55 @@ confirm each against the mechanism before adding a `conforms_to` edge — the sa
 "tooling proposes, curator adjudicates" discipline the rest of dismech uses. The
 raw candidate set is large (tens of thousands with any nonzero overlap); the
 useful worklist is the high-score, higher-shared tail of `conformance_candidates.tsv`.
+
+## Learned de-novo factors
+
+`scripts/module_denovo_factors.py` is the unannotated-factor arm: it **learns**
+additional latent factors for the phenotype co-occurrence the curated modules
+don't capture, each a candidate for a mechanism module dismech has not yet
+curated.
+
+```bash
+uv run python scripts/module_denovo_factors.py          # k=20 de-novo factors
+# -> output/module_map/module_denovo_factors.{json,tsv}
+```
+
+It is a semi-supervised NMF (the f-scLVM / expiMap design): the disease ×
+phenotype matrix is factored as `W @ H`, where H's first rows are the curated
+module signatures **held fixed** and only the remaining *k* de-novo rows (plus all
+of W) are learned. Holding the anchored rows fixed forces each de-novo factor to
+explain only residual structure, so it is a new pattern by construction, not a
+relabelling of a known module. Each factor is reported by its top phenotypes, the
+diseases that load on it, and a **novelty** score (the fraction of its top
+phenotypes not in any curated module) so a high-novelty factor stands out from one
+that just re-expresses curated mechanisms.
+
+One subtlety that is load-bearing: this model weights phenotype columns by an idf
+over the **disease corpus**, not the module-only idf the anchored model uses — a
+module-only idf would zero every uncurated phenotype and make discovering a new
+cluster impossible.
+
+On the current KB (2164 diseases × 4085 phenotypes, 105 fixed + 20 learned
+factors) the top de-novo factors are clinically coherent clusters that are *not*
+curated modules — genuine candidate modules:
+
+- **androgen-biosynthesis / disorder of sex development** (novelty 1.0):
+  cryptorchidism, ambiguous genitalia, micropenis, urogenital sinus anomaly —
+  loaded by 5α-reductase-2 deficiency, 17β-HSD3 deficiency, FGFR1
+  hypogonadotropic hypogonadism;
+- **humoral immunodeficiency**: recurrent infections + low IgG/IgA — the
+  agammaglobulinemias and CVID;
+- **bone-marrow-failure / radial-ray**: absent thumb, pancytopenia, radial
+  hypoplasia — Fanconi and inherited aplastic anemias;
+- **alkaptonuria / ochronosis**: ochronosis, elevated urinary homogentisic acid,
+  intervertebral disk calcification.
+
+Same discipline as the candidate-conformance worklist: these are co-occurrence
+clusters, not validated mechanisms — many will be organ-system or ascertainment
+clusters rather than conserved mechanisms, and the matrix is pathograph-derived so
+they inherit curation coverage and bias. A factor is a *lead* for a new module
+that a curator reads (top phenotypes + loaded diseases) and adjudicates with the
+`create-module` skill. *k* is chosen, not principled.
 
 ## Where this sits
 
