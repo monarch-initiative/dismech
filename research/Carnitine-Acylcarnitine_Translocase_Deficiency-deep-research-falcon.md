@@ -400,3 +400,59 @@ References
 24. (mahapatra2018triheptanoinarescue pages 2-4): Sidharth Mahapatra, Amitha Ananth, Nancy Baugh, Mihaela Damian, and Gregory M. Enns. Triheptanoin: a rescue therapy for cardiogenic shock in carnitine-acylcarnitine translocase deficiency. JIMD reports, 39:19-23, Jan 2018. URL: https://doi.org/10.1007/8904\_2017\_36, doi:10.1007/8904\_2017\_36. This article has 24 citations and is from a peer-reviewed journal.
 
 25. (porta2024triheptanoininpatients pages 6-9): Francesco Porta, Arianna Maiorana, Vincenza Gragnaniello, Elena Procopio, Serena Gasperini, Roberta Taurisano, Marco Spada, Carlo Dionisi-Vici, and Alberto Burlina. Triheptanoin in patients with long-chain fatty acid oxidation disorders: clinical experience in italy. Italian Journal of Pediatrics, Oct 2024. URL: https://doi.org/10.1186/s13052-024-01782-y, doi:10.1186/s13052-024-01782-y. This article has 10 citations and is from a peer-reviewed journal.
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 10 |
+| Resolved | 9 |
+| Unresolved (possible confabulation) | 1 |
+| Unverifiable | 0 |
+| Quoted claims checked | 0 |
+| Quoted claims found in source | 0 |
+| Quoted claims **not** found in source | 0 |
+| Quoted claims with nothing to check against | 1 |
+| References weighed for topical relevance | 9 |
+| On topic | 1 |
+| Off topic | 2 |
+
+### Unresolved references
+
+These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:
+
+- `DOI:10.22037/ghfbb.v17i4.2960` (4 mentions) - Identifier did not resolve to a record
+
+### References that may not be about this subject
+
+These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:
+
+- `DOI:10.3390/ijms24043946` (10 mentions) - In Silico Analysis of the Structural Dynamics and Substrate Recognition Determinants of the Human Mitochondrial Carnitine/Acylcarnitine SLC25A20 Transporter
+  - shared terms: none
+- `DOI:10.3390/nu16162707` (4 mentions) - Nutritional Management of Patients with Fatty Acid Oxidation Disorders
+  - shared terms: provide
+
+Weighed against this report's own most characteristic terms: `disease`, `relevant`, `genetic`, `implementation`, `target`, `current`, `definition`, `provide`, `authoritative`, `concept`, `expert`, `application`, `category`, `claim`, `development`, `format`, `include`, `opinion`, `required`, `statistic`.
+
+### Quotes that could not be checked
+
+There was no text to compare these against, so they are neither confirmed nor contradicted:
+
+- `DOI:10.4322/acr.2024.483`: "a crucial role in the oxidation of fatty acids"
+  - Reference resolved but exposes no abstract or full text to search
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 1 |
+| Resolved | 1 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+
+Every term resolved, and every label the report gave matched.

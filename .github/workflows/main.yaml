@@ -180,6 +180,10 @@ jobs:
               - '!kb/disorders/**/*.history.yaml'
             kb_comorbidities:
               - 'kb/comorbidities/**/*.yaml'
+            kb_modules:
+              - 'kb/modules/*.yaml'
+            kb_groupings:
+              - 'kb/groupings/*.yaml'
             kb_hypotheses:
               # Report edits can invalidate verbatim assessment/reconciliation
               # anchors even when no YAML changes.
@@ -400,6 +404,31 @@ jobs:
         run: |
           echo "Validating changed comorbidity KB files..."
           just validate-comorbidity-batch ${{ steps.changes.outputs.kb_comorbidities_files }}
+
+      # Modules validate against the same Disease class as disorders and get
+      # the same batched gate. Before this step a module-only PR reached full
+      # schema/term/reference validation only in the merge queue's whole-KB
+      # sweep, so a bad snippet or label failed there rather than on the PR.
+      # Like the two steps above it stays filter-gated on merge_group: the
+      # queue build's filter lists the queued PRs' module files.
+      - name: Validate changed module KB files
+        if: steps.changes.outputs.kb_modules == 'true'
+        run: |
+          echo "Validating changed module KB files..."
+          just validate-module-batch ${{ steps.changes.outputs.kb_modules_files }}
+      # Groupings had no PR-time check at all: they were in no path filter
+      # here, and every grouping pytest carries the `kb_data` marker, so a
+      # malformed criteria tree or a dangling member went red on `main` at the
+      # nightly sweep, not on the PR. The strict audit is offline (it reads the
+      # committed cache/closure/ files) so a contradiction it reports is a
+      # curated one, not an ontology outage. Filter-gated on merge_group like
+      # the three steps above, for the same reason: it consumes the filter's
+      # file list (tests/test_merge_group_ci.py, FILE_SCOPED_STEPS).
+      - name: Validate changed grouping KB files
+        if: steps.changes.outputs.kb_groupings == 'true'
+        run: |
+          echo "Validating changed grouping KB files..."
+          just validate-grouping-batch ${{ steps.changes.outputs.kb_groupings_files }}
 
       - name: Lint with ruff
         run: uvx ruff check .
