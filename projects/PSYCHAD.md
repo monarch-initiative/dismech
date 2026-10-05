@@ -141,7 +141,8 @@ and the graph-neural-network results of PASCode and Chandrashekar et al. are
 ## Candidate evidence by entry
 
 Every quote below is an exact substring of the cached paper after the
-validator's normalization. None has been added to the KB yet.
+validator's normalization. Most are now curated; the list under "Curated so
+far" records what went in and what was left out.
 
 ### Alzheimer_Disease
 
@@ -230,6 +231,49 @@ re-analysis checks robustness, not independent replication.
 | `inflammaging` | `late_onset_glial_inflammaging` | Cortical inflammaging stays near baseline through midlife and rises after about 60, in glia rather than neurons | Lifespan Supp. Data 4, 7 |
 | `loss_of_proteostasis` | `compensatory_glial_upr_with_age` | Aged microglia and oligodendrocytes raise UPR transcripts as compensation, not as evidence of proteostasis collapse | Lifespan Supp. Data 7, 17, 21 |
 
+## Curated so far
+
+- **Datasets.** `synapse:syn60084804` (PsychAD_NPS) is now listed on
+  `Dementia_with_Lewy_Bodies`, `Parkinsons_Disease`, `Frontotemporal_Dementia`,
+  `Schizophrenia` and `Bipolar_Disorder`, with each diagnosis's donor count
+  and confounds in the description. `sample_count` is the whole 1,494-donor
+  cohort on every record.
+- **Alzheimer_Disease.** Evidence on eight nodes and hypotheses. Two items go
+  against existing content: helper T cell and antigen-presentation programs
+  track dementia resilience (REFUTE on Adaptive Immune T Cell Response to Tau
+  Pathology), and APOE genotype leaves no differential expression, recorded as
+  NO_EVIDENCE on `apoe_risk_modulation_model` because that model predicts no
+  expression footprint.
+- **Schizophrenia and Bipolar_Disorder.** CACNA1C and RHOBTB2 `SUSCEPTIBILITY`
+  records from the single-nucleus TWAS, with the cross-ancestry caveat in their
+  notes, and evidence on the GABAergic, glutamatergic and neuroplasticity nodes.
+- **Parkinsons_Disease.** Microglial heritability enrichment on
+  Neuroinflammation.
+- **Modules.** Lifespan atlas evidence on `neuroinflammation_glial_activation`
+  and `inflammaging`. `loss_of_proteostasis` was left alone: its nodes describe
+  decline, and the atlas shows an adaptive rise in stress-response transcripts.
+- **Not curated.** The cross-disorder similarity results (AD, DLBD, vascular
+  dementia and PD) have no node to attach to in the DLB and PD entries; a
+  comorbidity record is the likelier home. The ZYX, EGFR and RERE/AUTS2
+  findings and the homeostatic-microglia regulon hypothesis remain candidates.
+
+### Hypotheses ready for OpenScientist
+
+These now exist in `mechanistic_hypotheses` (all `EMERGING`), so each can be
+run with `just research-hypothesis openscientist <Disorder> <id>`:
+
+| Entry | `hypothesis_group_id` |
+|---|---|
+| Alzheimer_Disease | `microglia_vlmc_meningeal_expansion_model` |
+| Alzheimer_Disease | `sst_interneuron_amyloid_restraint_model` |
+| Alzheimer_Disease | `early_il17_neurovascular_injury_model` |
+| Alzheimer_Disease | `monocyte_adaptive_immune_resilience_model` |
+| Alzheimer_Disease | `neuronal_regulatory_reserve_resilience_model` |
+| Alzheimer_Disease | `deep_layer_excitatory_nps_model` |
+| Schizophrenia | `scz_inhibitory_cacna1c_grex` |
+| Schizophrenia | `deep_layer_excitatory_npd_model` |
+| Bipolar_Disorder | `bd_excitatory_rhobtb2` |
+
 ## Re-analyses (OpenScientist)
 
 Planned runs on open data only. The existing PASCode runs
@@ -258,8 +302,9 @@ runs need only the entry (`just research-datasets openscientist <Disorder>`).
 - [x] Cache all nine papers
 - [x] Review each paper for candidate evidence and hypotheses
 - [x] Inventory datasets and access tiers
-- [ ] Add `datasets:` records to `Dementia_with_Lewy_Bodies`, `Parkinsons_Disease`, `Frontotemporal_Dementia`, `Schizophrenia`, `Bipolar_Disorder`
-- [ ] Curate the evidence above into the entries
-- [ ] Curate the candidate hypotheses that survive review into `mechanistic_hypotheses`
+- [x] Add `datasets:` records to `Dementia_with_Lewy_Bodies`, `Parkinsons_Disease`, `Frontotemporal_Dementia`, `Schizophrenia`, `Bipolar_Disorder`
+- [x] Curate the evidence above into the entries
+- [x] Curate the first set of candidate hypotheses into `mechanistic_hypotheses`
+- [ ] Curate the remaining candidates (ZYX, EGFR, homeostatic microglia regulon, ageing-module hypotheses)
 - [ ] Run the OpenScientist re-analyses and assess them
 - [ ] Decide whether vascular dementia and primary age-related tauopathy need stubs
