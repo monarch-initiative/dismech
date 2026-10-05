@@ -1,0 +1,154 @@
+# How the valproic acid and lithium "GxT in a dish" paper fits dismech
+
+Date: 2026-10-05. Checked against dismech `main` at commit `681ac38851`.
+
+## The paper
+
+Valone JM, Le BD, Matoba N, Mory JT, Wolter JM, Love MI, Stein JL. "Assessing
+molecular gene by treatment interactions using a population of neural
+progenitors exposed to valproic acid and lithium." *Molecular Psychiatry*, 2026.
+
+- DOI: [10.1038/s41380-026-03578-4](https://doi.org/10.1038/s41380-026-03578-4)
+- PMID: 41935183
+- Full text: PMC13364665 (open access, CC BY-NC-ND)
+
+dismech does not cite it. Neither the DOI nor the PMID appears in the
+repository or in any pull request, and the paper is not in `references_cache`.
+
+This review covers the main text only. The 21 supplementary tables were not
+read.
+
+## What the paper offers as a model
+
+The model is a primary culture of human neural progenitor cells from fetal
+dorsal telencephalon (14 to 21 gestational weeks). The cells come from 83
+genotyped donors described as neurotypical. Each line was exposed for 48 hours
+to 1 mM valproic acid (VPA), 1.5 mM lithium chloride, or vehicle, then profiled
+by ATAC-seq, RNA-seq and an EdU proliferation assay.
+
+In dismech terms this is an `ExperimentalModel` of type `PRIMARY_CELL_CULTURE`.
+It models an exposure and a treatment response. It does not model a disease
+genotype.
+
+Main results:
+
+- VPA changed chromatin accessibility at 65% of peaks, more often closing than
+  opening. Lithium changed 18%, more often opening.
+- VPA shifted progenitors from proliferation toward differentiation and reduced
+  the S-phase fraction in every donor at 1 mM. Lithium increased proliferation
+  at 0.75 to 1.5 mM and decreased it at higher concentrations.
+- VPA-responsive regions were enriched for the heritability of autism,
+  intelligence, educational attainment and bipolar disorder. Lithium-responsive
+  regions were enriched for bipolar disorder heritability.
+- Genetic variants changed the molecular response to the drugs: 779 response
+  caQTLs and 214 response eQTLs for VPA, and 15 of each for lithium.
+- Under VPA only, a transcriptome-wide association study linked folate and
+  cobalamin metabolism genes (DHFR2, MTFMT, MTHFD1, MMACHC, MTRR, MMUT) to
+  educational attainment.
+
+## Gaps in disorder entries the paper could fill
+
+### 1. Fetal valproate syndrome has no entry and no stub
+
+MONDO:0012275 appears nowhere in `kb/` or `stubs/`. This is the disorder the
+model most directly represents.
+
+The paper can be used for an entry, with limits. An `ExperimentalModel` could
+hold:
+
+- the model itself: type, organism, cell type, tissue and publication;
+- links to mechanism nodes through `modeled_mechanisms`, each with a
+  relationship, fidelity, divergences and evidence;
+- structured readouts on each link, such as chromatin accessibility changed and
+  S-phase fraction decreased, with a direction and a quoted snippet.
+
+Three things would fall back to prose (see "Gaps in the schema" below): the
+exposure dose and duration, the donor population, and the gene-by-exposure
+results. The last is the paper's main novelty.
+
+The paper cannot found the entry on its own. It would supply the experimental
+model and evidence for one or two mechanism nodes, such as chromatin change and
+the shift from proliferation to differentiation. Phenotypes, prevalence, the
+clinical exposure-outcome evidence and the mechanism nodes themselves have to
+come from the clinical and teratology literature.
+
+### 2. Autism Spectrum Disorder: the valproate link has no molecular intermediates
+
+The "Prenatal valproate exposure" factor is linked to the node "Heterogeneous
+neurodevelopmental molecular effects" as `INDIRECT_UNKNOWN_INTERMEDIATES`. Its
+description says "No cited sentence follows valproate to any molecular step".
+
+The paper supplies human in-vitro intermediates. It also shows that
+VPA-responsive regions are enriched for autism heritability and VPA-responsive
+genes for autism-associated genes.
+
+The entry has no valproate model of any kind. Its two animal models are a
+Cntnap2 knockout with maternal immune activation and a prenatal
+interferon-alpha rat.
+
+### 3. Bipolar Disorder has no model sections
+
+The entry has neither `experimental_models` nor `animal_models`. The patient
+iPSC neuron work is cited only inside pathophysiology nodes.
+
+The paper would add a lithium model with three findings:
+
+- lithium increases progenitor proliferation at 0.75 to 1.5 mM;
+- lithium-responsive regions are enriched for bipolar disorder heritability;
+- 105 genes associate with bipolar disorder under lithium, including FADS1,
+  TRANK1 and BDNF.
+
+There is no neurogenesis or progenitor-proliferation node to link to.
+"Neuroplasticity Alterations" is the closest. The companion paper on
+lithium-induced proliferation and GNL3 (PMID:36307327) is also absent.
+
+### 4. Neural tube defects: the folate question is open or contradicted
+
+- Anencephaly records the valproate link as indirect because the responsible
+  step is "unsettled between folate antagonism and histone deacetylase
+  inhibition".
+- Spina Bifida Cystica says VPA acts independently of maternal folate status.
+  It has no model sections.
+
+The paper's folate result bears on this, but its outcome is cognition
+(educational attainment), not neural tube closure. It fits a discussion item
+better than a model link.
+
+### 5. Schizophrenia and Epilepsy have no model sections
+
+The contribution here is thinner.
+
+- Schizophrenia: a VPA-responsive eQTL for AS3MT (rs7096169) colocalizes with a
+  schizophrenia GWAS signal. AS3MT is not among the entry's genes.
+- Epilepsy: the paper describes the heritability contribution of VPA-responsive
+  regions as modest.
+
+## Gaps in the schema
+
+`ExperimentalModel` can record this model, but three parts of the design have
+no structured home.
+
+| Part of the design | What the schema offers | Consequence |
+|---|---|---|
+| Exposure, dose and duration (1 mM VPA, 48 h) | The free-text `conditions` slot. `ExperimentalPerturbation` exists only on `Experiment`, which holds proposed experiments | "All models exposed to valproate" cannot be queried |
+| Donor population (83 genotyped, unaffected donors) | The free-text `cell_source` slot | A population-scale donor panel cannot be told apart from a single line |
+| Gene-by-exposure interaction (response QTLs) | Nothing. `EnvironmentalMechanismTarget` has no genetic-context field, and `TreatmentEffectModifier` covers patient subgroups | The result can only be mentioned in `findings` or `notes` |
+
+No disorder file mentions a response QTL, and one mentions a caQTL.
+
+The first two rows are a loss of queryability, not of content. The third is a
+loss of content.
+
+The authors' stated limitations fit the existing `ModelDivergence` kinds: a
+single cell type is a `BOUNDARY_OMISSION`, and acute 48-hour exposure is a
+`TEMPORAL_SCOPE` divergence.
+
+## Caveats for curation
+
+- The findings are associative: heritability enrichment, colocalization and
+  transcriptome-wide association. They belong as `IN_VITRO` evidence on model
+  links, not as support for human phenotypes.
+- The donors are unaffected, so the model says how typical progenitors respond
+  to the drugs. It does not say how patient cells respond.
+- Snippets can be checked against the PMC full text once the reference is
+  cached.
