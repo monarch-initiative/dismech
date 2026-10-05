@@ -182,7 +182,7 @@ content_type: url
             if (modalID = modal.getAttribute('id')&& !!linkText) {
                 linkText.setAttribute('data-modal-id', modalID);
                 linkText.addEventListener("click", function(e) {
-                var modal_data = data.node.closest('.a2a_kit.a2a_kit_size_32.addtoany_list');  
+                var modal_data = data.node.closest('.a2a_kit.a2a_kit_size_32.addtoany_list');
                 var copy_link = modal_data.getAttribute("data-a2a-url");
                 copyLinkToClipboard(copy_link);
                 function copyLinkToClipboard(string) {
