@@ -1948,6 +1948,52 @@ window.searchData = [
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
   },
   {
+    "model_key": "Carnitine-acylcarnitine_Translocase_Deficiency--computational-model-human-slc25a20-conformational-models-and-molecular-dynamics--0",
+    "name": "Human SLC25A20 conformational models and molecular dynamics",
+    "description": "AlphaFold2/ColabFold models of cytoplasmic-open and matrix-open human SLC25A20, molecular dynamics and substrate docking explore conformational asymmetry and binding determinants. Structural analysis suggests explanations for Asp231His and Ala281Val. The reported simulations do not directly quantify patient-mutant transport or clinical phenotype.",
+    "model_type": "Molecular Docking",
+    "model_type_raw": "MOLECULAR_DOCKING",
+    "model_format": "Format not recorded",
+    "model_software": "AlphaFold 2.2.0; ColabFold AlphaFold2_advanced; AMBER22; CPPTRAJ",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:36835358",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Carnitine-acylcarnitine Translocase Deficiency",
+    "disease_id": "MONDO:0008918",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "SLC25A20 transporter molecular function deficiency"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Predicted Asp231His effects involve matrix salt-bridge interactions; Ala281Val may perturb H5/H6 packing. Experimental mutant-transport confirmation is not supplied by this modeling study."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:36835358"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-02-23T00:00:00Z",
+    "page_url": "../../pages/disorders/Carnitine-acylcarnitine_Translocase_Deficiency.html#computational-model-human-slc25a20-conformational-models-and-molecular-dynamics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Carnitine-Acylcarnitine_Translocase_Deficiency.yaml"
+  },
+  {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
     "name": "Karin-Alon Saturating-Removal Model of Senescent Cell Accumulation",
     "description": "Mathematical model of senescent-cell turnover fitted to longitudinal senescent-cell measurements and induction experiments in mice. Senescent cells turn over rapidly in young mice (half-life of days) but slow their own removal rate in old mice (half-life of weeks), producing a critical slowing-down with persistent fluctuations. Modelling death as the first crossing of a senescent-cell threshold quantitatively recapitulates the Gompertz law of mortality in mice and humans, and extends to lifespan-modulating interventions in Drosophila and C. elegans.",
@@ -6460,8 +6506,8 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 132,
-  "total_source_entries": 59,
+  "total_models": 133,
+  "total_source_entries": 60,
   "total_model_types": 11,
   "total_runnable": 4,
   "total_with_repository": 55
