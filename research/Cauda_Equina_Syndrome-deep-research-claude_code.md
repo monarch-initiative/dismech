@@ -805,3 +805,71 @@ All PMIDs above were retrieved directly from PubMed search results and should be
 - [Systematic Review and Critical Appraisal of Cauda Equina Syndrome Management During Pregnancy (PMC11289579)](https://pmc.ncbi.nlm.nih.gov/articles/PMC11289579/)
 - [Cauda equina syndrome - Wikipedia](https://en.wikipedia.org/wiki/Cauda_equina_syndrome)
 - [Cauda Equina Syndrome - MSD Manual Professional Edition](https://www.msdmanuals.com/professional/neurologic-disorders/spinal-cord-disorders/cauda-equina-syndrome)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 38 |
+| Resolved | 37 |
+| Unresolved (possible confabulation) | 1 |
+| Unverifiable | 0 |
+| Quoted claims checked | 4 |
+| Quoted claims found in source | 0 |
+| Quoted claims **not** found in source | 4 |
+| References weighed for topical relevance | 37 |
+| On topic | 32 |
+| Off topic | 0 |
+
+### Unresolved references
+
+These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:
+
+- `PMID:40000448` (4 mentions) - Identifier did not resolve to a record
+
+### Quotes not found in the cited source
+
+Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:
+
+Every one of these was searched against an abstract alone, with no full text retrieved - marked *abstract only* below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.
+
+- `PMID:17828560` *(abstract only)*: "significant discordance"
+  - Text part not found as substring: 'significant discordance' (note: only abstract available for PMID:17828560, full text may contain this excerpt)
+- `PMID:12389883` *(abstract only)*: "significant discordance"
+  - Text part not found as substring: 'significant discordance' (note: only abstract available for PMID:12389883, full text may contain this excerpt)
+- `PMID:31415897` *(abstract only)*: "significant discordance"
+  - Text part not found as substring: 'significant discordance' (note: only abstract available for PMID:31415897, full text may contain this excerpt)
+- `PMC:PMC12540004` *(abstract only)*: "significant discordance"
+  - Text part not found as substring: 'significant discordance' (note: only abstract available for PMID:41127625, full text may contain this excerpt)
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 20 |
+| Resolved | 20 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 17 |
+| Terms named correctly | 13 |
+| Terms named as a **different** term | 2 |
+| Terms whose name is worth a second look | 2 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `HP:0007141` (1 mention) - the report calls it "perineal numbness"; HP calls it **Sensorimotor neuropathy**
+- `GO:0022011` (1 mention) - the report calls it "myelination"; GO calls it **myelination in peripheral nervous system**
+
+### Terms whose name is worth a second look
+
+The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a *related* synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:
+
+- `HP:0000020` (1 mention) - the report calls it "Urinary incontinence, confirmed by search"; HP calls it **Urinary incontinence**
+- `HP:0002607` (1 mention) - the report calls it "Fecal incontinence — confirmed"; HP calls it **Bowel incontinence**, and lists "Fecal incontinence" among its other names
