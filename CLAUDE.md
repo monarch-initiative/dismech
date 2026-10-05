@@ -36,6 +36,8 @@ Claude Code skills are available in `.claude/skills/`:
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
+- **somatic-mosaicism**: Use when encoding a post-zygotic origin, or deciding
+  whether `HP:0001442` applies.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
@@ -377,6 +379,33 @@ prioritised rare disease list, minus concepts the KB already covers. The MONDO
 prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for
 finding new nominations, but they are no longer the answer to "what should I
 curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
+
+### Gene Pages (`kb/genes/` → `pages/genes/`)
+
+A gene page merges three layers; see [`docs/gene-pages.md`](docs/gene-pages.md).
+
+- **Ingest** (`kb/genes/ingest/*.tsv`): HGNC identity, the ai-gene-review
+  function summary (joined on UniProt), and ClinGen validity tiers. **Dropped and
+  reloaded, never hand-edited**: `just genes-ingest-refresh [--repin]` then
+  `just genes-ingest-build`, pinned by `data/hgnc/`, `data/ai-gene-review/` and
+  `data/clingen-genes/` (separate from the `data/clingen/` citation pin on
+  purpose). ai-gene-review content is AI-generated: show it, never cite it as KB
+  evidence. `just genes-clingen-gaps` lists entries ClinGen classifies a gene for
+  whose own record does not type it: leads, not defects.
+- **KB slice** (`dismech.genes.slice`): every structural HGNC descriptor in
+  `kb/`, computed at build time and never committed. `just gene-slice hgnc:<n>`.
+- **Curated summary** (`kb/genes/curated/hgnc_<n>.md`): agent-written Markdown
+  whose checkable statements are provedown spans calling
+  `dismech.genes.claims`. `just genes-verify` re-runs them; a summary that no
+  longer matches the KB is shown as stale on its page. A summary may only say
+  what the KB or ingest layer says; a missing fact goes into the disease entry,
+  not the summary. Headings and connecting prose count as claims: state a
+  variant origin only through `g.variant_origin()` / `g.disorders(rel, origin)`,
+  never as a section title. The verifier refuses to execute any code beyond
+  `from dismech.genes.claims import gene`, `g = gene("hgnc:<n>")`, and claims
+  shaped exactly `g.<GeneClaims method>(literals)` (optionally in `len()`), and
+  refuses raw HTML beyond provedown's markup. Lists use `data-compare="names"`,
+  semicolon-separated, because names contain commas.
 
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
@@ -725,6 +754,7 @@ pathophysiology:
 - **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
 
 **Creating a module?** Use the `create-module` skill — it covers the module
 schema shape, the trigger→consequence node chain, the treatment
@@ -1330,9 +1360,21 @@ rg --files kb/groupings -g "*.yaml" | sort
 sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
 just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+Membership criteria are audited over the HP/GO closure committed in
+`cache/closure/`, so the audit is offline and deterministic. After adding an
+HP or GO criterion term, run `just build-grouping-closure-cache` and commit
+the cache; never hand-edit it. The cache is a snapshot of the ontology at the
+last build, so a member annotated with a term HPO or GO added *after* that
+build reads `NOT_SATISFIED` under `--strict` — the same false contradiction
+exact matching used to produce, now with a visible cause. Rebuild with
+`just build-grouping-closure-cache --refresh` after an ontology release before
+treating such a finding as a curation error. `--prune` is refused with explicit
+paths, because a subset cannot say what the other groupings still cite.
 
 **Check a MONDO mapping by walking members up, not the class down.** A grouping
 mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
@@ -1531,6 +1573,20 @@ resolves its target anchor for rendering but is deliberately **not** back-linked
 the pathophysiology node's "models informing this mechanism" crosslink: a system that
 exists only inside a proposal has not informed anything, and listing it there would
 present a hypothetical as curated evidence.
+
+**A link has four homes, and `dismech.model_links.iter_model_links` is the single
+walk over them** — the three top-level model sections plus a proposed experiment's
+`model_systems` (and its `controls[].model_systems`). Route a new consumer through it
+rather than looping over the sections yourself. Both `tests/test_data.py` and
+`scripts/model_scale_audit.py` used to walk only the top-level three, so every check
+on this object — divergence typing, scale agreement, readout targets, the caveat
+requirements — silently had no opinion on a link inside a proposal, and
+`just model-scale-audit` would report `model->mechanism links: 0` for an entry that
+had one. Links across `Alveolar_Rhabdomyosarcoma`, `Ewing_Sarcoma` and
+`Prolidase_Deficiency` went unchecked that way until #13427 closed the gap; run the
+recipe for the current count rather than trusting one written here. They all passed,
+which is luck rather than process: an unreachable gate reports success, so "the check
+exits 0" says nothing until you have confirmed the check can see your data.
 
 ```yaml
 animal_models:
@@ -1834,6 +1890,15 @@ versus activity split is the axis deferred in design decisions §12; the
 experiment is recorded as a way to measure it, and settles nothing about the
 schema question. See [`projects/AUTONOMOUS_LABS.md`](projects/AUTONOMOUS_LABS.md)
 for the wider execution-layer project.
+
+### Somatic Mosaicism (Post-zygotic Disorders)
+
+A disorder whose causal variant arose after fertilization is encoded through its
+mode of inheritance, like a digenic one: an `inheritance` block bound to
+`HP:0001442` **Typified by somatic mosaicism** with its own evidence, plus
+`variant_origin: SOMATIC` on the causal gene. Use the `somatic-mosaicism` skill
+for the tiers, the cases that must not be bound (X-inactivation, parental
+mosaicism), and the `Somatic_Mosaic_Disorders` grouping.
 
 ### Hypothesis-Based Phenotype Algorithms
 

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Genes - dismech</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        {% include '_palette.css.j2' %}
+        {% include '_disclaimer.css.j2' %}
+        {% include '_gene_styles.css.j2' %}
+        .filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 12px; }
+        .filters input[type=search] { flex: 1 1 260px; padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font: inherit; }
+        .filters label { font-size: 0.85rem; color: var(--gray-700); }
+        td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    </style>
+</head>
+<body>
+    {% include '_disclaimer.html.j2' %}
+    {% include '_gene_nav.html.j2' %}
+
+    <div class="container">
+        <header class="page-header">
+            <h1>Genes</h1>
+            <div class="subtitle">Every gene a dismech entry names, with what the knowledge base says about it.</div>
+            <div class="header-meta">
+                <span class="chip">{{ genes|length }} genes</span>
+                <span class="chip">{{ page_count }} with a gene page</span>
+                <span class="chip">{{ function_count }} with an ai-gene-review function summary</span>
+                <span class="chip">{{ summary_count }} with a curated summary</span>
+            </div>
+            <p class="note" style="margin-top:10px">A gene named by at least {{ min_disorders }} disorders gets its own page. A gene named by one disorder links straight to it.</p>
+        </header>
+
+        <div class="filters">
+            <input type="search" id="q" placeholder="Filter by symbol or name" aria-label="Filter genes">
+            <label><input type="checkbox" id="pagesOnly"> gene pages only</label>
+            <label><input type="checkbox" id="summaryOnly"> curated summary</label>
+        </div>
+
+        <div class="table-wrap">
+        <table id="genes">
+            <thead><tr><th>Symbol</th><th>Name</th><th>Disorders</th><th></th></tr></thead>
+            <tbody>
+            {% for g in genes %}
+            <tr data-text="{{ (g.symbol ~ ' ' ~ g.name ~ ' ' ~ g.hgnc_id)|lower }}" data-page="{{ 1 if g.has_page else 0 }}" data-summary="{{ 1 if g.has_summary else 0 }}">
+                <td>{% if g.href %}<a href="{{ g.href }}">{{ g.symbol }}</a>{% else %}{{ g.symbol }}{% endif %}</td>
+                <td>{{ g.name }}{% if g.only_disorder %}<div class="note">in {{ g.only_disorder }}</div>{% endif %}</td>
+                <td class="num">{{ g.disorder_count }}</td>
+                <td>
+                    {% if g.has_summary %}<span class="chip {{ 'ok' if g.summary_state == 'verified' else 'bad' if g.summary_state == 'stale' else 'muted' }}">summary{% if g.summary_state %}: {{ g.summary_state }}{% endif %}</span>{% endif %}
+                    {% if g.has_function %}<span class="chip muted">function</span>{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+    <script>
+    (function () {
+        var q = document.getElementById('q');
+        var pagesOnly = document.getElementById('pagesOnly');
+        var summaryOnly = document.getElementById('summaryOnly');
+        var rows = Array.prototype.slice.call(document.querySelectorAll('#genes tbody tr'));
+        function apply() {
+            var text = q.value.trim().toLowerCase();
+            rows.forEach(function (row) {
+                var show = (!text || row.dataset.text.indexOf(text) !== -1)
+                    && (!pagesOnly.checked || row.dataset.page === '1')
+                    && (!summaryOnly.checked || row.dataset.summary === '1');
+                row.style.display = show ? '' : 'none';
+            });
+        }
+        [q, pagesOnly, summaryOnly].forEach(function (el) { el.addEventListener('input', apply); });
+    })();
+    </script>
+</body>
+</html>
