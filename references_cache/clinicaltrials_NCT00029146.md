@@ -1,7 +1,9 @@
 ---
-reference_id: "clinicaltrials:NCT00029146"
+reference_id: clinicaltrials:NCT00029146
+extractor_version: 1
 title: Carotid Occlusion Surgery Study
 content_type: summary
+full_text_attempted: true
 ---
 
 # Carotid Occlusion Surgery Study
