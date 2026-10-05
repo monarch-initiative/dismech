@@ -28,7 +28,7 @@ report cannot give on its own, because both are about a different repository:
    in isolation from EHS-Data-Standards.
 2. **AOP-Wiki's Key Events are the obvious causal skeleton, and they are mostly
    empty.** 65% of Key Event Relationships in the 2026-08-06 snapshot sit at the
-   KER evidence floor with zero references. A ToxAssayMech that imported AOP-Wiki's
+   KER evidence floor with zero references, and 69% carry no citation at all. A ToxAssayMech that imported AOP-Wiki's
    graph as curated content would be importing a hypothesis, not evidence — the
    same discipline dismech already built for this (`ker-evidence-triage`,
    `mie-ker-capture`) would have to run inside the new Mech too, record by record,
@@ -49,7 +49,7 @@ is reusable across chemicals, papers, and diseases.
 | Effort | Shape | Where it landed |
 |---|---|---|
 | [#12682](https://github.com/monarch-initiative/dismech/issues/12682) / [#12858](https://github.com/monarch-initiative/dismech/issues/12858), EPA ToxCast/Tox21 | 1,570 assay endpoints × 496 gene targets | `projects/TOXCAST.md`, a coverage report; candidate join on gene symbol, counted but not curated |
-| [`docs/reports/dnt-ivb-pathograph-coverage-2026-10-02.md`](dnt-ivb-pathograph-coverage-2026-10-02.md) | 17 developmental-neurotoxicity battery endpoints | A coverage report; candidate join on node-name substring match |
+| [`docs/reports/dnt-ivb-pathograph-coverage-2026-10-02.md`](dnt-ivb-pathograph-coverage-2026-10-02.md) | 17 developmental-neurotoxicity battery processes | A coverage report; candidate join on node-name substring match |
 | [PR #13452](https://github.com/monarch-initiative/dismech/pull/13452), the VAMR zebrafish behaviour assay | 26 endpoints × 17 chemicals × 2 exposure arms = 884 concentration-response fits | A coverage report plus a committed TSV; four chemicals with a candidate node, the rest with none |
 
 All three are **candidate-matching exercises against the existing pathograph**, not
@@ -62,9 +62,11 @@ actually cost.
 **That worked example is the concrete case for a different home.** Writing the one
 ToxCast endpoint TOX21_TRB_COA_Antagonist_Followup_ratio against
 `Generalized_Resistance_to_Thyroid_Hormone`'s trigger node produces a valid
-`ModelMechanismLink`, but the endpoint has a sibling that is the same receptor
-family, same four shared assays, in `Resistance_to_Thyroid_Hormone_Alpha` — a
-different file, with no shared identity between the two copies. `TOXCAST.md`
+`ModelMechanismLink`. The paralogs show what that costs: four of THRB's 13
+endpoints (`TOX21_TR_LUC_GH3_Agonist`, `TOX21_TR_LUC_GH3_Antagonist` and their
+followups) name THRA and THRB together, so they belong equally in
+`Resistance_to_Thyroid_Hormone_Alpha` — a different file, and the two copies
+would share no identity. `TOXCAST.md`
 states the general problem plainly: "`ModelMechanismLink.target` resolves only
 within one disease file, and an `ExperimentalModel` is nested inside one
 `Disease`. So the record above lives in
@@ -94,7 +96,7 @@ site; and optional GitHub automation (review, triage, curation-queue agents) —
 the same stack this report is itself produced under.
 
 Twelve Mechs exist today ([MechRegistry](https://monarch-initiative.github.io/mechregistry/registry/mechs.json),
-2026-10-01 snapshot). Most are microbiology (AntibioticMech, CellStructureMech,
+snapshot served on 2026-10-03). Most are microbiology (AntibioticMech, CellStructureMech,
 CommunityMech, CultureMech, HabitatMech, MediaIngredientMech, NaturalProductMech,
 ProteinTraitsMech, TaxonMech, TraitMech — the `x-mech-suite`/`kg-microbe`
 collection). Two sit in dismech's own territory: dismech itself, and **SOMAMech**
