@@ -12,30 +12,30 @@ content_type: url
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-    
+
     <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <!-- AppResources meta begin -->
         <meta name="paf-app-resources" content="" />
                  <script type="text/javascript">var ncbi_startTime = new Date();</script>
-            
+
         <!-- AppResources meta end -->
-        
+
         <!-- TemplateResources meta begin -->
         <meta name="paf_template" content="" />
 
         <!-- TemplateResources meta end -->
-        
+
         <!-- Logger begin -->
         <meta name="ncbi_db" content="books" /><meta name="ncbi_pdid" content="book-part" /><meta name="ncbi_acc" content="NBK1332" /><meta name="ncbi_domain" content="gene" /><meta name="ncbi_report" content="record" /><meta name="ncbi_type" content="fulltext" /><meta name="ncbi_objectid" content="" /><meta name="ncbi_pcid" content="/NBK1332/" /><meta name="ncbi_pagename" content="Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY - GeneReviews® - NCBI Bookshelf" /><meta name="ncbi_bookparttype" content="chapter" /><meta name="ncbi_app" content="bookshelf" />
         <!-- Logger end -->
-        
+
         <title>Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY - GeneReviews® - NCBI Bookshelf</title>
-        
+
         <!-- AppResources external_resources begin -->
         <link rel="stylesheet" href="/core/jig/1.15.2/css/jig.min.css" /><script type="text/javascript" src="/core/jig/1.15.2/js/jig.min.js"></script>
 
         <!-- AppResources external_resources end -->
-        
+
         <!-- Page meta begin -->
         <meta name="robots" content="NOINDEX,NOFOLLOW,NOARCHIVE" /><meta name="citation_inbook_title" content="GeneReviews® [Internet]" /><meta name="citation_title" content="Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY" /><meta name="citation_publisher" content="University of Washington, Seattle" /><meta name="citation_date" content="2017/01/12" /><meta name="citation_author" content="Susan E Sparks" /><meta name="citation_author" content="Donna M Krasnewich" /><meta name="citation_pmid" content="20301507" /><meta name="citation_fulltext_html_url" content="https://www.ncbi.nlm.nih.gov/sites/books/NBK1332/" /><meta name="citation_keywords" content="Carbohydrate-Deficient Glycoprotein Syndromes" /><meta name="citation_keywords" content="CDG Syndromes" /><meta name="citation_keywords" content="CDG Syndromes" /><meta name="citation_keywords" content="Carbohydrate-Deficient Glycoprotein Syndromes" /><meta name="citation_keywords" content="PMM2-CDG" /><meta name="citation_keywords" content="Alpha-1,2-mannosyltransferase ALG9" /><meta name="citation_keywords" content="Alpha-1,3/1,6-mannosyltransferase ALG2" /><meta name="citation_keywords" content="Alpha-1,6-mannosyl-glycoprotein 2-beta-N-acetylglucosaminyltransferase" /><meta name="citation_keywords" content="Beta-1,4-galactosyltransferase 1" /><meta name="citation_keywords" content="Chitobiosyldiphosphodolichol beta-mannosyltransferase" /><meta name="citation_keywords" content="CMP-sialic acid transporter" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 1" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 2" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 4" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 5" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 6" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 7" /><meta name="citation_keywords" content="Conserved oligomeric Golgi complex subunit 8" /><meta name="citation_keywords" content="Dehydrodolichyl diphosphate synthase complex subunit DHDDS" /><meta name="citation_keywords" content="Dolichol kinase" /><meta name="citation_keywords" content="Dolichol phosphate-mannose biosynthesis regulatory protein" /><meta name="citation_keywords" content="Dolichol-phosphate mannosyltransferase subunit 1" /><meta name="citation_keywords" content="Dolichol-phosphate mannosyltransferase subunit 3" /><meta name="citation_keywords" content="Dolichyl pyrophosphate Glc1Man9GlcNAc2 alpha-1,3-glucosyltransferase" /><meta name="citation_keywords" content="Dolichyl pyrophosphate Man9GlcNAc2 alpha-1,3-glucosyltransferase" /><meta name="citation_keywords" content="Dolichyl-diphosphooligosaccharide--protein glycosyltransferase 48 kDa subunit" /><meta name="citation_keywords" content="Dolichyl-diphosphooligosaccharide--protein glycosyltransferase subunit MAGT1" /><meta name="citation_keywords" content="Dolichyl-diphosphooligosaccharide--protein glycosyltransferase subunit STT3A" /><meta name="citation_keywords" content="Dolichyl-diphosphooligosaccharide--protein glycosyltransferase subunit STT3B" /><meta name="citation_keywords" content="Dolichyl-diphosphooligosaccharide--protein glycosyltransferase subunit TUSC3" /><meta name="citation_keywords" content="Dol-P-Man:Man(5)GlcNAc(2)-PP-Dol alpha-1,3-mannosyltransferase" /><meta name="citation_keywords" content="Dol-P-Man:Man(7)GlcNAc(2)-PP-Dol alpha-1,6-mannosyltransferase" /><meta name="citation_keywords" content="Endoplasmic reticulum mannosyl-oligosaccharide 1,2-alpha-mannosidase" /><meta name="citation_keywords" content="GDP-fucose transporter 1" /><meta name="citation_keywords" content="GDP-Man:Man(3)GlcNAc(2)-PP-Dol alpha-1,2-mannosyltransferase" /><meta name="citation_keywords" content="Man(5)GlcNAc(2)-PP-dolichol translocation protein RFT1" /><meta name="citation_keywords" content="Mannose-1-phosphate guanylyltransferase regulatory subunit alpha" /><meta name="citation_keywords" content="Mannose-6-phosphate isomerase" /><meta name="citation_keywords" content="Mannose-P-dolichol utilization defect 1 protein" /><meta name="citation_keywords" content="Mannosyl-oligosaccharide glucosidase" /><meta name="citation_keywords" content="Phosphoacetylglucosamine mutase" /><meta name="citation_keywords" content="Phosphoglucomutase-1" /><meta name="citation_keywords" content="Phosphomannomutase 2" /><meta name="citation_keywords" content="Polyprenal reductase" /><meta name="citation_keywords" content="Putative divalent cation/proton antiporter TMEM165" /><meta name="citation_keywords" content="Translocon-associated protein subunit delta" /><meta name="citation_keywords" content="UDP-galactose translocator" /><meta name="citation_keywords" content="UDP-N-acetylglucosamine transferase subunit ALG13" /><meta name="citation_keywords" content="UDP-N-acetylglucosamine--dolichyl-phosphate N-acetylglucosaminephosphotransferase" /><meta name="citation_keywords" content="ALG1" /><meta name="citation_keywords" content="ALG11" /><meta name="citation_keywords" content="ALG12" /><meta name="citation_keywords" content="ALG13" /><meta name="citation_keywords" content="ALG2" /><meta name="citation_keywords" content="ALG3" /><meta name="citation_keywords" content="ALG6" /><meta name="citation_keywords" content="ALG8" /><meta name="citation_keywords" content="ALG9" /><meta name="citation_keywords" content="B4GALT1" /><meta name="citation_keywords" content="COG1" /><meta name="citation_keywords" content="COG2" /><meta name="citation_keywords" content="COG4" /><meta name="citation_keywords" content="COG5" /><meta name="citation_keywords" content="COG6" /><meta name="citation_keywords" content="COG7" /><meta name="citation_keywords" content="COG8" /><meta name="citation_keywords" content="DDOST" /><meta name="citation_keywords" content="DHDDS" /><meta name="citation_keywords" content="DOLK" /><meta name="citation_keywords" content="DPAGT1" /><meta name="citation_keywords" content="DPM1" /><meta name="citation_keywords" content="DPM2" /><meta name="citation_keywords" content="DPM3" /><meta name="citation_keywords" content="GMPPA" /><meta name="citation_keywords" content="MAGT1" /><meta name="citation_keywords" content="MAN1B1" /><meta name="citation_keywords" content="MGAT2" /><meta name="citation_keywords" content="MOGS" /><meta name="citation_keywords" content="MPDU1" /><meta name="citation_keywords" content="MPI" /><meta name="citation_keywords" content="PGM1" /><meta name="citation_keywords" content="PGM3" /><meta name="citation_keywords" content="PMM2" /><meta name="citation_keywords" content="RFT1" /><meta name="citation_keywords" content="SLC35A1" /><meta name="citation_keywords" content="SLC35A2" /><meta name="citation_keywords" content="SLC35C1" /><meta name="citation_keywords" content="SRD5A3" /><meta name="citation_keywords" content="SSR4" /><meta name="citation_keywords" content="STT3A" /><meta name="citation_keywords" content="STT3B" /><meta name="citation_keywords" content="TMEM165" /><meta name="citation_keywords" content="TUSC3" /><meta name="citation_keywords" content="Congenital Disorders of N-Linked Glycosylation and Multiple-Pathway Disorders" /><meta name="citation_keywords" content="Overview" /><link rel="schema.DC" href="http://purl.org/DC/elements/1.0/" /><meta name="DC.Title" content="Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY" /><meta name="DC.Type" content="Text" /><meta name="DC.Publisher" content="University of Washington, Seattle" /><meta name="DC.Contributor" content="Susan E Sparks" /><meta name="DC.Contributor" content="Donna M Krasnewich" /><meta name="DC.Date" content="2017/01/12" /><meta name="DC.Identifier" content="https://www.ncbi.nlm.nih.gov/sites/books/NBK1332/" /><meta name="description" content="NOTE: THIS PUBLICATION HAS BEEN RETIRED. THIS ARCHIVAL VERSION IS FOR HISTORICAL REFERENCE ONLY, AND THE INFORMATION MAY BE OUT OF DATE." /><meta name="og:title" content="Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY" /><meta name="og:type" content="book" /><meta name="og:description" content="NOTE: THIS PUBLICATION HAS BEEN RETIRED. THIS ARCHIVAL VERSION IS FOR HISTORICAL REFERENCE ONLY, AND THE INFORMATION MAY BE OUT OF DATE." /><meta name="og:url" content="https://www.ncbi.nlm.nih.gov/sites/books/NBK1332/" /><meta name="og:site_name" content="NCBI Bookshelf" /><meta name="og:image" content="https://www.ncbi.nlm.nih.gov/corehtml/pmc/pmcgifs/bookshelf/thumbs/th-gene-lrg.png" /><meta name="twitter:card" content="summary" /><meta name="twitter:site" content="@ncbibooks" /><meta name="warning" content="This publication is provided for historical reference only and the information may be out of date." /><meta name="bk-non-canon-loc" content="/sites/books/n/gene/cdg/" /><link rel="canonical" href="https://www.ncbi.nlm.nih.gov/sites/books/NBK1332/" /><link rel="stylesheet" href="/corehtml/pmc/css/figpopup.css" type="text/css" media="screen" /><link rel="stylesheet" href="/corehtml/pmc/css/bookshelf/2.26/css/books.min.css" type="text/css" /><link rel="stylesheet" href="/corehtml/pmc/css/bookshelf/2.26/css/books_print.min.css" type="text/css" media="print" /><style type="text/css">.main-content {background:transparent repeat-y top left;background-image:url(/corehtml/pmc/css/bookshelf/2.26/img/archive.png);background-size: auto, contain; padding:0 0 0 3em }</style><style type="text/css">p a.figpopup{display:inline !important} .bk_tt {font-family: monospace}  .first-line-outdent .bk_ref {display: inline}  .body-content h2, .body-content .h2  {border-bottom: 1px solid #97B0C8} .body-content h2.inline {border-bottom: none} a.page-toc-label , .jig-ncbismoothscroll a {text-decoration:none;border:0 !important} .temp-labeled-list  .graphic {display:inline-block !important} .temp-labeled-list  img{width:100%}</style><script type="text/javascript" src="/corehtml/pmc/js/jquery.hoverIntent.min.js"> </script><script type="text/javascript" src="/corehtml/pmc/js/common.min.js?_=3.18"> </script><script type="text/javascript" src="/corehtml/pmc/js/large-obj-scrollbars.min.js"> </script><script type="text/javascript">window.name="mainwindow";</script><script type="text/javascript" src="/corehtml/pmc/js/bookshelf/2.26/book-toc.min.js"> </script><script type="text/javascript" src="/corehtml/pmc/js/bookshelf/2.26/books.min.js"> </script><script type="text/javascript">if (typeof (jQuery) != 'undefined') { (function ($) { $(function () { var min = Math.ceil(1); var max = Math.floor(100000); var randomNum = Math.floor(Math.random() * (max - min)) + min; var surveyUrl = "/projects/Gene/portal/surveys/seqdbui-survey.js?rando=" + randomNum.toString(); $.getScript(surveyUrl, function () { try { ncbi.seqDbUISurvey.init(); } catch (err) { console.info(err); } }).fail(function (jqxhr, settings, exception) { console.info('Cannot load survey script', jqxhr); });; }); })(jQuery); };</script><meta name="book-collection" content="NONE" />
 
@@ -50,7 +50,7 @@ content_type: url
                     <noscript>
 	<p class="nojs">
 	<strong>Warning:</strong>
-	The NCBI web site requires JavaScript to function. 
+	The NCBI web site requires JavaScript to function.
 	<a href="/guide/browsers/#enablejs" title="Learn how to enable JavaScript" target="_blank">more...</a>
 	</p>
 	</noscript>
@@ -101,16 +101,16 @@ content_type: url
 	</section>
 	<div class="usa-overlay"></div>
 	<header class="ncbi-header" role="banner" data-section="Header">
-		
+
 		<div class="usa-grid">
 			<div class="usa-width-one-whole">
-				
+
 				<div class="ncbi-header__logo">
 					<a href="/" class="logo" aria-label="NCBI Logo" data-ga-action="click_image" data-ga-label="NIH NLM Logo">
 						<img src="https://www.ncbi.nlm.nih.gov/coreutils/nwds/img/logos/AgencyLogo.svg" alt="NIH NLM Logo" />
 					</a>
 				</div>
-				
+
 				<div class="ncbi-header__account">
 					<a id="account_login" href="https://account.ncbi.nlm.nih.gov" class="usa-button header-button" style="display:none" data-ga-action="open_menu" data-ga-label="account_menu">Log in</a>
 					<button id="account_info" class="header-button" style="display:none" aria-controls="account_popup" type="button">
@@ -126,7 +126,7 @@ content_type: url
 						<span class="sr-only">Show account info</span>
 					</button>
 				</div>
-				
+
 				<div class="ncbi-popup-anchor">
 					<div class="ncbi-popup account-popup" id="account_popup" aria-hidden="true">
 						<div class="ncbi-popup-head">
@@ -153,7 +153,7 @@ content_type: url
 						</div>
 					</div>
 				</div>
-				
+
 			</div>
 		</div>
 	</header>
@@ -166,7 +166,7 @@ content_type: url
 	</div>
 	<section data-section="Alerts">
 		<div class="ncbi-alerts-placeholder"></div>
-	</section>    
+	</section>
 </div>
                             <div class="header">
     <div class="res_logo"><h1 class="res_name"><a href="/sites/books/" title="Bookshelf home">Bookshelf</a></h1><h2 class="res_tagline"></h2></div>
@@ -181,33 +181,33 @@ content_type: url
                     </li></ul></div>
 </div>
 
-                            
-                            
+
+
                         <!--<component id="Page" label="headcontent"/>-->
-                            
+
                         </div>
                         <div class="content">
                             <!-- site messages -->
                             <!-- Custom content 1 -->
 <div class="col1">
-    
+
 </div>
 
 <div class="container">
     <div id="maincontent" class="content eight_col col">
         <!-- Custom content in the left column above book nav -->
         <div class="col2">
-            
+
         </div>
-        
+
         <!-- Book content -->
-        
+
 
         <!-- Custom content between navigation and content -->
         <div class="col3">
-            
+
         </div>
-        
+
         <div class="document">
             <div class="pre-content"><div><div class="bk_prnt"><p class="small">NCBI Bookshelf. A service of the National Library of Medicine, National Institutes of Health.</p><p>Adam MP, Bick S, Mirzaa GM, et al., editors. GeneReviews® [Internet]. Seattle (WA): University of Washington, Seattle; 1993-2026. </p></div><div class="messagearea bk_noprnt" style="margin-bottom:1.3846em "><ul class="messages"><li class="warn icon"><span class="icon">This publication is provided for historical reference only and the information may be out of date.</span></li></ul></div><div class="bk_prnt"><p style="color:red;"><strong>This publication is provided for historical reference only and the information may be out of date.</strong></p></div><div class="iconblock clearfix whole_rhythm no_top_margin bk_noprnt"><a class="img_link icnblk_img" title="All GeneReviews" href="/sites/books/n/gene/"><img class="source-thumb" src="/corehtml/pmc/pmcgifs/bookshelf/thumbs/th-gene-lrg.png" alt="Cover of GeneReviews®" height="100px" width="80px" /></a><div class="icnblk_cntnt eight_col"><h2>GeneReviews<sup>®</sup> [Internet].</h2><a data-jig="ncbitoggler" href="#__NBK1332_dtls__">Show details</a><div style="display:none" class="ui-widget" id="__NBK1332_dtls__"><div>Adam MP, Bick S, Mirzaa GM, et al., editors.</div><div>Seattle (WA): <a href="http://www.washington.edu" ref="pagearea=page-banner&amp;targetsite=external&amp;targetcat=link&amp;targettype=publisher">University of Washington, Seattle</a>; 1993-2026.</div></div><div class="half_rhythm"><ul class="inline_list"><li style="margin-right:1em"><a class="bk_cntns" href="/sites/books/n/gene/">GeneReviews by Title</a></li></ul></div><div class="bk_noprnt"><form method="get" action="/sites/books/n/gene/" id="bk_srch"><div class="bk_search"><label for="bk_term" class="offscreen_noflow">Search term</label><input type="text" title="Search GeneReviews" id="bk_term" name="term" value="" data-jig="ncbiclearbutton" /> <input type="submit" class="jig-ncbibutton" value="Search GeneReviews" submit="false" style="padding: 0.1em 0.4em;" /></div></form><div><ul class="inline_list"><li><a href="/sites/books/n/gene/advanced/">GeneReviews Advanced Search</a></li><li style="margin-left:.5em"><a href="/sites/books/n/gene/helpadvsearch/">Help</a></li></ul></div></div></div><div class="icnblk_cntnt two_col"><div class="pagination bk_noprnt"></div></div></div></div></div>
             <div class="main-content lit-style" itemscope="itemscope" itemtype="http://schema.org/CreativeWork"><div class="meta-content fm-sec"><h1 id="_NBK1332_"><span class="title" itemprop="name">Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview &#x02013; RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY</span></h1><div itemprop="alternativeHeadline" class="subtitle whole_rhythm">Synonyms: Carbohydrate-Deficient Glycoprotein Syndromes, CDG Syndromes</div><p class="contrib-group"><span itemprop="author">Susan E Sparks</span>, MD, PhD and <span itemprop="author">Donna M Krasnewich</span>, MD, PhD.</p><a data-jig="ncbitoggler" href="#__NBK1332_ai__" style="border:0;text-decoration:none">Author Information and Affiliations</a><div style="display:none" class="ui-widget" id="__NBK1332_ai__"><div class="contrib half_rhythm"><span itemprop="author">Susan E Sparks</span>, MD, PhD<div class="affiliation small">Sanofi Genzyme<br />Cambridge, Massachusetts<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="moc.emyzneg@skraps.nasus" class="oemail">moc.emyzneg@skraps.nasus</a></div></div></div><div class="contrib half_rhythm"><span itemprop="author">Donna M Krasnewich</span>, MD, PhD<div class="affiliation small">National Institutes of Health<br />Bethesda, Maryland<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="vog.hin.liam@sarkd" class="oemail">vog.hin.liam@sarkd</a></div></div></div></div><p class="small">Initial Posting: <span itemprop="datePublished">August 15, 2005</span>; Last Update: <span itemprop="dateModified">January 12, 2017</span>.</p><p><em>Estimated reading time: 38 minutes</em></p></div><div class="body-content whole_rhythm" itemprop="text"><div id="cdg.Summary" itemprop="description"><h2 id="_cdg_Summary_">Summary</h2><p>
@@ -831,7 +831,7 @@ G, Freeze
 H.
 CDG nomenclature: time for a change!
 Biochim Biophys Acta.
-2009a; 1792:825&#x02013;6. 
+2009a; 1792:825&#x02013;6.
  [<a href="/pmc/articles/PMC3917312/" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pmc">PMC free article<span class="bk_prnt">: PMC3917312</span></a>] [<a href="https://pubmed.ncbi.nlm.nih.gov/19765534" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">PubMed<span class="bk_prnt">: 19765534</span></a>]</div></li><li class="half_rhythm"><div class="bk_ref" id="cdg.REF.jaeken.2000.186">Jaeken
 J, Imbach
 T, et al.
@@ -1836,20 +1836,20 @@ J Allergy Clin Immunol.
 2014;133:1400&#x02013;9.
  [<a href="/pmc/articles/PMC4016982/" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pmc">PMC free article<span class="bk_prnt">: PMC4016982</span></a>] [<a href="https://pubmed.ncbi.nlm.nih.gov/24589341" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">PubMed<span class="bk_prnt">: 24589341</span></a>]</div></li></ul></div></div><div id="bk_toc_contnr"></div></div></div>
             <div class="post-content"><div><div class="half_rhythm"><a href="/sites/books/about/copyright/">Copyright</a> © 1993-2026, University of Washington, Seattle. GeneReviews is a registered trademark of the University of Washington, Seattle. All rights reserved.<p class="small">GeneReviews® chapters are owned by the University of Washington. Permission is hereby granted to reproduce, distribute, and translate copies of content materials for noncommercial research purposes only, provided that (i) credit for source (<a href="https://www.genereviews.org/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">https://www.genereviews.org</a>) and copyright (© 1993-2026 University of Washington) are included with each copy; (ii) a link to the original material is provided whenever the material is published elsewhere on the Web; and (iii) reproducers, distributors, and/or translators comply with the <a href="https://www.ncbi.nlm.nih.gov/books/n/gene/GRcopyright_permiss/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">GeneReviews® Copyright Notice and Usage Disclaimer</a>. No further modifications are allowed. For clarity, excerpts of GeneReviews chapters for use in lab reports and clinic notes are a permitted use.</p><p class="small">For more information, see the <a href="https://www.ncbi.nlm.nih.gov/books/n/gene/GRcopyright_permiss/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">GeneReviews® Copyright Notice and Usage Disclaimer</a>.</p><p class="small">For questions regarding permissions or whether a specified use is allowed, contact: addmast@wu.edu</p></div><div class="small"><span class="label">Bookshelf ID: NBK1332</span><span class="label">PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/20301507" title="PubMed record of this page" ref="pagearea=meta&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">20301507</a></span></div><div style="margin-top:2em" class="bk_noprnt"><a class="bk_cntns" href="/sites/books/n/gene/">GeneReviews by Title</a><div class="pagination bk_noprnt"></div></div></div></div>
-            
+
         </div>
 
         <!-- Custom content below content -->
         <div class="col4">
-            
+
         </div>
-        
-        
+
+
         <!-- Book content -->
-        
+
         <!-- Custom contetnt below bottom nav -->
         <div class="col5">
-            
+
         </div>
     </div>
 
@@ -1860,20 +1860,20 @@ J Allergy Clin Immunol.
 
         </div>
         <div xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Views</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="PDF_download" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="/sites/books/NBK1332/?report=reader">PubReader</a></li><li><a href="/sites/books/NBK1332/?report=printable">Print View</a></li><li><a data-jig="ncbidialog" href="#_ncbi_dlg_citbx_NBK1332" data-jigconfig="width:400,modal:true">Cite this Page</a><div id="_ncbi_dlg_citbx_NBK1332" style="display:none" title="Cite this Page"><div class="bk_tt">Sparks SE, Krasnewich DM. Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY. 2005 Aug 15 [Updated 2017 Jan 12]. In: Adam MP, Bick S, Mirzaa GM, et al., editors. GeneReviews® [Internet]. Seattle (WA): University of Washington, Seattle; 1993-2026. <span class="bk_cite_avail"></span></div></div></li><li><a href="/sites/books/NBK1332/pdf/Bookshelf_NBK1332.pdf">PDF version of this page</a> (542K)</li><li><a href="#" class="toggle-glossary-link" title="Enable/disable links to the glossary">Disable Glossary Links</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Bulk Download</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="source-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="https://ftp.ncbi.nlm.nih.gov/pub/litarch/ca/84/" ref="pagearea=source-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">Bulk download GeneReviews data from FTP</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>GeneReviews Links</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="source-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="/sites/books/n/gene/advanced/"><i>GeneReviews</i> Advanced Search</a></li><li><a href="/sites/books/n/gene/glossary/"><i>GeneReviews</i> Glossary</a></li><li><a href="/sites/books/n/gene/resource_mats/">Resource Materials</a></li><li><a href="/sites/books/n/gene/updates/">New in <i>GeneReviews</i></a></li><li><a href="/sites/books/n/gene/authors/">Author List</a></li><li><a href="/sites/books/n/gene/prospective_authors/">For Current/Prospective Authors</a></li><li><a href="/sites/books/n/gene/GRpersonnel/"><i>GeneReviews</i> Personnel</a></li><li><a href="/sites/books/n/gene/howto_linkin/">Download/Link to <i>GeneReviews</i></a></li><li><a href="/sites/books/n/gene/contact_us/">Contact Us</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Tests in GTR by Gene</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="document-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=10559[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SLC35A1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=84061[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">MAGT1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=55343[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SLC35C1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=91869[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">RFT1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=6748[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SSR4</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=91949[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">COG7</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=5373[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">PMM2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=79087[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG12</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=79644[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SRD5A3</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=79868[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG13</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=85365[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=79796[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG9</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=84342[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">COG8</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=56052[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=55858[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">TMEM165</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=7841[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">MOGS</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=440138[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG11</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=9382[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">COG1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=4351[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">MPI</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=2683[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">B4GALT1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=5236[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">PGM1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=1798[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DPAGT1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=29929[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG6</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=10195[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG3</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=8818[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DPM2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=7991[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">TUSC3</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=54344[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DPM3</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=22845[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DOLK</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=10466[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">COG5</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=79053[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALG8</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=79947[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DHDDS</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=4247[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">MGAT2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=25839[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">COG4</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=1650[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DDOST</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Similar articles in PubMed</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="PBooksDiscovery_RA" id="Shutter"></a></div><div class="portlet_content"><ul><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/19862844" ref="ordinalpos=1&amp;linkpos=1&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Congenital disorders of glycosylation: an update on defects affecting the biosynthesis of dolichol-linked oligosaccharides.</a><span class="source">[Hum Mutat. 2009]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Congenital disorders of glycosylation: an update on defects affecting the biosynthesis of dolichol-linked oligosaccharides.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Haeuptle MA, Hennet T. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">Hum Mutat. 2009 Dec; 30(12):1628-41. </em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/11983712" ref="ordinalpos=1&amp;linkpos=2&amp;log$=relatedarticles&amp;logdbfrom=pubmed">Congenital disorders of glycosylation type Ig is defined by a deficiency in dolichyl-P-mannose:Man7GlcNAc2-PP-dolichyl mannosyltransferase.</a><span class="source">[J Biol Chem. 2002]</span><div class="brieflinkpop offscreen_noflow">Congenital disorders of glycosylation type Ig is defined by a deficiency in dolichyl-P-mannose:Man7GlcNAc2-PP-dolichyl mannosyltransferase.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Chantret I, Dupré T, Delenda C, Bucher S, Dancourt J, Barnier A, Charollais A, Heron D, Bader-Meunier B, Danos O, et al. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">J Biol Chem. 2002 Jul 12; 277(28):25815-22. Epub 2002 Apr 30.</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/12667607" ref="ordinalpos=1&amp;linkpos=3&amp;log$=relatedarticles&amp;logdbfrom=pubmed">Overexpression of GDP-mannose pyrophosphorylase in Saccharomyces cerevisiae corrects defects in dolichol-linked saccharide formation and protein glycosylation.</a><span class="source">[Biochim Biophys Acta. 2003]</span><div class="brieflinkpop offscreen_noflow">Overexpression of GDP-mannose pyrophosphorylase in Saccharomyces cerevisiae corrects defects in dolichol-linked saccharide formation and protein glycosylation.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Janik A, Sosnowska M, Kruszewska J, Krotkiewski H, Lehle L, Palamarczyk G. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">Biochim Biophys Acta. 2003 Apr 7; 1621(1):22-30. </em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/23856421" ref="ordinalpos=1&amp;linkpos=4&amp;log$=relatedarticles&amp;logdbfrom=pubmed">Congenital disorder of glycosylation due to DPM1 mutations presenting with dystroglycanopathy-type congenital muscular dystrophy.</a><span class="source">[Mol Genet Metab. 2013]</span><div class="brieflinkpop offscreen_noflow">Congenital disorder of glycosylation due to DPM1 mutations presenting with dystroglycanopathy-type congenital muscular dystrophy.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Yang AC, Ng BG, Moore SA, Rush J, Waechter CJ, Raymond KM, Willer T, Campbell KP, Freeze HH, Mehta L. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">Mol Genet Metab. 2013 Nov; 110(3):345-351. Epub 2013 Jun 28.</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/20301347" ref="ordinalpos=1&amp;linkpos=5&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Congenital Myasthenic Syndromes Overview.</a><span class="source">[GeneReviews(®). 1993]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Congenital Myasthenic Syndromes Overview.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Abicht A, Müller JS, Lochmüller H. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">GeneReviews(®). 1993</em></div></div></li></ul><a class="seemore" href="/sites/entrez?db=pubmed&amp;cmd=link&amp;linkname=pubmed_pubmed_reviews&amp;uid=20301507" ref="ordinalpos=1&amp;log$=relatedreviews_seeall&amp;logdbfrom=pubmed">See reviews...</a><a class="seemore" href="/sites/entrez?db=pubmed&amp;cmd=link&amp;linkname=pubmed_pubmed&amp;uid=20301507" ref="ordinalpos=1&amp;log$=relatedarticles_seeall&amp;logdbfrom=pubmed">See all...</a></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Recent Activity</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="recent_activity" id="Shutter"></a></div><div class="portlet_content"><div xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="HTDisplay" class=""><div class="action"><a href="javascript:historyDisplayState('ClearHT')">Clear</a><a href="javascript:historyDisplayState('HTOff')" class="HTOn">Turn Off</a><a href="javascript:historyDisplayState('HTOn')" class="HTOff">Turn On</a></div><ul id="activity"><li class="ra_rcd ralinkpopper two_line"><a class="htb ralinkpopperctrl" ref="log$=activity&amp;linkpos=1" href="/portal/utils/pageresolver.fcgi?recordid=6ac31e8e38acfa72434351e7">Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – R...</a><div class="ralinkpop offscreen_noflow">Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY - GeneReviews®<div class="brieflinkpopdesc"></div></div><div class="tertiary"></div></li></ul><p class="HTOn">Your browsing activity is empty.</p><p class="HTOff">Activity recording is turned off.</p><p id="turnOn" class="HTOff"><a href="javascript:historyDisplayState('HTOn')">Turn recording back on</a></p><a class="seemore" href="/sites/myncbi/recentactivity">See more...</a></div></div></div>
-        
+
         <!-- Custom content below discovery portlets -->
         <div class="col7">
-            
+
         </div>
     </div>
 </div>
 
 <!-- Custom content after all -->
 <div class="col8">
-    
+
 </div>
 <div class="col9">
-    
+
 </div>
 
 <script type="text/javascript" src="/corehtml/pmc/js/jquery.scrollTo-1.4.2.js"></script>
@@ -1895,11 +1895,11 @@ J Allergy Clin Immunol.
 </script>
                         </div>
                         <div class="bottom">
-                            
+
                             <div id="NCBIFooter_dynamic">
     <!--<component id="Breadcrumbs" label="breadcrumbs"/>
     <component id="Breadcrumbs" label="helpdesk"/>-->
-    
+
 </div>
 
                             <div class="footer" id="footer">
@@ -1936,7 +1936,7 @@ J Allergy Clin Immunol.
 							.cls-12 {
 							fill: #737373;
 							}
-							
+
 							.cls-11 {
 							fill-rule: evenodd;
 							}
@@ -1968,7 +1968,7 @@ J Allergy Clin Immunol.
 			</div>
 		</div>
 	</section>
-	
+
 	<section class="container-fluid bg-primary">
 		<div class="container pt-5">
 			<div class="row mt-3">
@@ -2080,7 +2080,7 @@ J Allergy Clin Immunol.
 			</div>
 		</div>
 	</section>
-	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>    
+	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>
 	<script type="text/javascript" src="/portal/portal3rc.fcgi/static/js/hfjs2.js"> </script>
 </div>
                         </div>
@@ -2093,17 +2093,17 @@ J Allergy Clin Immunol.
         <!-- /.grid -->
 
         <span class="PAFAppResources"></span>
-        
+
         <!-- BESelector tab -->
-        
-        
-        
+
+
+
         <noscript><img alt="statistics" src="/stat?jsdisabled=true&amp;ncbi_db=books&amp;ncbi_pdid=book-part&amp;ncbi_acc=NBK1332&amp;ncbi_domain=gene&amp;ncbi_report=record&amp;ncbi_type=fulltext&amp;ncbi_objectid=&amp;ncbi_pcid=/NBK1332/&amp;ncbi_pagename=Congenital Disorders of N-Linked Glycosylation and Multiple Pathway Overview – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY - GeneReviews® - NCBI Bookshelf&amp;ncbi_bookparttype=chapter&amp;ncbi_app=bookshelf" /></noscript>
-        
-        
+
+
         <!-- usually for JS scripts at page bottom -->
         <!--<component id="PageFixtures" label="styles"></component>-->
-    
+
 
 <!-- CE8EEBC3AC31E8E1_0262SID /projects/books/PBooks@9.11 portal107 v4.1.r705435 Wed, Jan 07 2026 01:27:30 -->
 <span id="portal-csrf-token" style="display:none" data-token="CE8EEBC3AC31E8E1_0262SID"></span>
