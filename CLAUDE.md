@@ -380,6 +380,33 @@ prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for
 finding new nominations, but they are no longer the answer to "what should I
 curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
 
+### Gene Pages (`kb/genes/` → `pages/genes/`)
+
+A gene page merges three layers; see [`docs/gene-pages.md`](docs/gene-pages.md).
+
+- **Ingest** (`kb/genes/ingest/*.tsv`): HGNC identity, the ai-gene-review
+  function summary (joined on UniProt), and ClinGen validity tiers. **Dropped and
+  reloaded, never hand-edited**: `just genes-ingest-refresh [--repin]` then
+  `just genes-ingest-build`, pinned by `data/hgnc/`, `data/ai-gene-review/` and
+  `data/clingen-genes/` (separate from the `data/clingen/` citation pin on
+  purpose). ai-gene-review content is AI-generated: show it, never cite it as KB
+  evidence. `just genes-clingen-gaps` lists entries ClinGen classifies a gene for
+  whose own record does not type it: leads, not defects.
+- **KB slice** (`dismech.genes.slice`): every structural HGNC descriptor in
+  `kb/`, computed at build time and never committed. `just gene-slice hgnc:<n>`.
+- **Curated summary** (`kb/genes/curated/hgnc_<n>.md`): agent-written Markdown
+  whose checkable statements are provedown spans calling
+  `dismech.genes.claims`. `just genes-verify` re-runs them; a summary that no
+  longer matches the KB is shown as stale on its page. A summary may only say
+  what the KB or ingest layer says; a missing fact goes into the disease entry,
+  not the summary. Headings and connecting prose count as claims: state a
+  variant origin only through `g.variant_origin()` / `g.disorders(rel, origin)`,
+  never as a section title. The verifier refuses to execute any code beyond
+  `from dismech.genes.claims import gene`, `g = gene("hgnc:<n>")`, and claims
+  shaped exactly `g.<GeneClaims method>(literals)` (optionally in `len()`), and
+  refuses raw HTML beyond provedown's markup. Lists use `data-compare="names"`,
+  semicolon-separated, because names contain commas.
+
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
   frontmatter (`title`, `status`, `tags`, `description`, and entity lists:
