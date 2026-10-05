@@ -1,5 +1,7 @@
 ---
 reference_id: DOI:10.1016/j.ejvs.2022.04.011
+extractor_version: 1
+absent_content_version: 1
 title: "Editor's Choice – European Society for Vascular Surgery (ESVS) 2023 Clinical Practice Guidelines on the Management of Atherosclerotic Carotid and Vertebral Artery Disease"
 authors:
 - Ross Naylor

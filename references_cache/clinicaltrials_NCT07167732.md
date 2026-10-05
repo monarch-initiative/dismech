@@ -1,5 +1,6 @@
 ---
-reference_id: "clinicaltrials:NCT07167732"
+reference_id: clinicaltrials:NCT07167732
+extractor_version: 1
 title: "Dragonfly Study: An International, Prospective, Longitudinal, Observational Natural History Study of Children and Adults Living With CTNNB1 Neurodevelopmental Syndrome"
 content_type: summary
 full_text_attempted: true
