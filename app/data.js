@@ -73383,30 +73383,41 @@ window.searchData = [
     "creation_date": "2026-08-23T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Dilated cardiomyopathy 2G (CMD2G) is the LMOD2-related form of dilated cardiomyopathy, and the most severe member of the series curated here: a recessive, neonatal-onset disease that is frequently lethal in the first weeks to months of life. LMOD2 encodes leiomodin-2, an actin-binding protein that sets the length of the sarcomeric thin filament by nucleating and elongating actin from the pointed end. Thin-filament length is a determinant of the overlap between thin and thick filaments and therefore of how much force the sarcomere can generate at a given sarcomere length, so a leiomodin-2 defect degrades contraction by mis-specifying the geometry of the contractile apparatus rather than by damaging the motor, its regulation, or its scaffold. Disease is caused by homozygous biallelic variants; the first reported allele was the nonsense change p.Trp398Ter. Patient-derived iPSC-cardiomyocytes and a matched mouse model show dysregulated actin-thin filament lengths together with altered contractility and calcium handling. ClinGen classifies the LMOD2-dilated cardiomyopathy relationship as Definitive with autosomal recessive inheritance.",
+    "description": "Dilated cardiomyopathy 2G (CMD2G) is an early-onset, predominantly cardiac disorder caused by biallelic LMOD2 variants. Homozygous and compound-heterozygous nonsense, frameshift, and splice-site variants impair leiomodin-2, a regulator of sarcomeric actin pointed-end elongation. Severe thin-filament shortening and reduced contractile force have been demonstrated in patient myocardium. Presentation ranges from fetal or neonatal cardiac dysfunction to symptomatic disease later in infancy; neonatal lethality is not universal, and several children have undergone heart transplantation. Transcript loss, residual mutant protein, calcium dysregulation, and actin-dependent transcriptional changes vary by allele and model. ClinGen classifies the autosomal recessive LMOD2-CMD2G relationship as Definitive.",
     "pathophysiology": [
       "Biallelic LMOD2 Loss-of-Function Variant",
+      "Nonsense-Mediated LMOD2 Transcript Decay",
+      "Reduced Functional Leiomodin-2",
       "Dysregulated Thin-Filament Length",
+      "Altered Cardiomyocyte Calcium Handling",
       "Impaired Cardiomyocyte Contractility",
-      "Neonatal Ventricular Dilation and Decreased Contractility",
-      "Neonatal Heart Failure and Death"
+      "Ventricular Dilation",
+      "Heart Failure",
+      "Increased Monomeric Cardiac Actin",
+      "Reduced MRTFB Nuclear Localization",
+      "Reduced SRF-Dependent Transcription"
     ],
     "cell_types": [
-      "Cardiomyocyte"
+      "cardiac muscle cell"
     ],
     "cell_type_ids": [
       "CL:0000746"
     ],
     "biological_processes": [
-      "Sarcomere Organization",
-      "Actin Filament Organization",
-      "Cardiac Muscle Cell Contraction",
-      "Regulation of Cardiac Muscle Contraction by Calcium",
-      "Heart Contraction"
+      "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay",
+      "actin filament polymerization",
+      "sarcomere organization",
+      "regulation of cardiac muscle contraction by calcium ion signaling",
+      "cardiac muscle cell contraction",
+      "positive regulation of transcription by RNA polymerase II"
     ],
     "phenotypes": [
       "Dilated Cardiomyopathy",
-      "Neonatal Heart Failure"
+      "Congestive Heart Failure",
+      "Ventricular Tachycardia",
+      "Supraventricular Tachycardia",
+      "Mitral Regurgitation",
+      "Tricuspid Regurgitation"
     ],
     "phenotype_categories": [
       "Cardiovascular"
@@ -73416,29 +73427,40 @@ window.searchData = [
     ],
     "phenotype_ids": [
       "HP:0001644",
-      "HP:0001635"
+      "HP:0001635",
+      "HP:0004756",
+      "HP:0004755",
+      "HP:0001653",
+      "HP:0005180"
     ],
-    "frequencies": [
-      "OBLIGATE",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "LMOD2"
     ],
     "treatments": [
-      "Supportive Heart Failure Care",
-      "Heart Transplantation"
+      "Diuretic therapy",
+      "ACE inhibition or ARB therapy",
+      "Beta-blocker therapy",
+      "Aldosterone antagonist therapy",
+      "Angiotensin receptor-neprilysin inhibition",
+      "Ivabradine",
+      "SGLT2 inhibitors",
+      "Heart transplantation",
+      "Mechanical circulatory support",
+      "Genetic counseling",
+      "Experimental LMOD2 replacement",
+      "Experimental steric blockade of LMOD2 nonsense-mediated decay"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiomyopathy_Dilated_2G.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy_2G.html",
-    "num_phenotypes": 2,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 11,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 12,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Cardiomyopathy Dilated 2H",
@@ -73451,24 +73473,28 @@ window.searchData = [
     "creation_date": "2026-09-01T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Dilated cardiomyopathy 2H (CMD2H) is an autosomal recessive, early infantile-onset cardiomyopathy caused by biallelic variants in GET3 (long known as ASNA1, and also called TRC40). It is mechanistically unlike most familial dilated cardiomyopathy: the causal gene encodes no sarcomeric or cytoskeletal protein but the central ATP-dependent chaperone of the GET/TRC pathway, which inserts tail-anchored proteins post-translationally into the endoplasmic reticulum membrane. Loss of that targeting factor destabilizes the pre-targeting complex, depletes a broad set of tail-anchored substrates, and disrupts membrane trafficking and cardiomyocyte proteostasis. The clinical course is rapidly progressive dilated cardiomyopathy with death in early infancy. It was the first evidence that the tail-anchored protein insertion pathway causes human disease.",
+    "description": "Dilated cardiomyopathy 2H (CMD2H) is an early-infantile cardiomyopathy associated with biallelic GET3 variants; GET3 was previously named ASNA1 and is also called TRC40. The founding report describes two siblings with rapidly progressive cardiac dysfunction and death in infancy. GET3 is an ATP-dependent targeting factor for tail-anchored membrane proteins. Patient tissue, recombinant-protein assays, zebrafish rescue, and cardiac knockout mice support a defect in protein targeting, but the precise substrate-to-heart-failure pathway remains unresolved. ClinGen classifies the autosomal recessive GET3-CMD2H relationship as Limited. The small clinical evidence base does not establish phenotype frequencies, penetrance, or inevitable lethality for every allele combination.",
     "pathophysiology": [
-      "Biallelic GET3 Loss of Function",
+      "Biallelic GET3 Dysfunction",
+      "Reduced GET3 Protein Abundance",
       "Impaired Tail-Anchored Protein Insertion",
-      "Disrupted Cardiomyocyte Membrane Trafficking and Proteostasis",
+      "Reduced Pre-targeting Complex Abundance",
+      "Reduced Cardiac Tail-Anchored Protein Abundance",
+      "Altered Vesicular Transport",
       "Cardiomyocyte Structural Disorganization",
-      "Impaired Cardiac Contractility and Ventricular Remodeling"
+      "Impaired Cardiac Contractility",
+      "Ventricular Dilation",
+      "Heart Failure"
     ],
     "cell_types": [
-      "cardiomyocyte"
+      "cardiac muscle cell"
     ],
     "cell_type_ids": [
       "CL:0000746"
     ],
     "biological_processes": [
       "tail-anchored membrane protein insertion into ER membrane",
-      "vesicle-mediated transport",
-      "intracellular protein transport"
+      "vesicle-mediated transport"
     ],
     "phenotypes": [
       "Dilated cardiomyopathy",
@@ -73478,7 +73504,8 @@ window.searchData = [
       "Feeding difficulties",
       "Prolonged QRS complex",
       "Cardiac arrest",
-      "Left ventricular thrombus"
+      "Left ventricular thrombus",
+      "Congestive heart failure"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -73499,21 +73526,26 @@ window.searchData = [
       "HP:0011968",
       "HP:0006677",
       "HP:0001695",
-      "HP:0040412"
+      "HP:0040412",
+      "HP:0001635"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
-      "GET3",
-      "GET3 heterozygous modifier candidate"
+      "GET3"
     ],
     "treatments": [
-      "Genetic Counseling",
-      "Supportive Heart Failure Management",
-      "Extracorporeal Membrane Oxygenation",
-      "Heart Transplantation"
+      "Diuretic therapy",
+      "ACE inhibition or ARB therapy",
+      "Beta-blocker therapy",
+      "Aldosterone antagonist therapy",
+      "Angiotensin receptor-neprilysin inhibition",
+      "Ivabradine",
+      "SGLT2 inhibitors",
+      "Intravenous inotropic support",
+      "Extracorporeal membrane oxygenation",
+      "Advanced heart-failure and transplantation evaluation",
+      "Genetic counseling",
+      "Experimental GET3 mRNA rescue"
     ],
     "environmental": [],
     "biochemical": [
@@ -73521,12 +73553,12 @@ window.searchData = [
     ],
     "source_file": "Cardiomyopathy_Dilated_2H.yaml",
     "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2H.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 5,
-    "num_genes": 2,
-    "num_treatments": 4,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 12,
+    "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Dilated Cardiomyopathy 2J",
@@ -73539,16 +73571,18 @@ window.searchData = [
     "creation_date": "2026-09-04T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Dilated cardiomyopathy 2J (CMD2J, OMIM 620635) is the recessive, early-infantile dilated cardiomyopathy caused by biallelic variants in FLII, which encodes flightless-I, a gelsolin-superfamily actin-remodelling protein. It was defined in 2023 in three unrelated families - one non-consanguineous Dutch, two consanguineous Saudi Arabian - whose children all presented within the first year of life, between two and five months, with severely reduced left ventricular ejection fractions of 23 to 32 percent and no extracardiac features.\nWhat makes the entity mechanistically interesting is that flightless-I is not a sarcomeric protein in the usual sense. It sits at the junction of three things a developing ventricle needs at once: it organises myofibrils, it is required for cardiomyocyte cell-adhesion complexes to concentrate into foci rather than smear along the membrane, and its loss dysregulates Notch and Hippo signalling in the compact myocardium. In zebrafish carrying the patients' own variants, knocked in by CRISPR/Cas9, all three arms fail together and the ventricle trabeculates poorly. So this is a cardiomyopathy of ventricular chamber *morphogenesis* as much as of contraction - which fits an onset within months of birth better than a purely sarcomeric lesion would.\nIndependent mouse work reached the heart from a different direction and adds a fourth arm. A common FLII variant, R1243H, had turned up in cardiac-remodelling genome-wide association studies; knock-in and cardiac-deletion mice showed that Flii binds the sarcomeric actin thin filament and sets its length, acting with tropomodulin-1, and that Flii-deleted hearts develop cardiomyopathy through thin-filament shortening. Overexpressing leiomodin-2, which lengthens thin filaments, partially rescued them - which ties this entry directly to dilated cardiomyopathy 2G, the LMOD2 disease curated here, at the level of the same physical parameter approached from opposite sides.\nThe two literatures should not be merged carelessly, and this entry keeps them apart. The human disease is recessive, biallelic, and infantile; the R1243H work concerns a common variant conferring population-level remodelling risk in the heterozygous state. They agree that flightless-I dosage matters to the myocardium; they are not the same genetic claim.",
+    "description": "Dilated cardiomyopathy 2J is an autosomal recessive infantile cardiomyopathy associated with biallelic FLII variants. Three children from three unrelated families presented at 2\u20135 months without additional extracardiac features and were alive with stable or improved cardiac function at ages 2\u20139 years. ClinGen rates the gene-disease relationship Moderate. Patient-mimicking zebrafish show impaired ventricular contraction; myofibrillar disorganization and abnormal trabeculation were examined in the homozygous missense line. Adhesion-complex and Notch/TAZ measurements instead come from a severe truncating zebrafish line. Independent mouse work implicates thin-filament shortening, but it uses cardiac deletion or the separate R1243H susceptibility variant and does not establish that mechanism in human CMD2J.",
     "pathophysiology": [
       "Biallelic FLII Variants",
       "Reduced Flightless-I Function in Cardiomyocytes",
       "Myofibril Disorganization",
       "Cardiomyocyte Cell Adhesion Complex Failure",
-      "Dysregulated Notch and Hippo Signaling",
+      "Reduced Notch Signaling",
+      "Reduced Nuclear TAZ Localization",
       "Sarcomeric Thin Filament Shortening",
       "Defective Ventricular Trabeculation",
-      "Impaired Ventricular Contractility"
+      "Impaired Ventricular Contractility",
+      "Heart Failure"
     ],
     "cell_types": [
       "cardiomyocyte"
@@ -73558,18 +73592,23 @@ window.searchData = [
     ],
     "biological_processes": [
       "actin filament organization",
-      "myofibril assembly",
+      "actin filament bundle assembly",
       "cell-cell adhesion",
       "Notch signaling pathway",
       "hippo signaling",
       "actin cytoskeleton organization",
-      "heart morphogenesis"
+      "ventricular trabecula myocardium morphogenesis"
     ],
     "phenotypes": [
       "Dilated Cardiomyopathy",
       "Reduced Left Ventricular Ejection Fraction",
       "Secundum Atrial Septal Defect",
-      "Tachycardia"
+      "Ventricular Tachycardia",
+      "Congestive Heart Failure",
+      "Mitral Regurgitation",
+      "Tricuspid Regurgitation",
+      "Left Ventricular Noncompaction",
+      "Patent Foramen Ovale"
     ],
     "phenotype_categories": [
       "Cardiovascular"
@@ -73581,23 +73620,39 @@ window.searchData = [
       "HP:0001644",
       "HP:0012664",
       "HP:0001684",
-      "HP:0001649"
+      "HP:0004756",
+      "HP:0001635",
+      "HP:0001653",
+      "HP:0005180",
+      "HP:0030682",
+      "HP:0001655"
     ],
     "frequencies": [],
     "genes": [
       "FLII"
     ],
-    "treatments": [],
+    "treatments": [
+      "Diuretic therapy",
+      "ACE inhibition or ARB therapy",
+      "Beta-blocker therapy",
+      "Aldosterone antagonist therapy",
+      "Angiotensin receptor-neprilysin inhibition",
+      "Ivabradine",
+      "SGLT2 inhibitors",
+      "Intravenous inotropic support",
+      "Advanced heart-failure and transplantation evaluation",
+      "Genetic counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiomyopathy_Dilated_2J.yaml",
     "page_url": "../pages/disorders/Dilated_Cardiomyopathy_2J.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 9,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 10,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Cardiospondylocarpofacial syndrome",
@@ -356059,12 +356114,12 @@ window.searchMetrics = {
   "total_disorder_pages": 3303,
   "total_subtypes": 4611,
   "total_disorders_and_subtypes": 7914,
-  "total_unique_evidence_sources": 49519,
-  "total_unique_publications": 46157,
+  "total_unique_evidence_sources": 49536,
+  "total_unique_publications": 46167,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
   "total_pathographs": 3299,
-  "total_unique_pathological_events": 21753,
+  "total_unique_pathological_events": 21761,
   "total_modules": 189,
   "total_research_reports": 3418,
   "total_classifications": 21,
