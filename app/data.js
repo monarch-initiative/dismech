@@ -3610,6 +3610,85 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "5-Fluorouracil Poisoning",
+    "disease_id": "MONDO:0016312",
+    "category": "Complex",
+    "parents": [
+      "Drug Toxicity",
+      "Poisoning"
+    ],
+    "creation_date": "2026-10-05T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "5-Fluorouracil poisoning is the systemic toxicity syndrome produced by excess exposure to the antimetabolite chemotherapeutic 5-fluorouracil (5-FU) or its oral prodrug capecitabine. Excess exposure arises in two broad settings: accidental overdose (most often an infusion-pump programming error delivering a multi-day dose in hours) and, at standard doses, deficient activity of dihydropyrimidine dehydrogenase (DPD, encoded by DPYD), the rate-limiting catabolic enzyme that clears the great majority of administered drug. 5-FU is a uracil analogue that is anabolically activated to cytotoxic nucleotides. FdUMP forms a stable ternary complex with thymidylate synthase and the folate cofactor, arresting de novo thymidylate synthesis and causing \"thymineless\" DNA damage; fluoronucleotides are also misincorporated into DNA and into RNA. The tissues with the highest proliferative turnover fail first, producing mucositis, diarrhoea and myelosuppression, while non-proliferative toxicities - cardiotoxicity (most often myocardial ischaemia), a cerebellar/encephalopathic neurotoxicity, and hyperammonaemia - are attributed to the drug and its catabolites. A specific antidote, uridine triacetate, floods the pathway with uridine and markedly improves survival when given within about 96 hours of overexposure. Pre-treatment DPYD genotyping and phenotyping identify patients at risk and are the principal preventive measure. No GeneReviews or StatPearls chapter indexes this entity; it is curated from pharmacogenetic guidelines, clinical reviews and case reports.",
+    "pathophysiology": [
+      "Systemic 5-Fluorouracil Overexposure",
+      "Deficient DPD-Mediated Catabolism",
+      "Anabolic Activation to Cytotoxic Nucleotides",
+      "Thymidylate Synthase Inhibition",
+      "RNA Misincorporation",
+      "Proliferating-Tissue Cytotoxicity",
+      "Myocardial Toxicity",
+      "Central Neurotoxicity"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Oral mucositis",
+      "Diarrhea",
+      "Bone marrow suppression",
+      "Palmar-plantar erythrodysesthesia",
+      "Myocardial ischemia",
+      "Hyperammonemia",
+      "Hyperammonemic encephalopathy",
+      "Cerebellar ataxia"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Head and Neck",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010280",
+      "HP:0002014",
+      "HP:0012145",
+      "HP:0025493",
+      "HP:0001681",
+      "HP:0001987",
+      "HP:0001298",
+      "HP:0001251"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DPYD",
+      "TYMS"
+    ],
+    "treatments": [
+      "Uridine triacetate",
+      "DPYD genotype-guided dosing",
+      "Supportive care"
+    ],
+    "environmental": [
+      "Therapeutic fluoropyrimidine administration"
+    ],
+    "biochemical": [],
+    "source_file": "5-Fluorouracil_Poisoning.yaml",
+    "page_url": "../pages/disorders/5-Fluorouracil_Poisoning.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "5-Oxoprolinase Deficiency",
     "disease_id": "MONDO:0009825",
     "category": "Mendelian",
@@ -79983,6 +80062,7 @@ window.searchData = [
       "Impaired Neurotrophin Signaling Endosome Axonal Transport",
       "SORD Deficiency and Sorbitol Accumulation",
       "Small Heat-Shock Protein Chaperone Dysfunction",
+      "Presynaptic Neuromuscular Transmission Deficit",
       "Aminoacyl-tRNA Synthetase Loss of Function",
       "Impaired Autophagy-Lysosome Function",
       "Nuclear Lamina Disruption",
@@ -80018,6 +80098,7 @@ window.searchData = [
       "Axonal transport",
       "Carbohydrate metabolic process",
       "Protein folding",
+      "neuromuscular synaptic transmission",
       "tRNA aminoacylation for protein translation",
       "Autophagosome maturation",
       "Lysosome organization",
@@ -80116,10 +80197,10 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease_Type_2.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_2.html",
     "num_phenotypes": 8,
-    "num_pathophysiology": 21,
+    "num_pathophysiology": 22,
     "num_genes": 32,
     "num_treatments": 9,
-    "causal_graph_edges": "63",
+    "causal_graph_edges": "67",
     "causal_graph_longest_path": "4"
   },
   {
@@ -97248,6 +97329,88 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "67",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Congenital Herpes Simplex Virus Infection",
+    "disease_id": "MONDO:0017381",
+    "category": "Infectious Disease",
+    "parents": [
+      "congenital herpes virus infection",
+      "herpes simplex infectious disease"
+    ],
+    "creation_date": "2026-09-30T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Intrauterine",
+      "Perinatal",
+      "SEM",
+      "CNS",
+      "Disseminated",
+      "Postnatal"
+    ],
+    "description": "Congenital herpes simplex virus infection is vertically transmitted HSV-1 or HSV-2 disease of the fetus or newborn. The dominant route is not transplacental but intrapartum: roughly 85% of cases are acquired through contact with infected maternal genital secretions during delivery, against 5% acquired in utero and 10% postnatally. Intrauterine infection is the route that produces fetal damage - placental inflammation, skin erosion, malformation and fetal loss - while perinatally acquired disease presents days to weeks after birth in one of three forms: localised skin, eye and mouth disease, central nervous system disease, or disseminated multi-organ infection. Maternal infection is frequently silent, so the absence of a maternal history does not exclude the diagnosis. Aciclovir transformed outcome and long-term suppressive therapy reduces morbidity. The CNS and disseminated forms are the severe presentations; this entry carries no sourced mortality or neurodevelopmental-outcome figures and so makes no quantitative claim about either. Pooled global incidence is about 8.2 per 100,000 live births and rising, with HSV-1 displacing HSV-2 as the commoner agent.",
+    "pathophysiology": [
+      "Maternal Genital HSV Infection and Shedding",
+      "Vertical Transmission to Fetus or Neonate",
+      "Placental Inflammation and Fetal Injury",
+      "Local Mucocutaneous Replication at the Portal of Entry",
+      "Neuroinvasion and Central Nervous System Spread",
+      "Haematogenous Multi-Organ Dissemination"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [],
+    "phenotypes": [
+      "Vesicular skin eruption",
+      "Skin erosion",
+      "Retinopathy",
+      "Elevated circulating aspartate aminotransferase concentration",
+      "Seizure",
+      "Panuveitis",
+      "Abnormal brain morphology",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Ophthalmologic",
+      "Hepatic",
+      "Neurologic",
+      "Constitutional"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0033697",
+      "HP:0200041",
+      "HP:0000488",
+      "HP:0031956",
+      "HP:0001250",
+      "HP:0012121",
+      "HP:0012443",
+      "HP:0001945"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Intravenous Aciclovir",
+      "Maternal Third-Trimester Antiviral Prophylaxis",
+      "Oral Aciclovir Suppression After Acute Treatment"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Congenital_Herpes_Simplex_Virus_Infection.yaml",
+    "page_url": "../pages/disorders/Congenital_Herpes_Simplex_Virus_Infection.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Hydrocephalus",
@@ -356113,17 +356276,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3303,
-  "total_subtypes": 4611,
-  "total_disorders_and_subtypes": 7914,
-  "total_unique_evidence_sources": 49537,
-  "total_unique_publications": 46168,
+  "total_disorder_pages": 3305,
+  "total_subtypes": 4617,
+  "total_disorders_and_subtypes": 7922,
+  "total_unique_evidence_sources": 49556,
+  "total_unique_publications": 46187,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3299,
-  "total_unique_pathological_events": 21763,
+  "total_pathographs": 3301,
+  "total_unique_pathological_events": 21778,
   "total_modules": 189,
-  "total_research_reports": 3418,
+  "total_research_reports": 3420,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
