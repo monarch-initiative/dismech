@@ -21,7 +21,6 @@ set -euo pipefail
 exec uv run python -c "
 import sys
 
-import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the patch
 
 from dismech.deep_research_policy import (
     BIOMNI_DISABLED_DETAIL,

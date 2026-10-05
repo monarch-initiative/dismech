@@ -35714,13 +35714,15 @@ window.searchData = [
     "creation_date": "2026-09-30T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal dominant partial interferon-gamma receptor 1 (IFN-gammaR1) deficiency is an inborn error of immunity and one of the genetic etiologies of Mendelian susceptibility to mycobacterial disease (MSMD): a selective predisposition to clinical disease caused by weakly virulent mycobacteria \u2014 the Bacille Calmette-Guerin (BCG) vaccine strain and environmental non-tuberculous mycobacteria (NTM) \u2014 in individuals whose routine immunological work-up is otherwise unremarkable.\nAlmost every genetic etiology of MSMD converges on interferon gamma (IFN-gamma), either impairing production of the cytokine or the cellular response to it. This disorder sits on the response arm. It is caused by heterozygous truncating mutations of IFNGR1 clustered in exon 6, of which the 4-bp microdeletion 818del4 is a recurrent hotspot; the related 811del4 and 774del4 alleles behave identically. Each introduces a premature stop codon in the intracellular domain, producing a receptor that binds IFN-gamma normally but lacks the cytoplasmic JAK1-docking and STAT1-docking motifs and the membrane-proximal region required for receptor internalisation and degradation. The truncated receptors are therefore not recycled or degraded and accumulate at the cell surface, where they compete with the wild-type receptor encoded by the intact allele for ligand and receptor-complex formation. This is the dominant-negative mechanism: a single mutant allele blunts signalling below the protective threshold even though one wild-type allele remains. Residual IFN-gamma signalling persists \u2014 partial STAT1 phosphorylation and HLA class II induction are detectable \u2014 which is why the disease is milder and later in onset than autosomal recessive complete IFN-gammaR1 deficiency.\nThe clinical hallmark is BCG or environmental mycobacterial disease presenting as unifocal or multifocal osteomyelitis, often with regional or generalized lymphadenopathy; Mycobacterium avium complex is the commonest environmental agent. Onset is later than in the recessive complete form (mean 13.4 years against 3.1 years in the largest comparative series), and the course is relapsing-remitting but generally survivable, in contrast to the early, often fatal disseminated disease of the recessive complete form. Because residual receptor function is present, prolonged antimycobacterial chemotherapy plus, where needed, adjunctive recombinant IFN-gamma is the mainstay, and live BCG vaccine is contraindicated in affected individuals and at-risk relatives. Hematopoietic stem-cell transplantation is reserved for MSMD patients whose response to IFN-gamma is abolished, which is not the case in this partial form.\nThis entry curates the autosomal dominant partial IFN-gammaR1 deficiency (IMD27B, MONDO:0014429) only. Autosomal recessive complete IFN-gammaR1 deficiency (MONDO:0020530) and autosomal recessive partial IFN-gammaR1 deficiency (MONDO:0017901) are distinct MONDO concepts and appear here only as differential diagnoses.\n",
+    "description": "Autosomal dominant partial interferon-gamma receptor 1 deficiency is an inherited immune defect causing susceptibility to BCG and environmental mycobacteria, often with osteomyelitis and granulomatous lymphadenitis. Heterozygous truncating IFNGR1 variants clustered in exon 6 produce surface-accumulating receptors with impaired intracellular signaling. These interfere with the retained wild-type receptor through a dominant-negative mechanism. Residual IFN-gamma responses distinguish this disorder from autosomal recessive complete IFN-gammaR1 deficiency. Clinical severity is variable and some carriers remain asymptomatic. In a 2004 comparative series, the mean age at the first environmental-mycobacterial episode was 13.4 years; BCG-associated illness can begin in infancy. Management centers on prolonged, organism-directed antimycobacterial therapy, sometimes with adjunctive recombinant IFN-gamma. Severe refractory cases are reported despite the generally milder course relative to complete receptor deficiency. This entry covers IMD27B (OMIM:615978; MONDO:0014429); recessive complete and recessive partial IFNGR1 deficiencies are separate disorders.",
     "pathophysiology": [
-      "Heterozygous IFNGR1 Exon 6 Truncating Mutation",
+      "Heterozygous IFNGR1 Exon 6 Frameshift Deletion",
+      "Heterozygous IFNGR1 Exon 6 Frameshift Insertion",
+      "Heterozygous IFNGR1 Exon 6 Nonsense Substitution",
       "Cell-Surface Accumulation of Truncated IFN-gammaR1",
       "Dominant-Negative Impairment of IFN-gamma Signaling",
       "Insufficient IFN-gamma-Dependent Macrophage Activation",
-      "Impaired Control of Intramacrophagic Mycobacteria"
+      "Susceptibility to Intracellular Pathogen Infection"
     ],
     "cell_types": [
       "monocyte",
@@ -35745,13 +35747,18 @@ window.searchData = [
       "Tuberculosis",
       "Disseminated histoplasmosis",
       "Increased cell-surface IFN-gammaR1 on monocytes",
-      "Reduced STAT1 phosphorylation in response to IFN-gamma"
+      "Reduced STAT1 phosphorylation in response to IFN-gamma",
+      "Transient dendritic-cell depletion during mycobacterial infection",
+      "Unusual Salmonella infection",
+      "Coccidioidomycosis"
     ],
     "phenotype_categories": [
       "Infectious",
-      "Laboratory"
+      "Laboratory",
+      "Immunologic"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Immune",
       "Musculoskeletal"
@@ -35764,9 +35771,14 @@ window.searchData = [
       "HP:0002840",
       "HP:6000070",
       "HP:5210111",
-      "HP:0032256"
+      "HP:0032256",
+      "HP:0020178",
+      "HP:5210093",
+      "HP:0032249"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "FREQUENT"
+    ],
     "genes": [
       "IFNGR1"
     ],
@@ -35774,7 +35786,9 @@ window.searchData = [
       "Antimycobacterial Therapy",
       "Recombinant Interferon Gamma",
       "Avoidance of BCG Vaccination",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Hematopoietic transplantation considered for severe refractory disease",
+      "Debridement of necrotic lesions"
     ],
     "environmental": [
       "Bacille Calmette-Guerin (BCG) vaccination"
@@ -35782,12 +35796,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IFNgammaR1_Deficiency.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Partial_IFNgammaR1_Deficiency.html",
-    "num_phenotypes": 10,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 13,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 4,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 6,
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Dominant Non-Syndromic Intellectual Disability",
@@ -69515,34 +69529,37 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CTNNB1 neurodevelopmental disorder (CTNNB1-NDD; CTNNB1 syndrome; also catalogued as severe intellectual disability-progressive spastic diplegia syndrome, neurodevelopmental disorder with spastic diplegia and visual defects [NEDSDV], and autosomal dominant intellectual disability 19 [MRD19]) is a rare autosomal dominant neurodevelopmental disorder caused by heterozygous, almost always de novo, loss-of-function variants in CTNNB1 at 3p22.1. CTNNB1 encodes beta-catenin, a dual-function protein that is both the transcriptional effector of the canonical Wnt signalling pathway and a structural component of the cadherin-catenin adherens junction complex. Affected individuals show mild-to-profound cognitive impairment with markedly limited speech, truncal hypotonia with distal (predominantly lower-limb) spasticity that is progressive, dystonia and an exaggerated startle response, microcephaly, subtle craniofacial dysmorphism (broad nasal tip, small alae nasi, long/flat philtrum, thin upper lip vermilion), and a distinctive ophthalmological phenotype of exudative vitreoretinopathy indistinguishable from familial exudative vitreoretinopathy (FEVR) together with strabismus and refractive errors. Because the motor phenotype is non-progressive-appearing in early childhood, CTNNB1-NDD is the most frequent recurrent monogenic cause of a cerebral palsy diagnosis. This entry covers the germline neurodevelopmental disorder; it is explicitly NOT the somatic CTNNB1 gain-of-function/Wnt-activating oncogenesis seen in hepatoblastoma, adamantinomatous craniopharyngioma and other tumours, which is a mechanistically opposite (stabilising) lesion.",
+    "description": "CTNNB1 neurodevelopmental disorder (CTNNB1-NDD; CTNNB1 syndrome; NEDSDV; MRD19) is an autosomal dominant disorder usually caused by a de novo heterozygous loss-of-function variant in CTNNB1, encoding beta-catenin. Beta-catenin mediates canonical Wnt transcription and cadherin-dependent cell adhesion. Developmental and speech delay, variable cognitive impairment, axial hypotonia, limb hypertonia, dystonia, microcephaly, behavioral difficulties and visual abnormalities characterize the disorder. Motor impairment can meet clinical criteria for cerebral palsy; its course varies between individuals. Retinal vascular disease may remain undetected on routine ophthalmoscopy. Most pathogenic alleles reduce beta-catenin function, but selected variants have dominant-negative or assay-dependent activating effects. This entry covers the germline neurodevelopmental disorder, including its ocular manifestations.",
     "pathophysiology": [
       "CTNNB1 Loss-of-Function and Beta-Catenin Haploinsufficiency",
+      "Variant-Specific Dominant-Negative Wnt Inhibition",
       "Canonical Wnt/Beta-Catenin Transcriptional Deficit",
       "Impaired Cadherin-Catenin Adherens Junction Adhesion",
-      "Disrupted Cortical Neurodevelopment and Connectivity",
-      "Progressive Corticospinal and Extrapyramidal Motor Dysfunction",
+      "Reduced Neural Progenitor Expansion",
+      "Impaired Dendritic Arborization",
+      "Impaired Hippocampal Synaptic Potentiation",
+      "Reduced Brain Sodium-Potassium ATPase Abundance",
+      "Altered Hippocampal Neuronal Excitability",
+      "Disorganization of Callosal Midline Guidance Cells",
+      "Failure of Callosal Axon Midline Crossing",
+      "Developmental Motor Circuit Dysfunction",
       "Retinal Vascular Norrin/Beta-Catenin Signalling Failure",
+      "Reduced Retinal Endothelial Proliferation",
+      "Compromised Retinal Endothelial Junction Integrity",
       "Cardiac Developmental Wnt Signalling Disruption"
     ],
     "cell_types": [
       "neural progenitor cell",
-      "cerebral cortex neuron",
       "retinal blood vessel endothelial cell"
     ],
     "cell_type_ids": [
       "CL:0011020",
-      "CL:0010012",
       "CL:0002585"
     ],
     "biological_processes": [
       "canonical Wnt signaling pathway",
-      "regulation of canonical Wnt signaling pathway",
       "adherens junction organization",
-      "cerebral cortex neuron differentiation",
-      "dendrite morphogenesis",
-      "retinal blood vessel morphogenesis",
-      "establishment of blood-retinal barrier"
+      "dendrite morphogenesis"
     ],
     "phenotypes": [
       "Intellectual Disability",
@@ -69554,7 +69571,7 @@ window.searchData = [
       "Bradykinesia",
       "Exaggerated Startle Response",
       "Muscle Weakness",
-      "Secondary Microcephaly",
+      "Microcephaly",
       "Exudative Vitreoretinopathy",
       "Strabismus",
       "Refractive Error",
@@ -69567,7 +69584,33 @@ window.searchData = [
       "Intrauterine Growth Restriction",
       "Scoliosis",
       "Tethered Cord",
-      "Congenital Heart Defect"
+      "Congenital Heart Defect",
+      "Sleep Disturbance",
+      "Gait Ataxia",
+      "Pes Planus",
+      "Constipation",
+      "Gastroesophageal Reflux",
+      "Attention Deficit Hyperactivity Disorder",
+      "Anxiety",
+      "Motor Stereotypies",
+      "Long Philtrum",
+      "Long Eyelashes",
+      "Large Ears",
+      "Developmental Regression",
+      "Hypoplasia of the Corpus Callosum",
+      "Seizures",
+      "Short Stature",
+      "Toe Walking",
+      "Hyperopia",
+      "Myopia",
+      "Underdeveloped Nasal Alae",
+      "Sparse Eyebrows",
+      "Cerebral White Matter Abnormalities",
+      "Cryptorchidism",
+      "Astigmatism",
+      "Appendicular Hypotonia",
+      "Self-Injurious Behavior",
+      "Aggressive Behavior"
     ],
     "phenotype_categories": [
       "Cognitive",
@@ -69580,15 +69623,20 @@ window.searchData = [
       "Gastrointestinal",
       "Growth",
       "Skeletal",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Neurologic",
+      "Genitourinary"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
+      "Ear",
       "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Integument",
+      "Limbs",
       "Musculoskeletal",
       "Nervous System"
     ],
@@ -69602,7 +69650,7 @@ window.searchData = [
       "HP:0002067",
       "HP:0002267",
       "HP:0001324",
-      "HP:0005484",
+      "HP:0000252",
       "HP:0030490",
       "HP:0000486",
       "HP:0000539",
@@ -69615,10 +69663,35 @@ window.searchData = [
       "HP:0001511",
       "HP:0002650",
       "HP:0002144",
-      "HP:0001627"
+      "HP:0001627",
+      "HP:0002360",
+      "HP:0002066",
+      "HP:0001763",
+      "HP:0002019",
+      "HP:0002020",
+      "HP:0007018",
+      "HP:0000739",
+      "HP:0000733",
+      "HP:0000343",
+      "HP:0000527",
+      "HP:0000400",
+      "HP:0002376",
+      "HP:0002079",
+      "HP:0001250",
+      "HP:0004322",
+      "HP:0030051",
+      "HP:0000540",
+      "HP:0000545",
+      "HP:0000430",
+      "HP:0045075",
+      "HP:0002500",
+      "HP:0000028",
+      "HP:0000483",
+      "HP:0012389",
+      "HP:0100716",
+      "HP:0000718"
     ],
     "frequencies": [
-      "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT",
       "OCCASIONAL"
@@ -69633,28 +69706,34 @@ window.searchData = [
       "Botulinum Toxin for Spasticity and Dystonia",
       "Ophthalmological Surveillance and FEVR Treatment",
       "AAV9-Mediated CTNNB1 Gene Replacement (Investigational)",
-      "Genetic Counseling"
+      "Genetic Counseling",
+      "Baclofen and Tizanidine for Tone Abnormalities",
+      "Levodopa for Dystonia (Limited Evidence)",
+      "Benzodiazepines for Disabling Exaggerated Startle",
+      "Feeding and Nutritional Support",
+      "Low Vision and Family Support",
+      "Dual GSK3 Inhibition (Preclinical)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CTNNB1_Neurodevelopmental_Disorder.yaml",
     "page_url": "../pages/disorders/CTNNB1_Neurodevelopmental_Disorder.html",
-    "num_phenotypes": 23,
-    "num_pathophysiology": 7,
+    "num_phenotypes": 49,
+    "num_pathophysiology": 16,
     "num_genes": 1,
-    "num_treatments": 7,
-    "causal_graph_edges": "22",
+    "num_treatments": 13,
+    "causal_graph_edges": "44",
     "causal_graph_longest_path": "5"
   },
   {
     "name": "CYB561-Related Orthostatic Hypotension",
     "disease_id": "MONDO:0020751",
-    "category": "",
+    "category": "Mendelian",
     "parents": [],
     "creation_date": "2026-08-27T18:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Biallelic variants in CYB561 cause a lifelong, severe orthostatic hypotension syndrome with undetectable noradrenaline and adrenaline but normal dopamine. Cytochrome b561 is a transmembrane haem protein that carries electrons across the catecholamine secretory vesicle membrane to regenerate intravesicular ascorbate, the cofactor dopamine beta-hydroxylase consumes when it converts dopamine to noradrenaline. Losing it therefore does not damage the enzyme; it starves the enzyme of a regenerated cofactor inside a compartment, producing a functional dopamine beta-hydroxylase deficiency with a structurally and catalytically normal enzyme. The autonomic failure is strikingly selective: sympathetic noradrenergic function fails while sympathetic cholinergic and parasympathetic function are preserved.",
+    "description": "Biallelic CYB561 variants cause an autosomal recessive catecholamine biosynthesis disorder with lifelong severe orthostatic hypotension, low or undetectable noradrenaline and adrenaline, normal dopamine, and preserved plasma dopamine beta-hydroxylase activity. Cytochrome b561 transfers electrons across secretory-vesicle membranes to regenerate the ascorbate required for dopamine beta-hydroxylase function. Impaired intravesicular cofactor recycling is the inferred link between the genetic defect and noradrenaline deficiency; patient vesicular ascorbate has not been directly measured in the cited studies. Sympathetic cholinergic and cardiovagal responses can remain preserved. Droxidopa bypasses the biosynthetic block and improved blood pressure and symptoms in the reported patients.",
     "pathophysiology": [
       "Biallelic CYB561 Loss of Function",
       "Loss of Transmembrane Electron Transfer into Secretory Vesicles",
@@ -69662,9 +69741,8 @@ window.searchData = [
       "Functional Dopamine Beta-Hydroxylase Deficiency",
       "Noradrenaline and Adrenaline Deficiency",
       "Selective Sympathetic Noradrenergic Failure",
-      "Impaired Catecholamine Counter-Regulation of Hypoglycaemia",
-      "Recurrent Hypoglycaemia",
-      "Orthostatic Hypotension"
+      "Impaired Adrenergic Restraint of Insulin Secretion",
+      "Reduced Renal Perfusion"
     ],
     "cell_types": [
       "chromaffin cell"
@@ -69677,19 +69755,21 @@ window.searchData = [
     ],
     "phenotypes": [
       "Orthostatic Hypotension",
-      "Preserved Sweating and Heart Rate Regulation",
       "Recurrent Hypoglycaemia",
       "Progressive Renal Insufficiency",
-      "Reduced Life Expectancy"
+      "Syncope",
+      "Anemia",
+      "Retrograde Ejaculation"
     ],
     "phenotype_categories": [
       "Cardiovascular",
-      "Autonomic",
       "Endocrine",
       "Renal",
-      "Constitutional"
+      "Hematologic",
+      "Genitourinary"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
       "Cardiovascular",
       "Genitourinary",
       "Metabolism",
@@ -69698,11 +69778,13 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0004926",
       "HP:0001943",
-      "HP:0000083"
+      "HP:0000083",
+      "HP:0001279",
+      "HP:0001903",
+      "HP:0012877"
     ],
     "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
+      "VERY_FREQUENT"
     ],
     "genes": [
       "CYB561"
@@ -69719,12 +69801,12 @@ window.searchData = [
     ],
     "source_file": "CYB561-Related_Orthostatic_Hypotension.yaml",
     "page_url": "../pages/disorders/CYB561-Related_Orthostatic_Hypotension.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 6,
+    "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "CYCS-Related Thrombocytopenia",
@@ -69798,17 +69880,22 @@ window.searchData = [
     "creation_date": "2026-08-20T00:20:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CYFIP2-related developmental and epileptic encephalopathy (DEE65) is an autosomal dominant disorder caused by heterozygous, almost always de novo, missense variants in CYFIP2. CYFIP2 is a structural subunit of the WAVE regulatory complex, which holds the actin-nucleating VCA domain of WAVE in an autoinhibited state until RAC1 signalling releases it to drive Arp2/3-mediated actin polymerization. Pathogenic variants cluster at two hotspots - p.Arg87, which sits buried at the CYFIP2-WAVE1 interface and produces a consistently severe phenotype, and p.Asp724, which produces a more variable one. Affected children have early-onset drug-resistant seizures, frequently epileptic spasms in a West syndrome pattern, with severe developmental impairment and hypotonia. Brain MRI is often unremarkable despite the severity of the clinical and electrical picture.",
+    "description": "CYFIP2-related developmental and epileptic encephalopathy (DEE65) lies within an autosomal dominant neurodevelopmental spectrum associated mainly with heterozygous de novo CYFIP2 variants. CYFIP2 regulates the WAVE regulatory complex (WRC) and actin remodeling. Arg87 variants are associated with severe developmental impairment and early epilepsy, whereas other variants can cause milder intellectual or language impairment without seizures. Missense, splice-altering, in-frame deletion and frameshift variants have been reported; their functional consequences differ. Hypotonia, feeding and visual difficulties, microcephaly, sleep disturbance and movement abnormalities accompany the developmental phenotype. Seizures may be drug-resistant, but seizure control and temporary developmental or EEG improvement occur. Brain imaging ranges from normal findings to atrophy and cortical malformation.",
     "pathophysiology": [
-      "De Novo CYFIP2 Missense Variant at a Structural Hotspot",
+      "Heterozygous CYFIP2 Variation",
       "Weakened CYFIP2-WAVE1 Interface Binding",
-      "Enhanced CYFIP2 Ubiquitination and Proteasomal Degradation",
+      "Enhanced CYFIP2 Ubiquitination",
+      "Enhanced CYFIP2 Proteasomal Degradation",
+      "Reduced CYFIP2 Protein Abundance",
+      "Impaired WRC Incorporation by a C-terminal Truncation",
       "Aberrant WAVE Regulatory Complex Activation",
       "Dysregulated Actin Cytoskeleton Dynamics",
+      "Reduced Neural Progenitor Motility",
+      "Loss of SOX2-positive Progenitor Staining in R87C Organoids",
       "Disrupted Synaptic and Dendritic Spine Remodeling",
       "Reactive Gliosis",
-      "Neuronal Network Hyperexcitability",
-      "Drug-Resistant Epilepsy"
+      "Astrocytic Lysosomal Lipid Accumulation",
+      "Neuronal Network Hyperexcitability"
     ],
     "cell_types": [
       "glutamatergic neuron",
@@ -69827,19 +69914,38 @@ window.searchData = [
       "Seizures",
       "Epileptic Spasms",
       "Drug-Resistant Epilepsy",
+      "Global Developmental Delay",
       "Intellectual Disability",
       "Muscular Hypotonia",
       "Microcephaly",
-      "Impaired Social Communication",
-      "Normal or Nonspecific Brain MRI"
+      "Feeding Difficulties",
+      "Dysphagia",
+      "Visual Impairment",
+      "Sleep Disturbance",
+      "Atypical Behavior",
+      "Choreoathetosis",
+      "Bilateral Perisylvian Polymicrogyria",
+      "Neutropenia",
+      "Strabismus",
+      "Limb Spasticity",
+      "Developmental Regression",
+      "Cerebral Atrophy",
+      "Facial Dysmorphism"
     ],
     "phenotype_categories": [
       "Neurological",
-      "Neurodevelopmental",
-      "Neuroimaging"
+      "Gastrointestinal",
+      "Ophthalmological",
+      "Neuroimaging",
+      "Hematological",
+      "Craniofacial"
     ],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Eye",
       "Head and Neck",
+      "Immune",
       "Metabolism",
       "Musculoskeletal",
       "Nervous System"
@@ -69848,30 +69954,51 @@ window.searchData = [
       "HP:0001250",
       "HP:0011097",
       "HP:0020174",
+      "HP:0001263",
       "HP:0001249",
       "HP:0001252",
-      "HP:0000252"
+      "HP:0000252",
+      "HP:0011968",
+      "HP:0002015",
+      "HP:0000505",
+      "HP:0002360",
+      "HP:0000708",
+      "HP:0001266",
+      "HP:0032407",
+      "HP:0001875",
+      "HP:0000486",
+      "HP:0001257",
+      "HP:0002376",
+      "HP:0002059",
+      "HP:0001999"
     ],
     "frequencies": [
       "FREQUENT",
-      "OBLIGATE"
+      "VERY_FREQUENT",
+      "OCCASIONAL"
     ],
     "genes": [
       "CYFIP2"
     ],
     "treatments": [
-      "Antiseizure Medication"
+      "Antiseizure Medication",
+      "Lacosamide",
+      "ACTH and Vigabatrin for Epileptic Spasms",
+      "Ketogenic Diet",
+      "Clonazepam for Movement and Sleep Symptoms",
+      "Developmental and Feeding Support",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CYFIP2-Related_Developmental_and_Epileptic_Encephalopathy.yaml",
     "page_url": "../pages/disorders/CYFIP2-Related_Developmental_and_Epileptic_Encephalopathy.html",
-    "num_phenotypes": 8,
-    "num_pathophysiology": 9,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 14,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "6"
+    "num_treatments": 7,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Cadmium Poisoning",
@@ -71933,21 +72060,24 @@ window.searchData = [
     "creation_date": "2026-08-01T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Cardiofacioneurodevelopmental syndrome (CFNDS) is an ultra-rare autosomal recessive multiple congenital anomaly syndrome caused by biallelic loss-of-function variants in CCDC32 (formerly C15orf57). Its recurring core is developmental delay together with bilateral cleft lip and palate, on a background of variable craniofacial, cardiac, laterality, brain, digital and growth anomalies. Reported brain findings include hypoplasia of the corpus callosum, cerebellar hypoplasia and microcephaly. CCDC32 encodes a small 185-amino-acid coiled-coil protein that acts as an assembly chaperone for the AP-2 clathrin adaptor complex, the principal cargo adaptor of clathrin-mediated endocytosis; the disease alleles reported to date truncate the protein before the alpha-helix required for AP-2 binding. A parallel ciliary arm of the pathomechanism was proposed in the original report, in which zebrafish ccdc32 depletion recapitulated the human phenotypes and impaired ciliogenesis. Which of these two arms, or what combination of them, accounts for the human malformations is not yet settled. Fewer than ten affected individuals have been reported worldwide.",
+    "description": "Cardiofacioneurodevelopmental syndrome (CFNDS) is an ultra-rare autosomal recessive congenital anomaly syndrome associated with biallelic CCDC32 loss-of-function variants. Developmental delay and orofacial clefting recur alongside variable cardiac, laterality, brain, digital and growth abnormalities. CCDC32 regulates assembly of the AP-2 clathrin adaptor complex and the stabilization and invagination of clathrin-coated pits. Knockout and partial-knockdown experiments reveal distinct effects on AP-2 abundance and pit dynamics. Zebrafish and cultured mouse-cell experiments also implicate ciliogenesis, but the links from either cellular defect to individual human malformations remain incompletely resolved. Patient fibroblast RNA sequencing has demonstrated transcript downregulation and loss of exons 3 and 4 in one family.",
     "pathophysiology": [
       "Biallelic CCDC32 Loss of Function",
       "Failure of AP-2 Adaptor Complex Assembly",
+      "Reduced AP-2 Complex Abundance",
       "Clathrin-Coated Pit Destabilization",
       "Deficient Clathrin-Mediated Endocytosis",
       "Defective Ciliogenesis",
-      "Disrupted Craniofacial, Cardiac and Neural Morphogenesis"
+      "Abnormal Craniofacial Development",
+      "Abnormal Brain Development",
+      "Abnormal Cardiac Morphogenesis",
+      "Abnormal Left-Right Patterning"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "Clathrin-dependent endocytosis",
-      "Cilium assembly",
-      "Determination of left/right symmetry"
+      "Cilium assembly"
     ],
     "phenotypes": [
       "Cleft lip",
@@ -71964,9 +72094,6 @@ window.searchData = [
       "Cerebellar vermis hypoplasia",
       "Feeding difficulties in infancy",
       "Cryptorchidism",
-      "Abnormal facial shape",
-      "Congenital cardiac anomaly",
-      "Laterality anomaly",
       "Hypoplasia of the corpus callosum",
       "Cerebellar hypoplasia",
       "Microcephaly",
@@ -71975,28 +72102,55 @@ window.searchData = [
       "Conductive hearing impairment",
       "Small hand",
       "Short foot",
-      "Abnormal finger morphology"
+      "Hypoplasia of the pons",
+      "Epicanthus",
+      "Hyperactivity",
+      "Protruding ear",
+      "Upslanted palpebral fissure",
+      "Micrognathia",
+      "Brachydactyly",
+      "Clinodactyly of the 5th finger",
+      "Camptodactyly of finger",
+      "Absent fingernail",
+      "Clubbing",
+      "Abnormal dermatoglyphics",
+      "Kyphosis",
+      "High palate",
+      "Hypoplastic helices",
+      "Wide nasal bridge",
+      "Prominent nose",
+      "Anterior pituitary hypoplasia",
+      "Absent right internal carotid artery",
+      "Thin optic nerve",
+      "Hypoplastic cerebellar tonsils",
+      "Absent toenail"
     ],
     "phenotype_categories": [
       "Head and Neck",
       "Nervous System",
       "Cardiovascular",
+      "Immune System",
       "Prenatal and Birth",
       "Digestive",
       "Genitourinary",
       "Growth",
       "Ear",
-      "Limbs"
+      "Limbs",
+      "Behavioral",
+      "Integument",
+      "Skeletal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Digestive",
       "Ear",
+      "Endocrine",
       "Eye",
       "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
+      "Integument",
       "Limbs",
       "Musculoskeletal",
       "Nervous System"
@@ -72016,9 +72170,6 @@ window.searchData = [
       "HP:0001320",
       "HP:0008872",
       "HP:0000028",
-      "HP:0001999",
-      "HP:0001627",
-      "HP:0030853",
       "HP:0002079",
       "HP:0001321",
       "HP:0000252",
@@ -72027,7 +72178,27 @@ window.searchData = [
       "HP:0000405",
       "HP:0200055",
       "HP:0001773",
-      "HP:0001167"
+      "HP:0012110",
+      "HP:0000286",
+      "HP:0000752",
+      "HP:0000411",
+      "HP:0000582",
+      "HP:0000347",
+      "HP:0001156",
+      "HP:0004209",
+      "HP:0100490",
+      "HP:0001817",
+      "HP:0001217",
+      "HP:0007477",
+      "HP:0002808",
+      "HP:0000218",
+      "HP:0008589",
+      "HP:0000431",
+      "HP:0000448",
+      "HP:0010627",
+      "HP:3000062",
+      "HP:0000587",
+      "HP:0001802"
     ],
     "frequencies": [],
     "genes": [
@@ -72039,22 +72210,22 @@ window.searchData = [
       "Cleft lip repair",
       "Nutritional and feeding support in infancy",
       "Orchidopexy for cryptorchidism",
-      "Audiological surveillance and hearing support",
+      "Hearing support",
       "Speech and language therapy",
       "Developmental and educational therapy",
-      "Cardiac evaluation and management",
+      "Management of congenital cardiac lesions",
       "Genetic counselling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiofacioneurodevelopmental_Syndrome.yaml",
     "page_url": "../pages/disorders/Cardiofacioneurodevelopmental_Syndrome.html",
-    "num_phenotypes": 26,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 44,
+    "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "50",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Cardiomyopathy-Hypotonia-Lactic Acidosis Syndrome",
@@ -72067,16 +72238,25 @@ window.searchData = [
     "creation_date": "2026-07-31T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Cardiomyopathy-hypotonia-lactic acidosis syndrome (mitochondrial phosphate carrier deficiency, SLC25A3 deficiency) is an ultra-rare autosomal recessive mitochondrial disorder caused by biallelic pathogenic variants in SLC25A3, which encodes the mitochondrial inorganic phosphate carrier (PiC) of the inner mitochondrial membrane. PiC supplies the matrix inorganic phosphate consumed by ATP synthase, so loss of carrier function starves the terminal step of oxidative phosphorylation of substrate. SLC25A3 is transcribed as two mutually exclusive isoforms generated by alternative splicing of exon 3A or exon 3B; isoform A predominates in heart and skeletal muscle while isoform B is ubiquitous. Because most reported pathogenic alleles disrupt exon 3A or its splice acceptor, the bioenergetic defect is largely confined to high-energy-demand striated muscle, which explains the cardiac- and myopathy-predominant presentation and the sparing of fibroblasts. Affected individuals classically present at or shortly after birth with hypertrophic cardiomyopathy, generalised muscular hypotonia, and lactic acidosis, and many die within the first year of life; a minority survive into adolescence or adulthood with exercise intolerance, proximal muscle weakness, and non-progressive hypertrophic cardiomyopathy. Only a handful of families have been reported worldwide.",
+    "description": "Cardiomyopathy-hypotonia-lactic acidosis syndrome (mitochondrial phosphate carrier deficiency, SLC25A3 deficiency) is a rare autosomal recessive mitochondrial disorder. SLC25A3 encodes the inner-membrane carrier for inorganic phosphate and copper. Phosphate import supports mitochondrial ATP synthesis; copper transport supports respiratory-complex assembly and mitochondrial organization in experimental systems. Variants affecting alternatively spliced exon 3A preferentially disrupt the isoform enriched in heart and skeletal muscle, whereas variants in shared coding regions can also affect fibroblasts. Reported presentations include neonatal hypertrophic cardiomyopathy, hypotonia and lactic acidosis, but cardiomyopathy without lactic acidosis or clinical skeletal myopathy also occurs. Outcomes range from infantile death to survival after heart transplantation or into adulthood with residual myopathy. The relative contributions of phosphate transport, copper handling and mitochondrial dynamics to patient disease remain incompletely resolved.",
     "pathophysiology": [
-      "Tissue-Specific Exon 3A/3B Alternative Splicing of SLC25A3",
-      "Loss of Mitochondrial Phosphate Carrier Function in Heart and Skeletal Muscle",
-      "Reduced Mitochondrial Matrix Inorganic Phosphate",
-      "Substrate Limitation of ATP Synthase and Impaired Oxidative Phosphorylation",
-      "Cardiomyocyte and Skeletal Muscle Energy Deficit",
-      "Compensatory Glycolysis and Lactate Accumulation",
-      "Cardiomyocyte Hypertrophy and Ventricular Remodeling",
-      "Impaired Mitochondrial Copper Delivery and Cytochrome c Oxidase Biogenesis"
+      "SLC25A3 Exon 3A G72E Variant",
+      "SLC25A3 Exon 3A Splice-Acceptor Variant",
+      "Aberrant Exon 3A Splicing",
+      "SLC25A3 Shared-Exon Compound Heterozygous Variants",
+      "Reduced Carrier Protein Abundance",
+      "Reduced Mitochondrial Phosphate Carrier Function",
+      "Reduced Mitochondrial Phosphate Import",
+      "Reduced Mitochondrial ATP Synthesis",
+      "Cardiomyocyte and Skeletal Muscle Bioenergetic Stress",
+      "Compensatory Glycolytic Shift",
+      "Increased Lactate Production",
+      "Cardiomyocyte Hypertrophic Remodeling",
+      "Reduced Mitochondrial Copper Delivery",
+      "Impaired Cytochrome c Oxidase Biogenesis",
+      "Reduced Mitochondrial Fusion",
+      "Disordered Mitochondrial Cristae",
+      "Cardiomyocyte Calcium Homeostasis Imbalance"
     ],
     "cell_types": [
       "cardiac muscle cell",
@@ -72091,12 +72271,12 @@ window.searchData = [
       "mitochondrial phosphate ion transmembrane transport",
       "proton motive force-driven mitochondrial ATP synthesis",
       "oxidative phosphorylation",
-      "ATP metabolic process",
       "glycolytic process",
-      "lactate biosynthetic process",
       "cardiac muscle hypertrophy",
       "copper ion transmembrane transport",
-      "respiratory chain complex IV assembly"
+      "respiratory chain complex IV assembly",
+      "mitochondrial fusion",
+      "calcium ion homeostasis"
     ],
     "phenotypes": [
       "Hypertrophic cardiomyopathy",
@@ -72106,8 +72286,13 @@ window.searchData = [
       "Proximal muscle weakness",
       "Mitochondrial myopathy",
       "Respiratory failure",
-      "Elevated circulating creatine kinase concentration",
-      "Increased circulating lactate concentration"
+      "Elevated circulating creatine kinase activity",
+      "Increased circulating lactate concentration",
+      "Failure to thrive",
+      "Cyanosis",
+      "Low-output congestive heart failure",
+      "Elevated lactate:pyruvate ratio",
+      "Thin corpus callosum"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -72115,13 +72300,17 @@ window.searchData = [
       "Metabolic",
       "Musculoskeletal",
       "Respiratory",
-      "Laboratory"
+      "Laboratory",
+      "Growth"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
+      "Growth",
+      "Integument",
       "Metabolism",
       "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -72133,7 +72322,12 @@ window.searchData = [
       "HP:0003737",
       "HP:0002878",
       "HP:0003236",
-      "HP:0002151"
+      "HP:0002151",
+      "HP:0001508",
+      "HP:0000961",
+      "HP:0009805",
+      "HP:0032653",
+      "HP:0033725"
     ],
     "frequencies": [],
     "genes": [
@@ -72141,10 +72335,12 @@ window.searchData = [
     ],
     "treatments": [
       "Supportive and Heart-Failure Directed Care",
-      "Mitochondrial Cofactor Therapy and Fat-Rich Diet",
+      "Empirical Mitochondrial Supplements and Dietary Support",
       "Genetic Counseling",
       "TAT-mPiC Protein Replacement (investigational, preclinical)",
-      "Mitochondrial Transplantation (investigational, preclinical)"
+      "Mitochondrial Transplantation (investigational, preclinical)",
+      "Heart Transplantation",
+      "Meclizine in a Cardiac Knockout Model (preprint, preclinical)"
     ],
     "environmental": [],
     "biochemical": [
@@ -72155,12 +72351,12 @@ window.searchData = [
     ],
     "source_file": "Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.yaml",
     "page_url": "../pages/disorders/Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 8,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 17,
     "num_genes": 1,
-    "num_treatments": 5,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "8"
+    "num_treatments": 7,
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Cardiomyopathy Dilated 100",
@@ -72173,11 +72369,13 @@ window.searchData = [
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CMD1OO is the VEZF1-attributed member of the numbered familial dilated cardiomyopathy series (OMIM 620247). VEZF1 encodes vascular endothelial zinc finger 1, a zinc-finger transcription factor originally characterized in vasculogenesis and angiogenesis. What makes this entity mechanistically distinct from most of the series is that the lesion is not in the contractile apparatus at all: it is in a transcription factor that sets how much contractile protein a cardiomyocyte makes. The reported disease allele, c.490A>T p.(Lys164*), truncates the protein early, and a dual-luciferase assay showed the mutant fails to transactivate the promoters of MYH7 and ET1, two genes already implicated in DCM.\n\nThe zebrafish and cell work fills in what that loss does to a heart. Vezf1 expression is reduced in diseased human and mouse myocardium; knocking it down in zebrafish reduces cardiac growth and blunts the ventricular contractile response to beta-adrenergic stimulation; and the effect runs through cardiomyocyte Myh7/beta-MHC, with an MCAT box in the Myh7 promoter and TEAD-1 as a binding partner. One negative result in that study is informative rather than incidental: calcium transient kinetics are NOT disturbed, which places the defect at the contractile apparatus and its transcriptional supply rather than in excitation-contraction coupling.\n\nFrom there the disease joins the conserved final common pathway that every cardiomyopathy converges on, and this entry declares `conforms_to` against `cardiomyopathy_maladaptive_remodeling` at three nodes rather than re-deriving the neurohormonal and remodeling chain.\n\nTwo cautions belong up front. First, the name is a trap. The OMIM designation is CMD1**OO**, with two letter Os continuing the alphabetical series, and it is the label \"cardiomyopathy, dilated, 100\" that misreads them as digits. This is not the hundredth numbered dilated cardiomyopathy locus. Second, the evidence base is one family. A single nonsense allele segregating with autosomal dominant DCM at complete penetrance, absent from 200 unrelated DCM patients, 400 controls and the population databases, plus a reporter assay. There is no ClinGen gene-disease validity assertion for VEZF1 and no second reported family, so the gene-disease relationship should be read as provisional.",
+    "description": "CMD1OO (OMIM 620247; MONDO:0859381) is a historically proposed VEZF1-associated form of familial dilated cardiomyopathy. The current ClinGen report also records the OMIM designation with a provisional question mark (?Cardiomyopathy, dilated, 1OO). ClinGen classifies the autosomal dominant gene-disease relationship as No Known Disease Relationship. Its expert panel excluded the genetic evidence in the defining Shi et al. report (PMID:36657711) because of concerns about suspect data. The reported heterozygous c.490A>T p.(Lys164*) allele and its promoter-reporter results are therefore historical observations from an excluded study, not an established molecular diagnosis. Independent zebrafish and rat cardiomyocyte experiments support roles for Vezf1 in contractile-gene transcription, cardiomyocyte growth and contractile reserve, but do not demonstrate that human VEZF1 variants cause DCM. Clinical evaluation, surveillance and treatment should follow the observed DCM phenotype and family history; the VEZF1 attribution does not establish variant-specific prognosis or predictive testing.",
     "pathophysiology": [
-      "VEZF1 Nonsense Variant Abolishes Transcriptional Transactivation",
+      "Reported VEZF1 p.Lys164Ter Allele",
+      "Reported Loss of VEZF1 Promoter Transactivation",
       "Reduced Transcription of Cardiomyocyte Contractile and Growth Targets",
-      "Impaired Cardiomyocyte Contractile Function and Compensatory Growth",
+      "Impaired Cardiomyocyte Contractile Function",
+      "Reduced Cardiomyocyte Growth",
       "Left Ventricular Dilation and Systolic Dysfunction"
     ],
     "cell_types": [
@@ -72189,44 +72387,41 @@ window.searchData = [
     "biological_processes": [
       "positive regulation of transcription by RNA polymerase II",
       "cardiac muscle contraction",
-      "cardiac muscle tissue growth",
-      "heart contraction"
+      "cardiac muscle tissue growth"
     ],
     "phenotypes": [
-      "Dilated Cardiomyopathy",
-      "Congestive Heart Failure",
-      "Sudden Cardiac Death"
+      "Dilated Cardiomyopathy"
     ],
     "phenotype_categories": [
       "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
-      "Cardiovascular",
-      "Constitutional"
+      "Cardiovascular"
     ],
     "phenotype_ids": [
-      "HP:0001644",
-      "HP:0001635",
-      "HP:0001645"
+      "HP:0001644"
     ],
     "frequencies": [],
     "genes": [
       "VEZF1"
     ],
     "treatments": [
-      "Cascade Genetic Testing and Surveillance of At-Risk Relatives",
+      "Genetic counseling",
       "Guideline-Directed Heart Failure Pharmacotherapy",
-      "Cardiac Transplantation"
+      "Implantable cardioverter-defibrillator",
+      "Cardiac resynchronization therapy",
+      "Left ventricular assist device",
+      "Cardiac transplantation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Cardiomyopathy_Dilated_100.yaml",
     "page_url": "../pages/disorders/Cardiomyopathy_Dilated_100.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 1,
+    "num_pathophysiology": 6,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "9",
+    "num_treatments": 6,
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -189682,6 +189877,131 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Intellectual Disability X-linked 93",
+    "disease_id": "MONDO:0010393",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "X-linked intellectual disability"
+    ],
+    "creation_date": "2026-10-01T14:46:12Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Intellectual disability, X-linked 93 (MRX93, XLID93) is the X-linked neurodevelopmental disorder caused by loss-of-function variants in BRWD3, a bromodomain and WD40-repeat protein encoded at Xq21.1. Affected individuals are overwhelmingly hemizygous males carrying stop-gain, frameshift or canonical splice variants or partial or whole-gene deletions, most often inherited from an unaffected carrier mother and less often de novo.\nAlthough MONDO files it under non-syndromic X-linked intellectual disability, the published series describe a recognisable syndrome: mild-to-moderate intellectual disability with speech delay, postnatal macrocephaly (mean head circumference about +2.8 SD), a tendency to obesity, behavioural difficulties (aggression, attention deficit, autism spectrum features, shyness), and a shared face with a prominent or broad forehead, large or cupped ears, a tall or pointed chin, prognathism and prominent supraorbital ridges. Because of the macrocephaly and mild tall stature it is now discussed within the overgrowth-intellectual disability (OGID) group.\nThe molecular mechanism in human neurons is not established. BRWD3 is a substrate receptor of the CUL4-DDB1 (CRL4) E3 ubiquitin ligase and a chromatin reader; in Drosophila cells it targets the H3K4 demethylase KDM5 for degradation, and fly dBRWD3 mutants accumulate histone H3.3 through HIRA/Yemanuclein, with transcriptome and dendrite defects that are suppressed by reducing H3.3 deposition. dBRWD3 was also identified as a positive regulator of JAK/STAT signalling in a Drosophila RNAi screen. None of these links has been tested in a mammalian model of the disease, and the route from BRWD3 loss to macrocephaly and obesity is unexplained.",
+    "pathophysiology": [
+      "BRWD3 Loss of Function",
+      "KDM5 Stabilization and H3K4 Methylation Imbalance",
+      "Excess Histone H3.3 Deposition",
+      "Neuronal Transcriptional Dysregulation",
+      "Impaired Dendrite Morphogenesis",
+      "Reduced JAK-STAT Pathway Signaling"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "CRL4-BRWD3-dependent KDM5 degradation",
+      "HIRA/YEM-mediated H3.3 nucleosome assembly",
+      "regulation of transcription",
+      "dendrite morphogenesis",
+      "JAK-STAT signaling"
+    ],
+    "phenotypes": [
+      "Intellectual Disability",
+      "Delayed Speech and Language Development",
+      "Macrocephaly",
+      "Obesity",
+      "Tall Stature",
+      "Prominent Forehead",
+      "Macrotia",
+      "Cupped Ear",
+      "Tall Chin",
+      "Pointed Chin",
+      "Mandibular Prognathia",
+      "Prominent Supraorbital Ridges",
+      "Aggressive Behavior",
+      "Attention Deficit Hyperactivity Disorder",
+      "Autistic Behavior",
+      "Excessive Shyness",
+      "Cryptorchidism",
+      "Neonatal Hypotonia",
+      "Small Joint Hypermobility",
+      "Pes Planus",
+      "Deeply Set Eye",
+      "Broad Foot",
+      "Scoliosis",
+      "Seizure"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Growth",
+      "Craniofacial",
+      "Behavioral",
+      "Genitourinary",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0000750",
+      "HP:0000256",
+      "HP:0001513",
+      "HP:0000098",
+      "HP:0011220",
+      "HP:0000400",
+      "HP:0000378",
+      "HP:0400000",
+      "HP:0000307",
+      "HP:0000303",
+      "HP:0000336",
+      "HP:0000718",
+      "HP:0007018",
+      "HP:0000729",
+      "HP:0100962",
+      "HP:0000028",
+      "HP:0001319",
+      "HP:0430046",
+      "HP:0001763",
+      "HP:0000490",
+      "HP:0001769",
+      "HP:0002650",
+      "HP:0001250"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "BRWD3"
+    ],
+    "treatments": [
+      "Developmental and Therapy Support",
+      "Occupational Therapy",
+      "Speech and Language Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Intellectual_Disability_X-linked_93.yaml",
+    "page_url": "../pages/disorders/Intellectual_Disability_X-linked_93.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Intellectual Disability, X-linked, Syndromic 33",
     "disease_id": "MONDO:0010500",
     "category": "Mendelian",
@@ -246513,6 +246833,122 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Neuronopathy, Distal Hereditary Motor, Autosomal Recessive 5",
+    "disease_id": "MONDO:0013947",
+    "category": "Genetic",
+    "parents": [
+      "neuronopathy, distal hereditary motor, autosomal recessive"
+    ],
+    "creation_date": "2026-10-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive distal hereditary motor neuronopathy type 5 (distal spinal muscular atrophy, autosomal recessive 5; DSMA5) is caused by biallelic loss-of-function variants in DNAJB2, which encodes HSJ1, a neuron-enriched J-domain co-chaperone of HSP70. HSJ1 stimulates the ATPase activity of HSP70 (HSPA8) and, through two C-terminal ubiquitin-interacting motifs, binds polyubiquitylated clients and the proteasome, so that it steers HSP70 clients to degradation by the ubiquitin-proteasome system rather than to refolding; the membrane-anchored HSJ1b isoform also takes part in ER-associated degradation. Reported alleles are splice-site, frameshift and deletion variants that abolish HSJ1 protein, plus rare missense changes. The founding family, a large Moroccan Jewish kindred, had a pure lower motor neuron disease with early-adult onset and predominantly lower-limb paralysis, and carried a homozygous splice-donor variant later shown to be a founder allele shared with Spanish families. Subsequent families showed that the same genotypes produce a continuum from pure distal motor neuropathy to axonal sensorimotor Charcot-Marie-Tooth disease type 2, with sensory loss commonly appearing with age and dHMN presentations evolving into CMT2. Onset is typically in the second decade; weakness and wasting begin in the distal legs, spread slowly to the proximal legs and hands, and lead to wheelchair dependence in severe families, with bulbar involvement at advanced stages. A minority of patients have early-onset parkinsonism with presynaptic dopaminergic deficit, and one family had sensorineural deafness. Which client proteins matter is not established; phospho-TDP-43 accumulation in patient skin and the potent anti-aggregation activity of HSJ1a toward TDP-43 and mutant SOD1 in experimental systems implicate failed clearance of aggregation-prone proteins.\n",
+    "pathophysiology": [
+      "Biallelic DNAJB2 Loss-of-Function Variants",
+      "Loss of HSJ1 Co-chaperone Protein",
+      "Impaired Ubiquitin-Proteasome Targeting of HSP70 Client Proteins",
+      "Accumulation of Aggregation-Prone Client Proteins",
+      "Length-Dependent Degeneration of Lower Motor Neuron Axons",
+      "Length-Dependent Sensory Axon Loss",
+      "Chronic Neurogenic Denervation of Distal Limb Muscle",
+      "Nigrostriatal Dopaminergic Terminal Degeneration"
+    ],
+    "cell_types": [
+      "lower motor neuron",
+      "spinal cord motor neuron",
+      "skeletal muscle fiber",
+      "dopaminergic neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0008039",
+      "CL:0011001",
+      "CL:0008002",
+      "CL:0000700"
+    ],
+    "biological_processes": [
+      "proteasomal degradation of HSP70 client proteins",
+      "chaperone-mediated quality control of misfolded proteins",
+      "HSJ1b-dependent ER-associated degradation"
+    ],
+    "phenotypes": [
+      "Distal lower limb muscle weakness",
+      "Distal lower limb amyotrophy",
+      "Proximal lower limb muscle weakness",
+      "Distal upper limb muscle weakness",
+      "Gait disturbance",
+      "Motor axonal neuropathy",
+      "Peripheral axonal neuropathy",
+      "Distal sensory impairment",
+      "Absent Achilles reflex",
+      "Hyporeflexia",
+      "Pes cavus",
+      "Scoliosis",
+      "Dysphagia",
+      "Respiratory insufficiency",
+      "Loss of ambulation",
+      "Parkinsonism",
+      "Postural tremor",
+      "Sensorineural hearing impairment",
+      "Restless legs",
+      "Rimmed vacuoles"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Musculoskeletal",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Ear",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0009053",
+      "HP:0008944",
+      "HP:0008994",
+      "HP:0008959",
+      "HP:0001288",
+      "HP:0007002",
+      "HP:0003477",
+      "HP:0002936",
+      "HP:0003438",
+      "HP:0001265",
+      "HP:0001761",
+      "HP:0002650",
+      "HP:0002015",
+      "HP:0002093",
+      "HP:0002505",
+      "HP:0001300",
+      "HP:0002174",
+      "HP:0000407",
+      "HP:0012452",
+      "HP:0003805"
+    ],
+    "frequencies": [],
+    "genes": [
+      "DNAJB2"
+    ],
+    "treatments": [
+      "Physical Therapy and Rehabilitation",
+      "Ankle-Foot Orthosis for Distal Leg Weakness",
+      "Levodopa for Associated Parkinsonism",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Neuronopathy_Distal_Hereditary_Motor_Autosomal_Recessive_5.yaml",
+    "page_url": "../pages/disorders/Neuronopathy,_Distal_Hereditary_Motor,_Autosomal_Recessive_5.html",
+    "num_phenotypes": 20,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "37",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Neuronopathy, Distal Hereditary Motor, Autosomal Recessive 7",
     "disease_id": "MONDO:0030977",
     "category": "Genetic",
@@ -251011,6 +251447,7 @@ window.searchData = [
       "Selective Serotonin Reuptake Inhibitors",
       "Cognitive Behavioral Therapy with Exposure and Response Prevention",
       "Antipsychotic Augmentation",
+      "Glutamate-Modulating Augmentation with Memantine",
       "Deep Brain Stimulation",
       "Transcranial Magnetic Stimulation",
       "Clomipramine"
@@ -251024,8 +251461,8 @@ window.searchData = [
     "num_phenotypes": 5,
     "num_pathophysiology": 5,
     "num_genes": 8,
-    "num_treatments": 6,
-    "causal_graph_edges": "10",
+    "num_treatments": 7,
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
   },
   {
@@ -354163,17 +354600,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3300,
+  "total_disorder_pages": 3302,
   "total_subtypes": 4601,
-  "total_disorders_and_subtypes": 7901,
-  "total_unique_evidence_sources": 49163,
-  "total_unique_publications": 45930,
+  "total_disorders_and_subtypes": 7903,
+  "total_unique_evidence_sources": 49236,
+  "total_unique_publications": 45980,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 293,
-  "total_pathographs": 3296,
-  "total_unique_pathological_events": 21521,
-  "total_modules": 187,
-  "total_research_reports": 3415,
+  "total_unique_phenotype_categories": 294,
+  "total_pathographs": 3298,
+  "total_unique_pathological_events": 21562,
+  "total_modules": 188,
+  "total_research_reports": 3417,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113

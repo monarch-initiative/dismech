@@ -407,6 +407,28 @@ def _build_dismech_page_url_filter(
     return _curie_to_dismech_url
 
 
+def _build_gene_page_url_filter(disorders_dir: Path) -> Callable[[str], str | None]:
+    """Resolve an HGNC CURIE to its ``pages/genes/`` page, if the gene has one.
+
+    Uses the gene-page rule itself (``dismech.genes.render.gene_page_ids``), so
+    a disorder page links exactly the genes the gene build writes pages for.
+    """
+    from dismech.genes.render import gene_page_ids, gene_page_name
+    from dismech.genes.slice import normalize_hgnc_id
+
+    kb_root = str(disorders_dir.resolve().parent)
+
+    def _gene_page_url(curie: str) -> str | None:
+        hgnc_id = normalize_hgnc_id(curie)
+        # Resolved on first use, not when the filter is built, so a page
+        # with no gene chip never pays for the KB walk. Memoised per KB root.
+        if hgnc_id is None or hgnc_id not in gene_page_ids(kb_root):
+            return None
+        return f"../genes/{gene_page_name(hgnc_id)}"
+
+    return _gene_page_url
+
+
 def _build_has_local_disorder_filter(
     disorders_dir: Path,
 ) -> Callable[[str], bool]:
@@ -2647,6 +2669,7 @@ def render_disorder(
     env.filters["has_local_disorder_page"] = _build_has_local_disorder_filter(
         yaml_path.parent,
     )
+    env.filters["gene_page_url"] = _build_gene_page_url_filter(yaml_path.parent)
 
     # Load and render template
     template = env.get_template(template_name)
