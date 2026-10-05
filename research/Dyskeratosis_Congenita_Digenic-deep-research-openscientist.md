@@ -65,13 +65,13 @@ artifact_sources:
   openscientist_artifacts_zip: 2
 artifacts:
 - filename: final_report.html
-  path: Dyskeratosis_Congenita_Autosomal_Recessive_8-deep-research-openscientist_artifacts/final_report.html
+  path: Dyskeratosis_Congenita_Digenic-deep-research-openscientist_artifacts/final_report.html
   media_type: text/html
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist final report
 - filename: final_report.pdf
-  path: Dyskeratosis_Congenita_Autosomal_Recessive_8-deep-research-openscientist_artifacts/final_report.pdf
+  path: Dyskeratosis_Congenita_Digenic-deep-research-openscientist_artifacts/final_report.pdf
   media_type: application/pdf
   source: openscientist_artifacts_zip
   data_storage_id: null
@@ -956,8 +956,8 @@ Upstream drivers are the **digenic lesion → TYMS deficiency → nucleotide imb
 
 ## Artifacts
 
-- [OpenScientist final report](Dyskeratosis_Congenita_Autosomal_Recessive_8-deep-research-openscientist_artifacts/final_report.html)
-- [OpenScientist final report](Dyskeratosis_Congenita_Autosomal_Recessive_8-deep-research-openscientist_artifacts/final_report.pdf)
+- [OpenScientist final report](Dyskeratosis_Congenita_Digenic-deep-research-openscientist_artifacts/final_report.html)
+- [OpenScientist final report](Dyskeratosis_Congenita_Digenic-deep-research-openscientist_artifacts/final_report.pdf)
 
 ## Reference Validation
 
