@@ -68,8 +68,11 @@ A criterion term with no cached closure evaluates to `UNKNOWN` (never a
 downgraded exact match, which would report false contradictions) and fails
 `--strict`. After adding or changing an HP or GO criterion term, run
 `just build-grouping-closure-cache` and commit `cache/closure/`; never
-hand-edit those files. State the criterion at the intended conceptual level
-rather than compensating for a missing annotation.
+hand-edit those files. The cache is a snapshot: if a member's term was added
+to the ontology after the last build it reads `NOT_SATISFIED`, so run
+`just build-grouping-closure-cache --refresh` after an ontology release before
+calling such a finding a contradiction. State the criterion at the intended
+conceptual level rather than compensating for a missing annotation.
 
 ## Add members and differentiators
 

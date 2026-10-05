@@ -72,7 +72,7 @@ from __future__ import annotations
 import argparse
 import csv
 import glob
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import cache
@@ -287,9 +287,33 @@ def iter_leaves(grouping: dict) -> Iterable[tuple[str, dict]]:
                 yield f"membership_criteria[{ci}].logic", node
 
 
-def _module_stem(ref: Any) -> str | None:
+def _split_module_ref(ref: Any) -> tuple[str, str] | None:
+    """``"stem#Node Name"`` -> ``("stem", "Node Name")``; anchor may be empty."""
     if isinstance(ref, str) and ref:
-        return ref.split("#", 1)[0].strip()
+        stem, _, node = ref.partition("#")
+        return stem.strip(), node.strip()
+    return None
+
+
+def _lint_module_ref(
+    ref: Any, where: str, module_nodes: Mapping[str, set[str]]
+) -> str | None:
+    """One dangling-module-reference message, or ``None`` when it resolves.
+
+    Checks the stem against ``kb/modules/`` and the optional ``#Node`` anchor
+    against that module's ``pathophysiology[].name`` set, the same two checks
+    ``check_grouping_module_references`` in the test suite makes. The anchor
+    matters here because the evaluator matches on the stem alone (#9403): a
+    mistyped node would otherwise pass this lint and still be SATISFIED.
+    """
+    parts = _split_module_ref(ref)
+    if parts is None:
+        return None
+    stem, node = parts
+    if stem not in module_nodes:
+        return f"{where}={ref!r}: no kb/modules/{stem}.yaml"
+    if node and node not in module_nodes[stem]:
+        return f"{where}={ref!r}: module {stem!r} has no pathophysiology node {node!r}"
     return None
 
 
@@ -298,12 +322,14 @@ def lint_grouping_references(
     *,
     disease_names: set[str],
     grouping_names: set[str],
-    module_stems: set[str],
+    module_nodes: Mapping[str, set[str]],
 ) -> list[str]:
-    """Return dangling foreign keys: members, and module refs in criteria and
-    differentiating mechanisms.
+    """Return dangling foreign keys: members, and module refs (stem and
+    ``#Node`` anchor) in criteria and differentiating mechanisms.
 
-    Mirrors ``test_grouping_member_foreign_keys`` and
+    ``module_nodes`` maps each module stem to its pathophysiology node names
+    (see :func:`module_node_names`). Mirrors
+    ``test_grouping_member_foreign_keys`` and
     ``test_grouping_module_references`` so the CLI can gate a grouping-only PR,
     which the ``kb_data`` pytest lane does not run for.
     """
@@ -324,19 +350,35 @@ def lint_grouping_references(
         else:
             errors.append(f"members[{i}].member_type={mtype!r}: unknown member type")
         for j, mech in enumerate(member.get("differentiating_mechanisms", []) or []):
-            stem = _module_stem(mech.get("module"))
-            if stem is not None and stem not in module_stems:
-                errors.append(
-                    f"members[{i}].differentiating_mechanisms[{j}].module="
-                    f"{mech['module']!r}: no kb/modules/{stem}.yaml"
-                )
-    for path, leaf in iter_leaves(grouping):
-        stem = _module_stem(leaf.get("module"))
-        if stem is not None and stem not in module_stems:
-            errors.append(
-                f"{path}: module={leaf['module']!r}: no kb/modules/{stem}.yaml"
+            err = _lint_module_ref(
+                mech.get("module"),
+                f"members[{i}].differentiating_mechanisms[{j}].module",
+                module_nodes,
             )
+            if err:
+                errors.append(err)
+    for path, leaf in iter_leaves(grouping):
+        err = _lint_module_ref(leaf.get("module"), f"{path}: module", module_nodes)
+        if err:
+            errors.append(err)
     return errors
+
+
+def module_node_names(modules_dir: Path | None = None) -> dict[str, set[str]]:
+    """Map each module stem under ``kb/modules/`` to its pathophysiology node
+    names, the set a ``module_stem#Node Name`` anchor is resolved against."""
+    nodes: dict[str, set[str]] = {}
+    for fp in glob.glob(str((modules_dir or MODULES_DIR) / "*.yaml")):
+        with open(fp) as f:
+            data = safe_load(f)
+        if not isinstance(data, dict):
+            continue
+        nodes[Path(fp).stem] = {
+            node.get("name")
+            for node in data.get("pathophysiology") or []
+            if isinstance(node, dict) and node.get("name")
+        }
+    return nodes
 
 
 def criterion_closure_terms(grouping: dict) -> set[str]:
@@ -392,8 +434,10 @@ OAK_CONFIG_PATH = ROOT_DIR / "conf" / "oak_config.yaml"
 CLOSURE_CACHE_DIR = ROOT_DIR / "cache" / "closure"
 CLOSURE_CACHE_HEADER = ("term", "descendant")
 
-# Fallback adapters if conf/oak_config.yaml is unreadable.
-_DEFAULT_ADAPTERS = {"HP": "sqlite:obo:hp", "GO": "ols:go"}
+# Fallback adapters if conf/oak_config.yaml is unreadable. Both OLS, matching
+# that file: a `sqlite:obo:` fallback would download a multi-hundred-MB build
+# on the one code path that is only ever reached when the config is broken.
+_DEFAULT_ADAPTERS = {"HP": "ols:hp", "GO": "ols:go"}
 
 _live_lookup_enabled = True
 
@@ -575,9 +619,11 @@ def build_closure_cache(
 
     Append-only by default, like the term caches: only terms with no cached
     closure are fetched. ``refresh`` re-fetches every cited term (an ontology
-    release moved); ``prune`` drops rows for terms no grouping cites any more.
-    A term whose fetch fails is left out and reported, never written as an
-    empty closure, so a transient outage cannot masquerade as "no descendants".
+    release moved); ``prune`` drops rows for terms none of ``grouping_paths``
+    cites, so it is only meaningful over the whole of ``kb/groupings/`` -- the
+    CLI refuses it with explicit paths for that reason. A term whose fetch
+    fails is left out and reported, never written as an empty closure, so a
+    transient outage cannot masquerade as "no descendants".
     """
     cache_dir = cache_dir or CLOSURE_CACHE_DIR
     cited: set[str] = set()
@@ -1611,14 +1657,10 @@ def _report_overlaps(paths: list[str], show_zero_overlaps: bool) -> int:
     return 0
 
 
-def _module_stems() -> set[str]:
-    return {Path(p).stem for p in glob.glob(str(MODULES_DIR / "*.yaml"))}
-
-
 def _report(paths: list[str], strict: bool) -> int:
     index = load_disease_index()
     groupings_by_name, _selected = _load_groupings_for_report(paths)
-    module_stems = _module_stems()
+    module_nodes = module_node_names()
     exit_code = 0
     for path in paths:
         with open(path) as f:
@@ -1641,7 +1683,7 @@ def _report(paths: list[str], strict: bool) -> int:
                 grouping,
                 disease_names=set(index),
                 grouping_names=set(groupings_by_name),
-                module_stems=module_stems,
+                module_nodes=module_nodes,
             )
         )
         # A criterion term with no committed closure evaluates to UNKNOWN,
@@ -1782,9 +1824,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--prune",
         action="store_true",
-        help="With --build-closure-cache, drop cached terms no grouping cites.",
+        help=(
+            "With --build-closure-cache, drop cached terms no grouping cites. "
+            "Only valid without explicit paths: pruning against a subset would "
+            "drop closures the other groupings still need."
+        ),
     )
     args = parser.parse_args(argv)
+    if args.prune and args.paths:
+        parser.error(
+            "--prune walks all of kb/groupings/ to decide what is still cited; "
+            "drop the explicit paths"
+        )
     set_live_lookup_enabled(not args.offline)
     if args.overlaps:
         return _report_overlaps(args.paths, args.show_zero_overlaps)

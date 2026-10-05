@@ -330,6 +330,9 @@ def test_uncached_closure_terms_names_the_gap(empty_cache):
     assert G.uncached_closure_terms(grouping) == ["HP:0000118"]
 
 
+MODULE_NODES = {"fibrotic_response": {"Mesenchymal Cell Activation"}}
+
+
 def test_lint_grouping_references_reports_every_dangling_key():
     grouping = {
         "members": [
@@ -346,7 +349,7 @@ def test_lint_grouping_references_reports_every_dangling_key():
             {
                 "logic": {
                     "criterion_predicate": "CONFORMS_TO_MODULE",
-                    "module": "fibrotic_response#X",
+                    "module": "fibrotic_response#Mesenchymal Cell Activation",
                 }
             }
         ],
@@ -355,10 +358,84 @@ def test_lint_grouping_references_reports_every_dangling_key():
         grouping,
         disease_names={"Real"},
         grouping_names=set(),
-        module_stems={"fibrotic_response"},
+        module_nodes=MODULE_NODES,
     )
     assert len(errors) == 4
     assert any("Ghost" in e and "SUBTYPE" in e for e in errors)
     assert any("Kids" in e and "grouping" in e for e in errors)
     assert any("MODULE" in e and "unknown member type" in e for e in errors)
     assert any("nope" in e for e in errors)
+
+
+def test_lint_grouping_references_checks_the_node_anchor():
+    """A real module with a mistyped `#Node` is a dangling key, not a pass.
+
+    The evaluator matches CONFORMS_TO_MODULE on the stem alone (#9403), so the
+    anchor is only ever checked here and in the kb_data test lane. A grouping-only
+    PR runs neither lane unless this lint catches it.
+    """
+    grouping = {
+        "members": [
+            {
+                "member": "Real",
+                "member_type": "DISEASE",
+                "differentiating_mechanisms": [
+                    {"module": "fibrotic_response#Mesenchymal Cell Activation"},
+                    {"module": "fibrotic_response#Mistyped Node"},
+                ],
+            }
+        ],
+        "membership_criteria": [
+            {
+                "logic": {
+                    "operator": "OR",
+                    "operands": [
+                        {
+                            "criterion_predicate": "CONFORMS_TO_MODULE",
+                            "module": "fibrotic_response#Mesenchymal Cell Activation",
+                        },
+                        {
+                            "criterion_predicate": "CONFORMS_TO_MODULE",
+                            "module": "fibrotic_response#Mesenchymal Cell Activatoin",
+                        },
+                        # A bare stem, or an empty anchor, names no node to check.
+                        {
+                            "criterion_predicate": "CONFORMS_TO_MODULE",
+                            "module": "fibrotic_response",
+                        },
+                        {
+                            "criterion_predicate": "CONFORMS_TO_MODULE",
+                            "module": "fibrotic_response#",
+                        },
+                    ],
+                }
+            }
+        ],
+    }
+    errors = G.lint_grouping_references(
+        grouping,
+        disease_names={"Real"},
+        grouping_names=set(),
+        module_nodes=MODULE_NODES,
+    )
+    assert len(errors) == 2
+    assert any(
+        "differentiating_mechanisms[1]" in e and "'Mistyped Node'" in e for e in errors
+    )
+    assert any("membership_criteria[0]" in e and "Activatoin" in e for e in errors)
+
+
+def test_module_node_names_reads_pathophysiology_names(tmp_path):
+    (tmp_path / "m.yaml").write_text(
+        "name: M\npathophysiology:\n- name: A\n- name: B\n- description: unnamed\n"
+    )
+    (tmp_path / "empty.yaml").write_text("")
+    assert G.module_node_names(tmp_path) == {"m": {"A", "B"}}
+
+
+def test_cli_refuses_prune_with_explicit_paths(capsys):
+    """Pruning against a subset would drop closures other groupings still cite."""
+    with pytest.raises(SystemExit) as exc:
+        G.main(["--build-closure-cache", "--prune", "kb/groupings/X.yaml"])
+    assert exc.value.code == 2
+    assert "--prune" in capsys.readouterr().err

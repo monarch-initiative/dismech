@@ -49,14 +49,15 @@ def test_closure_cache_follows_the_structural_contract(path: Path):
     problems = []
     if body != sorted(body):
         problems.append("rows are not sorted")
-    if len(body) != len(set(map(tuple, body))):
+    pairs = set(map(tuple, body))
+    if len(body) != len(pairs):
         problems.append("duplicate rows")
     terms = {term for term, _ in body}
     for term, descendant in body:
         if not term.startswith(f"{prefix}:") or not descendant.startswith(f"{prefix}:"):
             problems.append(f"{term},{descendant}: wrong prefix for {path.name}")
     for term in sorted(terms):
-        if (term, term) not in map(tuple, body):
+        if (term, term) not in pairs:
             problems.append(f"{term}: missing reflexive row")
     assert not problems, f"{path.name}: {problems}"
 

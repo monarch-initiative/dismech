@@ -695,8 +695,10 @@ check-groupings *args="":
 # Populate cache/closure/<prefix>.csv with the is_a/part_of closure of every
 # HP/GO term cited by grouping membership criteria. Append-only like the term
 # caches: only uncached terms are fetched (from OLS, so this needs network).
-# `--refresh` re-fetches everything after an ontology release; `--prune` drops
-# terms no grouping cites. Commit the result; the audit and CI read it offline.
+# The cache is a snapshot: a member annotated with an HP/GO term added to the
+# ontology after the last build reads NOT_SATISFIED until `--refresh` re-fetches
+# every cited term. `--prune` drops terms no grouping cites and is refused with
+# explicit paths. Commit the result; the audit and CI read it offline.
 [group('QC')]
 build-grouping-closure-cache *args="":
     uv run python -m dismech.groupings --build-closure-cache {{args}}
@@ -740,7 +742,7 @@ validate-grouping-batch *files:
     echo ""
 
     echo "Reference validation (batch)..."
-    just fix-references-cache "${existing[@]}"
+    just fix-references-cache "${existing[@]}" || exit_code=1
     {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}} --no-full-text || exit_code=1
     echo ""
 
