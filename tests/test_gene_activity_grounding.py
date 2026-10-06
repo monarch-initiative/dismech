@@ -167,7 +167,7 @@ def test_ref_mode_honors_only_lines_the_branch_adds(monkeypatch):
         {
             "kb/disorders/OnMain.yaml\tFOO": 2,  # from the base branch findings
             "kb/disorders/New.yaml\tBAR": 1,  # added exemption, honored
-            "kb/disorders/Raised.yaml\tBAZ": 1,  # only the +1 the branch raised
+            "kb/disorders/Raised.yaml\tBAZ": 2,  # raised line honored at its full count
         }
     )
     # The reviewer's case: the stale line (identical at ref and HEAD, absent

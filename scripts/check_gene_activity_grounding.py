@@ -289,16 +289,19 @@ def resolve_baseline(ref: str | None = None) -> Counter:
             # every such line as a live exemption, letting a later PR strip that
             # molecular function with CI still green -- the ratchet turning
             # backward unnoticed. So honor only the lines THIS branch adds or
-            # raises over the base branch's own copy of the file:
-            #   exemptions = committed_head - committed_ref   (Counter minus:
-            #       keeps only keys the branch added or raised, dropping the
-            #       stale-high lines that are identical on both sides)
-            #   merged     = from_ref | exemptions            (per-key max)
-            # A stale line equal on both sides contributes nothing; a gene fixed
-            # on the base branch therefore cannot be silently un-fixed here.
+            # raises over the base branch's own copy of the file: take the
+            # branch's own count for every key it raised (n > committed_ref[k],
+            # which is 0 for a key absent at the ref), and drop the stale-high
+            # lines that are identical on both sides. Then union onto the
+            # base-branch findings (per-key max). A stale line equal on both
+            # sides contributes nothing, so a gene fixed on the base branch
+            # cannot be silently un-fixed here; a raised line is honored at its
+            # full new count, not merely its increment.
             committed_head = load_baseline()
             committed_ref = baseline_at_ref(ref)
-            exemptions = committed_head - committed_ref
+            exemptions = Counter(
+                {k: n for k, n in committed_head.items() if n > committed_ref[k]}
+            )
             merged = from_ref | exemptions
             print(
                 f"gene activity baseline: grandfathered against ref {ref!r} "
