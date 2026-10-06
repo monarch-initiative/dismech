@@ -82259,6 +82259,102 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Chloramphenicol Toxicity",
+    "disease_id": "MONDO:0010784",
+    "category": "Complex",
+    "parents": [
+      "Drug Toxicity",
+      "Poisoning"
+    ],
+    "creation_date": "2026-10-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chloramphenicol toxicity is the systemic toxicity syndrome of the broad-spectrum antibiotic chloramphenicol, which inhibits the peptidyl-transferase of the bacterial 50S ribosomal subunit and, because the mitochondrial ribosome is bacterial-like, also inhibits mitochondrial protein synthesis in host cells. Three largely distinct clinical forms are recognised. A dose-dependent, reversible bone-marrow suppression (predominantly erythroid, with anaemia) is a direct consequence of mitochondrial injury and resolves on withdrawal. In neonates - whose hepatic glucuronidation and renal excretion are immature - the drug accumulates to toxic serum concentrations and produces the \"gray baby syndrome\": vomiting, abdominal distension, hypothermia, an ashen-gray colour, hypotension and cardiovascular collapse. A third form, idiosyncratic aplastic anaemia, is rare, dose-independent, can follow any route of exposure (including topical/ocular), is often fatal, and has an uncertain mechanism thought to involve a toxic nitro-reduction metabolite in susceptible people - it is not explained by the mitochondrial mechanism and is modelled here as a separate arm. Management is stopping the drug and supportive care, with serum-concentration monitoring and, for massive accumulation, extracorporeal drug removal.",
+    "pathophysiology": [
+      "Systemic Chloramphenicol Exposure",
+      "Impaired Neonatal Hepatic Glucuronidation",
+      "Mitochondrial Ribosomal Protein-Synthesis Inhibition",
+      "Oxidative Phosphorylation Failure",
+      "Dose-Dependent Bone Marrow Suppression",
+      "Gray Baby Toxidrome",
+      "Myocardial Dysfunction and Microcirculatory Failure",
+      "Chronic Chloramphenicol Neurotoxicity",
+      "Idiosyncratic Bone Marrow Aplasia"
+    ],
+    "cell_types": [
+      "erythroid progenitor cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000038"
+    ],
+    "biological_processes": [
+      "mitochondrial translation",
+      "oxidative phosphorylation"
+    ],
+    "phenotypes": [
+      "Ashen-gray discoloration",
+      "Cyanosis",
+      "Hypothermia",
+      "Vomiting",
+      "Abdominal distension",
+      "Metabolic acidosis",
+      "Circulatory collapse",
+      "Anemia",
+      "Aplastic anemia",
+      "Reticulocytopenia",
+      "Thrombocytopenia",
+      "Respiratory distress",
+      "Optic neuritis",
+      "Peripheral neuropathy"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000961",
+      "HP:0002045",
+      "HP:0002013",
+      "HP:0003270",
+      "HP:0001942",
+      "HP:0031273",
+      "HP:0001903",
+      "HP:0001915",
+      "HP:0001896",
+      "HP:0001873",
+      "HP:0002098",
+      "HP:0100653",
+      "HP:0009830"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Drug discontinuation and supportive care",
+      "Extracorporeal drug removal",
+      "Vitamin B12 and B6 supplementation"
+    ],
+    "environmental": [
+      "Systemic chloramphenicol administration"
+    ],
+    "biochemical": [],
+    "source_file": "Chloramphenicol_Toxicity.yaml",
+    "page_url": "../pages/disorders/Chloramphenicol_Toxicity.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Chlorophacinone Poisoning",
     "disease_id": null,
     "category": "Environmental",
@@ -356653,17 +356749,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3307,
+  "total_disorder_pages": 3308,
   "total_subtypes": 4617,
-  "total_disorders_and_subtypes": 7924,
-  "total_unique_evidence_sources": 49633,
-  "total_unique_publications": 46264,
+  "total_disorders_and_subtypes": 7925,
+  "total_unique_evidence_sources": 49639,
+  "total_unique_publications": 46270,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3303,
-  "total_unique_pathological_events": 21802,
+  "total_pathographs": 3304,
+  "total_unique_pathological_events": 21811,
   "total_modules": 189,
-  "total_research_reports": 3423,
+  "total_research_reports": 3424,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
