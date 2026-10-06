@@ -1007,7 +1007,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1795,6 +1795,24 @@ list-title-snippets:
 [group('QC')]
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
+
+# PARTIAL and WRONG_STATEMENT left the enum in #7439 and #10003 migrated the
+# values, but not the explanations written to justify them (#12805).
+# Grandfathered against origin/main; the committed baseline only ever shrinks.
+# Fail on new prose arguing for a retired `supports` grade.
+[group('QC')]
+check-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --against-ref origin/main
+
+# List every mention of a retired `supports` grade, baselined or not (worklist).
+[group('QC')]
+list-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --all
+
+# Shrink the retired-grade prose baseline after fixing backlog entries (never grows).
+[group('QC')]
+update-retired-support-prose-baseline:
+    uv run python scripts/check_retired_support_prose.py --update-baseline
 
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
