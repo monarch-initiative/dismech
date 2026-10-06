@@ -4171,6 +4171,13 @@ worklist. Fixing an entry is a judgement, not a search-and-replace; the
 becomes `directness: INDIRECT` with the grade name dropped, and "supports one
 part, contradicts another" becomes two items.
 
+Two scope details. Text copied from a source (`snippet`, `reference_title`,
+`title`, `supporting_text`, read from the schema's exact-quote annotations) is
+not scanned, since a quoted "PARTIAL RESPONSE" cannot be reworded and the
+baseline could never admit it. And the baseline is keyed on the file path, so
+**renaming or moving an entry re-flags every mention it carries** as new, with
+no way to grandfather them again: fix that entry's prose in the renaming PR.
+
 For the next narrowing, budget for the prose, or record it in a worklist the
 way #10003 did.
 

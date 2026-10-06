@@ -23,6 +23,7 @@ from scripts.check_retired_support_prose import (
     scan_repo,
     sentences,
     shrink_baseline,
+    source_text_fields,
     write_baseline,
 )
 
@@ -137,6 +138,31 @@ def test_sentences_collapse_folded_whitespace():
     assert sentences("One\n  two.  Three   four.") == ["One two.", "Three four."]
 
 
+def test_source_text_fields_come_from_the_schema():
+    fields = source_text_fields()
+    assert {"snippet", "reference_title", "title", "supporting_text"} <= fields
+    assert "explanation" not in fields
+
+
+def test_unreadable_schema_falls_back_to_a_fixed_set(tmp_path):
+    bad = tmp_path / "schema.yaml"
+    bad.write_text("slots: [unclosed\n")
+    assert "snippet" in source_text_fields(bad)
+    assert "explanation" not in source_text_fields(bad)
+
+
+def test_skips_text_copied_from_the_source():
+    """A quote cannot be reworded, and the shrink-only baseline cannot admit it."""
+    item = {
+        "reference": "PMID:1",
+        "reference_title": "PARTIAL RESPONSE in a phase II trial.",
+        "snippet": "Best overall response was PARTIAL RESPONSE in 12 patients.",
+        "explanation": "Graded PARTIAL because only 12 patients responded.",
+    }
+    hits = list(find_violations({"evidence": [item]}, skip_fields=source_text_fields()))
+    assert [loc for loc, _ in hits] == ["evidence[0].explanation"]
+
+
 def test_hypotheses_directory_is_excluded(tmp_path):
     (tmp_path / "hypotheses").mkdir()
     (tmp_path / "disorders").mkdir()
@@ -179,4 +205,3 @@ def test_baseline_round_trips(tmp_path):
     counts = count_by_key([F, F, G])
     write_baseline(counts, path)
     assert load_baseline(path) == counts
-

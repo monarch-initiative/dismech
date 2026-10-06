@@ -29,6 +29,12 @@ a legal value, so there is nothing to confuse it with.
 
 Exemptions:
 
+* **Text copied from a source.** ``snippet``, ``reference_title``, ``title``
+  and ``supporting_text`` hold a source's own words, which a curator cannot
+  reword, and a shrink-only baseline could never admit them -- so a trial
+  abstract quoting "PARTIAL RESPONSE" would block its PR for good. The set is
+  read from the schema (:func:`source_text_fields`), so a new exact-quote slot
+  is skipped without editing this script.
 * **``kb/hypotheses/``.** Its assessment and reconciliation schemas define their
   own legitimate ``PARTIAL`` value.
 * **Sentences about the retirement itself.** A sentence that also says
@@ -84,16 +90,31 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # pragma: no cover - import bootstrap
     sys.path.insert(0, str(ROOT / "src"))
 
 from dismech import kb_cache
 from dismech.kb_cache import load_document
+from dismech.yaml_io import safe_load
 
 SCAN_DIR = ROOT / "kb"
 #: Subdirectories of kb/ whose schema has its own legitimate PARTIAL value.
 EXCLUDED_SUBDIRS = frozenset({"hypotheses"})
+SCHEMA_PATH = ROOT / "src" / "dismech" / "schema" / "dismech.yaml"
+
+#: ``implements:`` values marking a slot whose text is copied from a source.
+SOURCE_TEXT_IMPLEMENTS = frozenset({"linkml:excerpt", "dcterms:title", "linkml:title"})
+#: Exact-quote slots the schema describes as such but does not annotate.
+#: `supporting_text` is "Exact excerpt/quote from the publication" with no
+#: ``implements:``; listed here rather than skipped by accident.
+UNANNOTATED_SOURCE_TEXT_FIELDS = frozenset({"supporting_text"})
+#: Used when the schema cannot be read, so a broken schema never widens the scan.
+FALLBACK_SOURCE_TEXT_FIELDS = frozenset(
+    {"snippet", "reference_title", "title", "supporting_text"}
+)
 BASELINE_PATH = ROOT / "tests" / "retired_support_prose_baseline.txt"
 BASELINE_REF_ENV = "RETIRED_SUPPORT_PROSE_BASELINE_REF"
 
@@ -116,19 +137,50 @@ def sentences(text: str) -> list[str]:
     return _SENTENCE_SPLIT_RE.split(" ".join(text.split()))
 
 
-def find_violations(data, location: str = ""):
+def source_text_fields(schema_path: Path = SCHEMA_PATH) -> frozenset[str]:
+    """Slot names whose values are copied verbatim from a cited source."""
+    try:
+        schema = safe_load(schema_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return FALLBACK_SOURCE_TEXT_FIELDS
+    if not isinstance(schema, dict):
+        return FALLBACK_SOURCE_TEXT_FIELDS
+
+    found = set(UNANNOTATED_SOURCE_TEXT_FIELDS)
+
+    def scan(definitions) -> None:
+        for name, definition in (definitions or {}).items():
+            if isinstance(definition, dict) and SOURCE_TEXT_IMPLEMENTS.intersection(
+                definition.get("implements") or []
+            ):
+                found.add(name)
+
+    scan(schema.get("slots"))
+    for cls in (schema.get("classes") or {}).values():
+        if isinstance(cls, dict):
+            scan(cls.get("attributes"))
+            scan(cls.get("slot_usage"))
+    return frozenset(found)
+
+
+def find_violations(
+    data, location: str = "", skip_fields: frozenset[str] = frozenset()
+):
     """Yield ``(location, sentence)`` once per retired-value mention in *data*.
 
     A sentence naming the value twice yields twice, so the occurrence count in
-    the baseline tracks mentions rather than sentences.
+    the baseline tracks mentions rather than sentences. Values under a key in
+    *skip_fields* are not read.
     """
     if isinstance(data, dict):
         for key, value in data.items():
+            if key in skip_fields:
+                continue
             child = f"{location}.{key}" if location else str(key)
-            yield from find_violations(value, child)
+            yield from find_violations(value, child, skip_fields)
     elif isinstance(data, list):
         for i, value in enumerate(data):
-            yield from find_violations(value, f"{location}[{i}]")
+            yield from find_violations(value, f"{location}[{i}]", skip_fields)
     elif isinstance(data, str) and RETIRED_RE.search(data):
         for sentence in sentences(data):
             if RETIREMENT_RE.search(sentence):
@@ -147,6 +199,7 @@ def iter_kb_files(scan_dir: Path = SCAN_DIR):
 
 def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
     """Return sorted ``(relpath, location, sentence)`` findings."""
+    skip_fields = source_text_fields()
     findings = []
     for path in iter_kb_files(scan_dir):
         try:
@@ -159,7 +212,7 @@ def scan_repo(scan_dir: Path = SCAN_DIR, rel_to: Path = ROOT):
             )
             continue
         rel = path.relative_to(rel_to).as_posix()
-        for location, sentence in find_violations(data):
+        for location, sentence in find_violations(data, skip_fields=skip_fields):
             findings.append((rel, location, sentence))
     return findings
 
@@ -364,8 +417,12 @@ def main(argv=None) -> int:
         print("PARTIAL and WRONG_STATEMENT were removed from `supports` (#7439), so")
         print("an explanation arguing for one contradicts the value beside it.\n")
         print("Reword rather than delete; CLAUDE.md has the mapping:")
-        print("  - an inference step     -> `directness: INDIRECT`, drop the grade name")
-        print("  - supports part, refutes part -> split into a SUPPORT and a REFUTE item")
+        print(
+            "  - an inference step     -> `directness: INDIRECT`, drop the grade name"
+        )
+        print(
+            "  - supports part, refutes part -> split into a SUPPORT and a REFUTE item"
+        )
         print("  - not about this claim  -> `supports: NO_EVIDENCE`\n")
         for rel, location, sentence in new:
             print(f"{rel}:{location}: {sentence}")
