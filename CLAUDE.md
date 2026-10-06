@@ -3761,6 +3761,7 @@ just check-folded-hyphens
 just check-snippet-length
 just check-title-snippets
 just check-snippet-grading
+just check-retired-support-prose
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
@@ -3771,15 +3772,17 @@ just check-source-defect-claims  # report-only
 
 They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
-`evidence_source` values in the same file, environmental claims without
+`evidence_source` values in the same file, prose arguing for a retired
+`supports` grade, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. Four of them carry a committed
+defective sources that the cache contradicts. Five of them carry a committed
 baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
-`check-title-snippets`, `check-snippet-grading` and `check-causal-targets`. Two
-further gates that are in `just qc` but not in the list above do too:
-`check-reference-titles` and `check-coarse-phenotypes`. Those six are the whole
-set, and it is checkable rather than remembered -- `tests/*_baseline.txt` and the
+`check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
+and `check-causal-targets`. Three further gates that are in `just qc` but not
+in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
+and `check-gene-activity-grounding`. Those eight are the whole set, and it is
+checkable rather than remembered -- `tests/*_baseline.txt` and the
 `just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
 to admit a defect introduced by the current change.
 
@@ -4150,8 +4153,25 @@ errors.
 **When you narrow an enum, the values are only half the job.** #10003 migrated
 11,804 `PARTIAL` items to `SUPPORT` and left every `explanation` that argued for
 the retired grade in place, so ~3,600 evidence items still say "Marked PARTIAL
-because…" above a value the schema no longer has. Prose that names a retired
-value is not caught by any gate. Budget for it, or record it in a worklist the
+because…" above a value the schema no longer has. `check-enum-values` cannot
+see that prose, because an `explanation` is free text.
+
+`just check-retired-support-prose` now gates it as a ratchet (#12805): a
+whole-word `PARTIAL` or `WRONG_STATEMENT` in any string of a `kb/` entry
+(`kb/hypotheses/` excluded, since its own schema keeps a legal `PARTIAL`).
+The roughly 2,950 mentions on `main` when it landed are grandfathered against
+the base branch, so a PR fails only on a mention it adds, most often an
+explanation copied from another evidence item. A sentence that says the grade
+was "retired" or cites #7439 / #10003 / #10061 is exempt, because it records
+the retirement instead of arguing for the grade. Unlike the other ratchets, its
+baseline **only shrinks**: `just update-retired-support-prose-baseline` drops
+fixed entries and never adds one. `just list-retired-support-prose` is the
+worklist. Fixing an entry is a judgement, not a search-and-replace; the
+`PARTIAL` mapping table under *Evidence Items* applies. An inference step
+becomes `directness: INDIRECT` with the grade name dropped, and "supports one
+part, contradicts another" becomes two items.
+
+For the next narrowing, budget for the prose, or record it in a worklist the
 way #10003 did.
 
 ## Structured-Database Reference Sources
