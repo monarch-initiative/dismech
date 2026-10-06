@@ -120,50 +120,65 @@ def test_a_second_occurrence_beyond_the_baselined_count_is_new():
     assert check.new_findings(findings, baseline) == [("kb/disorders/X.yaml", "ACP2")]
 
 
-def test_ref_mode_merges_committed_baseline_as_exemptions(monkeypatch):
-    """In ref mode the committed baseline is an acknowledged-exemption layer.
+def test_ref_mode_honors_only_lines_the_branch_adds(monkeypatch):
+    """In ref mode only the committed lines a branch *adds or raises* count.
 
-    A genuinely MF-less node a PR *adds* (so absent from the base branch) is
-    grandfathered by a committed-baseline line even under ``--against-ref``,
-    which is what dismech#12669 needed and what the gate's own docstring
-    already promised. Combined per key with ``max`` -- an exemption can only
-    raise the allowance above what the base branch grants, never lower it, and
-    a line duplicating a base-branch finding is a no-op.
+    A genuinely MF-less node a PR adds (absent from the base branch) is
+    grandfathered by a committed-baseline line even under ``--against-ref`` --
+    what dismech#12669 needed and what the gate's docstring already promised.
+    But a stale-high line identical on both sides, for a gene since grounded on
+    the base branch, must NOT be honored: otherwise a later PR could strip that
+    molecular function with CI still green. ``committed_head - committed_ref``
+    keeps only the added/raised lines; ``from_ref | exemptions`` is per-key max.
     """
     monkeypatch.setattr(
         check,
         "baseline_from_ref",
         lambda ref, root=check.ROOT: Counter(
-            {
-                "kb/disorders/OnMain.yaml\tFOO": 2,  # base branch grandfathers 2
-                "kb/disorders/OnMain.yaml\tBAZ": 1,  # base branch only
-            }
+            {"kb/disorders/OnMain.yaml\tFOO": 2}  # live base-branch finding
         ),
     )
+    # HEAD's committed file: a new exemption, a raised count, and a stale line.
     monkeypatch.setattr(
         check,
         "load_baseline",
         lambda path=check.BASELINE_PATH: Counter(
             {
-                "kb/disorders/New.yaml\tBAR": 1,  # added by the PR, not on main
-                "kb/disorders/OnMain.yaml\tFOO": 1,  # lower than ref -> ref wins
+                "kb/disorders/New.yaml\tBAR": 1,  # added by this branch
+                "kb/disorders/Raised.yaml\tBAZ": 2,  # raised 1 -> 2 by this branch
+                "kb/disorders/Fixed.yaml\tOLD": 1,  # stale: identical at the ref
+            }
+        ),
+    )
+    # The ref's committed file: the raised line at its lower count, plus the
+    # stale line unchanged. New.yaml is absent (this branch introduced it).
+    monkeypatch.setattr(
+        check,
+        "baseline_at_ref",
+        lambda ref, root=check.ROOT: Counter(
+            {
+                "kb/disorders/Raised.yaml\tBAZ": 1,
+                "kb/disorders/Fixed.yaml\tOLD": 1,
             }
         ),
     )
     merged = check.resolve_baseline("origin/main")
     assert merged == Counter(
         {
-            "kb/disorders/OnMain.yaml\tFOO": 2,
-            "kb/disorders/OnMain.yaml\tBAZ": 1,
-            "kb/disorders/New.yaml\tBAR": 1,
+            "kb/disorders/OnMain.yaml\tFOO": 2,  # from the base branch findings
+            "kb/disorders/New.yaml\tBAR": 1,  # added exemption, honored
+            "kb/disorders/Raised.yaml\tBAZ": 1,  # only the +1 the branch raised
         }
     )
-    # The newly-exempted node passes; a second, un-exempted occurrence does not.
-    findings = [
-        ("kb/disorders/New.yaml", "BAR"),
-        ("kb/disorders/New.yaml", "BAR"),
+    # The reviewer's case: the stale line (identical at ref and HEAD, absent
+    # from from_ref) grandfathers nothing, so stripping that gene's MF regresses.
+    assert check.new_findings([("kb/disorders/Fixed.yaml", "OLD")], merged) == [
+        ("kb/disorders/Fixed.yaml", "OLD")
     ]
-    assert check.new_findings(findings, merged) == [("kb/disorders/New.yaml", "BAR")]
+    # The added exemption passes; a second, un-exempted occurrence still fails.
+    assert check.new_findings(
+        [("kb/disorders/New.yaml", "BAR"), ("kb/disorders/New.yaml", "BAR")], merged
+    ) == [("kb/disorders/New.yaml", "BAR")]
 
 
 def test_ref_mode_falls_back_to_committed_when_ref_unreadable(monkeypatch):
@@ -172,6 +187,17 @@ def test_ref_mode_falls_back_to_committed_when_ref_unreadable(monkeypatch):
     sentinel = Counter({"kb/disorders/X.yaml\tACP2": 1})
     monkeypatch.setattr(check, "load_baseline", lambda path=check.BASELINE_PATH: sentinel)
     assert check.resolve_baseline("origin/does-not-exist") == sentinel
+
+
+def test_baseline_at_ref_returns_empty_when_blob_unreadable(monkeypatch):
+    """A ref with no baseline blob yields an empty Counter, not an error."""
+
+    class _Proc:
+        returncode = 128
+        stdout = b""
+
+    monkeypatch.setattr(check.subprocess, "run", lambda *a, **k: _Proc())
+    assert check.baseline_at_ref("origin/nonexistent") == Counter()
 
 
 def test_baseline_roundtrips(tmp_path):

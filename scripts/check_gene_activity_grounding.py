@@ -47,11 +47,15 @@ saying why in the PR -- never for binding a term that overstates what the node
 claims. The repo rule holds: no term beats a bad one.
 
 That committed baseline is honored in **both** modes: the local run that reads
-it directly, and the CI run that grandfathers against ``origin/main``. CI merges
-the two (:func:`resolve_baseline`), so the base branch covers everything already
-on it and the committed file covers a genuinely-ungroundable node a PR *adds*.
-Without the merge, ``--against-ref`` offered no way to pass CI for such a node,
-contradicting the advice just above -- see dismech#12669.
+it directly, and the CI run that grandfathers against ``origin/main``. In ref
+mode :func:`resolve_baseline` honors only the lines a branch *adds or raises*
+over the base branch's own copy of the file (``committed_head -
+committed_ref``), unioned onto the base-branch findings -- so a PR grandfathers
+a genuinely-ungroundable node it adds by adding its line, while the file's
+deliberate stale-high drift (a line for a gene since grounded) grandfathers
+nothing and cannot silently un-fix it. Without this, ``--against-ref`` offered
+no way to pass CI for such a node, contradicting the advice just above -- see
+dismech#12669.
 
 Usage::
 
@@ -133,17 +137,15 @@ def count_by_key(findings) -> Counter:
     return Counter(_baseline_key(rel, name) for rel, name in findings)
 
 
-def load_baseline(path: Path = BASELINE_PATH) -> Counter:
-    """Read the baseline as ``{key: grandfathered occurrence count}``.
+def parse_baseline(lines) -> Counter:
+    """Parse baseline *lines* into ``{key: grandfathered occurrence count}``.
 
     The count matters: one file may carry two `genetic:` entries with the same
     name (a gene and its variant-specific sibling), and grandfathering one must
     not silently admit a third.
     """
     counts: Counter = Counter()
-    if not path.exists():
-        return counts
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in lines:
         if not line or line.startswith("#"):
             continue
         count, tab, key = line.partition("\t")
@@ -152,6 +154,37 @@ def load_baseline(path: Path = BASELINE_PATH) -> Counter:
         else:  # tolerate a pre-count baseline
             counts[line] = counts.get(line, 0) + 1
     return counts
+
+
+def load_baseline(path: Path = BASELINE_PATH) -> Counter:
+    """Read the committed baseline file as ``{key: count}``."""
+    if not path.exists():
+        return Counter()
+    return parse_baseline(path.read_text(encoding="utf-8").splitlines())
+
+
+def baseline_at_ref(ref: str, root: Path = ROOT) -> Counter:
+    """The committed baseline file as it stands at a git *ref*.
+
+    Read with ``git show <ref>:<path>`` -- the same ref ``baseline_from_ref``
+    archives ``kb/`` from, so it resolves in the same (possibly shallow)
+    checkout. Returns an empty Counter when the blob cannot be read (no git,
+    ref absent, file not yet on that ref): the caller then treats every
+    committed line as added-by-this-branch, which is the pre-scoping behaviour
+    and errs toward honoring exemptions rather than dropping a legitimate one.
+    """
+    rel = BASELINE_PATH.relative_to(ROOT).as_posix()
+    try:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "show", f"{ref}:{rel}"],
+            capture_output=True,
+            check=False,
+        )
+    except (FileNotFoundError, OSError):
+        return Counter()
+    if proc.returncode != 0:
+        return Counter()
+    return parse_baseline(proc.stdout.decode("utf-8", "replace").splitlines())
 
 
 def write_baseline(findings, path: Path = BASELINE_PATH) -> None:
@@ -166,8 +199,15 @@ def write_baseline(findings, path: Path = BASELINE_PATH) -> None:
         "# molecular_functions: on the node the gene lands on); add one only\n"
         "# for a node that genuinely has no single molecular function -- a\n"
         "# many-gene bundle, or a class whose members share none -- and say so\n"
-        "# in the PR. Regenerate with:\n"
-        "#   just update-gene-activity-baseline\n"
+        "# in the PR.\n"
+        "#\n"
+        "# To grandfather ONE such node, add its line by hand: in CI (ref mode)\n"
+        "# only the lines a branch adds or raises over the base branch's copy\n"
+        "# are honored, so a hand-added line is exactly the exemption and no\n"
+        "# more. Do NOT reach for `just update-gene-activity-baseline` for that\n"
+        "# -- it regenerates from the whole working tree and would sweep in the\n"
+        "# file's stale-high drift (local runs can lag main by hundreds of\n"
+        "# findings). Regenerate wholesale only for a deliberate backlog reset.\n"
     )
     lines = [f"{counts[key]}\t{key}" for key in sorted(counts)]
     path.write_text(header + "\n".join(lines) + "\n", encoding="utf-8")
@@ -180,11 +220,12 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
     committed snapshot, there is nothing to keep in sync and nothing for
     parallel merges to clobber: the base branch is green by construction, and a
     PR fails only on ungrounded genes it *adds* over the base. This stays the
-    primary, churn-free mechanism; :func:`resolve_baseline` then merges the
-    committed baseline on top as an acknowledged-exemption layer, which a PR
-    touches only to grandfather a node it adds that genuinely has no molecular
-    function -- a rare, deliberate, reviewer-visible edit, not the per-PR churn
-    the ref grandfathering exists to avoid.
+    primary, churn-free mechanism; :func:`resolve_baseline` then adds, on top,
+    only the committed-baseline lines the branch itself adds or raises over the
+    base branch's copy (via :func:`baseline_at_ref`) as an acknowledged-
+    exemption layer -- a rare, deliberate, reviewer-visible edit for a node that
+    genuinely has no molecular function, not the per-PR churn the ref
+    grandfathering exists to avoid, and never the file's stale-high backlog.
 
     Returns ``None`` if *ref* cannot be read (no git, ref absent in a shallow
     checkout, ...), so the caller can fall back to the committed baseline.
@@ -233,30 +274,36 @@ def resolve_baseline(ref: str | None = None) -> Counter:
     if ref:
         from_ref = baseline_from_ref(ref)
         if from_ref is not None:
-            # The committed baseline is the *acknowledged-exemption* list, and it
-            # is honored in ref mode too -- not only in local runs. The base
-            # branch grandfathers everything already on it (the common case, and
-            # the churn-free one: nothing to keep in sync); the committed file
-            # covers the rest -- a node that genuinely has no single molecular
-            # function (a many-gene structural bundle, a class whose members
-            # share none) and so is not yet on the base branch. Without this, a
-            # curator adding such a node has no way to pass CI even though the
-            # gate's own docstring tells them to grandfather it and say why in
-            # the PR (dismech#12669).
+            # The committed baseline doubles as an *acknowledged-exemption* list,
+            # honored in ref mode too -- not only in local runs -- so that a PR
+            # adding a node which genuinely has no single molecular function (a
+            # many-gene structural bundle, a class whose members share none) can
+            # pass CI, as the gate's own docstring tells the curator it should
+            # (dismech#12669). The base branch stays the churn-free grandfather
+            # set; the committed file covers only what the base branch does not.
             #
-            # Combined per key with max(), never sum: an exemption can only raise
-            # the allowance above what the base branch already grants, never
-            # lower it, and a line that merely duplicates a base-branch finding
-            # is a no-op rather than doubling it.
-            committed = load_baseline()
-            merged: Counter = Counter()
-            for key in set(from_ref) | set(committed):
-                merged[key] = max(from_ref.get(key, 0), committed.get(key, 0))
-            exemptions = len(set(committed) - set(from_ref))
+            # But the committed file is the whole backlog and is deliberately
+            # allowed to drift stale-high (see test_committed_baseline_is_well
+            # formed): a line for a gene since grounded on the base branch
+            # grandfathers nothing. Merging the file *whole* would resurrect
+            # every such line as a live exemption, letting a later PR strip that
+            # molecular function with CI still green -- the ratchet turning
+            # backward unnoticed. So honor only the lines THIS branch adds or
+            # raises over the base branch's own copy of the file:
+            #   exemptions = committed_head - committed_ref   (Counter minus:
+            #       keeps only keys the branch added or raised, dropping the
+            #       stale-high lines that are identical on both sides)
+            #   merged     = from_ref | exemptions            (per-key max)
+            # A stale line equal on both sides contributes nothing; a gene fixed
+            # on the base branch therefore cannot be silently un-fixed here.
+            committed_head = load_baseline()
+            committed_ref = baseline_at_ref(ref)
+            exemptions = committed_head - committed_ref
+            merged = from_ref | exemptions
             print(
                 f"gene activity baseline: grandfathered against ref {ref!r} "
-                f"({len(from_ref)} distinct gene(s)), plus {exemptions} "
-                "acknowledged exemption(s) from the committed baseline",
+                f"({len(from_ref)} distinct gene(s)), plus {len(exemptions)} "
+                "exemption(s) this branch adds to the committed baseline",
                 file=sys.stderr,
             )
             return merged
