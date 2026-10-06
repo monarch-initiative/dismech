@@ -42,9 +42,16 @@ and the fix is elsewhere:
   diverse. The absence of a term there is the finding.
 
 Both are in the baseline. Adding a *new* node of either kind is the case for
-grandfathering a line with ``--update-baseline`` and saying why in the PR --
-never for binding a term that overstates what the node claims. The repo rule
-holds: no term beats a bad one.
+grandfathering a line in ``tests/gene_activity_grounding_baseline.txt`` and
+saying why in the PR -- never for binding a term that overstates what the node
+claims. The repo rule holds: no term beats a bad one.
+
+That committed baseline is honored in **both** modes: the local run that reads
+it directly, and the CI run that grandfathers against ``origin/main``. CI merges
+the two (:func:`resolve_baseline`), so the base branch covers everything already
+on it and the committed file covers a genuinely-ungroundable node a PR *adds*.
+Without the merge, ``--against-ref`` offered no way to pass CI for such a node,
+contradicting the advice just above -- see dismech#12669.
 
 Usage::
 
@@ -172,7 +179,12 @@ def baseline_from_ref(ref: str, root: Path = ROOT) -> Counter | None:
     Because the grandfather set is computed from the base branch rather than a
     committed snapshot, there is nothing to keep in sync and nothing for
     parallel merges to clobber: the base branch is green by construction, and a
-    PR fails only on ungrounded genes it *adds* over the base.
+    PR fails only on ungrounded genes it *adds* over the base. This stays the
+    primary, churn-free mechanism; :func:`resolve_baseline` then merges the
+    committed baseline on top as an acknowledged-exemption layer, which a PR
+    touches only to grandfather a node it adds that genuinely has no molecular
+    function -- a rare, deliberate, reviewer-visible edit, not the per-PR churn
+    the ref grandfathering exists to avoid.
 
     Returns ``None`` if *ref* cannot be read (no git, ref absent in a shallow
     checkout, ...), so the caller can fall back to the committed baseline.
@@ -221,12 +233,33 @@ def resolve_baseline(ref: str | None = None) -> Counter:
     if ref:
         from_ref = baseline_from_ref(ref)
         if from_ref is not None:
+            # The committed baseline is the *acknowledged-exemption* list, and it
+            # is honored in ref mode too -- not only in local runs. The base
+            # branch grandfathers everything already on it (the common case, and
+            # the churn-free one: nothing to keep in sync); the committed file
+            # covers the rest -- a node that genuinely has no single molecular
+            # function (a many-gene structural bundle, a class whose members
+            # share none) and so is not yet on the base branch. Without this, a
+            # curator adding such a node has no way to pass CI even though the
+            # gate's own docstring tells them to grandfather it and say why in
+            # the PR (dismech#12669).
+            #
+            # Combined per key with max(), never sum: an exemption can only raise
+            # the allowance above what the base branch already grants, never
+            # lower it, and a line that merely duplicates a base-branch finding
+            # is a no-op rather than doubling it.
+            committed = load_baseline()
+            merged: Counter = Counter()
+            for key in set(from_ref) | set(committed):
+                merged[key] = max(from_ref.get(key, 0), committed.get(key, 0))
+            exemptions = len(set(committed) - set(from_ref))
             print(
                 f"gene activity baseline: grandfathered against ref {ref!r} "
-                f"({len(from_ref)} distinct gene(s))",
+                f"({len(from_ref)} distinct gene(s)), plus {exemptions} "
+                "acknowledged exemption(s) from the committed baseline",
                 file=sys.stderr,
             )
-            return from_ref
+            return merged
         print(
             f"gene activity baseline: could not read ref {ref!r}; "
             "falling back to the committed baseline",
@@ -304,14 +337,13 @@ def main(argv=None) -> int:
             f"\n{len(new)} new finding(s). Bind `molecular_functions:` on the "
             "pathophysiology\nnode the gene reaches."
         )
-        if args.against_ref or os.environ.get(BASELINE_REF_ENV):
-            # A ref baseline (CI) never reads the committed file, so
-            # --update-baseline would pass locally and still fail CI.
-            print("Grandfathering is unavailable when checking against a ref.")
-        else:
-            print("If the node genuinely has no single molecular function -- a")
-            print("many-gene bundle, or a class whose members share none -- then")
-            print("grandfather it with --update-baseline and say why in the PR.")
+        print("If the node genuinely has no single molecular function -- a")
+        print("many-gene bundle, or a class whose members share none -- then")
+        print("grandfather it in tests/gene_activity_grounding_baseline.txt and")
+        print("say why in the PR. The committed baseline is honored in ref mode")
+        print("(CI) too, not only locally, so add the line(s) for the exempt")
+        print("node(s) only -- not a blanket --update-baseline that would also")
+        print("grandfather a node that should carry a real molecular function.")
         return 1
     print(
         f"OK: no newly ungrounded genes ({sum(baseline.values())} "
