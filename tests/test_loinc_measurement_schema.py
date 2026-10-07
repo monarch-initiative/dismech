@@ -54,17 +54,59 @@ def _kb_files_mentioning_loinc() -> list[Path]:
 
 
 def _iter_loinc_terms(node, path=""):
-    """Yield ``(path, term_dict)`` for every ``loinc_term`` block in a document."""
+    """Yield ``(path, term_dict)`` for every LOINC-bound term block in a document.
+
+    Two shapes carry a bound LOINC code: a ``loinc_term`` block (on a
+    ``ReferenceRange`` or a ``Biochemical``), and the ``term`` of each item in a
+    ``measurements`` list (``MeasurementDescriptor`` on a ``Diagnosis``). Those
+    are exactly the slots ``LoincTerm`` binds. A LOINC CURIE anywhere else --
+    ``mappings_list`` (multi-ontology, unbound) or a mis-slotted
+    ``biomarker_term`` -- is deliberately *not* yielded: nothing validates it,
+    so the cache has no row for it, and this test would otherwise report a
+    binding gap as a label error.
+    """
     if isinstance(node, dict):
         for key, value in node.items():
             child = f"{path}.{key}" if path else str(key)
             if key == "loinc_term" and isinstance(value, dict):
                 yield child, value
                 continue
+            if key == "measurements" and isinstance(value, list):
+                for i, item in enumerate(value):
+                    term = item.get("term") if isinstance(item, dict) else None
+                    if isinstance(term, dict):
+                        yield f"{child}[{i}].term", term
+                continue
             yield from _iter_loinc_terms(value, child)
     elif isinstance(node, list):
         for i, item in enumerate(node):
             yield from _iter_loinc_terms(item, f"{path}[{i}]")
+
+
+def test_walker_covers_both_bound_shapes_and_nothing_else():
+    """The walker reaches ``loinc_term`` and ``measurements[].term`` only."""
+    doc = {
+        "biochemical": [
+            {
+                "name": "x",
+                "loinc_term": {"id": "LOINC:1-1", "label": "a"},
+                "reference_ranges": [{"loinc_term": {"id": "LOINC:2-2", "label": "b"}}],
+                "mappings_list": [{"term": {"id": "LOINC:3-3", "label": "unbound"}}],
+                "biomarker_term": {"term": {"id": "LOINC:4-4", "label": "mis-slotted"}},
+            }
+        ],
+        "diagnosis": [
+            {
+                "name": "y",
+                "measurements": [
+                    {"preferred_term": "m", "term": {"id": "LOINC:5-5", "label": "c"}},
+                    {"preferred_term": "unbound, no term"},
+                ],
+            }
+        ],
+    }
+    found = {curie for _, term in _iter_loinc_terms(doc) for curie in [term["id"]]}
+    assert found == {"LOINC:1-1", "LOINC:2-2", "LOINC:5-5"}
 
 
 def test_loinc_term_enum_is_label_only(schema_view):
@@ -96,10 +138,43 @@ def test_every_loinc_entry_point_induces_a_binding(schema_view, class_name, slot
 
 
 def test_loinc_term_shape_is_unchanged(schema_view):
-    """``loinc_term`` is still a plain ``Term`` -- the binding did not retype it."""
+    """``loinc_term`` is still an ``{id, label}`` Term -- the binding did not reshape it.
+
+    ``LoincCode`` is a ``Term`` subclass that adds only an ``id`` pattern, so an
+    existing block validates unchanged.
+    """
     slot = schema_view.get_slot("loinc_term")
-    assert slot.range == "Term"
+    assert slot.range == "LoincCode"
     assert not slot.multivalued
+    code = schema_view.get_class("LoincCode")
+    assert code.is_a == "Term"
+    assert {s.name for s in schema_view.class_induced_slots("LoincCode")} == {"id", "label"}
+
+
+@pytest.mark.parametrize(
+    "curie,ok",
+    [
+        ("LOINC:2823-3", True),
+        ("LOINC:72172-0", True),
+        ("LOINC:LP15098-4", True),  # a LOINC Part
+        ("LOINC:LG1234-5", True),  # a LOINC Group
+        ("NCIT:C25218", False),  # right shape, wrong vocabulary
+        ("LOINC:2823", False),  # no check digit
+        ("loinc:2823-3", False),
+    ],
+)
+def test_loinc_code_id_pattern(schema_view, curie, ok):
+    """A real term from another vocabulary must not pass in a LOINC slot.
+
+    The ``LoincTerm`` binding resolves a CURIE through the adapter for its
+    *own* prefix, so an NCIT code with its correct NCIT label would validate.
+    The pattern on ``LoincCode.id`` is the only thing that pins the prefix.
+    """
+    import re
+
+    pattern = {s.name: s for s in schema_view.class_induced_slots("LoincCode")}["id"].pattern
+    assert pattern, "LoincCode.id has no pattern"
+    assert bool(re.fullmatch(pattern.strip("^$"), curie)) is ok
 
 
 def test_measurement_descriptor_is_a_descriptor(schema_view):
@@ -127,7 +202,7 @@ def test_biochemical_can_carry_a_loinc_code_without_an_interval(schema_view):
 
 
 def test_committed_loinc_labels_match_the_cache():
-    """Every LOINC code in ``kb/`` is cached and its label is the cached one.
+    """Every *bound* LOINC code in ``kb/`` is cached and its label is the cached one.
 
     The cache is populated through the term validator against the Monarch KG
     and is the offline authority for prefixes already seeded; this is the check

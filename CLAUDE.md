@@ -3460,16 +3460,22 @@ PHQ-9 with its severity cut-offs. Three slots carry it:
 diagnosis:
 - name: Cognitive screening            # diagnosis_term (NCIT procedure) omitted here
   measurements:
-  - preferred_term: MoCA total score
+  - preferred_term: MoCA
     term:
-      id: LOINC:72133-2
+      id: LOINC:72133-2                 # the instrument (a LOINC panel) is the test's identity
       label: Montreal Cognitive Assessment [MoCA]
   reference_ranges:
-  - loinc_term: {id: LOINC:72133-2, label: Montreal Cognitive Assessment [MoCA]}
+  - loinc_term: {id: LOINC:72172-0, label: Total score [MoCA]}   # the cut-off is on the score
     interpretation_bands:
     - {name: Normal, lower_bound: 26, abnormal_flag: NORMAL}
     - {name: Cognitive impairment, upper_bound: 26, abnormal_flag: LOW}
 ```
+
+Note the two codes. The panel identifies the test; the total-score code
+carries the threshold, because a numeric cut-off on a panel is a category
+error — the panel names the instrument, the score code names the number. Most
+instruments in LOINC have both (MMSE `72107-6` / `72106-8`, GDS `48542-5` /
+`48544-1`), and search returns the panel first.
 
 Rules that follow from what a LOINC code is:
 
@@ -3506,12 +3512,23 @@ consequences while Phase 0 of `projects/LOINC_DIAGNOSTICS.md` is in flight:
 - Codes already in `cache/loinc/terms.csv` validate offline today, the
   cache-first way every prefix does. `test_committed_loinc_labels_match_the_cache`
   runs that check over the whole KB.
-- A **new** code is skipped with an unknown-prefix warning until `LOINC` is
-  routed in `conf/oak_config.yaml`, which waits on an oaklib release carrying
-  INCATools/ontology-access-kit#920 (the shipped adapter reads `symbol`, which
-  only genes populate, so it returns no label for anything else). Until then,
-  look a new code up at loinc.org or `api-v3.monarchinitiative.org/v3/api/entity/LOINC:<code>`
-  and copy `name`. The adapter string needs quoting in YAML: `LOINC: "monarch:"`.
+- A **new** code is skipped by `just validate-terms` with an unknown-prefix
+  warning until `LOINC` is routed in `conf/oak_config.yaml`, which waits on an
+  oaklib release carrying INCATools/ontology-access-kit#920 (the shipped
+  adapter reads `symbol`, which only genes populate, so it returns no label for
+  anything else). **Until then, never type a LOINC label.** Run
+  `just loinc-seed-cache <file>` — it overlays the fixed adapter in an
+  ephemeral env and writes the validator's own rows — then
+  `just normalize-cache`, and commit `cache/loinc/terms.csv` with the entry.
+  `test_committed_loinc_labels_match_the_cache` fails on an uncached code, so
+  a label copied by hand from a web page turns the nightly sweep red even when
+  it is right. When the pin lands, the adapter string needs quoting in YAML:
+  `LOINC: "monarch:"`.
+- `loinc_term` and `measurements[].term` are `LoincCode`, a `Term` whose `id`
+  must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$`. That is `linkml-validate`'s job,
+  not the term validator's: the binding resolves a CURIE through the adapter
+  for *its own* prefix, so without the pattern a real NCIT term with its
+  correct label would be accepted in a LOINC slot.
 - The API serves the last KG release; a code LOINC added recently is lag, not
   absence. And a `mappings_list` term is a multi-ontology slot with no binding,
   so a LOINC code there is still unchecked — four such codes were found by
