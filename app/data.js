@@ -141490,6 +141490,129 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Fire Ant Poisoning",
+    "disease_id": "MONDO:0100341",
+    "category": "Injury",
+    "parents": [
+      "poisoning"
+    ],
+    "creation_date": "2026-10-06T21:33:56Z",
+    "updated_date": null,
+    "subtypes": [
+      "Local Sting Reaction",
+      "Fire Ant Venom Anaphylaxis"
+    ],
+    "description": "Fire ant poisoning is the acute injury produced when a Solenopsis worker ant anchors itself with its jaws and injects venom through an abdominal stinger, often repeatedly. Two mechanisms run in parallel from the same sting and account for the whole clinical range. The venom is overwhelmingly water-insoluble piperidine alkaloids, which are directly cytotoxic and produce immediate burning pain, a wheal, and the characteristic sterile pustule without any prior sensitization. A much smaller protein fraction carries the allergens Sol i 1 to Sol i 4, which drive IgE-mediated sensitization; on re-exposure a sensitized person can develop urticaria, airway compromise, or anaphylactic shock. The alkaloid branch is near-universal and self-limited; the protein branch is uncommon and is what kills.",
+    "pathophysiology": [
+      "Fire ant sting and venom deposition in skin",
+      "Piperidine alkaloid cytotoxic injury to skin",
+      "Neutrophilic dermal infiltration and collagen degeneration",
+      "Sterile subepidermal pustule formation",
+      "Venom protein antigen presentation and type 2 sensitization",
+      "Venom-specific IgE class switching",
+      "Mast cell arming by venom-specific IgE",
+      "IgE-mediated mast cell activation on re-exposure"
+    ],
+    "cell_types": [
+      "keratinocyte",
+      "neutrophil",
+      "dendritic cell",
+      "T-helper 2 cell",
+      "B cell",
+      "mast cell",
+      "eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000312",
+      "CL:0000775",
+      "CL:0000451",
+      "CL:0000546",
+      "CL:0000236",
+      "CL:0000097",
+      "CL:0000771"
+    ],
+    "biological_processes": [
+      "response to toxic substance",
+      "inflammatory response",
+      "antigen processing and presentation of exogenous peptide antigen via MHC class II",
+      "type 2 immune response",
+      "immunoglobulin production",
+      "mast cell activation",
+      "eosinophil chemotaxis"
+    ],
+    "phenotypes": [
+      "Pruritus",
+      "Pain",
+      "Pustule",
+      "Skin vesicle",
+      "Erythema",
+      "Urticaria",
+      "Papule",
+      "Venom-induced anaphylaxis",
+      "Anaphylactic shock",
+      "Laryngeal edema",
+      "Fever",
+      "Headache",
+      "Lymphadenopathy"
+    ],
+    "phenotype_categories": [
+      "Dermatologic",
+      "Immunologic",
+      "Cardiovascular",
+      "Respiratory",
+      "Constitutional",
+      "Neurologic",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0000989",
+      "HP:0012531",
+      "HP:0200039",
+      "HP:0200037",
+      "HP:0010783",
+      "HP:0001025",
+      "HP:0200034",
+      "HP:0500096",
+      "HP:0100845",
+      "HP:0012027",
+      "HP:0001945",
+      "HP:0002315",
+      "HP:0002716"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Epinephrine for systemic reactions",
+      "Fire ant whole-body extract venom immunotherapy",
+      "Avoidance of occupied mounds and repeated stings"
+    ],
+    "environmental": [
+      "Fire ant sting on nest disturbance",
+      "Flood-related contact with rafting fire ant colonies"
+    ],
+    "biochemical": [],
+    "source_file": "Fire_Ant_Poisoning.yaml",
+    "page_url": "../pages/disorders/Fire_Ant_Poisoning.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 8,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Flea-Borne Spotted Fever",
     "disease_id": "MONDO:0019364",
     "category": "Infectious Disease",
@@ -349138,6 +349261,118 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Water Intoxication",
+    "disease_id": "MONDO:0022007",
+    "category": "Environmental",
+    "parents": [
+      "poisoning"
+    ],
+    "creation_date": "2026-10-06T21:33:56Z",
+    "updated_date": null,
+    "subtypes": [
+      "Psychogenic Water Intoxication",
+      "Exercise-Associated Water Intoxication"
+    ],
+    "description": "Water intoxication is an acquired toxic disorder in which intake of water or other low-solute fluid exceeds the kidney's capacity to excrete electrolyte-free water. The retained free water dilutes extracellular sodium and lowers effective osmolality, and water then moves down the osmotic gradient into cells. Because the brain is enclosed, that cellular swelling raises intracranial pressure, which is what produces the clinical syndrome: nausea and headache early, then confusion, seizures, coma, and in severe cases brainstem herniation and death. The two best-documented exposure contexts are compulsive drinking in psychiatric illness and overdrinking during endurance exercise, where non-osmotic vasopressin release reduces free-water clearance at the same time intake rises. A second, iatrogenic injury follows from correcting the sodium too quickly, producing osmotic demyelination.",
+    "pathophysiology": [
+      "Free-water intake exceeding renal excretory capacity",
+      "Non-osmotic vasopressin release and reduced free-water clearance",
+      "Net electrolyte-free water retention",
+      "Osmotic water shift into cells",
+      "Cerebral edema with raised intracranial pressure",
+      "Hyponatremic encephalopathy",
+      "Osmotic demyelination after overly rapid correction"
+    ],
+    "cell_types": [
+      "kidney collecting duct principal cell",
+      "astrocyte",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001431",
+      "CL:0000127",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "renal water homeostasis",
+      "renal water absorption",
+      "regulation of urine volume",
+      "sodium ion homeostasis",
+      "cellular hypotonic response",
+      "cell volume homeostasis",
+      "water transport",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Hyponatremia",
+      "Polydipsia",
+      "Polyuria",
+      "Increased intracranial pressure",
+      "Seizure",
+      "Coma",
+      "Confusion",
+      "Headache",
+      "Nausea and vomiting",
+      "Pulmonary edema",
+      "Rhabdomyolysis"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Behavioral",
+      "Renal",
+      "Neurologic",
+      "Gastrointestinal",
+      "Respiratory",
+      "Musculoskeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Digestive",
+      "Genitourinary",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002902",
+      "HP:0001959",
+      "HP:0000103",
+      "HP:0002516",
+      "HP:0001250",
+      "HP:0001259",
+      "HP:0001289",
+      "HP:0002315",
+      "HP:0002017",
+      "HP:0100598",
+      "HP:0003201"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Hypertonic saline for acute symptomatic hyponatremia",
+      "Desmopressin to brake an overly rapid correction",
+      "Fluid restriction",
+      "Drinking to thirst rather than to a schedule"
+    ],
+    "environmental": [
+      "Compulsive ingestion of water in psychiatric illness",
+      "Overdrinking during prolonged endurance exercise"
+    ],
+    "biochemical": [
+      "Serum sodium concentration",
+      "Serum osmolality",
+      "Urine osmolality"
+    ],
+    "source_file": "Water_Intoxication.yaml",
+    "page_url": "../pages/disorders/Water_Intoxication.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 7,
+    "num_genes": 0,
+    "num_treatments": 4,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Weaver Syndrome",
     "disease_id": "MONDO:0010193",
     "category": "Mendelian",
@@ -357025,17 +357260,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3310,
-  "total_subtypes": 4629,
-  "total_disorders_and_subtypes": 7939,
-  "total_unique_evidence_sources": 49724,
-  "total_unique_publications": 46352,
+  "total_disorder_pages": 3312,
+  "total_subtypes": 4633,
+  "total_disorders_and_subtypes": 7945,
+  "total_unique_evidence_sources": 49740,
+  "total_unique_publications": 46368,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3306,
-  "total_unique_pathological_events": 21835,
+  "total_pathographs": 3308,
+  "total_unique_pathological_events": 21850,
   "total_modules": 189,
-  "total_research_reports": 3426,
+  "total_research_reports": 3428,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
