@@ -155050,6 +155050,78 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Graphite Pneumoconiosis",
+    "disease_id": "MONDO:0023286",
+    "category": "Environmental",
+    "parents": [
+      "pneumoconiosis",
+      "mixed mineral dust pneumoconiosis"
+    ],
+    "creation_date": "2026-10-07T17:11:49Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Graphite pneumoconiosis is a rare occupational lung disease of workers exposed to respirable graphite dust in graphite mines and mills, foundries and electrode manufacture. Its morphologic landmark is the nonasbestos ferruginous body with a black graphite core, and it presents with reticular and nodular radiographic change, peribronchiolar dust macules and, in a subset, confluent fibrosis. The disease is usually described as a mixed dust pneumoconiosis, and that wording is load-bearing rather than incidental: natural graphite carries quartz, the fibrogenicity of nearly pure graphite is not established, and controlled comparison in rats found silica persistently inflammatory where synthetic graphite was not. This entry therefore curates a real exposure disease whose causal attribution to graphite itself remains open, and records that gap explicitly rather than asserting a mechanism the literature does not support.",
+    "pathophysiology": [
+      "Respirable graphite dust deposition in the distal lung",
+      "Alveolar macrophage retention of graphite particles",
+      "Transient particle-driven alveolar inflammation",
+      "Mixed dust fibrotic remodeling"
+    ],
+    "cell_types": [
+      "alveolar macrophage",
+      "neutrophil",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000583",
+      "CL:0000775",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "phagocytosis of graphite particles",
+      "inflammatory response",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Reticular pattern on high-resolution computed tomography",
+      "Nodular pattern on high-resolution computed tomography",
+      "Radiographic pulmonary opacities in exposed workers",
+      "Dyspnea",
+      "Pulmonary fibrosis"
+    ],
+    "phenotype_categories": [
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0025390",
+      "HP:0025392",
+      "HP:0031457",
+      "HP:0002094",
+      "HP:0002206"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Dust control and exposure reduction"
+    ],
+    "environmental": [
+      "Occupational inhalation of graphite dust in mining and milling",
+      "Occupational graphite exposure in foundry and metallurgical work"
+    ],
+    "biochemical": [],
+    "source_file": "Graphite_Pneumoconiosis.yaml",
+    "page_url": "../pages/disorders/Graphite_Pneumoconiosis.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 4,
+    "num_genes": 0,
+    "num_treatments": 1,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Graves' Disease",
     "disease_id": "MONDO:0005364",
     "category": "Endocrine Disorder",
@@ -315312,6 +315384,88 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Silo Filler Disease",
+    "disease_id": "MONDO:0006972",
+    "category": "Environmental",
+    "parents": [
+      "lung disorder"
+    ],
+    "creation_date": "2026-10-07T17:11:49Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Silo filler disease is acute chemical lung injury from inhaling nitrogen dioxide that accumulates in a freshly filled silo. Plant nitrate in the ensiled forage is reduced during early fermentation to nitrogen oxides, which collect as a dense gas in the unventilated headspace; a worker entering during the first days after filling inhales concentrations that can exceed the level immediately dangerous to life. Because nitrogen dioxide is poorly soluble it passes the upper airway and reaches the bronchioles and alveoli, where it forms acid and free radicals and injures the epithelium. The injury is characteristically delayed by hours, so a worker who feels only mild irritation can develop non-cardiogenic pulmonary edema and acute respiratory distress syndrome afterwards, and survivors may go on to bronchiolitis obliterans. It is a disease of young, previously healthy farm workers, it concentrates in the harvest weeks, and it is almost entirely preventable.",
+    "pathophysiology": [
+      "Nitrogen oxide generation in fermenting silage",
+      "Nitrogen dioxide delivery to the distal airways",
+      "Free-radical and acid injury of bronchiolar and alveolar epithelium",
+      "Non-cardiogenic pulmonary edema",
+      "Bronchiolar obliterative remodeling"
+    ],
+    "cell_types": [
+      "epithelial cell of the distal airway",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000082",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "response to oxidative stress",
+      "inflammatory response",
+      "extracellular matrix organization"
+    ],
+    "phenotypes": [
+      "Dyspnea",
+      "Cough",
+      "Pulmonary edema",
+      "Bronchiolitis obliterans",
+      "Hypoxemia",
+      "Acute respiratory distress syndrome",
+      "Respiratory failure"
+    ],
+    "phenotype_categories": [
+      "Respiratory",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Immune",
+      "Metabolism",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0100598",
+      "HP:0011946",
+      "HP:0012418",
+      "HP:0033677",
+      "HP:0002878"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Corticosteroid therapy for the severe form",
+      "Silo ventilation before entry",
+      "Observation for delayed deterioration after exposure",
+      "Supplemental oxygen therapy",
+      "Mechanical ventilation",
+      "Veno-venous extracorporeal membrane oxygenation"
+    ],
+    "environmental": [
+      "Entry into a freshly filled silo during the peak danger period",
+      "Ensiling of nitrate-rich forage after a dry growing season"
+    ],
+    "biochemical": [],
+    "source_file": "Silo_Filler_Disease.yaml",
+    "page_url": "../pages/disorders/Silo_Filler_Disease.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Silver-Russell Syndrome",
     "disease_id": "MONDO:0008394",
     "category": "Mendelian",
@@ -357260,17 +357414,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3312,
+  "total_disorder_pages": 3314,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7945,
-  "total_unique_evidence_sources": 49740,
-  "total_unique_publications": 46368,
+  "total_disorders_and_subtypes": 7947,
+  "total_unique_evidence_sources": 49754,
+  "total_unique_publications": 46382,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3308,
-  "total_unique_pathological_events": 21850,
+  "total_pathographs": 3310,
+  "total_unique_pathological_events": 21859,
   "total_modules": 189,
-  "total_research_reports": 3428,
+  "total_research_reports": 3430,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
