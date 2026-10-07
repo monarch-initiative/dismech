@@ -924,6 +924,24 @@ way: the toxicokinetic steps in a dismech chain have to be separated from the ke
 events, species applicability and a population level have no dismech counterpart, and a
 disease-anchored graph has to be cut stressor-agnostic before it is an AOP.
 
+### First attempt at seeding
+
+Two files take that second direction from the abstract to a worked case:
+
+- [`docs/reports/aop-derivable-measurable-chains-2026-09-10.md`](../docs/reports/aop-derivable-measurable-chains-2026-09-10.md)
+  asks how many entries even hold a chain worth deriving. Requiring a readout on every node
+  and a citation on every edge leaves 38 entries at three nodes and one at five. Its main
+  result is that the scarce input is `modeled_mechanisms` coverage rather than literature:
+  edge evidence is about thirty-five times more available than node measurability.
+  Regenerate with `just aop-chain-census`.
+- [`AOP_EMOD_ALIGNMENT/putative-aops-from-dismech-2026-09-10.md`](AOP_EMOD_ALIGNMENT/putative-aops-from-dismech-2026-09-10.md)
+  works `Left_Ventricular_Noncompaction_8` and `Skeletal_Fluorosis` through into AOP form.
+
+They sharpen the first divergence listed above rather than resolving it. `Skeletal_Fluorosis`
+reproduces the `Lead_Poisoning` toxicokinetic result exactly — all five exposures land on an
+intake node two hops upstream of the first molecular event — so that is now a pattern across
+two independently curated entries, not an observation about one file.
+
 <!--
 ## Not yet included
 

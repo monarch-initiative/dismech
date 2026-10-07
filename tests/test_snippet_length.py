@@ -47,6 +47,7 @@ def _entry(snippet: str, reference: str = "PMID:1") -> dict:
     return {"evidence": [{"reference": reference, "snippet": snippet}]}
 
 
+@pytest.mark.ci_step_twin("scripts/check_snippet_length.py")
 def test_no_new_short_snippets():
     # resolve_baseline() grandfathers against origin/main when CI sets
     # SNIPPET_BASELINE_REF (so the base branch is green by construction and
@@ -101,10 +102,30 @@ def test_pipeless_short_snippet_is_not_exempt():
         ("c.142G > A in MAP3K7", 4),
         ("   spaced   out   words  ", 3),
         ("--- ...", 0),
+        # Chinese and Japanese: one word per Han or kana character (#11530).
+        ("遗传性嘧啶5′核苷酸酶缺乏症是一种罕见的红细胞酶异常相关的溶血性贫血。", 33),
+        ("本症例は先天性溶血性貧血と診断された症例である。", 23),
+        # A Latin token inside CJK text counts once, beside its characters.
+        ("UGT1A1基因突变", 5),
+        # The katakana middle dot is punctuation, not a word.
+        ("・", 0),
+        # Korean spaces its words, so a Hangul token counts once.
+        ("유전성 빈혈", 2),
     ],
 )
 def test_word_counting(snippet, expected):
     assert count_words(snippet) == expected
+
+
+def test_a_cjk_sentence_is_not_flagged_as_a_bare_label():
+    """A full Chinese or Japanese sentence was 0-1 "words" and always failed."""
+    assert not _violations(_entry("遗传性嘧啶5′核苷酸酶缺乏症是一种罕见的红细胞酶异常相关的溶血性贫血。"))
+    assert not _violations(_entry("本症例は先天性溶血性貧血と診断された症例である。"))
+
+
+def test_a_short_korean_label_is_still_flagged():
+    """Hangul counts per spaced word, not per syllable, so a label stays short."""
+    assert _violations(_entry("유전성 용혈성 빈혈"))
 
 
 def test_snippet_without_a_reference_is_ignored():

@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neuromuscular Disease Curation Project - dismech Projects</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+        a { color: var(--teal); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        nav {
+            position: sticky; top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100; padding: 0.75rem 1.5rem;
+        }
+        .nav-inner {
+            max-width: var(--max-width); margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        }
+        .nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; }
+        .nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+        .nav-links a { color: var(--gray-600); }
+        .nav-links a:hover, .nav-links a.active { color: var(--teal); text-decoration: none; }
+        .gh-icon { width: 18px; height: 18px; vertical-align: middle; }
+
+        .hero-bg { background: var(--teal-50); border-bottom: 1px solid var(--gray-200); }
+        .hero { max-width: var(--max-width); margin: 0 auto; padding: 3.5rem 1.5rem 2.25rem; }
+        .hero h1 {
+            font-size: 2.1rem; font-weight: 700; color: var(--teal);
+            line-height: 1.14; margin-bottom: 0.6rem; letter-spacing: -0.02em;
+        }
+        .hero-meta { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+        .badge {
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 999px; font-size: 0.72rem; font-weight: 600;
+        }
+        .status-IN_PROGRESS, .status-ACTIVE { background: #fef3c7; color: #92400e; }
+        .status-COMPLETE { background: #dcfce7; color: #166534; }
+        .status-PLANNED { background: #e0e7ff; color: #3730a3; }
+        .status-EVERGREEN { background: #cffafe; color: #155e75; }
+        .status-ARCHIVED { background: var(--gray-200); color: var(--gray-600); }
+        .tag {
+            background: #fff; border: 1px solid var(--gray-200); color: var(--gray-600);
+            border-radius: 6px; padding: 3px 9px; font-size: 0.72rem; font-weight: 600;
+        }
+        a.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; text-decoration: none; }
+        a.tag-nih:hover { background: #dfeaff; }
+        span.tag-nih { background: #eef4ff; border-color: #c7d7fe; color: #3457b2; }
+
+        .layout {
+            max-width: var(--max-width); margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+            display: grid; grid-template-columns: 280px 1fr; gap: 32px; align-items: start;
+        }
+        .breadcrumb { grid-column: 1 / -1; font-size: 0.9rem; color: var(--gray-600); margin-bottom: 0.5rem; }
+        .breadcrumb span { color: var(--gray-500); }
+
+        .sidebar { position: sticky; top: 70px; }
+        .panel {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+        }
+        .panel h2 {
+            font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 10px;
+        }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            background: var(--teal-50); border: 1px solid var(--teal-light); color: var(--teal);
+            border-radius: 999px; padding: 4px 10px; font-size: 0.8rem; font-weight: 600;
+        }
+        .chip.unresolved {
+            background: var(--gray-100); border-color: var(--gray-200);
+            color: var(--gray-500); font-weight: 500;
+        }
+
+        .content {
+            background: #fff; border: 1px solid var(--gray-200); border-radius: 12px;
+            padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); min-width: 0;
+        }
+        .content h1 { font-size: 1.7rem; color: var(--teal); margin: 1.4rem 0 0.6rem; }
+        .content h1:first-child { margin-top: 0; }
+        .content h2 { font-size: 1.3rem; color: var(--gray-800); margin: 1.5rem 0 0.5rem; padding-bottom: 0.25rem; border-bottom: 1px solid var(--gray-200); }
+        .content h3 { font-size: 1.08rem; color: var(--gray-800); margin: 1.2rem 0 0.4rem; }
+        .content p, .content li { color: var(--gray-700); }
+        .content ul, .content ol { margin: 0.4rem 0 0.8rem 1.4rem; }
+        .content a { font-weight: 600; }
+        .content code {
+            font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            font-size: 0.88em; background: rgba(0,131,143,0.08); padding: 0.1em 0.35em; border-radius: 4px;
+        }
+        .content pre { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 14px; overflow-x: auto; margin: 0.8rem 0; }
+        .content pre code { background: none; padding: 0; }
+        .content table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; display: block; overflow-x: auto; }
+        .content th, .content td { border: 1px solid var(--gray-200); padding: 8px 10px; text-align: left; vertical-align: top; }
+        .content th { background: var(--gray-50); font-weight: 600; }
+        .content blockquote { border-left: 3px solid var(--teal-light); padding-left: 1rem; color: var(--gray-600); margin: 0.8rem 0; }
+
+        .source-link { margin-top: 16px; font-size: 0.82rem; color: var(--gray-500); }
+
+        @media (max-width: 900px) {
+            nav { padding: 0.7rem 1rem; }
+            .hero { padding: 2.5rem 1.1rem 1.6rem; }
+            .hero h1 { font-size: 1.55rem; }
+            .layout { grid-template-columns: 1fr; padding: 1.3rem 1rem 2.5rem; }
+            .sidebar { position: static; }
+            .content { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="index.html" class="active">Projects</a>
+                <a href="../../pages/modules/">Modules</a>
+                <a href="../../pages/groupings/">Groupings</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="../../pages/research/index.html">Research</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="hero-bg">
+        <section class="hero">
+            <h1>Neuromuscular Disease Curation Project</h1>
+            <div class="hero-meta">
+                <span class="badge status-PLANNED">Planned</span>
+                <span class="tag">DISEASE_DOMAIN</span><span class="tag">NEUROMUSCULAR</span><span class="tag">MODULE_BUILDOUT</span><span class="tag">MONDO_ALIGNMENT</span>
+                
+            </div>
+        </section>
+    </div>
+
+    <div class="layout">
+        <div class="breadcrumb">
+            <a href="../../">Home</a>
+            <span> / </span>
+            <a href="index.html">Projects</a>
+            <span> / </span>
+            <span>Neuromuscular Disease Curation Project</span>
+        </div>
+
+        <aside class="sidebar">
+            
+            
+            
+                
+                
+                <div class="panel">
+                    <h2>Diseases (20)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../disorders/Amyotrophic_Lateral_Sclerosis.html">Amyotrophic Lateral Sclerosis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Botulism.html">Botulism</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Central_Core_Myopathy.html">Central Core Myopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Congenital_Myasthenic_Syndrome.html">Congenital Myasthenic Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dermatomyositis.html">Dermatomyositis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Duchenne_Muscular_Dystrophy.html">Duchenne Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Dystroglycanopathy.html">Dystroglycanopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Emery-Dreifuss_Muscular_Dystrophy.html">Emery Dreifuss Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Facioscapulohumeral_Muscular_Dystrophy.html">Facioscapulohumeral Muscular Dystrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Hypokalemic_Periodic_Paralysis.html">Hypokalemic Periodic Paralysis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Inclusion_Body_Myositis.html">Inclusion Body Myositis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Malignant_hyperthermia_of_anesthesia.html">Malignant Hyperthermia of Anesthesia</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Multiminicore_Disease.html">Multiminicore Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Myasthenia_Gravis.html">Myasthenia Gravis</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Myotonic_Dystrophy_Type_1.html">Myotonic Dystrophy Type 1</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Nemaline_Myopathy.html">Nemaline Myopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Pompe_Disease.html">Pompe Disease</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Postpoliomyelitis_Syndrome.html">Postpoliomyelitis Syndrome</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Spinal_Muscular_Atrophy.html">Spinal Muscular Atrophy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Thomsen_and_Becker_disease.html">Thomsen and Becker disease</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Modules (6)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../modules/peripheral_axonal_degeneration.html">peripheral axonal degeneration</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/synaptic_vesicle_cycle.html">synaptic vesicle cycle</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/glutamate_excitotoxicity.html">glutamate excitotoxicity</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/tdp43_proteinopathy.html">tdp43 proteinopathy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/antisense_oligonucleotide_therapy.html">antisense oligonucleotide therapy</a>
+                            
+                        
+                            
+                            <a class="chip" href="../modules/fibrotic_response.html">fibrotic response</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                <div class="panel">
+                    <h2>Groupings (2)</h2>
+                    <div class="chip-list">
+                        
+                            
+                            <a class="chip" href="../groupings/Motor_Neuron_Disorders.html">Motor Neuron Disorders</a>
+                            
+                        
+                            
+                            <a class="chip" href="../groupings/Charcot-Marie-Tooth_Diseases.html">Charcot-Marie-Tooth Diseases</a>
+                            
+                        
+                    </div>
+                </div>
+                
+                
+                
+                
+                
+                
+            
+            <div class="source-link">
+                <a href="https://github.com/monarch-initiative/dismech/blob/main/projects/NEUROMUSCULAR.md">View source markdown &rarr;</a>
+            </div>
+        </aside>
+
+        <article class="content">
+            <h1 id="neuromuscular-disease-curation-project">Neuromuscular Disease Curation Project</h1>
+<p>Tracking epic: <a href="https://github.com/monarch-initiative/dismech/issues/9005">monarch-initiative/dismech#9005</a></p>
+<h2 id="overview">Overview</h2>
+<p>Neuromuscular disease is organized around the <strong>motor unit</strong>: lower motor neuron
+→ peripheral nerve → neuromuscular junction (NMJ) → muscle fiber. Each
+compartment fails in its own characteristic way, and the classification that the
+Mondo neuromuscular workshop is converging on — classify by <em>affected structure</em>
+rather than by etiology, because the causes (genetic, autoimmune, toxic,
+infectious, metabolic, paraneoplastic, degenerative) are too varied to
+partition cleanly — is exactly the classification dismech should mirror in its
+mechanism modules.</p>
+<p>This project has two aims:</p>
+<ol>
+<li><strong>Fill the module layer.</strong> Give each motor-unit compartment at least one
+   conserved mechanism module, so that entries that currently share nothing can
+   declare <code>conforms_to</code> against a common trunk.</li>
+<li><strong>Record what is genuinely unresolved.</strong> Several of the most-cited mechanisms
+   in this field are contested or rest on model systems that do not reproduce the
+   human phenotype. Those belong in <code>mechanistic_hypotheses</code> and
+   <code>HUMAN_MODEL_MISMATCH</code> discussions rather than being flattened into a single
+   confident causal chain.</li>
+</ol>
+<h2 id="current-state-of-the-knowledge-base">Current state of the knowledge base</h2>
+<p>Counted over <code>kb/disorders/</code> (69 entries matching neuromuscular naming patterns,
+excluding retinal/corneal dystrophies, leukodystrophies, cardiomyopathies, and
+rhabdomyosarcomas):</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neuromuscular disorder entries</td>
+<td>69</td>
+</tr>
+<tr>
+<td>Declaring <strong>any</strong> <code>conforms_to</code></td>
+<td>19</td>
+</tr>
+<tr>
+<td>Declaring <strong>no</strong> module conformance</td>
+<td><strong>50</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The 19 that do conform reach the module layer almost entirely through the
+<strong>nerve</strong> and <strong>motor neuron</strong> compartments — <code>peripheral_axonal_degeneration</code>
+(the Charcot-Marie-Tooth and inflammatory neuropathy entries),
+<code>tdp43_proteinopathy</code> / <code>glutamate_excitotoxicity</code> / <code>disabled_macroautophagy</code>
+(ALS), plus a handful reached incidentally
+(<code>lysosomal_substrate_accumulation</code> for Pompe,
+<code>molecular_mimicry_autoimmunity</code> for Guillain-Barré,
+<code>antisense_oligonucleotide_therapy</code> for Duchenne).</p>
+<p><strong>There is no muscle-side mechanism module in the repository.</strong> Of the 123
+modules in <code>kb/modules/</code>, none models sarcolemmal integrity, excitation-contraction
+coupling, sarcomere assembly, skeletal-muscle excitability, myofiber necrosis, or
+endplate transmission. The consequence is visible in the orphan list:
+<code>Spinal_Muscular_Atrophy</code>, <code>Myasthenia_Gravis</code>, <code>Congenital_Myasthenic_Syndrome</code>,
+<code>Myotonic_Dystrophy_Type_1</code>, <code>Nemaline_Myopathy</code>, <code>Central_Core_Myopathy</code>,
+<code>Malignant_Hyperthermia_of_Anesthesia</code>, <code>Dermatomyositis</code>,
+<code>Facioscapulohumeral_Muscular_Dystrophy</code>, and
+<code>Emery_Dreifuss_Muscular_Dystrophy</code> all carry zero module conformance.</p>
+<p>The one partial exception is presynaptic transmission: <code>synaptic_vesicle_cycle</code>
+already names presynaptic congenital myasthenic syndrome in scope and covers
+UNC13A, SNAP25, SYT2, and VAMP1. It is explicitly and deliberately presynaptic,
+so the postsynaptic and synaptic-basal-lamina arms of the NMJ have no home.</p>
+<h2 id="proposed-modules">Proposed modules</h2>
+<p>Tier 1 gives each motor-unit compartment a trunk and mirrors the four-way Mondo
+split (motor neuron disorder / peripheral neuropathy / NMJ disease / myopathy).
+Tier 2 covers well-bounded mechanisms with several ready conformers each.</p>
+<h3 id="tier-1">Tier 1</h3>
+<h4 id="1-sarcolemmal_mechanical_fragility-the-muscular-dystrophy-trunk">1. <code>sarcolemmal_mechanical_fragility</code> — the muscular dystrophy trunk</h4>
+<p>Loss of a dystrophin-glycoprotein complex (DGC), membrane-repair, or
+sarcolemma-ECM linkage component → loss of mechanical coupling between the
+cortical cytoskeleton and the basal lamina → contraction-induced (particularly
+eccentric) sarcolemmal injury with Ca²⁺ influx → calpain activation,
+mitochondrial Ca²⁺ overload, and myofiber necrosis → regenerative exhaustion of
+the satellite cell pool → fibro-fatty replacement and progressive weakness. The
+terminal step feeds the existing <code>fibrotic_response</code> module.</p>
+<p>Ready conformers: <code>Duchenne_Muscular_Dystrophy</code> (which currently reaches the
+module layer only through its exon-skipping treatment),
+<code>Autosomal_Recessive_Limb-Girdle_Muscular_Dystrophy</code>,
+<code>Limb-Girdle_Muscular_Dystrophy_Autosomal_Dominant</code>,
+<code>Ullrich_Congenital_Muscular_Dystrophy</code> and <code>Bethlem_Myopathy</code> (the COL6
+extracellular arm), <code>Dystroglycanopathy</code> (whose muscle arm is unmodeled — the
+entry currently conforms only to the brain-side
+<code>pial_basement_membrane_radial_glial_endfoot_failure</code>).</p>
+<p>This is the highest-value single module in the project. It should carry the
+mechanical-fragility vs mechanotransduction controversy as competing
+<code>mechanistic_hypotheses</code> (see below) rather than asserting either.</p>
+<h4 id="2-neuromuscular_transmission_failure-the-nmj-trunk">2. <code>neuromuscular_transmission_failure</code> — the NMJ trunk</h4>
+<p>An endplate lesion (postsynaptic AChR subunit or clustering-pathway defect,
+synaptic basal lamina / acetylcholinesterase anchoring defect, or presynaptic
+release failure) → reduction in the <strong>safety factor of neuromuscular
+transmission</strong> → intermittent failure of endplate potentials to reach threshold
+→ transmission block at a growing fraction of endplates → fatigable weakness.</p>
+<p>The safety factor is the organizing quantity: normally 3–5 in adult mammals, and
+the thing that every CMS mechanism erodes, whether by reducing quantal content,
+reducing AChR number, altering endplate geometry, or desensitizing AChR through
+ACh overexposure (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6032286/">Engel et al., PMC6032286</a>).
+Postsynaptic and endplate-development/maintenance defects account for roughly
+77% of CMS cases, and ~40 CMS genes are now reported.</p>
+<p>Three etiologic entry arms, matching the workshop deck's proposed NMJ split:</p>
+<ul>
+<li><strong>genetic</strong> — congenital myasthenic syndromes</li>
+<li><strong>autoimmune</strong> — myasthenia gravis (AChR / MuSK / LRP4), Lambert-Eaton</li>
+<li><strong>toxin</strong> — botulinum toxin, α-neurotoxin envenomation, tick paralysis</li>
+</ul>
+<p>Ready conformers: <code>Myasthenia_Gravis</code>, <code>Congenital_Myasthenic_Syndrome</code>,
+<code>Congenital_Myasthenic_Syndrome_6</code>, <code>Botulism</code>. Carries the
+acetylcholinesterase-inhibitor drug pattern (pyridostigmine <code>target_mechanisms</code>
+on the transmission node) and the 3,4-diaminopyridine presynaptic pattern.</p>
+<p>Deliberately complementary to <code>synaptic_vesicle_cycle</code>, which stays the home for
+the presynaptic release machinery itself; this module models the endplate and the
+safety-factor consequence.</p>
+<h4 id="3-sarcolemmal_excitability_channelopathy-the-muscle-channelopathy-trunk">3. <code>sarcolemmal_excitability_channelopathy</code> — the muscle channelopathy trunk</h4>
+<p>The skeletal-muscle counterpart of the existing (and explicitly cardiac)
+<code>cardiac_ion_channel_repolarization</code>. Skeletal muscle ion channel variant (CLCN1
+/ ClC-1, SCN4A / NaV1.4, CACNA1S / CaV1.1, KCNJ2 / Kir2.1) → altered sarcolemmal
+and t-tubular resting potential or action-potential behavior → two mutually
+exclusive branches:</p>
+<ul>
+<li><strong>hyperexcitable</strong> — reduced chloride conductance or impaired Na⁺ channel
+  inactivation → repetitive after-discharges → <strong>myotonia</strong> (delayed relaxation)</li>
+<li><strong>inexcitable</strong> — sustained depolarization → NaV1.4 inactivation → loss of
+  action potential generation → <strong>flaccid periodic paralysis</strong></li>
+</ul>
+<p>Ready conformers: <code>Thomsen_and_Becker_disease</code> (CLCN1),
+<code>Hypokalemic_Periodic_Paralysis</code>, <code>Andersen-Tawil_Syndrome</code> (which currently sits
+on the cardiac side only).</p>
+<p>This module is the direct dismech counterpart of the deck's proposal to give
+<code>muscular channelopathy</code> (MONDO:0019119) a real definition and reclassify it
+under <code>myopathy</code>.</p>
+<h4 id="4-denervation_reinnervation_remodeling-the-motor-unit-trunk">4. <code>denervation_reinnervation_remodeling</code> — the motor unit trunk</h4>
+<p>Distinct from <code>peripheral_axonal_degeneration</code>, which models <em>length-dependent
+sensory-and-motor</em> distal axonopathy. This one models the motor unit as a unit:
+motor neuron or motor axon loss → NMJ denervation → collateral sprouting from
+surviving axons and reinnervation of orphaned fibers → motor unit enlargement
+with fiber-type grouping → eventual exhaustion of sprouting capacity →
+neurogenic atrophy and weakness.</p>
+<p>Ready conformers: <code>Postpoliomyelitis_Syndrome</code> (the paradigm case — decades of
+compensated reinnervation followed by late failure), <code>Progressive_Muscular_Atrophy</code>,
+<code>Monomelic_Amyotrophy</code>, <code>Spinal_Muscular_Atrophy</code>, <code>Kennedy_Disease</code>,
+<code>Amyotrophic_Lateral_Sclerosis</code>, <code>Madras_Motor_Neuron_Disease</code>.</p>
+<p>Fills the Mondo deck's motor-neuron section, which is currently a stub
+("Add content from discussion on 2026-08-13").</p>
+<h3 id="tier-2">Tier 2</h3>
+<h4 id="5-excitation_contraction_coupling_calcium_release">5. <code>excitation_contraction_coupling_calcium_release</code></h4>
+<p>RYR1 / CACNA1S / STAC3 defect at the triad → dysregulated sarcoplasmic reticulum
+Ca²⁺ release, with two branches: <strong>reduced or uncoupled release</strong> producing
+core formation and congenital weakness, and <strong>hypersensitive release</strong> under
+volatile anaesthetic or succinylcholine producing uncontrolled Ca²⁺ efflux,
+hypermetabolic crisis, and rhabdomyolysis.</p>
+<p>Ready conformers: <code>Central_Core_Myopathy</code>, <code>Multiminicore_Disease</code>,
+<code>Malignant_Hyperthermia_of_Anesthesia</code> — three entries that today share the same
+gene and none of the same graph. Carries the dantrolene <code>target_mechanisms</code>
+(<code>INHIBITS</code>) pattern on the Ca²⁺-release node.</p>
+<h4 id="6-rna_repeat_spliceopathy">6. <code>rna_repeat_spliceopathy</code></h4>
+<p>Expanded CUG (DM1) or CCUG (DM2) repeat transcribed but retained → nuclear
+ribonuclear foci → MBNL protein sequestration with reciprocal CELF1 stabilization
+→ reversion of alternative splicing to fetal patterns across dozens of
+transcripts → the multisystem DM phenotype, with individual features traceable to
+individual mis-splicing events (CLCN1 → myotonia, which links this module to
+module 3; INSR → insulin resistance; BIN1 → t-tubule disorganization).</p>
+<p>Ready conformers: <code>Myotonic_Dystrophy_Type_1</code>; DM2 is not yet in the KB.</p>
+<p>Distinct from <code>fame_pentanucleotide_repeat_rna_toxicity</code>, which is deliberately
+conservative about intronic TTTCA repeat RNA and makes no spliceopathy claim, and
+from <code>polyglutamine_expansion_proteotoxicity</code>, which acts at the protein level.</p>
+<h4 id="7-sarcomere_thin_filament_assembly">7. <code>sarcomere_thin_filament_assembly</code></h4>
+<p>Sarcomeric or Z-disk protein defect (ACTA1, NEB, TPM2/TPM3, TNNT1; DES, CRYAB;
+TTN) → impaired thin-filament or Z-disk assembly and stability → pathological
+protein aggregation (nemaline rods, myofibrillar inclusions) → reduced specific
+force → congenital hypotonia and weakness. A candidate <strong>Xogenesis</strong> module —
+nemaline rod bodies are a formed pathological structure with an MPATH/OGMS anchor.</p>
+<p>Ready conformers: <code>Nemaline_Myopathy</code>, <code>Myofibrillar_Myopathy</code>,
+<code>TTN_Related_Myopathy_Dominant_Negative_TTNsv</code>,
+<code>Distal_Myopathy_6_Adult-Onset_Autosomal_Dominant</code>.</p>
+<h4 id="8-immune_mediated_myofiber_injury">8. <code>immune_mediated_myofiber_injury</code></h4>
+<p>Three mechanistically distinct arms under one autoimmune-myopathy trunk, which is
+why the current lumping into "myositis" loses information:</p>
+<ul>
+<li><strong>dermatomyositis</strong> — type I interferon signature plus complement membrane-attack
+  complex on endomysial capillaries → capillary dropout → perifascicular atrophy
+  (a microangiopathy, not primarily a myofiber-directed attack)</li>
+<li><strong>polymyositis / inclusion body myositis</strong> — myofiber MHC class I upregulation →
+  CD8⁺ cytotoxic T cell invasion of non-necrotic fibers</li>
+<li><strong>immune-mediated necrotizing myopathy</strong> — anti-HMGCR or anti-SRP autoantibodies
+  → myofiber necrosis with sparse cellular infiltrate (includes statin-associated
+  autoimmune myopathy, which also makes this a treatment-toxicity module)</li>
+</ul>
+<p>Ready conformers: <code>Dermatomyositis</code>, <code>Polymyositis</code>, <code>Inclusion_Body_Myositis</code>
+(which already carries the degenerative arm via <code>cellular_senescence</code>).</p>
+<h4 id="9-muscle_energy_failure_rhabdomyolysis">9. <code>muscle_energy_failure_rhabdomyolysis</code></h4>
+<p>Block in glycogenolysis/glycolysis, fatty acid oxidation, or oxidative
+phosphorylation → ATP deficit under a <strong>workload pattern specific to the block</strong>
+(brief high-intensity for the glycogenoses; prolonged exertion, fasting, or
+illness for FAO defects) → failure of SERCA and Na⁺/K⁺-ATPase to maintain ionic
+gradients → Ca²⁺ dysregulation and myofiber necrosis → rhabdomyolysis,
+myoglobinuria, and pigment nephropathy.</p>
+<p>Ready conformers: <code>Glycogen_Storage_Disease_Type_V</code>,
+<code>Glycogen_Storage_Disease_Type_VII</code>,
+<code>Carnitine_Palmitoyltransferase_II_Deficiency</code>,
+<code>Neutral_Lipid_Storage_Myopathy</code>, <code>MSTO1-Related_Mitochondrial_Myopathy</code>.</p>
+<p>The workload-specificity is the mechanistically interesting part and is what
+distinguishes the two exercise-intolerance phenotypes clinically.</p>
+<h3 id="tier-3-proposed-decision-needed">Tier 3 — proposed, decision needed</h3>
+<ul>
+<li><strong><code>nuclear_envelope_mechanotransduction</code></strong> (LMNA/EMD). Real cross-system reach
+  (<code>Emery_Dreifuss_Muscular_Dystrophy</code>, <code>Familial_Partial_Lipodystrophy</code>,
+  <code>Dilated_Cardiomyopathy</code>), but the unifying mechanism across those tissues is
+  genuinely contested, which may make it premature.</li>
+<li><strong><code>dux4_reactivation</code></strong> (FSHD). D4Z4 contraction or SMCHD1 loss → chromatin
+  derepression → DUX4 expression in skeletal muscle → activation of an embryonic
+  transcriptional program → myotoxicity. Mechanistically clean and a paradigm of
+  epigenetic derepression, but currently one conformer
+  (<code>Facioscapulohumeral_Muscular_Dystrophy</code>); may be better as disease-level
+  curation until a second conformer exists.</li>
+<li><strong><code>alpha_dystroglycan_matriglycan_glycosylation</code></strong>. Probably <em>not</em> a separate
+  module: the muscle consequence is loss of laminin binding, i.e. exactly the
+  linkage failure that module 1 models, and the enzymology is already partly
+  served by <code>congenital_disorder_of_glycosylation</code>. Recommend modeling it as a
+  substitution branch inside <code>sarcolemmal_mechanical_fragility</code>.</li>
+<li><strong>SMN / snRNP assembly</strong>. Recommend <em>against</em> a module. A module should recur
+  across disorders; SMN deficiency is essentially one disease. Curate at the
+  <code>Spinal_Muscular_Atrophy</code> entry and route its muscle consequence through
+  module 4.</li>
+</ul>
+<h2 id="knowledge-gaps">Knowledge gaps</h2>
+<p>These are the places where the field does not have a settled answer, and where
+dismech's <code>mechanistic_hypotheses</code>, <code>KNOWLEDGE_GAP</code>, and <code>HUMAN_MODEL_MISMATCH</code>
+machinery is the right way to record the state of knowledge instead of picking a
+side.</p>
+<h3 id="1-dystrophin-mechanical-fragility-or-mechanotransduction">1. Dystrophin: mechanical fragility or mechanotransduction?</h3>
+<p>The textbook account is that dystrophin is a shock absorber and its loss makes
+the sarcolemma tear under eccentric contraction. The competing account is that
+the DGC is primarily a <strong>mechanotransduction and signaling hub</strong>, and that much
+of the pathology follows from disrupted signaling — notably nNOS mislocalization
+producing functional ischemia during exercise — rather than from frank membrane
+rupture (<a href="https://www.nature.com/articles/s42003-022-03980-y">Comms Biol 2022</a>).
+The distinction matters therapeutically: micro-dystrophin constructs that restore
+mechanical linkage but omit the nNOS-binding domain test the two accounts
+directly.</p>
+<p>→ Curate as competing <code>mechanistic_hypotheses</code> on
+<code>sarcolemmal_mechanical_fragility</code> (<code>mechanical_fragility_model</code> CANONICAL vs
+<code>mechanotransduction_signaling_model</code> ALTERNATIVE), with disease-level edges
+opting into groups.</p>
+<h3 id="2-als-dying-back-or-dying-forward">2. ALS: dying-back or dying-forward?</h3>
+<p>NMJ denervation is among the earliest detectable events in ALS, and 2025 work
+frames skeletal muscle as an <strong>active participant</strong> in degeneration rather than a
+passive target, with NMJ regenerative capacity as a therapeutic axis
+(<a href="https://www.biorxiv.org/content/10.1101/2025.07.13.664600v1.full">bioRxiv 2025</a>;
+<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12266013/">State of the Art 2025</a>).
+Whether the primary lesion is in the motor neuron soma with distal consequence,
+or at the periphery with retrograde consequence, is unresolved.</p>
+<p>→ <code>mechanistic_hypotheses</code> on <code>Amyotrophic_Lateral_Sclerosis</code> and on
+<code>denervation_reinnervation_remodeling</code>.</p>
+<h3 id="3-dm1-mbnl-sequestration-does-not-account-for-the-whole-phenotype">3. DM1: MBNL sequestration does not account for the whole phenotype</h3>
+<p>Mouse models reproduce substantially <strong>less</strong> splicing mis-regulation than is seen
+in DM1 patient brain, and additional mechanisms — mRNA translation, localization,
+and stability, repeat-associated non-AUG translation, CELF1 hyperphosphorylation
+— are implicated but not quantified.</p>
+<p>→ <code>HUMAN_MODEL_MISMATCH</code> discussion on <code>rna_repeat_spliceopathy</code>: evidence exists
+in the model, translational validity to the human CNS phenotype is the open
+question. This is precisely the distinction from a plain <code>KNOWLEDGE_GAP</code>.</p>
+<h3 id="4-selective-vulnerability-is-unexplained-across-the-whole-domain">4. Selective vulnerability is unexplained across the whole domain</h3>
+<p>Extraocular muscles are spared in Duchenne but preferentially targeted in
+myasthenia gravis and mitochondrial myopathy. Cranial motor units differ in
+vulnerability in ALS and SMA. There is a measurement trap here worth recording:
+in the most vulnerable muscles there is underlying <strong>loss of endplates</strong>, which
+can mask denervation on standard assays.</p>
+<p>→ <code>KNOWLEDGE_GAP</code> discussions with <code>proposed_experiments</code>; the endplate-loss
+caveat belongs in <code>limitations</code> on any model link that uses endplate occupancy as
+a readout.</p>
+<h3 id="5-the-safety-factor-is-a-model-system-quantity">5. The safety factor is a model-system quantity</h3>
+<p>Neuromuscular transmission safety factor is the organizing concept for the whole
+NMJ module, and it is measured in mouse and in intercostal biopsy — almost never
+in a living patient, where the surrogate is repetitive nerve stimulation decrement.
+The surrogate has not been validated against the underlying quantity across CMS
+subtypes.</p>
+<p>→ <code>KNOWLEDGE_GAP</code> on <code>neuromuscular_transmission_failure</code>, in the same spirit as
+the DTI-ALPS imaging-surrogate caveat in <code>glymphatic_dysfunction</code>.</p>
+<h3 id="6-post-therapy-natural-history-is-a-new-and-unmodeled-phenotype">6. Post-therapy natural history is a new and unmodeled phenotype</h3>
+<p>Nusinersen- and onasemnogene-treated SMA, and exon-skipping-treated Duchenne, are
+producing disease courses that no pre-therapy natural history describes. What
+residual deficit remains, and which compartment it lives in, is open.</p>
+<p>→ Worth an explicit <code>KNOWLEDGE_GAP</code> rather than silently curating pre-therapy
+natural history as if it still applied.</p>
+<h3 id="7-nmj-aging-and-neuromuscular-disease-converge">7. NMJ aging and neuromuscular disease converge</h3>
+<p>The NMJ is a shared vulnerability of aging and disease, and biomarkers are
+crossing over — neurofilament light is elevated in severe sarcopenia as well as in
+motor neuron disease. This is a candidate link between this project and the
+existing aging modules (<code>inflammaging</code>, <code>stem_cell_exhaustion</code>,
+<code>cellular_senescence</code>).</p>
+<h3 id="8-entry-level-gaps-in-the-knowledge-base">8. Entry-level gaps in the knowledge base</h3>
+<p>Missing entries that would each unlock a module conformer:</p>
+<table>
+<thead>
+<tr>
+<th>Missing entry</th>
+<th>Would conform to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lambert-Eaton myasthenic syndrome</td>
+<td><code>neuromuscular_transmission_failure</code> (presynaptic autoimmune arm)</td>
+</tr>
+<tr>
+<td>Myotonic dystrophy type 2</td>
+<td><code>rna_repeat_spliceopathy</code> (CCUG arm)</td>
+</tr>
+<tr>
+<td>Immune-mediated necrotizing myopathy / statin-associated</td>
+<td><code>immune_mediated_myofiber_injury</code></td>
+</tr>
+<tr>
+<td>Paramyotonia congenita, hyperkalemic periodic paralysis</td>
+<td><code>sarcolemmal_excitability_channelopathy</code></td>
+</tr>
+<tr>
+<td>Sarcoglycanopathies, dysferlinopathy (LGMD R subtypes)</td>
+<td><code>sarcolemmal_mechanical_fragility</code></td>
+</tr>
+<tr>
+<td>Critical illness myopathy</td>
+<td><code>denervation_reinnervation_remodeling</code> + acquired arm</td>
+</tr>
+</tbody>
+</table>
+<h3 id="9-ontology-side-gaps-carried-over-from-the-mondo-workshop">9. Ontology-side gaps carried over from the Mondo workshop</h3>
+<p>Recorded here because they constrain what dismech can bind to, not because this
+project owns them:</p>
+<ul>
+<li>No Mondo term for <strong>toxin-induced neuromuscular junction disease</strong> (proposed in
+  the workshop deck to cover botulism, tetanus, tick paralysis, and envenomation).</li>
+<li>No Mondo terms for CMS associated with <strong>UNC13A, RPH3A, LAMA5, MACF1, GMPPB</strong>.</li>
+<li>No <strong><code>acquired neuromuscular disease</code></strong> counterpart to
+  <code>hereditary neuromuscular disease</code> (MONDO:0100546); the workshop flags that
+  there is no semantic basis on which to maintain such a class.</li>
+<li><code>atrophic muscular disease</code> (MONDO:0004714) and <code>muscular channelopathy</code>
+  (MONDO:0019119) are proposed to move under <code>myopathy</code>, and <code>myopathy</code>
+  (MONDO:0005336) to become a direct child of <code>neuromuscular disease</code>.</li>
+</ul>
+<h2 id="proposed-groupings">Proposed groupings</h2>
+<p><code>kb/groupings/</code> currently holds <code>Motor_Neuron_Disorders</code> and
+<code>Charcot-Marie-Tooth_Diseases</code> for this domain. Candidates to add, each with a
+<code>CONFORMS_TO_MODULE</code> necessary criterion once the corresponding module exists:</p>
+<ul>
+<li><code>Muscular_Dystrophies</code> → <code>sarcolemmal_mechanical_fragility</code></li>
+<li><code>Congenital_Myopathies</code> → <code>sarcomere_thin_filament_assembly</code> /
+  <code>excitation_contraction_coupling_calcium_release</code></li>
+<li><code>Skeletal_Muscle_Channelopathies</code> → <code>sarcolemmal_excitability_channelopathy</code></li>
+<li><code>Neuromuscular_Junction_Disorders</code> → <code>neuromuscular_transmission_failure</code></li>
+<li><code>Idiopathic_Inflammatory_Myopathies</code> → <code>immune_mediated_myofiber_injury</code></li>
+</ul>
+<h2 id="worklist">Worklist</h2>
+<ul>
+<li>[ ] Create <code>sarcolemmal_mechanical_fragility</code> module with competing mechanical /
+      mechanotransduction hypotheses</li>
+<li>[ ] Create <code>neuromuscular_transmission_failure</code> module with the three etiologic
+      arms and the safety-factor knowledge gap</li>
+<li>[ ] Create <code>sarcolemmal_excitability_channelopathy</code> module</li>
+<li>[ ] Create <code>denervation_reinnervation_remodeling</code> module</li>
+<li>[ ] Wire <code>Duchenne_Muscular_Dystrophy</code>, <code>Myasthenia_Gravis</code>,
+      <code>Congenital_Myasthenic_Syndrome</code>, <code>Thomsen_and_Becker_disease</code>, and
+      <code>Postpoliomyelitis_Syndrome</code> as the first conformers, one per Tier 1 module</li>
+<li>[ ] Create <code>excitation_contraction_coupling_calcium_release</code> and wire the three
+      RYR1 entries</li>
+<li>[ ] Create <code>rna_repeat_spliceopathy</code> with the DM1 <code>HUMAN_MODEL_MISMATCH</code></li>
+<li>[ ] Create <code>sarcomere_thin_filament_assembly</code> (evaluate Xogenesis anchor for
+      nemaline rods)</li>
+<li>[ ] Create <code>immune_mediated_myofiber_injury</code> with the three-arm split</li>
+<li>[ ] Create <code>muscle_energy_failure_rhabdomyolysis</code></li>
+<li>[ ] Decide Tier 3: laminopathy, DUX4, matriglycan-as-branch</li>
+<li>[ ] Add the six missing disorder entries listed under knowledge gap 8</li>
+<li>[ ] Add the five proposed groupings</li>
+</ul>
+        </article>
+    </div>
+</body>
+</html>
