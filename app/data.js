@@ -78351,6 +78351,129 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Cesium Poisoning",
+    "disease_id": "MONDO:0800384",
+    "category": "Environmental",
+    "parents": [
+      "poisoning"
+    ],
+    "creation_date": "2026-10-06T21:33:56Z",
+    "updated_date": null,
+    "subtypes": [
+      "Stable Cesium Salt Poisoning",
+      "Internal Radioactive Cesium Contamination"
+    ],
+    "description": "Cesium poisoning is an acquired toxic disorder caused by exposure to the alkali metal cesium. Two clinically distinct forms share the identifier. Chemical poisoning with non-radioactive cesium salts, most often cesium chloride taken as an unproven alternative cancer therapy, is dominated by cardiac toxicity: absorbed cesium mimics potassium, blocks cardiac and renal potassium channels, and produces hypokalemia with prolonged ventricular repolarization that can degenerate into torsade de pointes and cardiac arrest. Internal contamination with radioactive cesium, principally cesium-137 released from damaged medical or industrial sources, instead delivers continuing internal irradiation and, at sufficient absorbed dose, hematopoietic injury. The two forms differ in mechanism, assessment, and treatment, and their clinical statistics should not be pooled.",
+    "pathophysiology": [
+      "Gastrointestinal absorption of ingested cesium salts",
+      "Systemic distribution of cesium as a potassium analog",
+      "Myocardial delayed rectifier potassium channel blockade",
+      "Renal inward rectifier potassium channel blockade",
+      "Renal potassium wasting",
+      "Systemic potassium depletion",
+      "Prolonged ventricular repolarization",
+      "Triggered ventricular arrhythmia",
+      "Cardiac pacemaker HCN channel inhibition",
+      "Neuronal membrane potential instability",
+      "Internal radiocesium retention and continuing irradiation",
+      "Hematopoietic marrow suppression"
+    ],
+    "cell_types": [
+      "enterocyte",
+      "cardiac muscle cell",
+      "kidney collecting duct principal cell",
+      "neuron",
+      "hematopoietic stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000584",
+      "CL:0000746",
+      "CL:1001431",
+      "CL:0000540",
+      "CL:0000037"
+    ],
+    "biological_processes": [
+      "potassium ion transmembrane transport",
+      "potassium ion homeostasis",
+      "renal potassium excretion",
+      "membrane repolarization during cardiac muscle cell action potential",
+      "regulation of heart rate by cardiac conduction",
+      "regulation of membrane potential",
+      "response to ionizing radiation",
+      "DNA damage response"
+    ],
+    "phenotypes": [
+      "Prolonged QT interval",
+      "Torsade de pointes",
+      "Ventricular tachycardia",
+      "Cardiac arrest",
+      "Syncope",
+      "Hypokalemia",
+      "Sinus bradycardia",
+      "Seizure",
+      "Nausea",
+      "Paresthesia",
+      "Diarrhea",
+      "Decreased total neutrophil count",
+      "Thrombocytopenia"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Cardiovascular",
+      "Neurologic",
+      "Gastrointestinal",
+      "Hematologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Immune",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001657",
+      "HP:0001664",
+      "HP:0004756",
+      "HP:0001695",
+      "HP:0001279",
+      "HP:0002900",
+      "HP:0001688",
+      "HP:0001250",
+      "HP:0002018",
+      "HP:0003401",
+      "HP:0002014",
+      "HP:0001875",
+      "HP:0001873"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Cessation of cesium exposure",
+      "Potassium and magnesium repletion",
+      "Amiloride for cesium-associated renal potassium wasting",
+      "Prussian blue for internal radioactive cesium contamination",
+      "Continuous cardiac monitoring and antiarrhythmic management"
+    ],
+    "environmental": [
+      "Oral self-administration of cesium chloride as alternative cancer therapy",
+      "Internal contamination from a damaged radioactive cesium source"
+    ],
+    "biochemical": [
+      "Serum potassium concentration",
+      "Blood and urine cesium concentration"
+    ],
+    "source_file": "Cesium_Poisoning.yaml",
+    "page_url": "../pages/disorders/Cesium_Poisoning.html",
+    "num_phenotypes": 13,
+    "num_pathophysiology": 12,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Chagas disease",
     "disease_id": "MONDO:0001444",
     "category": "Infectious Disease",
@@ -138897,7 +139020,8 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "FANCA",
@@ -219295,13 +219419,15 @@ window.searchData = [
       "Hypnozoite persistence and vivax relapse",
       "Reduced K13 Abundance and Hemoglobin Endocytosis",
       "Raised Baseline Parasite Stress Response",
-      "Artemisinin Partial Resistance"
+      "Artemisinin Partial Resistance",
+      "Placental Sequestration via VAR2CSA-CSA Binding"
     ],
     "cell_types": [
       "erythrocyte",
       "endothelial cell",
       "T cell",
-      "macrophage"
+      "macrophage",
+      "infected erythrocyte"
     ],
     "cell_type_ids": [
       "CL:0000232",
@@ -219377,7 +219503,7 @@ window.searchData = [
     "source_file": "Malaria.yaml",
     "page_url": "../pages/disorders/Malaria.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 10,
+    "num_pathophysiology": 11,
     "num_genes": 7,
     "num_treatments": 6,
     "causal_graph_edges": "8",
@@ -317382,19 +317508,23 @@ window.searchData = [
     "biological_processes": [],
     "phenotypes": [
       "Anemia",
-      "Rectal Prolapse"
+      "Rectal Prolapse",
+      "Growth delay"
     ],
     "phenotype_categories": [
       "Hematologic",
-      "Gastrointestinal"
+      "Gastrointestinal",
+      "Growth"
     ],
     "phenotype_hpo_categories": [
       "Blood",
-      "Digestive"
+      "Digestive",
+      "Growth"
     ],
     "phenotype_ids": [
       "HP:0001903",
-      "HP:0002035"
+      "HP:0002035",
+      "HP:0001510"
     ],
     "frequencies": [],
     "genes": [],
@@ -317405,11 +317535,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Soil_Transmitted_Helminthiases.yaml",
     "page_url": "../pages/disorders/Soil-transmitted_helminthiases.html",
-    "num_phenotypes": 2,
+    "num_phenotypes": 3,
     "num_pathophysiology": 4,
     "num_genes": 0,
     "num_treatments": 1,
-    "causal_graph_edges": "3",
+    "causal_graph_edges": "4",
     "causal_graph_longest_path": "3"
   },
   {
@@ -356895,17 +357025,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3309,
-  "total_subtypes": 4627,
-  "total_disorders_and_subtypes": 7936,
-  "total_unique_evidence_sources": 49703,
-  "total_unique_publications": 46331,
+  "total_disorder_pages": 3310,
+  "total_subtypes": 4629,
+  "total_disorders_and_subtypes": 7939,
+  "total_unique_evidence_sources": 49724,
+  "total_unique_publications": 46352,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3305,
-  "total_unique_pathological_events": 21823,
+  "total_pathographs": 3306,
+  "total_unique_pathological_events": 21835,
   "total_modules": 189,
-  "total_research_reports": 3425,
+  "total_research_reports": 3426,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
