@@ -207071,6 +207071,145 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Legg-Calve-Perthes Disease",
+    "disease_id": "MONDO:0007885",
+    "category": "Complex",
+    "parents": [
+      "Osteochondrosis",
+      "Skeletal Disorder"
+    ],
+    "creation_date": "2026-10-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Legg-Calve-Perthes disease is idiopathic ischemic osteonecrosis of the capital femoral epiphysis in a growing child, with peak onset between 4 and 8 years of age and a marked male predominance. Interruption of the precarious blood supply to the epiphysis kills the chondrocytes of the epiphyseal cartilage and the bone and marrow of the secondary ossification centre and injures the proximal femoral growth plate. Necrotic tissue releases damage-associated molecular patterns that drive a chronic hip synovitis and bias repair toward inflammation and osteoclastic resorption, so the revascularizing femoral head passes through a resorption-dominant fragmentation phase in which it is mechanically weakest while still bearing load. Subchondral fracture and collapse during that phase determine the residual deformity at skeletal maturity, and the degree of femoral head asphericity and incongruency determines the risk of premature secondary osteoarthritis. The disease is self-limited over roughly two to five years through the Waldenstrom stages of necrosis, fragmentation, reossification and healing; treatment is directed at containment and unloading of the femoral head during the vulnerable phase rather than at the initiating ischemia, whose cause remains undetermined. Thrombophilic variants, secondhand tobacco smoke exposure and childhood socioeconomic deprivation are associated risk factors, and a rare autosomal dominant COL2A1 type II collagenopathy phenocopies the disorder in familial cases.\n",
+    "pathophysiology": [
+      "Interruption of the Capital Femoral Epiphyseal Blood Supply",
+      "Thrombophilic Predisposition to Epiphyseal Vascular Occlusion",
+      "Epiphyseal Cartilage-Canal Ischemic Chondronecrosis",
+      "Ischemic Necrosis of the Secondary Ossification Centre",
+      "Proximal Femoral Growth Plate Injury and Delayed Endochondral Ossification",
+      "Necrotic-Bone DAMP Release and Chronic Hip Synovitis",
+      "Resorption-Dominant Revascularization and Fragmentation of the Femoral Head",
+      "Subchondral Fracture and Collapse of the Mechanically Weakened Femoral Head",
+      "Residual Femoral Head Deformity and Secondary Osteoarthritis",
+      "Heritable Type II Collagen Defect in Familial Perthes Disease"
+    ],
+    "cell_types": [
+      "epiphyseal vascular endothelial cell",
+      "epiphyseal growth cartilage chondrocyte",
+      "cartilage-canal endothelial cell",
+      "osteocyte",
+      "growth plate cartilage chondrocyte",
+      "macrophage",
+      "bone marrow mesenchymal stem cell",
+      "articular chondrocyte (synovial IL-6 source)",
+      "osteoclast",
+      "osteoblast",
+      "invading vascular endothelial cell",
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000115",
+      "CL:0000138",
+      "CL:0000137",
+      "CL:1000217",
+      "CL:0000235",
+      "CL:0000134",
+      "CL:0000092",
+      "CL:0000062"
+    ],
+    "biological_processes": [
+      "response to ischemia",
+      "epiphyseal angiogenesis",
+      "hypercoagulable state (blood coagulation)",
+      "chondrocyte death",
+      "osteocyte and marrow cell death",
+      "response to hypoxia",
+      "endochondral ossification",
+      "inflammatory response",
+      "osteoblast differentiation",
+      "osteoclast differentiation",
+      "sprouting angiogenesis into the necrotic epiphysis",
+      "bone resorption",
+      "new bone formation during repair",
+      "bone remodeling",
+      "response to mechanical loading of the hip",
+      "collagen fibril organization"
+    ],
+    "phenotypes": [
+      "Hip Pain",
+      "Antalgic Limp",
+      "Limited Hip Abduction and Internal Rotation",
+      "Chronic Hip Synovitis",
+      "Avascular Necrosis of the Capital Femoral Epiphysis",
+      "Fragmented and Flattened Femoral Epiphysis",
+      "Coxa Plana (Flattened Femoral Head at Maturity)",
+      "Coxa Magna",
+      "Coxa Breva and Proximal Femoral Growth Disturbance",
+      "Lower Limb Length Discrepancy",
+      "Delayed Skeletal Maturation",
+      "Premature Osteoarthritis of the Hip"
+    ],
+    "phenotype_categories": [
+      "Clinical",
+      "Radiographic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Growth",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0030838",
+      "HP:0031955",
+      "HP:0003184",
+      "HP:0100769",
+      "HP:0005743",
+      "HP:0005063",
+      "HP:0008812",
+      "HP:0003279",
+      "HP:0100864",
+      "HP:0100559",
+      "HP:0002750",
+      "HP:0003088"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL2A1",
+      "F5 (Factor V Leiden)",
+      "F2 (Prothrombin G20210A)",
+      "IL6 (rs1800795)",
+      "TNFRSF11B (OPG rs2073618)",
+      "IL23R (rs1569922)"
+    ],
+    "treatments": [
+      "Observation, Activity Restriction and Range-of-Motion Physiotherapy",
+      "Abduction Orthosis Bracing",
+      "Proximal Femoral Varus Osteotomy",
+      "Salter Innominate (Pelvic) Osteotomy",
+      "Shelf Acetabuloplasty",
+      "Antiresorptive Therapy (Bisphosphonate or RANKL Inhibition; Investigational)",
+      "Total Hip Arthroplasty for End-Stage Secondary Osteoarthritis"
+    ],
+    "environmental": [
+      "Household Secondhand Tobacco Smoke Exposure",
+      "Childhood Socioeconomic Deprivation"
+    ],
+    "biochemical": [
+      "Serum 25-hydroxyvitamin D"
+    ],
+    "source_file": "Legg-Calve-Perthes_Disease.yaml",
+    "page_url": "../pages/disorders/Legg-Calve-Perthes_Disease.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 10,
+    "num_genes": 6,
+    "num_treatments": 7,
+    "causal_graph_edges": "44",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Legionnaires Disease",
     "disease_id": "MONDO:0005824",
     "category": "Infectious Disease",
@@ -212679,7 +212818,11 @@ window.searchData = [
     ],
     "creation_date": "2026-01-26T03:01:01Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Bancroftian",
+      "B. malayi",
+      "B. timori"
+    ],
     "description": "Lymphatic filariasis is a mosquito-borne nematode infection in which adult filarial worms inhabit lymphatic vessels, causing lymphatic dysfunction and chronic morbidity including lymphedema and hydrocele.",
     "pathophysiology": [
       "Lymphatic vessel blockage and dysfunction",
@@ -219149,7 +219292,10 @@ window.searchData = [
       "Cerebrovascular CD8-positive T-cell engagement",
       "ABO-dependent rosetting and severe malaria risk",
       "Bystander Destruction of Uninfected Erythrocytes in Severe Malarial Anemia",
-      "Hypnozoite persistence and vivax relapse"
+      "Hypnozoite persistence and vivax relapse",
+      "Reduced K13 Abundance and Hemoglobin Endocytosis",
+      "Raised Baseline Parasite Stress Response",
+      "Artemisinin Partial Resistance"
     ],
     "cell_types": [
       "erythrocyte",
@@ -219166,7 +219312,9 @@ window.searchData = [
     "biological_processes": [
       "cell adhesion",
       "inflammatory response",
-      "phagocytosis"
+      "phagocytosis",
+      "endocytosis",
+      "cellular response to stress"
     ],
     "phenotypes": [
       "Fever",
@@ -219229,10 +219377,10 @@ window.searchData = [
     "source_file": "Malaria.yaml",
     "page_url": "../pages/disorders/Malaria.html",
     "num_phenotypes": 10,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 10,
     "num_genes": 7,
     "num_treatments": 6,
-    "causal_graph_edges": "6",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "2"
   },
   {
@@ -251615,7 +251763,11 @@ window.searchData = [
     ],
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "MAC",
+      "M. abscessus",
+      "M. kansasii"
+    ],
     "description": "Nontuberculous mycobacterial (NTM) lung disease is a chronic pulmonary infection caused by environmental mycobacteria other than the Mycobacterium tuberculosis complex and M. leprae, most commonly Mycobacterium avium complex (MAC), and also M. kansasii and the rapidly growing M. abscessus. NTM are ubiquitous in water and soil and are acquired by inhalation of aerosols; disease develops preferentially in hosts with structural lung disease (bronchiectasis, COPD, cystic fibrosis) or impaired immunity, and in slender postmenopausal women without recognized immunodeficiency. It presents insidiously with chronic cough, sputum, fatigue, and weight loss, and follows nodular-bronchiectatic or fibrocavitary radiographic patterns. Cure is difficult and requires prolonged multidrug macrolide-based regimens.",
     "pathophysiology": [
       "Environmental NTM Exposure and Aerosol Inhalation",
@@ -257380,7 +257532,6 @@ window.searchData = [
       "Cartilage-Canal Ischemic Chondronecrosis",
       "Delayed Endochondral Ossification and Necrotic Fragmentation",
       "Revascularization and Remodeling under Mechanical Load",
-      "Heritable Type II Collagen Defect in Familial Perthes Disease",
       "Aggrecan G3-Domain Defect in Familial Osteochondritis Dissecans",
       "Repetitive Traction Apophysitis",
       "Apophyseal Pain, Prominence, and Fragmentation",
@@ -257403,7 +257554,6 @@ window.searchData = [
       "Bone resorption",
       "Sprouting angiogenesis",
       "Bone remodeling",
-      "collagen fibril organization",
       "extracellular matrix organization",
       "Response to mechanical stimulus (tendon traction)",
       "Endochondral ossification (secondary ossification center)",
@@ -257411,8 +257561,6 @@ window.searchData = [
       "Response to mechanical stimulus (compressive loading)"
     ],
     "phenotypes": [
-      "Hip Pain and Limp",
-      "Avascular Necrosis of the Capital Femoral Epiphysis",
       "Anterior Knee Pain over the Tibial Tuberosity",
       "Heel Pain",
       "Second Metatarsal Head Forefoot Pain",
@@ -257427,12 +257575,9 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
-      "Limbs",
       "Musculoskeletal"
     ],
     "phenotype_ids": [
-      "HP:0030838",
-      "HP:0005743",
       "HP:0030839",
       "HP:0025238",
       "HP:0002808",
@@ -257442,30 +257587,25 @@ window.searchData = [
     ],
     "frequencies": [],
     "genes": [
-      "COL2A1",
-      "F5 (Factor V Leiden)",
-      "F2 (Prothrombin G20210A)",
       "ACAN"
     ],
     "treatments": [
       "Activity Modification and Relative Rest",
-      "Femoral Head Containment (Bracing or Osteotomy)",
       "Surgical Excision, Fixation, or Retroarticular Drilling",
       "Thoracolumbosacral Orthosis Bracing"
     ],
     "environmental": [
-      "Secondhand Tobacco Smoke Exposure",
       "Repetitive Sports-Related Mechanical Loading",
       "Childhood Obesity"
     ],
     "biochemical": [],
     "source_file": "Osteochondrosis.yaml",
     "page_url": "../pages/disorders/Osteochondrosis.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 9,
-    "num_genes": 4,
-    "num_treatments": 4,
-    "causal_graph_edges": "19",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -295447,7 +295587,9 @@ window.searchData = [
     ],
     "creation_date": "2026-06-25T12:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "RV-C"
+    ],
     "description": "Rhinovirus infection is an acute respiratory infection caused by human rhinoviruses (HRV; genus Enterovirus, family Picornaviridae; groups A, B, and C). HRV is the most common cause of the common cold, responsible for more than half of cold-like illnesses, and infects the respiratory epithelium after binding host receptors (major-group HRV uses ICAM-1; minor-group uses LDL-receptor family members; HRV-C uses CDHR3). Although traditionally regarded as an upper respiratory tract pathogen, HRV is now recognized as an important lower respiratory tract pathogen, particularly in people with asthma, infants, the elderly, and immunocompromised hosts. Wheezing rhinovirus illnesses in early life are among the strongest predictors of subsequent childhood asthma, and HRV is the most frequent viral trigger of asthma and COPD exacerbations.\n",
     "pathophysiology": [
       "Airway Epithelial Infection and Innate Immune Response"
@@ -337949,7 +338091,11 @@ window.searchData = [
     ],
     "creation_date": "2025-12-19T01:18:09Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "ETEC",
+      "EAEC",
+      "EPEC"
+    ],
     "description": "Traveler's diarrhea is an acute infectious gastrointestinal syndrome acquired during or soon after travel, usually through ingestion of food or water contaminated with fecal pathogens. It is etiologically heterogeneous: diarrheagenic Escherichia coli pathotypes, Campylobacter, Shigella, Salmonella, norovirus, and protozoa contribute in proportions that vary by destination and diagnostic method. Most illness is self-limited diarrhea, but fever, bloody diarrhea, dehydration, and persistent postinfectious symptoms can occur. The mechanistic graph below uses enterotoxigenic E. coli (ETEC) as a well-supported exemplar of noninvasive secretory disease rather than as a mechanism shared by every cause of the syndrome.",
     "pathophysiology": [
       "ETEC colonization-factor adhesion to small-intestinal enterocytes",
@@ -356749,17 +356895,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3308,
-  "total_subtypes": 4617,
-  "total_disorders_and_subtypes": 7925,
-  "total_unique_evidence_sources": 49639,
-  "total_unique_publications": 46270,
+  "total_disorder_pages": 3309,
+  "total_subtypes": 4627,
+  "total_disorders_and_subtypes": 7936,
+  "total_unique_evidence_sources": 49703,
+  "total_unique_publications": 46331,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3304,
-  "total_unique_pathological_events": 21811,
+  "total_pathographs": 3305,
+  "total_unique_pathological_events": 21823,
   "total_modules": 189,
-  "total_research_reports": 3424,
+  "total_research_reports": 3425,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
