@@ -2048,6 +2048,18 @@ slot; `LoincCode`, a `Term` subclass with `id` pattern
 and no binding — and the first checked sweep found two wrong labels in 21
 files among the bound slots, plus two more in unbound `mappings_list` terms.
 
+**`reachable_from` on the LOINC root was considered and measured, not
+assumed.** The KG has a root, `LOINC:lc0000001`, but at 2026-10-06 only
+13,627 of 107,791 LOINC nodes carry any `subclass_of` edge; 94,164 have none
+(whole instrument families, such as the PROMIS items, among them), and 10,547
+of the connected ones hang directly off the root. A root closure would reject
+87% of real codes. If a later KG release connects every code — LOINC's own
+multiaxial hierarchy could, for laboratory codes — switching the enum is a
+one-line change with no data migration, but the `monarch:` adapter would
+first need to map `biolink:subclass_of` to `rdfs:subClassOf` in
+`relationships()`, since OAK's ancestor walk filters on the latter and today
+matches nothing.
+
 **Sequencing.** The pinned oaklib cannot serve LOINC labels (its adapter reads
 `symbol`, which only genes populate; fixed in
 [INCATools/ontology-access-kit#920](https://github.com/INCATools/ontology-access-kit/pull/920)).

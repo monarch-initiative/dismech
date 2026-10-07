@@ -11,9 +11,8 @@ the thing worth gating is that every class carrying a LOINC code still induces
 one.
 """
 
-from pathlib import Path
-
 import csv
+from pathlib import Path
 
 import pytest
 from linkml_runtime.utils.schemaview import SchemaView
