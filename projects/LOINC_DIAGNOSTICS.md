@@ -28,17 +28,35 @@ to a phenotype class ("potassium high → Hyperkalemia", the loinc2hpo relation)
 That is a property of the test, not of any disease; it does not fit the
 evidence policy (there is no paper to quote for a definition), and its
 consumers are EHR pipelines and the Monarch KG rather than dismech. dismech's
-only role there is a gap report feeding whoever maintains that mapping. See
-the decision register entry recorded under this project.
+only role there is a gap report feeding whoever maintains that mapping. The
+decision is recorded as §16 of `docs/explanation/design-decisions.md`, which
+lands with the Phase 1 schema PR (#13636); §12 keeps a row for the LOINC homes
+that remain unbound after it.
 
 ### Where the content lands
 
-| Relation | Slot | State at project start |
+| Relation | Slot | State at scoping (`main`, 2026-10-06) |
 |---|---|---|
-| diagnostic test for | `diagnosis[].measurements` (new) beside the NCIT `diagnosis_term` — the "thing" beside the "action", as `therapeutic_agent` is to `treatment_term` | 2,368 entries carry `diagnosis:`; the observables sit in free-text `markers` |
-| biomarker measured in | `biochemical[].loinc_term` (hoisted from inside `reference_ranges`) | 29 files, 68 bindings, all inside a reference interval |
+| diagnostic test for | `diagnosis[].measurements` (new) beside the NCIT `diagnosis_term` — the "thing" beside the "action", as `therapeutic_agent` is to `treatment_term` | 2,413 entries carry `diagnosis:` (6,110 rows); the observables sit in free-text `markers` (129 uses, 57 packing several analytes — #10046) |
+| biomarker measured in | `biochemical[].loinc_term` (new; `loinc_term` existed only on `ReferenceRange`) | 54 `loinc_term` blocks in 20 files, all inside a `reference_ranges` interval; **21 more LOINC CURIEs in `biochemical[].mappings_list` (3 files) and 2 in `biochemical[].biomarker_term` (1 file, a slot documented as NCIT-only)** |
 | threshold / severity bands | `diagnosis[].reference_ranges` (new) and `biochemical[].reference_ranges` | bands exist only on biochemical markers |
 | staged / scored by | instrument codes on the relevant `diagnosis` row, with bands | no code slot |
+
+Counts in this file are dated and come from a parse of `kb/` with
+`dismech.kb_cache` (a `term`/`loinc_term` dict whose `id` starts with
+`LOINC:`, classified by its parent slot); `grep -rn -B1 'id: LOINC:' kb`
+reproduces the LOINC ones. They drift with every merge; read them as the
+scoping snapshot, not as live state.
+
+**One marker-level LOINC home, not two.** `Biochemical.loinc_term` is the
+identity of the measurement that quantifies a marker. `mappings_list` is the
+`ModelVariableDescriptor` crosswalk — a multi-ontology slot (LOINC, CHEBI, HP)
+for tying a *computational-model variable* to external identifiers — and it
+has been carrying LOINC as marker identity only because nothing else could.
+After Phase 1, a marker's LOINC identity lives in `loinc_term`; a
+`mappings_list` LOINC entry stays only where the marker genuinely is a model
+variable's mapping (the CKD-MBD extension-model species are the case). The two
+`biomarker_term` codes move to `loinc_term`; `biomarker_term` is NCIT.
 
 Identity is bound at the **LOINC Part or panel level** (`LOINC:LP…`, or the
 panel/total-score code for an instrument). Method- and specimen-specific codes
@@ -61,12 +79,36 @@ the KG serves as `name` and what existing bindings already use.
 The API serves the last KG release, so a code loaded into the KG is not
 validatable until the next release. A miss on a real code is lag, not absence.
 
+**Why `LoincTerm` has no `reachable_from`, measured.** The KG has a LOINC
+root, `LOINC:lc0000001`, but at 2026-10-06 only 13,627 of 107,791 LOINC nodes
+carry any `subclass_of` edge; 94,164 — including whole instrument families
+such as the PROMIS items — have none, and 10,547 of the connected ones hang
+directly off the root. A `reachable_from` closure would reject 87% of real
+codes. The vocabulary is pinned instead by `LoincCode`, a `Term` subclass whose
+`id` must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$` (enforced by `linkml-validate`),
+with existence and label from the adapter. If a later KG release connects
+every code to the root, switching the enum to `reachable_from` is a one-line
+change with no data migration — but OAK's `monarch:` adapter would first need
+to map `biolink:subclass_of` to `rdfs:subClassOf` in `relationships()`, since
+today its ancestor walk matches nothing and wanders every `related_to` edge.
+
 ## Phases
 
 ### Phase 0 — unblock validation
 
 - [ ] oaklib: `monarch:` adapter reads labels from `name` (INCATools/ontology-access-kit#920); release
-- [ ] dismech: bump the oaklib pin; add `LOINC: monarch:` to `conf/oak_config.yaml` with a note on release lag
+- [ ] dismech: bump the oaklib pin; add `LOINC: "monarch:"` (quoted — a bare `monarch:` is a YAML scanner error) to `conf/oak_config.yaml` with a note on release lag; delete `scripts/seed_loinc_cache.sh` and the `loinc-seed-cache` recipe
+
+Curation does not wait on this phase. Cache-first validation works for a
+prefix that is not yet routed, so a curation PR that commits its own rows in
+`cache/loinc/terms.csv` is green on `main` today. `just loinc-seed-cache
+<files>` (#13636) produces those rows by overlaying the #920 adapter in an
+ephemeral environment and writing what the validator returns; nothing types a
+label. Tranches that need only existing slots (`reference_ranges.loinc_term`
+with bands — A, C, D, I, M and the biochemical half of G) can start on `main`
+now; tranches that need `Diagnosis.measurements` (B, E, F, P, Q) are drafted on
+branches based on the schema branch and opened against `main` once #13636
+merges — additive schema, so the rebase is a no-op.
 
 ### Phase 1 — schema (one PR, via `extend-schema`)
 
@@ -74,12 +116,14 @@ validatable until the next release. A miss on a real code is lag, not absence.
 - [ ] retype `loinc_term` from `Term` to `MeasurementDescriptor`; migrate the 68 existing bindings
 - [ ] `Diagnosis.measurements` (multivalued) and `Diagnosis.reference_ranges`
 - [ ] `Biochemical.loinc_term`, leaving the range-level slot for the interval itself
-- [ ] decision-register §12 entry: loinc2mondo in dismech; loinc2hpo out of scope; Part-level identity convention
-- [ ] `just validate-terms` over the files carrying LOINC codes — the first run that actually checks them — and fix what it finds
+- [ ] `LoincCode`: a `Term` subclass whose `id` must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$`, so a real NCIT term cannot pass in a LOINC slot (the binding resolves a CURIE through the adapter for its *own* prefix)
+- [ ] decision-register §16: loinc2mondo in dismech; loinc2hpo out of scope; Part-level identity convention; §12 row for the unbound homes
+- [ ] first validated sweep over the files carrying LOINC codes, fix what it finds, seed `cache/loinc/terms.csv` (done in #13636: 21 files, 43 codes, 2 labels wrong in bound slots, 2 more in `mappings_list`)
+- [ ] **follow-up after #13636 merges:** migrate the 21 `mappings_list` LOINC entries — add `loinc_term` on each marker; keep the `mappings_list` row only where the marker is a model-variable mapping — and move the 2 `biomarker_term` LOINC codes in `Isolated_Thyroid-stimulating_Hormone_Deficiency` to `loinc_term`. Until then those 23 codes are unchecked by every gate; two of the `mappings_list` labels were already found wrong by hand and fixed in #13636.
 
 ### Phase 2 — tooling (report-only, never autofill)
 
-- [ ] `just list-diagnosis-markers`: free-text `Diagnosis.markers` strings → candidate LOINC Parts via Monarch search, as a worklist
+- [ ] `just list-diagnosis-markers`: free-text `Diagnosis.markers` strings → candidate LOINC Parts via Monarch search, as a worklist. Search recall is incomplete — at scoping, `Hexosaminidase`, `QTc` and `HLA-B*57:01` returned nothing although LOINC has codes for at least the first — so an empty candidate list means "search found nothing", never "LOINC has nothing"; the exact-lookup routes are the `/entity/LOINC:<code>` endpoint and the KG duckdb
 - [ ] `just list-lab-phenotype-gaps`: lab-type HP phenotypes with no loinc2hpo edge in the KG, and `biochemical` LOINC codes with no mapped HP — the nomination stream for the external mapping
 - [ ] `kgx_export`: emit LOINC → MONDO edges (`biolink:diagnoses`, `biolink:biomarker_for`) with `infores:dismech`
 - [ ] `references_cache/LOINC_<code>.md` structured source from the API's `infores:loinc2hpo` associations, so a band's `phenotype_term` can cite a quotable row
@@ -104,10 +148,20 @@ Representative codes were confirmed in the KG when the project was scoped.
 | K | Prenatal and fetal screening | chromosomal disorders | screening-programme panels | `LOINC:77011-5` cfDNA trisomy 21 |
 | L | Allergen-specific IgE | allergy entries | existing allergy entries | `LOINC:61219-2` peanut IgE |
 | M | Acute-care biomarkers with cut-offs | MI, sepsis, heart failure, VTE entries | the universal-definition documents | troponin T, procalcitonin |
-| N | `kb/surrogate_endpoints` rows → LOINC | the FDA surrogate endpoint table | already a bounded table in `kb/` | HbA1c, LDL, viral load, FEV1 |
+| N | `kb/surrogate_endpoints` rows → LOINC. **The code lands once, on the dismech `Biochemical` marker** (`loinc_term`) whose `readouts[].regulatory_endpoint_refs` already points at the FDA row; the FDA row itself is a transcription and gets no code, so nothing is recorded twice. An FDA row with no dismech marker gets nothing from this tranche | the FDA surrogate endpoint table | already a bounded table in `kb/` | HbA1c, LDL, viral load, FEV1 |
 | O | Lab criteria in existing `definitions[]` algorithms | the 304 entries carrying `definitions:` | the existing algorithms | — |
-| P | Cognitive and psychiatric instruments with severity bands | `diagnosis` + bands on dementia, depression, anxiety, bipolar entries | published validation studies for each instrument | `LOINC:72133-2` MoCA, `LOINC:72107-6` MMSE, `LOINC:72088-8` CDR, `LOINC:44249-1` PHQ-9, `LOINC:48542-5` GDS, `LOINC:89210-9` BDI-II, `LOINC:69737-5` GAD-7, `LOINC:93245-9` C-SSRS, `LOINC:71354-5` EPDS, `LOINC:85102-2` MDQ |
-| Q | Staging and severity scores | `diagnosis` + bands | the score definitions | `LOINC:44760-7` MELD, `LOINC:98152-2` Child-Pugh total, `LOINC:70182-1` NIHSS, `LOINC:77717-7` UPDRS panel, `LOINC:35088-4` Glasgow coma scale |
+| P | Cognitive and psychiatric instruments with severity bands. Bind the **panel** code as the test's identity in `measurements` and the **total-score** code in `reference_ranges`, where the cut-off lives (MoCA `72133-2` / `72172-0`; MMSE `72107-6` / `72106-8`; GDS `48542-5` / `48544-1`) | `diagnosis` + bands on dementia, depression, anxiety, bipolar entries | published validation studies for each instrument | `LOINC:72133-2` MoCA, `LOINC:72107-6` MMSE, `LOINC:72088-8` CDR, `LOINC:44249-1` PHQ-9, `LOINC:48542-5` GDS, `LOINC:89210-9` BDI-II, `LOINC:69737-5` GAD-7, `LOINC:93245-9` C-SSRS, `LOINC:71354-5` EPDS, `LOINC:85102-2` MDQ |
+| Q | Staging and severity scores (same panel / total-score split as P) | `diagnosis` + bands | the score definitions | `LOINC:44760-7` MELD, `LOINC:98152-2` Child-Pugh total, `LOINC:70182-1` NIHSS, `LOINC:77717-7` UPDRS panel, `LOINC:35088-4` Glasgow coma scale |
+
+**P and Q meet an undecided register row.** The §12 row *Computed indices and
+composite endpoints* records that dismech has no representation for a value
+computed over other measurements, and MELD, Child-Pugh, NIHSS, a PHQ-9 total
+and a MoCA total are exactly that. For this project, **code plus bands is
+enough**: the LOINC total-score code gives the composite an identity without
+minting a term, and the bands carry the disease-owned thresholds. The scoring
+logic — which items, what weights — still has no home, and this project does
+not try to give it one; §16 says the same. If a tranche finds it needs the
+logic, that is the moment to reopen the §12 row, not to improvise a slot.
 
 Suggested order: **A** first (small, authoritative, LOINC-native in the DBS
 system, nearly every condition already curated), then **G**, **B** and **P**,
