@@ -3534,6 +3534,29 @@ consequences while Phase 0 of `projects/LOINC_DIAGNOSTICS.md` is in flight:
   so a LOINC code there is still unchecked — four such codes were found by
   hand in the first sweep, two with wrong labels.
 
+**Licensing.** LOINC is free to use under the LOINC terms of use, which carry
+two obligations this repository meets mechanically:
+
+- **The LOINC notice** ("This material contains content from LOINC®…") must be
+  on every document containing LOINC content, web pages included. It is in
+  `NOTICE`, in `cache/loinc/README.md`, and in the footer of every rendered
+  disorder or module page whose YAML carries a LOINC code
+  (`_loinc_notice.html.j2`). Nothing for a curator to do.
+- **Third-party instrument notices.** A LOINC code that identifies an
+  instrument someone else owns (PHQ-9, GAD-7, MoCA, MMSE, BDI-II, the Barthel
+  Index, NIHSS…) carries that owner's notice in LOINC's
+  `EXTERNAL_COPYRIGHT_NOTICE` field, and the notice must travel with the code.
+  The Monarch KG drops that field; `cache/loinc/external_copyright_codes.csv`
+  and `external_copyright_notices.csv` hold it, extracted by
+  `just loinc-copyright-notices` from the Tuva Project's LOINC table pinned in
+  `data/loinc/MANIFEST.yaml`. **When you bind such a code, copy its notice
+  verbatim into the `notes` (or `description`) of the same diagnosis row or
+  marker.** `test_third_party_loinc_codes_carry_their_owner_notice` fails
+  otherwise. Look a code up with
+  `rg "<CURIE>," cache/loinc/external_copyright_codes.csv`, then the notice id
+  in `external_copyright_notices.csv`. Bind the code and cite published
+  thresholds; never reproduce an instrument's items.
+
 ### Prevalence (disease occurrence)
 
 Model disease occurrence with the **structured** `Prevalence` slots, not the

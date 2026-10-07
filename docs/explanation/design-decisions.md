@@ -2068,6 +2068,18 @@ Until a release carrying that fix is pinned and `conf/oak_config.yaml` routes
 and new codes are skipped as unknown-prefix; `just loinc-seed-cache` bridges
 the gap and is marked for deletion.
 
+**Licensing.** LOINC's terms of use require a fixed notice on every document
+containing LOINC content and require a code's `EXTERNAL_COPYRIGHT_NOTICE` (the
+owner of a third-party instrument) to travel with it. The first is met by
+`NOTICE` and a conditional page-footer notice; the second by a pinned extract of
+that field from the Tuva Project's LOINC 2.83 table (the Monarch KG does not
+carry it) and a test requiring the notice verbatim beside any code that has one.
+Of the 192 codes bound by the first three tranches none carries such a notice;
+instruments do (PHQ-9, MoCA, MMSE, GAD-7, BDI-II, NIHSS…), so the rule matters
+from the instrument tranche on. Reproducing an instrument's items stays out of
+scope; binding its code and citing published thresholds is the use LOINC's
+"used with permission" covers.
+
 **Relationship to the §12 computed-indices row.** A LOINC code for a total
 score (MELD, Child-Pugh, MoCA) answers the *identity* half of that question
 for the subset LOINC covers — a composite can be named without minting a term

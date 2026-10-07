@@ -12,6 +12,7 @@ one.
 """
 
 import csv
+import re
 from pathlib import Path
 
 import pytest
@@ -233,4 +234,96 @@ def test_committed_loinc_labels_match_the_cache():
                     f"!= cached {cached[curie]!r}"
                 )
     assert seen > 0, "no LOINC codes found in kb/ -- the walker is broken"
+    assert not problems, "\n".join(problems)
+
+
+# --- LOINC licensing -------------------------------------------------------
+#
+# LOINC's terms of use require (a) a fixed notice on every document, web page
+# included, that contains LOINC content, and (b) that a code identifying a
+# third-party instrument travels with that owner's EXTERNAL_COPYRIGHT_NOTICE.
+# The notice lives in NOTICE and in the rendered page footer; the per-code
+# notices are extracted from the pinned Tuva LOINC table into cache/loinc/.
+
+LOINC_NOTICE_SENTENCE = "This material contains content from LOINC"
+COPYRIGHT_CODES = ROOT_DIR / "cache" / "loinc" / "external_copyright_codes.csv"
+COPYRIGHT_NOTICES = ROOT_DIR / "cache" / "loinc" / "external_copyright_notices.csv"
+LOINC_CURIE = re.compile(r"\bLOINC:(?:LP|LG)?[0-9]+-[0-9]\b")
+
+
+def _normalise(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _strings(node):
+    if isinstance(node, str):
+        yield node
+    elif isinstance(node, dict):
+        for value in node.values():
+            yield from _strings(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _strings(item)
+
+
+def _external_notices() -> dict[str, str]:
+    with COPYRIGHT_NOTICES.open(encoding="utf-8") as fh:
+        notices = {row["notice_id"]: row["notice"] for row in csv.DictReader(fh)}
+    with COPYRIGHT_CODES.open(encoding="utf-8") as fh:
+        return {row["curie"]: notices[row["notice_id"]] for row in csv.DictReader(fh)}
+
+
+def test_notice_file_carries_the_loinc_notice():
+    text = (ROOT_DIR / "NOTICE").read_text(encoding="utf-8")
+    assert LOINC_NOTICE_SENTENCE in text
+    assert "http://loinc.org/terms-of-use" in text
+
+
+@pytest.mark.parametrize("template", ["disorder.html.j2", "module.html.j2"])
+def test_page_footers_include_the_loinc_notice(template):
+    text = (ROOT_DIR / "src" / "dismech" / "templates" / template).read_text(encoding="utf-8")
+    assert '{% include "_loinc_notice.html.j2" %}' in text
+
+
+def test_loinc_notice_renders_only_when_the_page_carries_loinc():
+    from jinja2 import Environment, FileSystemLoader
+
+    env = Environment(loader=FileSystemLoader(str(ROOT_DIR / "src" / "dismech" / "templates")))
+    include = env.get_template("_loinc_notice.html.j2")
+    assert LOINC_NOTICE_SENTENCE in include.render(yaml_content="term:\n  id: LOINC:2823-3\n")
+    assert LOINC_NOTICE_SENTENCE not in include.render(yaml_content="term:\n  id: HP:0002153\n")
+
+
+def test_copyright_extract_is_internally_consistent():
+    with COPYRIGHT_NOTICES.open(encoding="utf-8") as fh:
+        notice_ids = {row["notice_id"] for row in csv.DictReader(fh)}
+    with COPYRIGHT_CODES.open(encoding="utf-8") as fh:
+        rows = list(csv.DictReader(fh))
+    assert rows, "external_copyright_codes.csv is empty -- rebuild with just loinc-copyright-notices"
+    assert {row["notice_id"] for row in rows} <= notice_ids
+
+
+def test_third_party_loinc_codes_carry_their_owner_notice():
+    """A LOINC code with an EXTERNAL_COPYRIGHT_NOTICE carries that notice verbatim.
+
+    The notice must appear somewhere in the same top-level item as the code (the
+    diagnosis row, biochemical marker, ...), in a ``notes`` or ``description``
+    field -- whitespace-normalised, so a folded scalar is fine. Applies to any
+    LOINC CURIE in the item, bound or named in prose.
+    """
+    notices = _external_notices()
+    problems: list[str] = []
+    for path in _kb_files_mentioning_loinc():
+        doc = load_document(path)
+        if not isinstance(doc, dict):
+            continue
+        for section, items in doc.items():
+            if not isinstance(items, list):
+                continue
+            for i, item in enumerate(items):
+                text = _normalise(" ".join(_strings(item)))
+                for curie in sorted(set(LOINC_CURIE.findall(text))):
+                    notice = notices.get(curie)
+                    if notice and _normalise(notice) not in text:
+                        problems.append(f"{path.name}:{section}[{i}]: {curie} needs its notice: {notice!r}")
     assert not problems, "\n".join(problems)
