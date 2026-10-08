@@ -11,30 +11,30 @@ content_type: url
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-    
+
     <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <!-- AppResources meta begin -->
         <meta name="paf-app-resources" content="" />
                  <script type="text/javascript">var ncbi_startTime = new Date();</script>
-            
+
         <!-- AppResources meta end -->
-        
+
         <!-- TemplateResources meta begin -->
         <meta name="paf_template" content="" />
 
         <!-- TemplateResources meta end -->
-        
+
         <!-- Logger begin -->
         <meta name="ncbi_db" content="books" /><meta name="ncbi_pdid" content="book-part" /><meta name="ncbi_acc" content="NBK1509" /><meta name="ncbi_domain" content="gene" /><meta name="ncbi_report" content="record" /><meta name="ncbi_type" content="fulltext" /><meta name="ncbi_objectid" content="" /><meta name="ncbi_pcid" content="/NBK1509/" /><meta name="ncbi_pagename" content="Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview - GeneReviews® - NCBI Bookshelf" /><meta name="ncbi_bookparttype" content="chapter" /><meta name="ncbi_app" content="bookshelf" />
         <!-- Logger end -->
-        
+
         <title>Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview - GeneReviews® - NCBI Bookshelf</title>
-        
+
         <!-- AppResources external_resources begin -->
         <link rel="stylesheet" href="/core/jig/1.15.2/css/jig.min.css" /><script type="text/javascript" src="/core/jig/1.15.2/js/jig.min.js"></script>
 
         <!-- AppResources external_resources end -->
-        
+
         <!-- Page meta begin -->
         <meta name="robots" content="INDEX,FOLLOW,NOARCHIVE" /><meta name="citation_inbook_title" content="GeneReviews® [Internet]" /><meta name="citation_title" content="Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview" /><meta name="citation_publisher" content="University of Washington, Seattle" /><meta name="citation_date" content="2025/06/05" /><meta name="citation_author" content="Peter Hedera" /><meta name="citation_pmid" content="20301682" /><meta name="citation_fulltext_html_url" content="https://www.ncbi.nlm.nih.gov/books/NBK1509/" /><meta name="citation_keywords" content="Strumpell-Lorrain Syndrome" /><meta name="citation_keywords" content="Uncomplicated Hereditary Spastic Paraparesis" /><meta name="citation_keywords" content="ENTPD1-Related Neurodevelopmental Disorder" /><meta name="citation_keywords" content="60 kDa heat shock protein, mitochondrial" /><meta name="citation_keywords" content="Acetyl-coenzyme A transporter 1" /><meta name="citation_keywords" content="AP-5 complex subunit zeta-1" /><meta name="citation_keywords" content="Atlastin-1" /><meta name="citation_keywords" content="Cytochrome P450 7B1" /><meta name="citation_keywords" content="Delta-1-pyrroline-5-carboxylate synthase" /><meta name="citation_keywords" content="Double-stranded RNA-specific adenosine deaminase" /><meta name="citation_keywords" content="Dynamin-2" /><meta name="citation_keywords" content="Erlin-2" /><meta name="citation_keywords" content="Kinesin heavy chain isoform 5A" /><meta name="citation_keywords" content="Kinesin-like protein KIF1A" /><meta name="citation_keywords" content="Magnesium transporter NIPA1" /><meta name="citation_keywords" content="Mitochondrial inner membrane m-AAA protease component paraplegin" /><meta name="citation_keywords" content="Palmitoyl thioesterase CPT1C" /><meta name="citation_keywords" content="Phospholipase DDHD1" /><meta name="citation_keywords" content="Plasma membrane calcium-transporting ATPase 4" /><meta name="citation_keywords" content="Receptor expression-enhancing protein 1" /><meta name="citation_keywords" content="Receptor expression-enhancing protein 2" /><meta name="citation_keywords" content="Reticulon-2" /><meta name="citation_keywords" content="Seipin" /><meta name="citation_keywords" content="Spastin" /><meta name="citation_keywords" content="Ubiquitin carboxyl-terminal hydrolase 8" /><meta name="citation_keywords" content="WASH complex subunit 5" /><meta name="citation_keywords" content="ADAR" /><meta name="citation_keywords" content="ALDH18A1" /><meta name="citation_keywords" content="AP5Z1" /><meta name="citation_keywords" content="ATL1" /><meta name="citation_keywords" content="ATP2B4" /><meta name="citation_keywords" content="BSCL2" /><meta name="citation_keywords" content="CPT1C" /><meta name="citation_keywords" content="CYP7B1" /><meta name="citation_keywords" content="DDHD1" /><meta name="citation_keywords" content="DNM2" /><meta name="citation_keywords" content="ERLIN2" /><meta name="citation_keywords" content="HSPD1" /><meta name="citation_keywords" content="KIF1A" /><meta name="citation_keywords" content="KIF5A" /><meta name="citation_keywords" content="NIPA1" /><meta name="citation_keywords" content="REEP1" /><meta name="citation_keywords" content="REEP2" /><meta name="citation_keywords" content="RTN2" /><meta name="citation_keywords" content="SLC33A1" /><meta name="citation_keywords" content="SPAST" /><meta name="citation_keywords" content="SPG7" /><meta name="citation_keywords" content="USP8" /><meta name="citation_keywords" content="WASHC5" /><meta name="citation_keywords" content="Uncomplicated (Pure) Hereditary Spastic Paraplegia" /><meta name="citation_keywords" content="Overview" /><meta name="citation_keywords" content="Strumpell-Lorrain Syndrome" /><meta name="citation_keywords" content="Uncomplicated Hereditary Spastic Paraparesis" /><link rel="schema.DC" href="http://purl.org/DC/elements/1.0/" /><meta name="DC.Title" content="Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview" /><meta name="DC.Type" content="Text" /><meta name="DC.Publisher" content="University of Washington, Seattle" /><meta name="DC.Contributor" content="Peter Hedera" /><meta name="DC.Date" content="2025/06/05" /><meta name="DC.Identifier" content="https://www.ncbi.nlm.nih.gov/books/NBK1509/" /><meta name="description" content="The purpose of this overview is to:" /><meta name="og:title" content="Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview" /><meta name="og:type" content="book" /><meta name="og:description" content="The purpose of this overview is to:" /><meta name="og:url" content="https://www.ncbi.nlm.nih.gov/books/NBK1509/" /><meta name="og:site_name" content="NCBI Bookshelf" /><meta name="og:image" content="https://www.ncbi.nlm.nih.gov/corehtml/pmc/pmcgifs/bookshelf/thumbs/th-gene-lrg.png" /><meta name="twitter:card" content="summary" /><meta name="twitter:site" content="@ncbibooks" /><meta name="bk-non-canon-loc" content="/books/n/gene/hsp/" /><link rel="canonical" href="https://www.ncbi.nlm.nih.gov/books/NBK1509/" /><link rel="stylesheet" href="/corehtml/pmc/css/figpopup.css" type="text/css" media="screen" /><link rel="stylesheet" href="/corehtml/pmc/css/bookshelf/2.26/css/books.min.css" type="text/css" /><link rel="stylesheet" href="/corehtml/pmc/css/bookshelf/2.26/css/books_print.min.css" type="text/css" media="print" /><style type="text/css">p a.figpopup{display:inline !important} .bk_tt {font-family: monospace}  .first-line-outdent .bk_ref {display: inline}  .body-content h2, .body-content .h2  {border-bottom: 1px solid #97B0C8} .body-content h2.inline {border-bottom: none} a.page-toc-label , .jig-ncbismoothscroll a {text-decoration:none;border:0 !important} .temp-labeled-list  .graphic {display:inline-block !important} .temp-labeled-list  img{width:100%}</style><script type="text/javascript" src="/corehtml/pmc/js/jquery.hoverIntent.min.js"> </script><script type="text/javascript" src="/corehtml/pmc/js/common.min.js?_=3.18"> </script><script type="text/javascript" src="/corehtml/pmc/js/large-obj-scrollbars.min.js"> </script><script type="text/javascript">window.name="mainwindow";</script><script type="text/javascript" src="/corehtml/pmc/js/bookshelf/2.26/book-toc.min.js"> </script><script type="text/javascript" src="/corehtml/pmc/js/bookshelf/2.26/books.min.js"> </script><script type="text/javascript">if (typeof (jQuery) != 'undefined') { (function ($) { $(function () { var min = Math.ceil(1); var max = Math.floor(100000); var randomNum = Math.floor(Math.random() * (max - min)) + min; var surveyUrl = "/projects/Gene/portal/surveys/seqdbui-survey.js?rando=" + randomNum.toString(); $.getScript(surveyUrl, function () { try { ncbi.seqDbUISurvey.init(); } catch (err) { console.info(err); } }).fail(function (jqxhr, settings, exception) { console.info('Cannot load survey script', jqxhr); });; }); })(jQuery); };</script><meta name="book-collection" content="NONE" />
 
@@ -49,7 +49,7 @@ content_type: url
                     <noscript>
 	<p class="nojs">
 	<strong>Warning:</strong>
-	The NCBI web site requires JavaScript to function. 
+	The NCBI web site requires JavaScript to function.
 	<a href="/guide/browsers/#enablejs" title="Learn how to enable JavaScript" target="_blank">more...</a>
 	</p>
 	</noscript>
@@ -100,16 +100,16 @@ content_type: url
 	</section>
 	<div class="usa-overlay"></div>
 	<header class="ncbi-header" role="banner" data-section="Header">
-		
+
 		<div class="usa-grid">
 			<div class="usa-width-one-whole">
-				
+
 				<div class="ncbi-header__logo">
 					<a href="/" class="logo" aria-label="NCBI Logo" data-ga-action="click_image" data-ga-label="NIH NLM Logo">
 						<img src="https://www.ncbi.nlm.nih.gov/coreutils/nwds/img/logos/AgencyLogo.svg" alt="NIH NLM Logo" />
 					</a>
 				</div>
-				
+
 				<div class="ncbi-header__account">
 					<a id="account_login" href="https://account.ncbi.nlm.nih.gov" class="usa-button header-button" style="display:none" data-ga-action="open_menu" data-ga-label="account_menu">Log in</a>
 					<button id="account_info" class="header-button" style="display:none" aria-controls="account_popup" type="button">
@@ -125,7 +125,7 @@ content_type: url
 						<span class="sr-only">Show account info</span>
 					</button>
 				</div>
-				
+
 				<div class="ncbi-popup-anchor">
 					<div class="ncbi-popup account-popup" id="account_popup" aria-hidden="true">
 						<div class="ncbi-popup-head">
@@ -152,7 +152,7 @@ content_type: url
 						</div>
 					</div>
 				</div>
-				
+
 			</div>
 		</div>
 	</header>
@@ -165,7 +165,7 @@ content_type: url
 	</div>
 	<section data-section="Alerts">
 		<div class="ncbi-alerts-placeholder"></div>
-	</section>    
+	</section>
 </div>
                             <div class="header">
     <div class="res_logo"><h1 class="res_name"><a href="/books/" title="Bookshelf home">Bookshelf</a></h1><h2 class="res_tagline"></h2></div>
@@ -180,33 +180,33 @@ content_type: url
                     </li></ul></div>
 </div>
 
-                            
-                            
+
+
                         <!--<component id="Page" label="headcontent"/>-->
-                            
+
                         </div>
                         <div class="content">
                             <!-- site messages -->
                             <!-- Custom content 1 -->
 <div class="col1">
-    
+
 </div>
 
 <div class="container">
     <div id="maincontent" class="content eight_col col">
         <!-- Custom content in the left column above book nav -->
         <div class="col2">
-            
+
         </div>
-        
+
         <!-- Book content -->
-        
+
 
         <!-- Custom content between navigation and content -->
         <div class="col3">
-            
+
         </div>
-        
+
         <div class="document">
             <div class="pre-content"><div><div class="bk_prnt"><p class="small">NCBI Bookshelf. A service of the National Library of Medicine, National Institutes of Health.</p><p>Adam MP, Bick S, Mirzaa GM, et al., editors. GeneReviews® [Internet]. Seattle (WA): University of Washington, Seattle; 1993-2026. </p></div><div class="iconblock clearfix whole_rhythm no_top_margin bk_noprnt"><a class="img_link icnblk_img" title="All GeneReviews" href="/books/n/gene/"><img class="source-thumb" src="/corehtml/pmc/pmcgifs/bookshelf/thumbs/th-gene-lrg.png" alt="Cover of GeneReviews®" height="100px" width="80px" /></a><div class="icnblk_cntnt eight_col"><h2>GeneReviews<sup>®</sup> [Internet].</h2><a data-jig="ncbitoggler" href="#__NBK1509_dtls__">Show details</a><div style="display:none" class="ui-widget" id="__NBK1509_dtls__"><div>Adam MP, Bick S, Mirzaa GM, et al., editors.</div><div>Seattle (WA): <a href="http://www.washington.edu" ref="pagearea=page-banner&amp;targetsite=external&amp;targetcat=link&amp;targettype=publisher">University of Washington, Seattle</a>; 1993-2026.</div></div><div class="half_rhythm"><ul class="inline_list"><li style="margin-right:1em"><a class="bk_cntns" href="/books/n/gene/">GeneReviews by Title</a></li></ul></div><div class="bk_noprnt"><form method="get" action="/books/n/gene/" id="bk_srch"><div class="bk_search"><label for="bk_term" class="offscreen_noflow">Search term</label><input type="text" title="Search GeneReviews" id="bk_term" name="term" value="" data-jig="ncbiclearbutton" /> <input type="submit" class="jig-ncbibutton" value="Search GeneReviews" submit="false" style="padding: 0.1em 0.4em;" /></div></form><div><ul class="inline_list"><li><a href="/books/n/gene/advanced/">GeneReviews Advanced Search</a></li><li style="margin-left:.5em"><a href="/books/n/gene/helpadvsearch/">Help</a></li></ul></div></div></div><div class="icnblk_cntnt two_col"><div class="pagination bk_noprnt"></div></div></div></div></div>
             <div class="main-content lit-style" itemscope="itemscope" itemtype="http://schema.org/CreativeWork"><div class="meta-content fm-sec"><h1 id="_NBK1509_"><span class="title" itemprop="name">Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview</span></h1><div itemprop="alternativeHeadline" class="subtitle whole_rhythm">Synonyms: Strumpell-Lorrain Syndrome, Uncomplicated Hereditary Spastic Paraparesis</div><p class="contrib-group"><span itemprop="author">Peter Hedera</span>, MD, PhD, FACMG.</p><a data-jig="ncbitoggler" href="#__NBK1509_ai__" style="border:0;text-decoration:none">Author Information and Affiliations</a><div style="display:none" class="ui-widget" id="__NBK1509_ai__"><div class="contrib half_rhythm"><span itemprop="author">Peter Hedera</span>, MD, PhD, FACMG<div class="affiliation small">Department of Neurology<br />University of Louisville<br />Louisville, Kentucky<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="ude.ellivsiuol@aredeh.retep" class="oemail">ude.ellivsiuol@aredeh.retep</a></div></div></div></div><p class="small">Initial Posting: <span itemprop="datePublished">August 15, 2000</span>; Last Update: <span itemprop="dateModified">June 5, 2025</span>.</p><p><em>Estimated reading time: 21 minutes</em></p></div><div class="jig-ncbiinpagenav body-content whole_rhythm" data-jigconfig="allHeadingLevels: ['h2'],smoothScroll: false" itemprop="text"><div id="hsp.Summary" itemprop="description"><h2 id="_hsp_Summary_">Summary</h2><p>The purpose of this overview is to:</p><dl class="temp-labeled-list"><dt>1.</dt><dd><p class="no_top_margin">Briefly describe the <a href="#hsp.Clinical_Characteristics_of_Uncompli">clinical characteristics</a> of uncomplicated (pure) hereditary spastic paraplegia;</p></dd><dt>2.</dt><dd><p class="no_top_margin">Review the <a href="#hsp.Causes_of_Uncomplicated_Hereditary_S">genetic causes</a> of uncomplicated hereditary spastic paraplegia;</p></dd><dt>3.</dt><dd><p class="no_top_margin">Review the <a href="#hsp.Differential_Diagnosis_of_Uncomplica">differential diagnosis</a> of uncomplicated hereditary spastic paraplegia, which includes complicated hereditary spastic paraplegia with a focus on treatable genetic disorders;</p></dd><dt>4.</dt><dd><p class="no_top_margin">Provide an <a href="#hsp.Evaluation_Strategies_to_Identify_th">evaluation strategy</a> to identify the genetic cause of uncomplicated hereditary spastic paraplegia in a <a class="def" href="/books/n/gene/glossary/def-item/proband/">proband</a> (when possible);</p></dd><dt>5.</dt><dd><p class="no_top_margin">Review <a href="#hsp.Management">management</a> of uncomplicated hereditary spastic paraplegia;</p></dd><dt>6.</dt><dd><p class="no_top_margin">Inform <a href="#hsp.Genetic_Counseling">genetic counseling</a> of family members of an individual with uncomplicated hereditary spastic paraplegia.</p></dd></dl>
@@ -828,20 +828,20 @@ Hum Mol Genet.
 2011;20:1886-92.
  [<a href="https://pubmed.ncbi.nlm.nih.gov/21330303" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">PubMed<span class="bk_prnt">: 21330303</span></a>]</div></li></ul></div></div><div id="bk_toc_contnr"></div></div></div>
             <div class="post-content"><div><div class="half_rhythm"><a href="/books/about/copyright/">Copyright</a> © 1993-2026, University of Washington, Seattle. GeneReviews is a registered trademark of the University of Washington, Seattle. All rights reserved. Test.<p class="small">GeneReviews® chapters are owned by the University of Washington. Permission is hereby granted to reproduce, distribute, and translate copies of content materials for noncommercial research purposes only, provided that (i) credit for source (<a href="https://www.genereviews.org/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">https://www.genereviews.org</a>) and copyright (© 1993-2026 University of Washington) are included with each copy; (ii) a link to the original material is provided whenever the material is published elsewhere on the Web; and (iii) reproducers, distributors, and/or translators comply with the <a href="https://www.ncbi.nlm.nih.gov/books/n/gene/GRcopyright_permiss/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">GeneReviews® Copyright Notice and Usage Disclaimer</a>. No further modifications are allowed. For clarity, excerpts of GeneReviews chapters for use in lab reports and clinic notes are a permitted use.</p><p class="small">For more information, see the <a href="https://www.ncbi.nlm.nih.gov/books/n/gene/GRcopyright_permiss/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">GeneReviews® Copyright Notice and Usage Disclaimer</a>.</p><p class="small">For questions regarding permissions or whether a specified use is allowed, contact: addmast@wu.edu</p></div><div class="small"><span class="label">Bookshelf ID: NBK1509</span><span class="label">PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/20301682" title="PubMed record of this page" ref="pagearea=meta&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">20301682</a></span></div><div style="margin-top:2em" class="bk_noprnt"><a class="bk_cntns" href="/books/n/gene/">GeneReviews by Title</a><div class="pagination bk_noprnt"></div></div></div></div>
-            
+
         </div>
 
         <!-- Custom content below content -->
         <div class="col4">
-            
+
         </div>
-        
-        
+
+
         <!-- Book content -->
-        
+
         <!-- Custom contetnt below bottom nav -->
         <div class="col5">
-            
+
         </div>
     </div>
 
@@ -852,20 +852,20 @@ Hum Mol Genet.
 
         </div>
         <div xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Views</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="PDF_download" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="/books/NBK1509/?report=reader">PubReader</a></li><li><a href="/books/NBK1509/?report=printable">Print View</a></li><li><a data-jig="ncbidialog" href="#_ncbi_dlg_citbx_NBK1509" data-jigconfig="width:400,modal:true">Cite this Page</a><div id="_ncbi_dlg_citbx_NBK1509" style="display:none" title="Cite this Page"><div class="bk_tt">Hedera P. Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview. 2000 Aug 15 [Updated 2025 Jun 5]. In: Adam MP, Bick S, Mirzaa GM, et al., editors. GeneReviews® [Internet]. Seattle (WA): University of Washington, Seattle; 1993-2026. <span class="bk_cite_avail"></span></div></div></li><li><a href="/books/NBK1509/pdf/Bookshelf_NBK1509.pdf">PDF version of this page</a> (482K)</li><li><a href="#" class="toggle-glossary-link" title="Enable/disable links to the glossary">Disable Glossary Links</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>In this GeneReview</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="page-toc" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="#hsp.Summary" ref="log$=inpage&amp;link_id=inpage">Summary</a></li><li><a href="#hsp.Clinical_Characteristics_of_Uncompli" ref="log$=inpage&amp;link_id=inpage"> Clinical Characteristics of Uncomplicated Hereditary Spastic Paraplegia</a></li><li><a href="#hsp.Causes_of_Uncomplicated_Hereditary_S" ref="log$=inpage&amp;link_id=inpage"> Causes of Uncomplicated Hereditary Spastic Paraplegia</a></li><li><a href="#hsp.Differential_Diagnosis_of_Uncomplica" ref="log$=inpage&amp;link_id=inpage"> Differential Diagnosis of Uncomplicated Hereditary Spastic Paraplegia</a></li><li><a href="#hsp.Evaluation_Strategies_to_Identify_th" ref="log$=inpage&amp;link_id=inpage"> Evaluation Strategies to Identify the Genetic Cause of Uncomplicated Hereditary Spastic Paraplegia in a Proband</a></li><li><a href="#hsp.Management" ref="log$=inpage&amp;link_id=inpage"> Management</a></li><li><a href="#hsp.Genetic_Counseling" ref="log$=inpage&amp;link_id=inpage"> Genetic Counseling</a></li><li><a href="#hsp.Resources" ref="log$=inpage&amp;link_id=inpage">Resources</a></li><li><a href="#hsp.Chapter_Notes" ref="log$=inpage&amp;link_id=inpage">Chapter Notes</a></li><li><a href="#hsp.References" ref="log$=inpage&amp;link_id=inpage">References</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Bulk Download</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="source-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="https://ftp.ncbi.nlm.nih.gov/pub/litarch/ca/84/" ref="pagearea=source-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">Bulk download GeneReviews data from FTP</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>GeneReviews Links</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="source-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="/books/n/gene/advanced/"><i>GeneReviews</i> Advanced Search</a></li><li><a href="/books/n/gene/glossary/"><i>GeneReviews</i> Glossary</a></li><li><a href="/books/n/gene/resource_mats/">Resource Materials</a></li><li><a href="/books/n/gene/updates/">New in <i>GeneReviews</i></a></li><li><a href="/books/n/gene/authors/">Author List</a></li><li><a href="/books/n/gene/prospective_authors/">For Current/Prospective Authors</a></li><li><a href="/books/n/gene/GRpersonnel/"><i>GeneReviews</i> Personnel</a></li><li><a href="/books/n/gene/howto_linkin/">Download/Link to <i>GeneReviews</i></a></li><li><a href="/books/n/gene/contact_us/">Contact Us</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Tests in GTR by Gene</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="document-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=10667[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">FARS2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=9907[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">AP5Z1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=126129[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">CPT1C</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=6687[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SPG7</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=26580[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">BSCL2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=9420[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">CYP7B1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=6253[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">RTN2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=3329[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">HSPD1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=5297[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">PI4KA</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=80821[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">DDHD1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=5832[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ALDH18A1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=51308[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">REEP2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=547[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">KIF1A</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=11160[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ERLIN2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=5354[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">PLP1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=3798[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">KIF5A</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=6683[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SPAST</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=953[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ENTPD1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=123606[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">NIPA1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=57165[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">GJC2</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=9197[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SLC33A1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=65055[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">REEP1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=10908[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">PNPLA6</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=9897[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">WASHC5</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=51062[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">ATL1</a></li><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=23111[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">SPART</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Related information</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="discovery_db_links" id="Shutter"></a></div><div class="portlet_content"><ul><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=pmc&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_pmc_refs&amp;IdsFromResult=1466164" ref="log$=recordlinks">PMC</a><div class="brieflinkpop offscreen_noflow">PubMed Central citations</div></li><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=pubmed&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_pubmed_refs&amp;IdsFromResult=1466164" ref="log$=recordlinks">PubMed</a><div class="brieflinkpop offscreen_noflow">Links to PubMed</div></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Similar articles in PubMed</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="PBooksDiscovery_RA" id="Shutter"></a></div><div class="portlet_content"><ul><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/23897027" ref="ordinalpos=1&amp;linkpos=1&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Hereditary spastic paraplegia: clinico-pathologic features and emerging molecular mechanisms.</a><span class="source">[Acta Neuropathol. 2013]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Hereditary spastic paraplegia: clinico-pathologic features and emerging molecular mechanisms.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Fink JK. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">Acta Neuropathol. 2013 Sep; 126(3):307-28. Epub 2013 Jul 30.</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/25045380" ref="ordinalpos=1&amp;linkpos=2&amp;log$=relatedarticles&amp;logdbfrom=pubmed">Mutation analysis of SPAST, ATL1, and REEP1 in Korean Patients with Hereditary Spastic Paraplegia.</a><span class="source">[J Clin Neurol. 2014]</span><div class="brieflinkpop offscreen_noflow">Mutation analysis of SPAST, ATL1, and REEP1 in Korean Patients with Hereditary Spastic Paraplegia.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Kim TH, Lee JH, Park YE, Shin JH, Nam TS, Kim HS, Jang HJ, Semenov A, Kim SJ, Kim DS. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">J Clin Neurol. 2014 Jul; 10(3):257-61. Epub 2014 Jul 3.</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/27260292" ref="ordinalpos=1&amp;linkpos=3&amp;log$=relatedarticles&amp;logdbfrom=pubmed">A series of Greek children with pure hereditary spastic paraplegia: clinical features and genetic findings.</a><span class="source">[J Neurol. 2016]</span><div class="brieflinkpop offscreen_noflow">A series of Greek children with pure hereditary spastic paraplegia: clinical features and genetic findings.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Polymeris AA, Tessa A, Anagnostopoulou K, Rubegni A, Galatolo D, Dinopoulos A, Gika AD, Youroukos S, Skouteli E, Santorelli FM, et al. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">J Neurol. 2016 Aug; 263(8):1604-11. Epub 2016 Jun 3.</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/41277402" ref="ordinalpos=1&amp;linkpos=4&amp;log$=relatedarticles&amp;logdbfrom=pubmed">The Genetic Landscape of Hereditary Spastic Paraplegia in Greece.</a><span class="source">[Clin Genet. 2026]</span><div class="brieflinkpop offscreen_noflow">The Genetic Landscape of Hereditary Spastic Paraplegia in Greece.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Koutsis G, Chelban V, Kartanou C, Kontogeorgiou Z, Koniari C, Ragazos N, Voudommatis C, Zhelcheska K, Lynch DS, Maroofian R, et al. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">Clin Genet. 2026 May; 109(5):837-846. Epub 2025 Nov 24.</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/20301286" ref="ordinalpos=1&amp;linkpos=5&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> SPG7-Related Neurologic Disorder.</a><span class="source">[GeneReviews(®). 1993]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> SPG7-Related Neurologic Disorder.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Hedera P. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">GeneReviews(®). 1993</em></div></div></li></ul><a class="seemore" href="/sites/entrez?db=pubmed&amp;cmd=link&amp;linkname=pubmed_pubmed_reviews&amp;uid=20301682" ref="ordinalpos=1&amp;log$=relatedreviews_seeall&amp;logdbfrom=pubmed">See reviews...</a><a class="seemore" href="/sites/entrez?db=pubmed&amp;cmd=link&amp;linkname=pubmed_pubmed&amp;uid=20301682" ref="ordinalpos=1&amp;log$=relatedarticles_seeall&amp;logdbfrom=pubmed">See all...</a></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Recent Activity</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="recent_activity" id="Shutter"></a></div><div class="portlet_content"><div xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="HTDisplay" class=""><div class="action"><a href="javascript:historyDisplayState('ClearHT')">Clear</a><a href="javascript:historyDisplayState('HTOff')" class="HTOn">Turn Off</a><a href="javascript:historyDisplayState('HTOn')" class="HTOff">Turn On</a></div><ul id="activity"><li class="ra_rcd ralinkpopper two_line"><a class="htb ralinkpopperctrl" ref="log$=activity&amp;linkpos=1" href="/portal/utils/pageresolver.fcgi?recordid=6a624b967266e9700bbad376">Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview - GeneReviews®</a><div class="ralinkpop offscreen_noflow">Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview - GeneReviews®<div class="brieflinkpopdesc"></div></div><div class="tertiary"></div></li></ul><p class="HTOn">Your browsing activity is empty.</p><p class="HTOff">Activity recording is turned off.</p><p id="turnOn" class="HTOff"><a href="javascript:historyDisplayState('HTOn')">Turn recording back on</a></p><a class="seemore" href="/sites/myncbi/recentactivity">See more...</a></div></div></div>
-        
+
         <!-- Custom content below discovery portlets -->
         <div class="col7">
-            
+
         </div>
     </div>
 </div>
 
 <!-- Custom content after all -->
 <div class="col8">
-    
+
 </div>
 <div class="col9">
-    
+
 </div>
 
 <script type="text/javascript" src="/corehtml/pmc/js/jquery.scrollTo-1.4.2.js"></script>
@@ -887,11 +887,11 @@ Hum Mol Genet.
 </script>
                         </div>
                         <div class="bottom">
-                            
+
                             <div id="NCBIFooter_dynamic">
     <!--<component id="Breadcrumbs" label="breadcrumbs"/>
     <component id="Breadcrumbs" label="helpdesk"/>-->
-    
+
 </div>
 
                             <div class="footer" id="footer">
@@ -928,7 +928,7 @@ Hum Mol Genet.
 							.cls-12 {
 							fill: #737373;
 							}
-							
+
 							.cls-11 {
 							fill-rule: evenodd;
 							}
@@ -960,7 +960,7 @@ Hum Mol Genet.
 			</div>
 		</div>
 	</section>
-	
+
 	<section class="container-fluid bg-primary">
 		<div class="container pt-5">
 			<div class="row mt-3">
@@ -1072,7 +1072,7 @@ Hum Mol Genet.
 			</div>
 		</div>
 	</section>
-	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>    
+	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>
 	<script type="text/javascript" src="/portal/portal3rc.fcgi/static/js/hfjs2.js"> </script>
 </div>
                         </div>
@@ -1085,17 +1085,17 @@ Hum Mol Genet.
         <!-- /.grid -->
 
         <span class="PAFAppResources"></span>
-        
+
         <!-- BESelector tab -->
-        
-        
-        
+
+
+
         <noscript><img alt="statistics" src="/stat?jsdisabled=true&amp;ncbi_db=books&amp;ncbi_pdid=book-part&amp;ncbi_acc=NBK1509&amp;ncbi_domain=gene&amp;ncbi_report=record&amp;ncbi_type=fulltext&amp;ncbi_objectid=&amp;ncbi_pcid=/NBK1509/&amp;ncbi_pagename=Uncomplicated (Pure) Hereditary Spastic Paraplegia Overview - GeneReviews® - NCBI Bookshelf&amp;ncbi_bookparttype=chapter&amp;ncbi_app=bookshelf" /></noscript>
-        
-        
+
+
         <!-- usually for JS scripts at page bottom -->
         <!--<component id="PageFixtures" label="styles"></component>-->
-    
+
 
 <!-- CE8B8F2CA624B961_0107SID /projects/books/PBooks@9.11 portal104 v4.1.r705435 Wed, Jan 07 2026 01:27:30 -->
 <span id="portal-csrf-token" style="display:none" data-token="CE8B8F2CA624B961_0107SID"></span>
