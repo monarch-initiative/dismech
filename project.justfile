@@ -1501,6 +1501,25 @@ check-causal-targets *files:
 list-causal-targets *files:
     uv run python scripts/check_causal_targets.py --report "$@"
 
+# What a `conforms_to` link claims but nothing checks: whether the conforming
+# node carries the module node's content. The anchor itself IS a foreign key
+# (groupings.module_node_names resolves it), so what is missing is CLAUDE.md's
+# own contract -- "should include the expected biological processes and causal
+# edges from the module" -- under which a node can name an anchor it shares
+# nothing with and pass every gate. Report-only and NOT in `just qc`: a
+# conformer binding the specific process where the module binds the generic one
+# is the substitution the primer asks for, not a defect, and telling those
+# apart needs a GO closure this deliberately runs without. Read the per-module
+# ranking, not the corpus total. `--strict` gates a subset for whoever wants it.
+[group('QC')]
+check-conformance-content *args:
+    uv run python scripts/check_conformance_content.py "$@"
+
+# One line per conformance-content finding (anchor, node, what diverged).
+[group('QC')]
+list-conformance-content *args:
+    uv run python scripts/check_conformance_content.py --format list "$@"
+
 # Resolve every hypothesis exploration directory to its kb entry. A directory
 # under kb/hypotheses/ reaches the disease page through two verbatim name
 # matches in render.collect_hypothesis_research_links -- <slug> against the
