@@ -1315,3 +1315,30 @@ References
 - [Edison artifact artifact-02](Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium-deep-research-falcon_artifacts/artifact-02.md)
 - [Edison artifact artifact-03](Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium-deep-research-falcon_artifacts/artifact-03.md)
 ![## Context ID: pqac-00000017 The document provides several pieces of visual information regarding MRI findings and genetic variants for VLDLR-associated dysequi](Cerebellar_Ataxia_Intellectual_Disability_and_Dysequilibrium-deep-research-falcon_artifacts/image-1.png)
+
+## Reference Validation
+
+Checked with `linkml-reference-validator` 0.3.0rc3.
+
+| Outcome | Count |
+| --- | --- |
+| References checked | 12 |
+| Resolved | 12 |
+| Unresolved (possible confabulation) | 0 |
+| Unverifiable | 0 |
+| Quoted claims checked | 0 |
+| Quoted claims found in source | 0 |
+| Quoted claims **not** found in source | 0 |
+| Quoted claims with nothing to check against | 1 |
+| References weighed for topical relevance | 12 |
+| On topic | 8 |
+| Off topic | 0 |
+
+### Quotes that could not be checked
+
+There was no text to compare these against, so they are neither confirmed nor contradicted:
+
+- `DOI:10.1002/mdc3.13184`: "**Dysequilibrium syndrome (DES) is an autosomal recessive genetically heterogeneous condition characterized clinically by congenital onset of non-progressive cerebellar ataxia, disturbed equilibrium and mental retardation associated with cerebellar hypoplasia.**"
+  - Reference resolved but exposes no abstract or full text to search
+
+All extracted references resolved successfully.
