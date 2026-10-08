@@ -496,59 +496,72 @@ validate-surrogate-endpoints:
         uv run linkml-validate --schema {{schema_path}} --target-class FDASurrogateEndpointCollection "$f"
     done
 
-# Validate all mechanism module YAML files (schema + terms + references)
+# Validate all mechanism module YAML files (schema + terms + references).
+# Same gate as CI's changed-module step: modules validate against the Disease
+# class and get exactly the checks `validate-disorders` applies, including
+# abstract-only (--no-full-text) snippet matching.
 [group('QC')]
 validate-modules:
     #!/usr/bin/env bash
+    set -u
     shopt -s nullglob
     files=({{modules_dir}}/*.yaml)
     if [ ${#files[@]} -eq 0 ]; then
         echo "No module files found in {{modules_dir}}"
         exit 0
     fi
-    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
-    failed_files=()
-    echo "Validating all mechanism module files..."
-    for f in "${files[@]}"; do
-        echo "=== $(basename $f) ==="
-        errors=""
-        # Schema validation (modules use the Disease class)
-        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
-            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
-        fi
-        # Term validation
-        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
-        if ! echo "$term_output" | grep -q "Validation passed"; then
-            errors+="  [TERMS] $term_output\n"
-        fi
-        # Reference validation
-        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
-        if echo "$ref_output" | grep -q "\[ERROR\]"; then
-            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
-        fi
-        if [ -n "$errors" ]; then
-            failed_files+=("$f")
-            echo -e "$errors"
+    just validate-module-batch "${files[@]}"
+
+# Validate the given mechanism module files (schema + terms + references),
+# batched like `validate-disorders` so each validator process is reused across
+# files. Exit status, not grepped output, decides pass/fail. CI runs this over
+# the module files a PR changes.
+[group('QC')]
+validate-module-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Iterate real positional args (see `set positional-arguments` in justfile).
+    for f in "$@"; do
+        if [[ "$f" == {{modules_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
         else
-            # Surface the wrapper's affirmative snippet count (issue #7252):
-            # without it this loop prints a wall of "✓ OK" that is
-            # indistinguishable from having checked nothing.
-            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
-            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
+            echo "Skipping non-module file: $f"
         fi
     done
-    echo ""
-    echo "================================"
-    if [ ${#failed_files[@]} -eq 0 ]; then
-        echo "✓ All module files validated successfully!"
-    else
-        echo "✗ ${#failed_files[@]} module file(s) with errors:"
-        for f in "${failed_files[@]}"; do
-            echo "  - $f"
-        done
-        exit 1
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing module YAML files to validate."
+        exit 0
     fi
+
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
+    exit_code=0
+    echo "Validating ${#existing[@]} module file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache "${existing[@]}" || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more module files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} module file(s) passed validation."
 
 # Validate a single mechanism module file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
@@ -556,13 +569,18 @@ validate-modules:
 validate-module file:
     #!/usr/bin/env bash
     set -e
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just _normalize-cache-if-changed "$cache_stamp"
     echo "✓ All validations passed for {{file}}"
 
 # ModuleCollection currently has no ontology-bound slots, so term validation
@@ -664,13 +682,80 @@ validate-groupings:
     fi
 
 # Lint and audit disease grouping membership criteria (structural + advisory).
-# Structural lint is enforced in pytest; this report also evaluates whether
-# listed members satisfy NECESSARY criteria (advisory — criteria may be
-# aspirational). Pass a file to scope to one grouping; --strict to gate.
-# Use `--overlaps` to report all pairwise disease-member overlaps.
+# Structure and foreign keys always report; the membership audit evaluates
+# whether listed members satisfy NECESSARY criteria over the committed HP/GO
+# closure cache (cache/closure/). Pass a file to scope to one grouping;
+# --strict to gate on structure, dangling keys, uncached criterion terms and
+# NOT_SATISFIED members; --offline to never contact an ontology (what CI
+# runs). Use `--overlaps` to report all pairwise disease-member overlaps.
 [group('QC')]
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
+
+# Populate cache/closure/<prefix>.csv with the is_a/part_of closure of every
+# HP/GO term cited by grouping membership criteria. Append-only like the term
+# caches: only uncached terms are fetched (from OLS, so this needs network).
+# The cache is a snapshot: a member annotated with an HP/GO term added to the
+# ontology after the last build reads NOT_SATISFIED until `--refresh` re-fetches
+# every cited term. `--prune` drops terms no grouping cites and is refused with
+# explicit paths. Commit the result; the audit and CI read it offline.
+[group('QC')]
+build-grouping-closure-cache *args="":
+    uv run python -m dismech.groupings --build-closure-cache {{args}}
+
+# Batched, CI-shaped validation of changed grouping files: schema, terms,
+# references, then the strict offline structural/membership audit. Mirrors
+# `validate-disorders`, which is what a grouping-only PR previously got none
+# of -- kb/groupings/ was in no CI path filter and every grouping pytest is
+# under the `kb_data` marker (schema-change lane only).
+[group('QC')]
+validate-grouping-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    for f in "$@"; do
+        if [[ "$f" == {{groupings_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-grouping file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing grouping YAML files to validate."
+        exit 0
+    fi
+
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
+    exit_code=0
+    echo "Validating ${#existing[@]} grouping file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Grouping "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Grouping --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache "${existing[@]}" || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    echo "Structural lint, foreign keys and membership audit (strict, offline)..."
+    uv run python -m dismech.groupings --strict --offline "${existing[@]}" || exit_code=1
+    echo ""
+
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more grouping files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} grouping file(s) passed validation."
 
 # Measure the CONFORMS_TO_MODULE `#Node` anchor gap (dismech#9403): how many
 # (member, criterion) pairs are satisfied on the module stem but not at the
@@ -922,7 +1007,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1711,6 +1796,24 @@ list-title-snippets:
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
 
+# PARTIAL and WRONG_STATEMENT left the enum in #7439 and #10003 migrated the
+# values, but not the explanations written to justify them (#12805).
+# Grandfathered against origin/main; the committed baseline only ever shrinks.
+# Fail on new prose arguing for a retired `supports` grade.
+[group('QC')]
+check-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --against-ref origin/main
+
+# List every mention of a retired `supports` grade, baselined or not (worklist).
+[group('QC')]
+list-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --all
+
+# Shrink the retired-grade prose baseline after fixing backlog entries (never grows).
+[group('QC')]
+update-retired-support-prose-baseline:
+    uv run python scripts/check_retired_support_prose.py --update-baseline
+
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
 # not the block the quote was pasted into, so a file that says both is
@@ -2063,6 +2166,41 @@ gen-comorbidity-pages:
 [group('Pages')]
 gen-project-page file:
     uv run python -m dismech.render --project {{file}}
+
+# A page per gene named by 2+ disorders (or with a curated summary), plus the
+# index; re-verifies curated summaries. See docs/gene-pages.md.
+# Generate pages/genes/ (gene pages and gene index)
+[group('Pages')]
+gen-gene-pages *ARGS:
+    uv run python -m dismech.genes render {{ARGS}}
+
+# --repin accepts a new upstream release and rewrites the manifest.
+# Fetch the pinned HGNC file and ai-gene-review commit into data/
+[group('Genes')]
+genes-ingest-refresh *ARGS:
+    uv run python -m dismech.genes ingest-refresh {{ARGS}}
+
+# Rewrite kb/genes/ingest/*.tsv for every gene the KB names (never hand-edit)
+[group('Genes')]
+genes-ingest-build:
+    uv run python -m dismech.genes ingest-build
+
+# Report-only by default; --strict exits 1 on a stale or refused summary.
+# Re-run every provedown claim in kb/genes/curated/*.md against the KB
+[group('Genes')]
+genes-verify *ARGS:
+    uv run python -m dismech.genes verify {{ARGS}}
+
+# Report-only: a lead per pair, never a defect (a Disputed tier argues against typing).
+# Entries ClinGen classifies a gene for whose own genetic record does not type it
+[group('Genes')]
+genes-clingen-gaps *ARGS:
+    uv run python -m dismech.genes clingen-gaps {{ARGS}}
+
+# What the KB says about a gene, e.g. `just gene-slice hgnc:9588 --format tsv`
+[group('Genes')]
+gene-slice *ARGS:
+    uv run python -m dismech.genes slice {{ARGS}}
 
 # Generate all curation-project pages plus the project index
 [group('Pages')]
