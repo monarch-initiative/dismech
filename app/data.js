@@ -26791,6 +26791,98 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Aplasia of Lacrimal and Salivary Glands",
+    "disease_id": "MONDO:0008397",
+    "category": "Mendelian",
+    "parents": [
+      "FGF10-Related Disorder",
+      "Congenital Exocrine Gland Anomaly"
+    ],
+    "creation_date": "2026-10-08T13:31:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Aplasia of lacrimal and salivary glands (ALSG) is a rare autosomal dominant congenital disorder in which the lacrimal glands, the major salivary glands (parotid and submandibular) and parts of the lacrimal drainage system are absent, atretic or hypoplastic. Affected individuals present from infancy with irritable, dry eyes and reduced tear production, epiphora from punctal atresia or nasolacrimal duct obstruction, and dry mouth with early and severe dental caries. Expressivity is variable within families, from bilateral aplasia to unilateral or minimal involvement, and penetrance is incomplete.\nALSG is caused by heterozygous loss-of-function variants in FGF10 (nonsense, splice-site and missense alleles, and a whole-gene deletion), and is read as FGF10 haploinsufficiency. FGF10 is secreted by the mesenchyme around the nascent gland epithelium and signals through the epithelial receptor FGFR2b to drive budding and branching morphogenesis. In mice a single functional Fgf10 allele is insufficient for lacrimal gland budding and gives hypoplastic submandibular glands, while loss of both alleles abolishes the lacrimal and salivary glands. ALSG is allelic with lacrimo-auriculo-dento-digital (LADD) syndrome, which adds ear, dental and digital anomalies; both can occur in one family. Management is supportive: lacrimal drainage surgery, ocular lubrication and intensive dental prevention.\n",
+    "pathophysiology": [
+      "FGF10 Haploinsufficiency",
+      "Reduced Mesenchymal FGF10-FGFR2b Signaling to Gland Epithelium",
+      "Failure of Lacrimal Gland Budding",
+      "Impaired Salivary Gland Branching Morphogenesis",
+      "Lacrimal Drainage System Maldevelopment"
+    ],
+    "cell_types": [
+      "periglandular mesenchymal cell",
+      "gland primordium epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0008019",
+      "CL:0000066"
+    ],
+    "biological_processes": [
+      "mesenchymal-epithelial FGF10 signaling",
+      "FGFR2b signaling",
+      "lacrimal gland development",
+      "branching involved in salivary gland morphogenesis"
+    ],
+    "phenotypes": [
+      "Aplasia or hypoplasia of the lacrimal glands",
+      "Decreased lacrimation",
+      "Dry eye",
+      "Epiphora",
+      "Lacrimal punctal atresia",
+      "Nasolacrimal duct obstruction",
+      "Dacryocystocele",
+      "Aplasia of the parotid gland",
+      "Aplasia of the submandibular gland",
+      "Xerostomia",
+      "Carious teeth"
+    ],
+    "phenotype_categories": [
+      "Eye",
+      "Digestive",
+      "Dental"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Eye",
+      "Head and Neck",
+      "Immune"
+    ],
+    "phenotype_ids": [
+      "HP:0008038",
+      "HP:0000633",
+      "HP:0001097",
+      "HP:0009926",
+      "HP:0007820",
+      "HP:0000579",
+      "HP:0030752",
+      "HP:0009740",
+      "HP:0010287",
+      "HP:0000217",
+      "HP:0000670"
+    ],
+    "frequencies": [],
+    "genes": [
+      "FGF10"
+    ],
+    "treatments": [
+      "Lacrimal Drainage Reconstruction",
+      "Preventive Dental Care",
+      "Saliva Substitutes",
+      "Artificial Tears",
+      "Minor Salivary Gland Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Aplasia_of_Lacrimal_and_Salivary_Glands.yaml",
+    "page_url": "../pages/disorders/Aplasia_of_Lacrimal_and_Salivary_Glands.html",
+    "num_phenotypes": 11,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "apparent mineralocorticoid excess",
     "disease_id": "MONDO:0009025",
     "category": "Mendelian",
@@ -106620,6 +106712,7 @@ window.searchData = [
     "frequencies": [
       "VERY_FREQUENT",
       "FREQUENT",
+      "VERY_RARE",
       "OCCASIONAL"
     ],
     "genes": [
@@ -236557,6 +236650,84 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Mullerian Aplasia and Hyperandrogenism",
+    "disease_id": "MONDO:0008019",
+    "category": "Mendelian",
+    "parents": [
+      "M\u00fcllerian duct anomaly",
+      "46,XX disorder of sex development"
+    ],
+    "creation_date": "2026-10-08T13:31:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mullerian aplasia and hyperandrogenism (WNT4 deficiency) is a very rare 46,XX difference of sex development caused by heterozygous loss-of-function missense variants in WNT4, the secreted signal that is required to form the Mullerian ducts and that represses androgen synthesis in the developing and adult ovary. Affected women present in adolescence with primary amenorrhea and an absent or hypoplastic uterus, as in Mayer-Rokitansky-Kuster-Hauser (MRKH) syndrome, but in addition show clinical hyperandrogenism (acne, hirsutism) with raised serum testosterone of ovarian origin. Unilateral renal agenesis was present in the index case and ovarian follicle depletion in one later case. Functional studies of the reported variants show loss of WNT4 signalling, dominant-negative behaviour for at least some alleles, and derepression of the steroidogenic enzymes CYP17A1 and HSD3B2 in ovarian cells. The phenotype closely mirrors that of female Wnt4-null mice, which lack Mullerian ducts and ectopically synthesize testosterone in the ovary. It is distinct from SERKAL syndrome, the recessive WNT4 disorder of biallelic loss with 46,XX sex reversal and kidney, adrenal and lung dysgenesis, and from classic MRKH syndrome, in which WNT4 variants are not found.",
+    "pathophysiology": [
+      "Heterozygous WNT4 Loss of Function",
+      "Failed Mullerian Duct Formation",
+      "Derepressed Ovarian Androgen Biosynthesis",
+      "Impaired Nephron Tubulogenesis"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "Wnt signaling pathway",
+      "paramesonephric duct development",
+      "negative regulation of androgen biosynthetic process",
+      "androgen biosynthetic process",
+      "mesenchymal to epithelial transition involved in metanephros morphogenesis"
+    ],
+    "phenotypes": [
+      "Aplasia of the Uterus",
+      "Hypoplasia of the Uterus",
+      "Aplasia of the Vagina",
+      "Primary Amenorrhea",
+      "Increased Serum Testosterone",
+      "Hirsutism",
+      "Acne",
+      "Unilateral Renal Agenesis"
+    ],
+    "phenotype_categories": [
+      "Genitourinary",
+      "Endocrine",
+      "Dermatologic",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Immune",
+      "Integument"
+    ],
+    "phenotype_ids": [
+      "HP:0000151",
+      "HP:0000013",
+      "HP:0003250",
+      "HP:0000786",
+      "HP:0030088",
+      "HP:0001007",
+      "HP:0001061",
+      "HP:0000122"
+    ],
+    "frequencies": [],
+    "genes": [
+      "WNT4"
+    ],
+    "treatments": [
+      "Progressive Vaginal Dilation",
+      "In Vitro Fertilization with a Gestational Carrier"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mullerian_Aplasia_and_Hyperandrogenism.yaml",
+    "page_url": "../pages/disorders/Mullerian_Aplasia_and_Hyperandrogenism.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "3"
+  },
+  {
     "name": "Multiminicore Disease",
     "disease_id": "MONDO:0018948",
     "category": "Mendelian",
@@ -357865,17 +358036,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3317,
+  "total_disorder_pages": 3319,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7950,
-  "total_unique_evidence_sources": 49788,
-  "total_unique_publications": 46415,
+  "total_disorders_and_subtypes": 7952,
+  "total_unique_evidence_sources": 49857,
+  "total_unique_publications": 46484,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3313,
-  "total_unique_pathological_events": 21881,
+  "total_pathographs": 3315,
+  "total_unique_pathological_events": 21890,
   "total_modules": 189,
-  "total_research_reports": 3434,
+  "total_research_reports": 3436,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
