@@ -459,7 +459,7 @@ lip/w
 coefficient using the following equation:
 log LC
 50 zebrafish embryo
-( mM ) =   0 . 99 ∗ D
+( mM ) = � 0 . 99 ∗ D
 lip / w
 + 2 . 22
 The D
