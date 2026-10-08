@@ -17,11 +17,14 @@ these files (#12543).
 What this does
 --------------
 For each NUL run that sits inside a word, try each ligature expansion
-(``fi``, ``fl``, ``ff``, ``ffi``, ``ffl``). If exactly one expansion produces a
-word that already occurs elsewhere in the cache corpus, use it. Anything else --
-a NUL between digits, a standalone NUL, or a word no expansion explains -- becomes
-U+FFFD REPLACEMENT CHARACTER, which says "a character was lost here" without
-guessing which one.
+(``fi``, ``fl``, ``ff``, ``ffi``, ``ffl``). Use an expansion when the word it
+produces occurs elsewhere in the cache corpus at least ``DOMINANCE`` (10) times as
+often as the word any other expansion produces. For words the PDF ran together
+("withsigni\\0cant"), fall back to the letters on each side of the NUL, which must
+be well attested inside some ordinary word; this needs at least two letters on
+each side. Anything else -- a NUL between digits, a standalone NUL, a lost
+separator, or a word no expansion clearly explains -- becomes U+FFFD REPLACEMENT
+CHARACTER, which says "a character was lost here" without guessing which one.
 
 This is a deterministic transform of the existing cache, not a re-fetch: a
 re-fetch would run the same extractor and write the same NULs back. Snippet
