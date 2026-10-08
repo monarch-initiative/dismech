@@ -3593,14 +3593,13 @@ Rules for filling it:
 - **Record tested nulls.** `NO_DIFFERENCE` (compared across populations, no
   difference found) is a finding, and stops a reader assuming one.
 - **One record per population and source.** Two studies of the same population
-  are two records, as in the FMF entry's two Japanese nationwide surveys.
+  are two records, even when they report the same difference.
 - **Treatment response is not a variant effect.** A drug working differently by
   ancestry is a treatment `effect_modifiers` entry with
   `effect_modifier_type: ANCESTRY`.
 
 `Prevalence.population` and `GeneCaseFraction.population` are still free text
-with no HANCESTRO binding. Worked example: `Familial_Mediterranean_Fever`
-(M694V and M694I in Japanese patients).
+with no HANCESTRO binding.
 
 ### Clinical Trials
 

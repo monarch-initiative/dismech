@@ -2020,10 +2020,10 @@ population was recorded only per gene (`GeneCaseFraction.population`, section 8)
 never per variant. A variant that is a disease-causing allele in one population
 and a common low-penetrance allele in another had to receive one
 population-blind call, or be described in prose that no query reaches. Familial
-Mediterranean fever (FMF) is the worked example: its entry recorded no individual
-MEFV variant, although M694V, the commonest variant in Mediterranean patients,
-was carried by none of 80 Japanese patients in a nationwide series
-([PMID:19531756](https://pubmed.ncbi.nlm.nih.gov/19531756/)).
+Mediterranean fever (FMF) is the motivating case: M694V, the commonest variant in
+Mediterranean patients, was carried by none of 80 Japanese patients in a
+nationwide series ([PMID:19531756](https://pubmed.ncbi.nlm.nih.gov/19531756/)),
+and nothing in the schema could record that against the variant.
 
 **Why HANCESTRO.** Three vocabularies were compared on twenty populations that
 matter for FMF and for founder variants: Singaporean Chinese, Malay and Indian;
