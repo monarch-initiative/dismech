@@ -132142,7 +132142,8 @@ window.searchData = [
     "subtypes": [],
     "description": "Ethylene glycol poisoning follows ingestion of antifreeze, de-icing fluid or other ethylene-glycol-containing products, taken deliberately, accidentally, or as a substitute intoxicant. The parent alcohol is only mildly intoxicating. The damage is done by its metabolites: alcohol dehydrogenase oxidises ethylene glycol to glycolaldehyde and then to glycolic acid, which drives a severe anion gap metabolic acidosis, and finally to oxalic acid, which precipitates with calcium as insoluble calcium oxalate crystals in the renal tubules and produces acute kidney injury. Because the toxicity is metabolic rather than direct, the antidote is an enzyme inhibitor rather than a chelator or a receptor blocker, and giving it early enough prevents the renal injury outright.",
     "pathophysiology": [
-      "Ethylene Glycol Ingestion and Alcohol Dehydrogenase Bioactivation",
+      "Ethylene Glycol Ingestion and Absorption",
+      "Alcohol Dehydrogenase Bioactivation of Ethylene Glycol",
       "Glycolic Acid Accumulation and High Anion Gap Metabolic Acidosis",
       "Oxalic Acid Production and Calcium Oxalate Crystal Deposition",
       "Proximal Tubular Epithelial Cell Death",
@@ -132204,11 +132205,11 @@ window.searchData = [
     "source_file": "Ethylene_Glycol_Poisoning.yaml",
     "page_url": "../pages/disorders/Ethylene_Glycol_Poisoning.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Ethylmalonic Encephalopathy",
@@ -321068,6 +321069,83 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Spinocerebellar Ataxia 46",
+    "disease_id": "MONDO:0033481",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia 46 (SCA46) is a late-onset, slowly progressive, autosomal dominant ataxia that combines sensory axonal neuropathy with mild cerebellar signs: gait ataxia, dysarthria and oculomotor abnormalities. The disease is defined by a single Dutch family, first described in 1995 as a dominant sensory ataxic neuropathy and later found to carry the heterozygous PLD3 missense variant p.Leu308Pro. PLD3 encodes a lysosomal 5' exonuclease that degrades single-stranded DNA. In cells the mutant protein is held in the endoplasmic reticulum and has lost exonuclease activity. The gene-disease link is provisional: no second family with segregation has been published, and Pld3 knockout mice show neither cerebellar degeneration nor ataxia. How loss of PLD3 would damage sensory neurons or the cerebellum is unknown.",
+    "pathophysiology": [
+      "Heterozygous PLD3 Leu308Pro Variant",
+      "Mutant PLD3 Retention in the ER and Loss of Exonuclease Activity",
+      "Impaired Lysosomal Degradation of Single-Stranded Nucleic Acids",
+      "Reduced Lysosomal S,S-BMP Synthesis",
+      "Large-Fiber Sensory Axonal Degeneration",
+      "Cerebellar Dysfunction"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "DNA catabolic process",
+      "lysobisphosphatidic acid biosynthetic process"
+    ],
+    "phenotypes": [
+      "Sensory ataxia",
+      "Sensory axonal neuropathy",
+      "Progressive cerebellar ataxia",
+      "Dysarthria",
+      "Oculomotor abnormalities",
+      "Nystagmus",
+      "Cerebellar atrophy",
+      "Sensorineural hearing impairment",
+      "Optic atrophy"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0010871",
+      "HP:0003390",
+      "HP:0002073",
+      "HP:0001260",
+      "HP:0000496",
+      "HP:0000639",
+      "HP:0001272",
+      "HP:0000407",
+      "HP:0000648"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PLD3"
+    ],
+    "treatments": [
+      "Physical Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_46.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_Ataxia_46.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Spinocerebellar Ataxia 48",
     "disease_id": "MONDO:0032526",
     "category": "Mendelian",
@@ -358527,17 +358605,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3323,
+  "total_disorder_pages": 3324,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7956,
-  "total_unique_evidence_sources": 49926,
-  "total_unique_publications": 46552,
+  "total_disorders_and_subtypes": 7957,
+  "total_unique_evidence_sources": 49935,
+  "total_unique_publications": 46561,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3319,
-  "total_unique_pathological_events": 21922,
-  "total_modules": 190,
-  "total_research_reports": 3440,
+  "total_pathographs": 3320,
+  "total_unique_pathological_events": 21928,
+  "total_modules": 191,
+  "total_research_reports": 3441,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
