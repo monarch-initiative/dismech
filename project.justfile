@@ -2535,6 +2535,19 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
 dr_fallback := ""
 dr_align := "uv run python scripts/align_research_provider.py"
+
+# Where the client writes a run's report, citations and _artifacts/ before they
+# are placed into research/ (inside tmp/, which git ignores). The client used to
+# write straight onto research/<name>-deep-research-<provider>.md, so re-running
+# a provider for a disorder that already had its report overwrote the committed
+# one, and a fallback then renamed the wreckage -- with the old run's
+# _artifacts/ -- onto the fallback provider's name (#12700). Now
+# `scripts/align_research_provider.py --into` moves the run's own files into place and never replaces anything:
+# when the name is taken, the new report gets the run date appended
+# (`Foo-deep-research-falcon-2026-10-08.md`) and sits beside the old one. If
+# placement fails, the run's output is left in the staging directory and the
+# error names it, so a paid run is never lost.
+dr_staging_dir := "tmp/research-staging"
 dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
@@ -2561,6 +2574,8 @@ research-datasets provider disorder *args="":
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     echo "Dataset discovery: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
@@ -2569,16 +2584,17 @@ research-datasets provider disorder *args="":
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Report which revision of a research template produced each report, and how
@@ -2686,6 +2702,8 @@ research-disorder provider disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -2695,16 +2713,17 @@ research-disorder provider disorder *args="":
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Deep research on a shared mechanism module using specified provider
@@ -2762,6 +2781,8 @@ research-module provider module *args="":
     )
     output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -2773,16 +2794,17 @@ research-module provider module *args="":
         --var "module_description=$module_description" \
         --var "pathophysiology_summary=$pathophysiology_summary" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Deep research on a comorbidity using specified provider
@@ -2838,6 +2860,8 @@ research-comorbidity provider comorbidity *args="":
 	rm -f "$tmpfile"
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
 	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -2849,16 +2873,17 @@ research-comorbidity provider comorbidity *args="":
 	    --var "disease_b_components=$disease_b_components" \
 	    --var "disease_b_composition=$disease_b_composition" \
 	    $provider_arg \
-	    --output "$output_file" \
-	    --separate-citations "$output_file.citations.md" \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
-	if [ -f "$output_file" ]; then
-	    {{dr_stamp}} "$output_file"
-	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
 	fi
+	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
@@ -2884,6 +2909,8 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -2892,16 +2919,17 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --var "surrogate={{surrogate}}" \
 	    --var "clinical_outcome={{clinical_outcome}}" \
 	    $provider_arg \
-	    --output "$output_file" \
-	    --separate-citations "$output_file.citations.md" \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
-	if [ -f "$output_file" ]; then
-	    {{dr_stamp}} "$output_file"
-	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
 	fi
+	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
 # Deep research on a disorder using cyberian with codex agent
@@ -2921,6 +2949,8 @@ research-disorder-cyberian-codex disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
@@ -2929,16 +2959,17 @@ research-disorder-cyberian-codex disorder *args="":
         --var "category=$category" \
         --provider cyberian \
         --param agent_type=codex \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # List available research providers
