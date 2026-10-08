@@ -2542,11 +2542,11 @@ dr_align := "uv run python scripts/align_research_provider.py"
 # a provider for a disorder that already had its report overwrote the committed
 # one, and a fallback then renamed the wreckage -- with the old run's
 # _artifacts/ -- onto the fallback provider's name (#12700). Now
-# `scripts/align_research_provider.py --into` moves the run's own files into place and never replaces anything:
-# when the name is taken, the new report gets the run date appended
-# (`Foo-deep-research-falcon-2026-10-08.md`) and sits beside the old one. If
-# placement fails, the run's output is left in the staging directory and the
-# error names it, so a paid run is never lost.
+# `scripts/align_research_provider.py --into` moves the run's own files into
+# place and never replaces anything: when the name is taken, the new report
+# gets the run date appended (`Foo-deep-research-falcon-2026-10-08.md`) and
+# sits beside the old one. If placement fails, the run's output is left in the
+# staging directory and the error names it, so a paid run is never lost.
 dr_staging_dir := "tmp/research-staging"
 dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 

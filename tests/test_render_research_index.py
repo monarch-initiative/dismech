@@ -113,7 +113,7 @@ def test_render_research_index_exposes_fixed_provider_filters(tmp_path: Path) ->
         "openscientist",
         "other",
     ):
-        assert f'provider-filter-{provider_key}' in html
+        assert f"provider-filter-{provider_key}" in html
 
     assert "OpenScientist" in html
     assert "Other" in html
@@ -145,7 +145,7 @@ def test_registry_drives_legend_and_pill_colors(tmp_path: Path) -> None:
         assert entry["name"] in html
         assert entry["description"] in html
         # Pill CSS rule generated per key.
-        assert f'.provider-pill.provider-{entry["key"]}' in html
+        assert f".provider-pill.provider-{entry['key']}" in html
         assert entry["pill"]["background"] in html
         # Product link only for entries that carry one.
         if entry["url"]:
@@ -310,6 +310,36 @@ def test_scan_research_reports_extracts_per_report_metadata(tmp_path: Path) -> N
     ]
 
 
+def test_a_dated_rerun_is_filed_under_its_provider(tmp_path: Path) -> None:
+    """A re-run placed beside an existing report keeps its provider (#12700).
+
+    `Foo-deep-research-falcon-2026-10-08.md` is a second falcon report, not a
+    provider called `falcon-2026-10-08`: it belongs under the Edison pill and is
+    labelled Falcon, while keeping its own report page.
+    """
+    research_dir, disorders_dir = _seed_research_dirs(tmp_path)
+    (research_dir / "Asthma-deep-research-falcon-2026-10-08.md").write_text(
+        "---\nprovider: falcon\n---\n\n# report\n"
+    )
+    (research_dir / "Asthma-deep-research-claude_code-2026-10-08-2.md").write_text(
+        "---\nprovider: claude_code\n---\n\n# report\n"
+    )
+
+    reports = _scan_research_reports(research_dir, disorders_dir)
+    by_name = {report["path"].name: report for report in reports}
+
+    dated = by_name["Asthma-deep-research-falcon-2026-10-08.md"]
+    assert dated["provider_raw"] == "falcon"
+    assert dated["provider_key"] == "edison"
+    assert dated["provider_label"] == "Falcon"
+    assert (
+        dated["output_name"] != by_name["Asthma-deep-research-falcon.md"]["output_name"]
+    )
+
+    second = by_name["Asthma-deep-research-claude_code-2026-10-08-2.md"]
+    assert second["provider_key"] == "claude-code"
+
+
 def test_collect_index_rows_carries_report_links_and_mondo(tmp_path: Path) -> None:
     research_dir, disorders_dir = _seed_research_dirs(tmp_path)
 
@@ -375,9 +405,7 @@ def test_render_research_index_page_writes_index_and_report_pages(
     assert "blob/main/research/Asthma-deep-research-falcon.md" in report_html
 
     # MONDO id in the header resolves to its OBO PURL.
-    assert (
-        'href="http://purl.obolibrary.org/obo/MONDO_0004979"' in report_html
-    )
+    assert 'href="http://purl.obolibrary.org/obo/MONDO_0004979"' in report_html
     # Inline citation links to an anchored reference entry, text preserved.
     assert 'id="ref-smith2020airwayinflammation-pages-3-4"' in report_html
     assert 'href="#ref-smith2020airwayinflammation-pages-3-4"' in report_html
@@ -404,14 +432,10 @@ def test_format_report_date_reduces_to_date_only() -> None:
 
 
 def test_curie_url_resolves_prefixes() -> None:
-    assert (
-        _curie_url("MONDO:0004979")
-        == "http://purl.obolibrary.org/obo/MONDO_0004979"
-    )
+    assert _curie_url("MONDO:0004979") == "http://purl.obolibrary.org/obo/MONDO_0004979"
     assert _curie_url("GO:0005125") == "http://purl.obolibrary.org/obo/GO_0005125"
     assert (
-        _curie_url("NCBITaxon:9606")
-        == "http://purl.obolibrary.org/obo/NCBITaxon_9606"
+        _curie_url("NCBITaxon:9606") == "http://purl.obolibrary.org/obo/NCBITaxon_9606"
     )
     assert _curie_url("PMID:12345678") == "https://pubmed.ncbi.nlm.nih.gov/12345678/"
     assert _curie_url("DOI:10.1/x") == "https://doi.org/10.1/x"
@@ -423,8 +447,7 @@ def test_curie_url_resolves_prefixes() -> None:
 
 def test_autolink_report_html_targets_text_nodes_only() -> None:
     html = _autolink_report_html(
-        "<p>See PMID:12345678, doi:10.1000/x, GO:0005125 and "
-        "https://example.org/a.</p>"
+        "<p>See PMID:12345678, doi:10.1000/x, GO:0005125 and https://example.org/a.</p>"
     )
     assert 'href="https://pubmed.ncbi.nlm.nih.gov/12345678/"' in html
     assert 'href="https://doi.org/10.1000/x"' in html
@@ -459,7 +482,7 @@ def test_link_report_citations_anchors_and_links() -> None:
 
 def test_collapse_report_tables_wraps_tables() -> None:
     wrapped = _collapse_report_tables("<p>x</p><table><tr><td>a</td></tr></table>")
-    assert wrapped.startswith("<p>x</p><details class=\"report-table\">")
+    assert wrapped.startswith('<p>x</p><details class="report-table">')
     assert "<summary>Table (click to expand)</summary>" in wrapped
     assert "<table><tr><td>a</td></tr></table>" in wrapped
     # Content without a table is left alone.
