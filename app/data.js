@@ -123796,6 +123796,132 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Dystonia 24",
+    "disease_id": "MONDO:0014019",
+    "category": "Mendelian",
+    "parents": [
+      "Isolated dystonia",
+      "Monogenic dystonia"
+    ],
+    "creation_date": "2026-10-08T13:31:10Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant dystonia caused by heterozygous variants in ANO3, which encodes anoctamin 3 (TMEM16C), a calcium-activated member of the TMEM16 family of phospholipid scramblases and ion channels that is most highly expressed in the striatum. The originally described phenotype, in a British kindred and two further families, is craniocervical dystonia with prominent tremor: cervical dystonia, laryngeal dystonia and upper-limb dystonic tremor, sometimes with blepharospasm, oromandibular involvement and superimposed myoclonic jerks. Onset ranges from early childhood to late adulthood, spread is usually to a segmental or multifocal distribution, and tremor can precede any visible dystonia, which leads to misdiagnosis as essential tremor.\nLater reports, many of them de novo missense variants in children, broadened the phenotype to early-onset generalized dystonia, paroxysmal dystonia, myoclonic dystonia, truncal dystonia, chorea, parkinsonism, hypotonia, developmental delay and mild intellectual disability. Whether all of these belong to one disease is not settled; they are recorded here as phenotypes of the gene-defined entity with their sources, without frequency where no cohort figure exists. Brain MRI is normal in the reported families.\nThe mechanism is the least settled part of the entry. The best-supported chain runs from altered ANO3 function through impaired endoplasmic reticulum calcium release and store-operated calcium entry to failed activation of calcium-dependent potassium channels, and from there, by inference, to hyperexcitability of striatal neurons. Every step up to the potassium channel has been measured in patient fibroblasts or transfected cell lines; the step into striatal neurons and the step from there to dystonia have not been demonstrated in neurons, tissue or an animal model. Whether ANO3 itself conducts ions, and whether disease variants act by loss of function, are disputed, and both questions are recorded as knowledge gaps rather than resolved here.\nGene-disease validity is also contested. Rare protein-changing ANO3 variants are found in controls and in other movement disorders at an appreciable rate, so not every rare variant reported in a dystonia patient is pathogenic.\nRelationship to Cervical_Dystonia: that entry covers common sporadic adult focal cervical dystonia and types ANO3 as a SUSCEPTIBILITY gene explaining a small minority of unselected cases. This entry is the Mendelian entity itself. The two share a phenotypic region and are not merged.\nNo pathophysiology node declares conforms_to: kb/modules/ has no module for dystonia, basal ganglia motor network dysfunction or anoctamin scramblase biology.",
+    "pathophysiology": [
+      "Heterozygous ANO3 Variants",
+      "Altered ANO3 Calcium-Activated Scramblase Function",
+      "Impaired Endoplasmic Reticulum Calcium Release and Store-Operated Calcium Entry",
+      "Impaired Activation of Calcium-Dependent Potassium Channels",
+      "Striatal Neuronal Hyperexcitability"
+    ],
+    "cell_types": [
+      "striatal medium spiny neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001474"
+    ],
+    "biological_processes": [
+      "store-operated calcium entry",
+      "endoplasmic reticulum calcium ion homeostasis"
+    ],
+    "phenotypes": [
+      "Cervical dystonia",
+      "Laryngeal dystonia",
+      "Tremor",
+      "Craniofacial dystonia",
+      "Blepharospasm",
+      "Upper limb dystonia",
+      "Leg dystonia",
+      "Myoclonus",
+      "Generalized dystonia",
+      "Paroxysmal dystonia",
+      "Chorea",
+      "Dysarthria",
+      "Parkinsonism",
+      "Hypotonia",
+      "Motor delay",
+      "Global developmental delay",
+      "Intellectual disability",
+      "Axial dystonia",
+      "Head tremor",
+      "Postural tremor",
+      "Oromandibular dystonia",
+      "Writer's cramp",
+      "Rigidity",
+      "Tics",
+      "Dyskinesia",
+      "Atypical behavior",
+      "Urinary incontinence",
+      "Bowel incontinence",
+      "Gait ataxia"
+    ],
+    "phenotype_categories": [
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Genitourinary",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System",
+      "Voice"
+    ],
+    "phenotype_ids": [
+      "HP:0000473",
+      "HP:0012049",
+      "HP:0001337",
+      "HP:0012179",
+      "HP:0000643",
+      "HP:0031960",
+      "HP:0031959",
+      "HP:0001336",
+      "HP:0007325",
+      "HP:0002268",
+      "HP:0002072",
+      "HP:0001260",
+      "HP:0001300",
+      "HP:0001252",
+      "HP:0001270",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0002530",
+      "HP:0002346",
+      "HP:0002174",
+      "HP:0012048",
+      "HP:0002356",
+      "HP:0002063",
+      "HP:0100033",
+      "HP:0100660",
+      "HP:0000708",
+      "HP:0000020",
+      "HP:0002607",
+      "HP:0002066"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ANO3"
+    ],
+    "treatments": [
+      "Botulinum toxin chemodenervation",
+      "Oral pharmacotherapy",
+      "Deep brain stimulation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dystonia_24.yaml",
+    "page_url": "../pages/disorders/Dystonia_24.html",
+    "num_phenotypes": 29,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Dystroglycanopathy",
     "disease_id": "MONDO:0018276",
     "category": "Mendelian",
@@ -327934,6 +328060,107 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Sulfide Quinone Oxidoreductase Deficiency",
+    "disease_id": "MONDO:0030982",
+    "category": "Mendelian",
+    "parents": [
+      "Inborn Error of Metabolism",
+      "Leigh Syndrome",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-10-08T13:32:21Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Sulfide quinone oxidoreductase deficiency (SQORD) is an autosomal recessive inborn error of hydrogen sulfide (H2S) metabolism caused by biallelic loss-of-function variants in SQOR (previously SQRDL). SQOR is the inner mitochondrial membrane enzyme that performs the first step of mitochondrial sulfide oxidation, transferring electrons from H2S to coenzyme Q and the sulfane sulfur to glutathione; ETHE1 persulfide dioxygenase acts on its product in the next step. Affected children from two unrelated families have been described. Episodes following intercurrent illness produce coma, lactic acidosis and Leigh-like basal ganglia lesions, with isolated decreased cytochrome c oxidase (complex IV) activity in muscle and liver despite normal complex IV protein and assembly. The proposed mechanism is intermittent accumulation of H2S, which inhibits complex IV and causes energy failure; a mouse model in which SQOR is excluded from mitochondria reproduces the Leigh-like disease, the H2S elevation and the complex IV deficit. Two sisters in the first family died during their first episode, while homozygous siblings in the second family have remained asymptomatic, so penetrance and the triggers that convert the biochemical defect into disease are not settled.",
+    "pathophysiology": [
+      "SQOR Sulfide Oxidation Deficiency",
+      "Hydrogen Sulfide Accumulation",
+      "Sulfide Inhibition of Cytochrome c Oxidase",
+      "Impaired Terminal Electron Transfer and ATP Synthesis",
+      "Lactate Overproduction and Metabolic Decompensation",
+      "Leigh-like Brain Injury"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "sulfide oxidation",
+      "mitochondrial electron transport, cytochrome c to oxygen",
+      "lactate biosynthetic process"
+    ],
+    "phenotypes": [
+      "Lactic acidosis",
+      "Coma",
+      "Recurrent encephalopathy",
+      "Hypotonia",
+      "Basal ganglia lesions",
+      "Decreased complex IV activity",
+      "Tonic seizures",
+      "Neurostorming",
+      "Multiorgan failure",
+      "Hepatic failure",
+      "Shock",
+      "Elevated creatine kinase",
+      "Elevated brain lactate by MRS",
+      "Death in childhood"
+    ],
+    "phenotype_categories": [
+      "Metabolism/Laboratory abnormality",
+      "Neurological",
+      "Constitutional",
+      "Gastrointestinal",
+      "Cardiovascular",
+      "Mortality"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003128",
+      "HP:0001259",
+      "HP:0007335",
+      "HP:0001252",
+      "HP:0012751",
+      "HP:0008347",
+      "HP:0032792",
+      "HP:0001399",
+      "HP:0031273",
+      "HP:0003236",
+      "HP:0012707"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SQOR"
+    ],
+    "treatments": [
+      "Metronidazole",
+      "Sulfur-restricted diet"
+    ],
+    "environmental": [
+      "Intercurrent infection and fasting"
+    ],
+    "biochemical": [
+      "SQOR enzyme activity",
+      "Blood lactate"
+    ],
+    "source_file": "Sulfide_Quinone_Oxidoreductase_Deficiency.yaml",
+    "page_url": "../pages/disorders/Sulfide_Quinone_Oxidoreductase_Deficiency.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Sulfur Mustard Poisoning",
     "disease_id": "MONDO:0800387",
     "category": "Environmental",
@@ -358300,17 +358527,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3321,
+  "total_disorder_pages": 3323,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7954,
-  "total_unique_evidence_sources": 49894,
-  "total_unique_publications": 46520,
+  "total_disorders_and_subtypes": 7956,
+  "total_unique_evidence_sources": 49926,
+  "total_unique_publications": 46552,
   "total_unique_disease_categories": 61,
-  "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3317,
-  "total_unique_pathological_events": 21912,
+  "total_unique_phenotype_categories": 296,
+  "total_pathographs": 3319,
+  "total_unique_pathological_events": 21922,
   "total_modules": 189,
-  "total_research_reports": 3438,
+  "total_research_reports": 3440,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
