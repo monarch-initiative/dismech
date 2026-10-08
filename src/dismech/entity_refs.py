@@ -10,9 +10,9 @@ hash-anchor grammar the schema documents on ``Discussion.attaches_to``::
     Liver_Cirrhosis:pathophysiology#Hepatic Stellate Cell Activation
 
 The same grammar is reused by ``Experiment.would_support`` /
-``would_refute`` and by ``ExperimentalPerturbation.target`` /
-``ExperimentalReadout.target`` (see ``dismech.yaml``, which says so in as many
-words). These are foreign keys, and this module is the single place that knows
+``would_refute``, by ``ExecutableProtocol.measures``, and by
+``ExperimentalPerturbation.target`` / ``ExperimentalReadout.target`` (see
+``dismech.yaml``, which says so in as many words). These are foreign keys, and this module is the single place that knows
 how to follow one — so the test suite, the HTML renderer, and any exporter
 resolve a reference the same way rather than each growing its own half of the
 rules (issue #9193).
@@ -192,7 +192,7 @@ SECTION_KEYS: dict[str, tuple[str, tuple[str, ...]]] = {
 #: ``target_mechanisms`` for plain node names, so a ``target`` without a ``#``
 #: is simply not an entity reference and is skipped by the parser.
 REF_SLOTS: frozenset[str] = frozenset(
-    {"attaches_to", "would_support", "would_refute", "target"}
+    {"attaches_to", "measures", "would_support", "would_refute", "target"}
 )
 
 #: Ref-bearing slot -> the slot a prose *outcome* belongs in instead (#9224).
@@ -221,7 +221,7 @@ REFERENCE_ONLY_SLOTS: dict[str, str] = {
 #: node names in `ModelMechanismLink` and `target_mechanisms`, and its 8
 #: unknown-kind values in `kb/` (`gene#`, `biological_process#`) look like real
 #: missing `SECTION_KEYS` entries rather than typos.
-KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to"}
+KNOWN_KIND_SLOTS = frozenset(REFERENCE_ONLY_SLOTS) | {"attaches_to", "measures"}
 
 
 def canonical_kind(kind: str) -> str:

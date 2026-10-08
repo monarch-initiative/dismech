@@ -62,6 +62,7 @@ window.searchData = [
     "notes": "The reusable artifact is Figshare record 30117763 version 3 under CC BY 4.0; Supplemental Code File S4 is file 57981556 (33,204,094 bytes; MD5 a978e3b86bc3ed537d2754dfc002d1e6). It contains MATLAB scripts and Live Scripts for the heterozygous, homozygous, and treatment simulations. Static curator inspection confirmed four core states plus an excess-FFA state in the control and heterozygous arms, with a four-state homozygous ode23s implementation. The code was not executed because neither MATLAB nor Octave was available. The base progression model was fitted to four-dimensional individualized longitudinal data from Southwest Native Americans and checked with modified data-partition validation; those results must not be transferred to the hypothetical homozygous infant arm. That arm was constrained by case literature but has no pediatric longitudinal calibration cohort, begins from selected hypoglycemic and hyperinsulinemic initial conditions, and is not a patient-specific digital twin. It covers only the ABCC8/K-ATP subtype and omits GLUD1, GCK, HADH, perinatal-stress and focal-disease mechanisms, ketones, lipolysis, brain injury, meal dynamics, and prospective outcome validation. The publication states that its treatment simulations are not intended to predict individual outcomes.",
     "creation_date": "2026-08-01T05:30:00Z",
     "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-abcc8-loss-of-function-glucose-insulin-progression-ode",
+    "model_page_url": "",
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
   },
   {
@@ -100,6 +101,7 @@ window.searchData = [
     "notes": "This is the piece of tooling that makes the module's first node quantitatively connectable to its downstream inflammation node - short-chain fatty acid and other metabolite output is the mechanistic currency between them.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/gut_dysbiosis.html#computational-model-agora-gut-microbiome-genome-scale-metabolic-reconstructions",
+    "model_page_url": "",
     "source_file": "kb/modules/gut_dysbiosis.yaml"
   },
   {
@@ -139,6 +141,7 @@ window.searchData = [
     "notes": "Nature Biotechnology 2022 - includes strain-level resolution for studying CD-associated dysbiosis patterns",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Crohn_Disease.html#computational-model-agora2-gut-microbiome-metabolic-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/Crohn_Disease.yaml"
   },
   {
@@ -180,6 +183,7 @@ window.searchData = [
     "notes": "Nature Biotechnology 2022 - includes drug metabolism capabilities for 98 drugs; enables community-level FBA with MICOM",
     "creation_date": "2026-02-21T15:39:12Z",
     "page_url": "../../pages/disorders/Diabetes_mellitus.html#computational-model-agora2-gut-microbiome-metabolic-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/Diabetes_Mellitus.yaml"
   },
   {
@@ -220,6 +224,7 @@ window.searchData = [
     "notes": "Nature Biotechnology 2022 - includes drug metabolism capabilities for 98 drugs; enables community-level FBA with MICOM",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-agora2-gut-microbiome-metabolic-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
@@ -259,6 +264,7 @@ window.searchData = [
     "notes": "Nature Biotechnology 2022 - strain-level resolution for butyrate producer depletion studies",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Ulcerative_Colitis.html#computational-model-agora2-gut-microbiome-metabolic-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
@@ -300,6 +306,7 @@ window.searchData = [
     "notes": "First comprehensive kinetic model of PD-related protein aggregation",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Parkinson's_Disease.html#computational-model-alpha-synuclein-aggregation-bst-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
@@ -341,7 +348,49 @@ window.searchData = [
     "notes": "Predicts Braak staging patterns from connectivity-based spreading",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Parkinson's_Disease.html#computational-model-alpha-synuclein-prion-like-spreading-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
+  },
+  {
+    "model_key": "CATSHL_Syndrome--computational-model-arg621his-kinase-domain-homology-model--0",
+    "name": "Arg621His kinase-domain homology model",
+    "description": "The FGFR1 kinase crystal structure was used to infer the catalytic-loop role of the homologous FGFR3 Arg621 residue and model a histidine side chain.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:17033969",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CATSHL Syndrome",
+    "disease_id": "MONDO:0012504",
+    "category": "Mendelian",
+    "parents": [
+      "FGFR3-related skeletal dysplasia"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "FGFR3 Kinase-Domain Loss of Function"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-08-29T19:15:00Z",
+    "page_url": "../../pages/disorders/CATSHL_Syndrome.html#computational-model-arg621his-kinase-domain-homology-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CATSHL_Syndrome.yaml"
   },
   {
     "model_key": "Hepatitis_C--computational-model-aston2018-hcv-within-host-viral-dynamics-model--0",
@@ -401,6 +450,7 @@ window.searchData = [
     "notes": "BioModels entry BIOMD0000000713 (internal submission MODEL1808280002) is manually curated; this record pins public revision 9 at https://www.biomodels.org/services/download/get-files/MODEL1808280002/9/MODEL1808280002.9.omex. The revision-9 COMBINE archive retrieved for curator testing was 83,278 bytes with SHA-256 5ca8ec25248d053f4dc52374658df7fc403ea1c4fa4a9141ca93bd0b600712c8, and its main PVR.xml file has SHA-256 b8d62ff28623b18ba31fd59a39a3f5bbd799a0fef9601a5a0f435d5c722cf3b3. BioModels distributes the model under CC0; the archive itself contains no separate license file. PVR.cps, Breakthrough.cps, NullResponse.cps, and Triphasic.cps are distinct parameter and initial-condition variants of the same three-species, nine-reaction structure. Under Python 3.13.9 with COPASI 4.46.300 and basiCO 0.86, all four CPS files loaded and simulated; the PVR SBML and CPS trajectories agreed to a maximum relative difference below 1.03e-7 under matched LSODA settings and reproduced the archived Figure 12(a) result. The standardized workflow is incomplete: every SED-ML file references PVR.xml without model changes, so the named Breakthrough, NullResponse, and Triphasic SED-ML files do not encode their corresponding CPS parameterizations; Breakthrough.sedml and NullResponse.sedml are byte-identical. The stored Triphasic CPS time-course settings are internally inconsistent (19 steps of 3.333333333 days with a declared duration of 60 days), and current COPASI runs to 63.333 days unless the step size is forced to 60/19. BioSimulators archive validation completes with unit/modeling warnings, but the standardized COPASI archive runner hung after task start in the curator environment while direct COPASI execution succeeded. libSBML reports no parse errors, with 17 unit/modeling-practice warnings including eight parameters without declared units. The archive hash is a retrieval snapshot because BioModels can regenerate container packaging; the revision and main-file hash are the stronger content pins. The original MATLAB fit estimated ten parameters and initial values by least squares on log viral load. Raw fitting data and fitting code are not deposited, COPASI parameter-estimation and validation sets are empty, and the paper warns that substantially different parameters give similar fits. The clinical profiles predate modern direct-acting antiviral regimens; direct-acting antiviral effects are discussed as parameter hypotheses rather than validated against DAA-treated cohorts. The model does not justify links to Chronic Inflammation and Fibrosis, Immune Evasion, or Hepatocellular Carcinoma Development.",
     "creation_date": "2026-01-09T05:44:55Z",
     "page_url": "../../pages/disorders/Hepatitis_C.html#computational-model-aston2018-hcv-within-host-viral-dynamics-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Hepatitis_C.yaml"
   },
   {
@@ -451,6 +501,7 @@ window.searchData = [
     "notes": "No mutant coordinates, prediction outputs, code, or reusable model archive were deposited; PDB 6K9L is the wild-type experimental template, not the p.Ala2386Glu model. The template resolution is 4.27 angstrom. The structural analysis is useful because it is allele-explicit and experimentally checked, but it remains a one-family result and does not model the full A-T spectrum.",
     "creation_date": "2026-03-15T23:04:29Z",
     "page_url": "../../pages/disorders/Ataxia-telangiectasia.html#computational-model-atm-p-ala2386glu-variant-structure-predictions",
+    "model_page_url": "",
     "source_file": "kb/disorders/Ataxia_Telangiectasia.yaml"
   },
   {
@@ -515,6 +566,7 @@ window.searchData = [
     "notes": "The primary pinned GitHub source is GPL-3.0 (file SHA-256 33139fc6df3278e3bb8e2bf0878367a51653e2c44021541ee261061278f636d1). BioModels accession MODEL2503190002 revision 2 is NON_CURATED; its OMEX metadata declares CC0 while its record has no license field. Its versioned per-file endpoint provides the semantically equivalent SBML (SHA-256 816d0fb1963f142859218e8473dffb9ac1a0a107a5f2988515541173ce399b56), whereas the bulk archive currently contains a zero-byte SBML member. BioModels adds annotations and reserializes the XML, accounting for the cross-source byte difference. Both files validated without libSBML errors and ran finite time courses in COPASI and libRoadRunner during curator smoke testing on 2026-08-20. The paper reports 32 molecular species and 41 reactions, whereas both deposited artifacts contain 31 species and 40 reactions. Only one base SBML file is deposited: disease and drug scenarios, solver tasks, and expected figure outputs are not packaged as separate configurations. Concentrations are qualitative and not calibrated to patient or cell data; the paper's nominal 20 mol/L drug settings must not be interpreted as clinical doses. Parameter sensitivity, Lyapunov stability, and enrichment of the manually selected network test internal behavior or consistency, not external predictive validity; moreover, the three reported Lyapunov exponents sum to -0.06784821 rather than the stated -12.4979. The proposed spermidine-plus-HDAC4 synergy is inferred from separate intervention simulations rather than a deposited combination run and still requires experimental testing. Although the artifact title and notes sometimes say ATM/ATR-deficient A-T, the disease simulation removes ATM while retaining ATR as the compensatory pathway.",
     "creation_date": "2026-03-15T23:04:29Z",
     "page_url": "../../pages/disorders/Ataxia-telangiectasia.html#computational-model-atm-atr-dna-damage-response-and-drug-repurposing-ode-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Ataxia_Telangiectasia.yaml"
   },
   {
@@ -556,6 +608,7 @@ window.searchData = [
     "notes": "Models circuit-level effects of dopamine depletion and DBS therapy",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Parkinson's_Disease.html#computational-model-basal-ganglia-spiking-neural-network",
+    "model_page_url": "",
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
@@ -592,6 +645,7 @@ window.searchData = [
     "notes": "Official sample model from the manuscript-synced grammar_samples release. Most relevant to the \"Anti-Tumor T Cell Response\" and early immune-escape portions of this module.",
     "creation_date": "2026-03-21T00:00:00Z",
     "page_url": "../../pages/modules/immune_checkpoint_blockade.html#computational-model-base-tumor-immune-physicell-model",
+    "model_page_url": "",
     "source_file": "kb/modules/immune_checkpoint_blockade.yaml"
   },
   {
@@ -640,6 +694,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-01-08T17:12:45Z",
     "page_url": "../../pages/disorders/Fabry_disease.html#computational-model-bi-atrial-in-silico-fabry-arrhythmia-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fabry_Disease.yaml"
   },
   {
@@ -683,6 +738,7 @@ window.searchData = [
     "notes": "No committed dismech-perturb run exists for this model; it is recorded as published external work, not as an executable model in this repository.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Osteoporosis.html#computational-model-bone-cell-population-dynamics-model-of-the-remodeling-unit",
+    "model_page_url": "",
     "source_file": "kb/disorders/Osteoporosis.yaml"
   },
   {
@@ -732,7 +788,53 @@ window.searchData = [
     "notes": "Pathograph links added as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. `model_format` and `repository_url` are deliberately left unset: this 2012 model predates routine SBML-qual deposition and no public model-repository record could be sourced, so recording either would be a guess. Literature-referenced, not runnable in-repo.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-boolean-network-model-of-fa-brca-pathway",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
+  },
+  {
+    "model_key": "CDK8-Related_Disorder--computational-model-cdk8-cyclin-c-molecular-dynamics--0",
+    "name": "CDK8\u2013Cyclin C Molecular Dynamics",
+    "description": "Reference, Ser62Leu and Arg178Gln CDK8\u2013cyclin C structures with ATP were compared by molecular dynamics. The modeling used CDK8 structure 4F7S and an aligned CDK9 ATP template, with unresolved regions modeled in MOE and replicate simulations in GROMACS. The variants were predicted to restrict substrate-pocket opening without grossly changing the overall fold.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:30905399",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CDK8-Related Disorder",
+    "disease_id": "MONDO:0032897",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant intellectual disability",
+      "Neurodevelopmental disorder",
+      "CDK8-kinase module-associated disorder"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Altered Substrate-Binding Geometry"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:30905399"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CDK8-Related_Disorder.html#computational-model-cdk8-cyclin-c-molecular-dynamics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CDK8-Related_Disorder.yaml"
   },
   {
     "model_key": "Primary_Ciliary_Dyskinesia--computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities--0",
@@ -775,6 +877,7 @@ window.searchData = [
     "notes": "DOI metadata and the author institutional record (https://kth.diva-portal.org/smash/record.jsf?pid=diva2:1779672) identify the study. The sanctioned DOI cache lacks full text; solver implementation and quantitative validation were not independently verified, and no simulation was rerun.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Primary_Ciliary_Dyskinesia.html#computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities",
+    "model_page_url": "",
     "source_file": "kb/disorders/Primary_Ciliary_Dyskinesia.yaml"
   },
   {
@@ -831,6 +934,7 @@ window.searchData = [
     "notes": "Consensus in-silico model of the FDA/HESI Comprehensive in vitro Proarrhythmia Assay (CiPA); reference implementation at github.com/FDA/CiPA. Optimized by Dutta et al. 2017 from the IKr-dynamic ORd model.",
     "creation_date": "2026-04-14T05:37:14Z",
     "page_url": "../../pages/disorders/Familial_Long_QT_Syndrome.html#computational-model-cipa-ikr-dynamic-ord-proarrhythmia-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
@@ -887,6 +991,7 @@ window.searchData = [
     "notes": "Repository inspected at commit dc4fc2b69cbbd5f51ff4976b9ded20dedd9b7a51 (2024-05-07). It contains the MATLAB sensitivity, Sobol, diaphony, and DMS-PSO scripts plus reference CircAdapt P-structs, but no license, automated tests, patient measurement files, or bundled CircAdapt solver. Execution was not attempted because neither MATLAB nor Octave is installed and the scripts require a separately placed CircAdapt C++ checkout and non-public patient data.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-par-75-imaging-based-left-ventricular-digital-twin",
+    "model_page_url": "",
     "source_file": "kb/disorders/Heart_Failure.yaml"
   },
   {
@@ -937,6 +1042,7 @@ window.searchData = [
     "notes": "Curated directly from the paper because no exact code deposit for the 45-patient virtual-pacing analysis was identified. The public Koopsen2024ParameterSubsetReduction repository above documents a closely related CircAdapt personalization framework from the same group, but it is not claimed as the implementation of this CRT study.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Heart_Failure.html#computational-model-circadapt-virtual-pacing-crt-response-twin",
+    "model_page_url": "",
     "source_file": "kb/disorders/Heart_Failure.yaml"
   },
   {
@@ -980,6 +1086,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Atrial_Fibrillation.html#computational-model-courtemanche-ramirez-nattel-human-atrial-action-potential-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Atrial_Fibrillation.yaml"
   },
   {
@@ -1024,7 +1131,97 @@ window.searchData = [
     "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. A collection rather than a single network \u2014 FAIRDOMHub model 714 holds SBML-qual translations of selected C19DMap diagrams. Literature-referenced, not runnable in-repo.",
     "creation_date": "2026-05-26T18:00:00Z",
     "page_url": "../../pages/disorders/COVID-19.html#computational-model-covid-19-disease-map-sbml-qual-boolean-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/COVID-19.yaml"
+  },
+  {
+    "model_key": "Vitamin_D-Dependent_Rickets_Type_3--computational-model-cyp3a4-i301t-vitamin-d-molecular-docking-model--0",
+    "name": "CYP3A4-I301T Vitamin D Molecular Docking Model",
+    "description": "Molecular docking predicted a Thr301 hydrogen bond to the calcifediol 3-beta-hydroxyl group and interactions of the 25-hydroxyl group with Arg372 and Glu374, positioning substrate for 11-alpha hydroxylation. This is a structural explanation for product selectivity, not an experimentally determined CYP3A4-I301T structure.",
+    "model_type": "Molecular Docking",
+    "model_type_raw": "MOLECULAR_DOCKING",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:41046353",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Vitamin D-Dependent Rickets Type 3",
+    "disease_id": "MONDO:0033640",
+    "category": "Mendelian",
+    "parents": [
+      "Metabolic Bone Disorders",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [
+      "CYP3A4"
+    ],
+    "perturbation_ids": [
+      "hgnc:2637"
+    ],
+    "modeled_mechanisms": [
+      "CYP3A4 p.Ile301Thr Substrate-Selective Gain of Function"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:41046353"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-08-19T00:00:00Z",
+    "page_url": "../../pages/disorders/Vitamin_D-Dependent_Rickets_Type_3.html#computational-model-cyp3a4-i301t-vitamin-d-molecular-docking-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Vitamin_D-Dependent_Rickets_Type_3.yaml"
+  },
+  {
+    "model_key": "CD25_Deficiency--computational-model-cys168ter-protein-and-rna-structure-predictions--0",
+    "name": "Cys168Ter protein and RNA structure predictions",
+    "description": "The Cys168Ter case report used an ab-initio protein model, domain mapping and RNAfold. The altered stop codon predicts truncation, but mRNA folding stability showed no significant change and degradation was not measured.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:35968218",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CD25 Deficiency",
+    "disease_id": "MONDO:0011664",
+    "category": "Mendelian",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Surface CD25 Availability"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:35968218"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-09-24T19:23:48Z",
+    "page_url": "../../pages/disorders/CD25_Deficiency.html#computational-model-cys168ter-protein-and-rna-structure-predictions",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CD25_Deficiency.yaml"
   },
   {
     "model_key": "Deregulated_Nutrient_Sensing_Module--computational-model-dallepezze2016-concurrent-ampk-and-mtor-activation-by-amino-acids--1",
@@ -1063,6 +1260,7 @@ window.searchData = [
     "notes": "Relevant to this module's own framing: the antagonism the node assumes between mTORC1 and AMPK is condition-dependent, not absolute.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/deregulated_nutrient_sensing.html#computational-model-dallepezze2016-concurrent-ampk-and-mtor-activation-by-amino-acids",
+    "model_page_url": "",
     "source_file": "kb/modules/deregulated_nutrient_sensing.yaml"
   },
   {
@@ -1108,6 +1306,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-deep-learning-fa-core-complex-structure",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
@@ -1163,6 +1362,7 @@ window.searchData = [
     "notes": "Repository inspected at commit bf480f5cbba429639fcd6f1cb8dc92081a4f5975 (2025-11-28). It contains three notebooks and a structural-connectivity NumPy array under GPL-2.0, but no pinned dependency manifest, release, or automated tests. The notebooks import The Virtual Brain and scientific-Python packages; execution was not attempted because the repository does not specify compatible package versions. The public notebooks support simulations and model inversion, while patient EEG data are not deposited in the repository.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Alzheimer_Disease.html#computational-model-digital-alzheimer-s-disease-diagnosis-dadd-patient-specific-brain-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Alzheimer_Disease.yaml"
   },
   {
@@ -1208,6 +1408,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-dna-methylation-episignature-classifier",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
@@ -1247,6 +1448,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/epigenetic_alterations.html#computational-model-dnam-grimage-mortality-predictor",
+    "model_page_url": "",
     "source_file": "kb/modules/epigenetic_alterations.yaml"
   },
   {
@@ -1286,6 +1488,7 @@ window.searchData = [
     "notes": "Because it derives inflammation from methylation, it is a shared readout with epigenetic_alterations and should not be treated as independent confirmation of either module.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/inflammaging.html#computational-model-epinflammage-epigenetic-inflammatory-clock",
+    "model_page_url": "",
     "source_file": "kb/modules/inflammaging.yaml"
   },
   {
@@ -1322,6 +1525,7 @@ window.searchData = [
     "notes": "Official sample model from the manuscript-synced grammar_samples release. Best treated as a reusable executable reference for checkpoint-sensitive tumor-immune interaction logic rather than a disease-specific digital twin.",
     "creation_date": "2026-03-21T00:00:00Z",
     "page_url": "../../pages/modules/immune_checkpoint_blockade.html#computational-model-extended-tumor-immune-physicell-model",
+    "model_page_url": "",
     "source_file": "kb/modules/immune_checkpoint_blockade.yaml"
   },
   {
@@ -1367,7 +1571,50 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-08-17T00:00:00Z",
     "page_url": "../../pages/disorders/Sick_Sinus_Syndrome_2,_Autosomal_Dominant.html#computational-model-fabbri-severi-human-sinoatrial-node-cell-model-with-hcn4-mutation-induced-i-f-changes",
+    "model_page_url": "",
     "source_file": "kb/disorders/Sick_Sinus_Syndrome_2_Autosomal_Dominant.yaml"
+  },
+  {
+    "model_key": "Traumatic_Brain_Injury--computational-model-finite-element-head-model-of-brain-injury-biomechanics--0",
+    "name": "Finite-Element Head Model of Brain Injury Biomechanics",
+    "description": "A high-fidelity three-dimensional finite-element model of the human head that computes strain and strain rate in brain tissue for a given head loading. Applied to a helmet-to-helmet American football impact, a fall and a road traffic collision, it predicts that strain concentrates at the depths of sulci, and patient diffusion tensor imaging shows abnormalities in the same sulcal regions. A rat version of the model was later validated against histology after controlled cortical impact.",
+    "model_type": "Biomechanical",
+    "model_type_raw": "BIOMECHANICAL",
+    "model_format": "finite-element mesh",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:28043957",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Traumatic Brain Injury",
+    "disease_id": "MONDO:0858950",
+    "category": "Complex",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Rapid Head Acceleration and Brain Tissue Deformation",
+      "Diffuse Axonal Injury"
+    ],
+    "num_mechanisms": 2,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:28043957"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-10-01T04:00:00Z",
+    "page_url": "../../pages/disorders/Traumatic_Brain_Injury.html#computational-model-finite-element-head-model-of-brain-injury-biomechanics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Traumatic_Brain_Injury.yaml"
   },
   {
     "model_key": "Phenylketonuria--computational-model-harvey-whole-body-pku-model--2",
@@ -1415,6 +1662,7 @@ window.searchData = [
     "notes": "Whole-body WBM framework supports organ-resolved biomarker prediction in inherited metabolic disease.",
     "creation_date": "2025-12-19T14:27:56Z",
     "page_url": "../../pages/disorders/Phenylketonuria.html#computational-model-harvey-whole-body-pku-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Phenylketonuria.yaml"
   },
   {
@@ -1475,6 +1723,7 @@ window.searchData = [
     "notes": "Curated from the article and equations; no deposited executable implementation was identified. This is a theoretical airway-wall model, not a patient-specific digital twin or a clinical predictor.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Asthma.html#computational-model-hill-mechanochemical-morphoelastic-model-of-asthmatic-airway-remodelling",
+    "model_page_url": "",
     "source_file": "kb/disorders/Asthma.yaml"
   },
   {
@@ -1513,6 +1762,7 @@ window.searchData = [
     "notes": "The reason this module's first node is measurable at all in humans. Treat clock output as a readout of the node, never as evidence for a mechanism.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/epigenetic_alterations.html#computational-model-horvath-multi-tissue-dna-methylation-age-predictor",
+    "model_page_url": "",
     "source_file": "kb/modules/epigenetic_alterations.yaml"
   },
   {
@@ -1552,6 +1802,7 @@ window.searchData = [
     "notes": "iScience 2024 - framework for quantifying host-microbiome metabolic crosstalk",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Crohn_Disease.html#computational-model-host-microbiome-multi-objective-optimization-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Crohn_Disease.yaml"
   },
   {
@@ -1591,6 +1842,7 @@ window.searchData = [
     "notes": "iScience 2024 - models host-microbiome metabolic interactions at community scale",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Ulcerative_Colitis.html#computational-model-host-microbiome-multi-objective-optimization-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
@@ -1635,6 +1887,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-24T00:00:00Z",
     "page_url": "../../pages/disorders/apparent_mineralocorticoid_excess.html#computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis",
+    "model_page_url": "",
     "source_file": "kb/disorders/Apparent_Mineralocorticoid_Excess.yaml"
   },
   {
@@ -1691,7 +1944,54 @@ window.searchData = [
     "notes": "The repository_url points to the PLOS correction notice that supplies the software, rather than to the primary article DOI. The correction provides plain-text XPPAUT code under CC BY: Software S1 (DOI 10.1371/journal.pcbi.1003536.s001) for Figures 1-5 has SHA-256 876720bcfe5818be50b7cf7f0ba7f54118255417396794d5a51be3232420070b, and Software S2 (DOI 10.1371/journal.pcbi.1003536.s002) for Figure 6 has SHA-256 b12b4f78df67b693129e1d4e743b28eb16eb2f49432fe597f212330633f82caa. Static curator inspection confirmed equations, parameters, initial conditions, and solver directives, but XPPAUT was unavailable locally and the files were not executed. This is a reusable cellular complement, not a disease-specific or patient-specific congenital-hyperinsulinism model.",
     "creation_date": "2026-08-01T05:30:00Z",
     "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-human-beta-cell-electrophysiology-and-calcium-ode",
+    "model_page_url": "",
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
+  },
+  {
+    "model_key": "Carnitine-acylcarnitine_Translocase_Deficiency--computational-model-human-slc25a20-conformational-models-and-molecular-dynamics--0",
+    "name": "Human SLC25A20 conformational models and molecular dynamics",
+    "description": "AlphaFold2/ColabFold models of cytoplasmic-open and matrix-open human SLC25A20, molecular dynamics and substrate docking explore conformational asymmetry and binding determinants. Structural analysis suggests explanations for Asp231His and Ala281Val. The reported simulations do not directly quantify patient-mutant transport or clinical phenotype.",
+    "model_type": "Molecular Docking",
+    "model_type_raw": "MOLECULAR_DOCKING",
+    "model_format": "Format not recorded",
+    "model_software": "AlphaFold 2.2.0; ColabFold AlphaFold2_advanced; AMBER22; CPPTRAJ",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:36835358",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Carnitine-acylcarnitine Translocase Deficiency",
+    "disease_id": "MONDO:0008918",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "SLC25A20 transporter molecular function deficiency"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Predicted Asp231His effects involve matrix salt-bridge interactions; Ala281Val may perturb H5/H6 packing. Experimental mutant-transport confirmation is not supplied by this modeling study."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:36835358"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-02-23T00:00:00Z",
+    "page_url": "../../pages/disorders/Carnitine-acylcarnitine_Translocase_Deficiency.html#computational-model-human-slc25a20-conformational-models-and-molecular-dynamics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Carnitine-Acylcarnitine_Translocase_Deficiency.yaml"
   },
   {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
@@ -1730,6 +2030,7 @@ window.searchData = [
     "notes": "Supplies the quantitative rationale for senolytic timing: because removal capacity, not production, is what fails with age, intermittent clearance is predicted to have durable effects.",
     "creation_date": "2026-06-23T00:00:00Z",
     "page_url": "../../pages/modules/cellular_senescence.html#computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation",
+    "model_page_url": "",
     "source_file": "kb/modules/cellular_senescence.yaml"
   },
   {
@@ -1786,6 +2087,7 @@ window.searchData = [
     "notes": "The study enrolled 16 children; all but one had genetically confirmed KATP-HI, and eight entered the meal/protein crossover. No source repository, executable supplement, or open software license was identified, so reuse requires reimplementing equations printed in the article. Stata 16MP is reported for statistical analyses, but the software used to fit the kinetic equations is not stated. The model measures secretion and clearance; it does not represent the K-ATP lesion itself, and endogenous glucose production was explicitly not measured. The kinetic model was not validated as a prospective dose-selection tool.",
     "creation_date": "2026-08-01T05:30:00Z",
     "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-katp-hi-whole-body-insulin-and-c-peptide-kinetics-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
   },
   {
@@ -1825,6 +2127,7 @@ window.searchData = [
     "notes": "Historically the origin of the \"damage processes interact\" framing that the hallmarks-of-aging modules now represent as separate but cross-linked entries.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/mitochondrial_dysfunction.html#computational-model-kowald-kirkwood-network-theory-of-ageing-model",
+    "model_page_url": "",
     "source_file": "kb/modules/mitochondrial_dysfunction.yaml"
   },
   {
@@ -1863,6 +2166,7 @@ window.searchData = [
     "notes": "Explains why a rare somatic mtDNA deletion becomes cell-wide, which is the step that converts a stochastic mutation into the focal respiratory-deficient cells seen in aged tissue.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/mitochondrial_dysfunction.html#computational-model-kowald-kirkwood-transcription-based-mtdna-deletion-selection-model",
+    "model_page_url": "",
     "source_file": "kb/modules/mitochondrial_dysfunction.yaml"
   },
   {
@@ -1921,6 +2225,7 @@ window.searchData = [
     "notes": "Curated directly from the paper; no exact deposited implementation was identified. The deposition result is hypothesis-generating and should not be treated as an established clinical aerosol-delivery recommendation.",
     "creation_date": "2025-12-19T14:27:56Z",
     "page_url": "../../pages/disorders/Cystic_Fibrosis.html#computational-model-kurbatova-physiologically-based-model-of-mucociliary-clearance",
+    "model_page_url": "",
     "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
@@ -1978,6 +2283,7 @@ window.searchData = [
     "notes": "A curator search on 2026-08-20 identified no paper-specific code repository or executable model archive, and the clinical inputs are available only on request. Curator inspection found that the open VBI package contains generic Stuart-Landau and SBI components but not this paper's lesion-specific gamma-by-tract formulation, so it is not cited as the model artifact. The article is CC BY 4.0, which licenses the paper rather than an unreleased implementation. Synthetic parameter recovery had slope 0.8 and showed boundary bias. The clinical analysis reuses the small cross-sectional source cohort from the 2024 model; the gamma term was not a statistically significant EDSS predictor, and longitudinal validation is still needed.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-lesion-aware-personalized-whole-brain-conduction-delay-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
   },
   {
@@ -2016,6 +2322,7 @@ window.searchData = [
     "notes": "Included deliberately as the adaptive-immune counterpart: immunosenescence and inflammaging are distinct processes, and keeping the model's scope explicit prevents the module absorbing evidence that belongs to the other.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/inflammaging.html#computational-model-lewkiewicz2019-naive-t-cell-population-and-diversity-aging-model",
+    "model_page_url": "",
     "source_file": "kb/modules/inflammaging.yaml"
   },
   {
@@ -2077,6 +2384,7 @@ window.searchData = [
     "notes": "Curated directly from the paper and supplementary equations; no exact code repository was identified. This is not a clinically validated digital twin: patient-specific inputs improve individual simulations, but prospective prognosis and dosing claims require further experimental validation.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Sickle_Cell_Disease.html#computational-model-lu-stochastic-kinetic-model-of-hbs-polymerization-and-erythrocyte-sickling",
+    "model_page_url": "",
     "source_file": "kb/disorders/Sickle_Cell_Disease.yaml"
   },
   {
@@ -2129,6 +2437,7 @@ window.searchData = [
     "notes": "The article is CC BY-NC 4.0 and explicitly reports no original code. It provides no reusable paper-specific coordinates or prediction metadata; PXD038425 and PXD038417 are proteomics deposits, not model archives. The generic mutable ColabFold notebook is therefore not recorded as this model's repository. Evidence comes from one homozygous patient and family; iPSC-cardiomyocytes are developmentally immature and engineered heart muscle does not reproduce whole-organ physiology.",
     "creation_date": "2026-02-04T01:40:11Z",
     "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-lztr1-l580p-alphafold-multimer-polymerization-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
@@ -2181,6 +2490,7 @@ window.searchData = [
     "notes": "Zenodo record 4593670 (DOI 10.5281/zenodo.4593670) is immutable and CC BY 4.0. Curator smoke checks confirmed both PDB files parse as single-model coordinate sets and match the deposited checksums: LZTR1-RIT1.pdb SHA256 e8d6ccd42ed610ae23f490f4e0d5b274a5cb2eb09413b3243a72d058df704a29 and full-lengthLZTR1.pdb SHA256 05fabfd85279a69056e95244ea94ef561d66c5b604a5b4f4ff76f7226082a891. The latter begins at residue 35 and ends at 833 despite its filename. The bundled predict_pathogenicity.pl is actually a shell-style ANNOVAR command, fails Perl syntax checking, and depends on separately obtained databases; it is not part of a runnable molecular-dynamics workflow. A later experimental LZTR1 Kelch-RIT1 structure (PMID:40934300; PDB 9MEY) supersedes this model for current interface geometry; the 2021 model is retained as a historical, variant-dynamics hypothesis with LOW fidelity.",
     "creation_date": "2026-02-04T01:40:11Z",
     "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-lztr1-rit1-recruitment-docking-and-molecular-dynamics-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
@@ -2234,6 +2544,7 @@ window.searchData = [
     "notes": "Repository inspected at commit 3f64a2cbeb6797cd281c19d70a838282996f62b2. The three core multiscale agent-based targets compiled after explicitly selecting C++11, and all four Python scripts passed syntax compilation. The spatial-transcriptomic C++ target did not compile because OpenMP was not declared, and no dependency manifest or license file was present.",
     "creation_date": "2026-01-26T02:55:13Z",
     "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-m4rl-glioblastoma-tumor-microenvironment-treatment-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
   },
   {
@@ -2279,6 +2590,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-machine-learning-drug-repurposing-drexml",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
@@ -2317,6 +2629,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/telomere_attrition.html#computational-model-mathematical-modelling-of-telomere-length-dynamics",
+    "model_page_url": "",
     "source_file": "kb/modules/telomere_attrition.yaml"
   },
   {
@@ -2361,6 +2674,7 @@ window.searchData = [
     "notes": "mSystems 2020 - enables personalized microbiome metabolic modeling; applied to IBD cohorts",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Crohn_Disease.html#computational-model-micom-community-metabolic-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Crohn_Disease.yaml"
   },
   {
@@ -2402,6 +2716,7 @@ window.searchData = [
     "notes": "mSystems 2020 - enables personalized microbiome metabolic modeling from 16S/metagenomics data",
     "creation_date": "2026-02-21T15:39:12Z",
     "page_url": "../../pages/disorders/Diabetes_mellitus.html#computational-model-micom-community-metabolic-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Diabetes_Mellitus.yaml"
   },
   {
@@ -2442,6 +2757,7 @@ window.searchData = [
     "notes": "mSystems 2020 - enables personalized microbiome metabolic modeling from 16S/metagenomics data",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-micom-community-metabolic-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
@@ -2481,6 +2797,7 @@ window.searchData = [
     "notes": "mSystems 2020 - enables personalized SCFA flux predictions from patient metagenomes",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Ulcerative_Colitis.html#computational-model-micom-community-metabolic-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
@@ -2537,6 +2854,7 @@ window.searchData = [
     "notes": "Scope is the radial-migration branch; the axon-guidance branch of this module is deliberately outside the model. Not runnable through dismech-perturb, which executes SBML and cannot run an agent-based simulation, so the models browser reports it as reference-only. Run it with `uv run python models/neuronal_migration_abm/run.py`, where `--check` verifies the committed results and `--print` summarises them. The rules are written in the shape of a PhysiCell cell-behaviour rule (cell type, signal, direction, behaviour) so they could be ported to that engine; no PhysiCell rules file is committed, because the half-max and Hill parameters such a file needs would have to be invented.",
     "creation_date": "2026-06-10T03:26:29Z",
     "page_url": "../../pages/modules/microtubule_dependent_neuronal_migration_failure.html#computational-model-microtubule-dependent-radial-neuronal-migration-agent-based-model",
+    "model_page_url": "../../pages/models/neuronal_migration_abm.html",
     "source_file": "kb/modules/microtubule_dependent_neuronal_migration_failure.yaml"
   },
   {
@@ -2612,6 +2930,7 @@ window.searchData = [
     "notes": "Wired for dismech-perturb (models/hpt_feedback_axis/config.yaml; Antimony source models/hpt_feedback_axis/model.ant). The disease-severity dial is thyroid secretory capacity S_thy (baseline_gfr 1.0 = normal). Levothyroxine is an exogenous, TSH-independent T4 source (LT4); treatment scenarios titrate it from under-replacement (residual high TSH) through full replacement (euthyroid) to over-replacement (suppressed TSH, elevated free T4 = iatrogenic thyrotoxicosis). Thresholds are calibrated to model steady-state values, not clinical assay reference ranges.",
     "creation_date": "2026-05-14T20:54:37Z",
     "page_url": "../../pages/disorders/Congenital_Hypothyroidism.html#computational-model-minimal-hypothalamic-pituitary-thyroid-feedback-model",
+    "model_page_url": "../../pages/models/hpt_feedback_axis.html",
     "source_file": "kb/disorders/Congenital_Hypothyroidism.yaml"
   },
   {
@@ -2676,6 +2995,7 @@ window.searchData = [
     "notes": "Wired for dismech-perturb (models/urate_homeostasis/config.yaml; Antimony source models/urate_homeostasis/model.ant). The disease-severity dial is fractional excretion f_exc (baseline 1.0 = normal). Treatment scenarios model allopurinol and febuxostat (xanthine-oxidase inhibition, XO down), probenecid (uricosuric, f_exc up), and pegloticase (recombinant uricase, k_uricase up), plus a combination. URAT1/GLUT9 loss-of-function raise excretion (renal hypouricemia, protective), while ABCG2 loss lowers it. Thresholds use the ~6.8 mg/dL urate solubility limit; other bands are model-calibrated.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Gout.html#computational-model-minimal-urate-homeostasis-model",
+    "model_page_url": "../../pages/models/urate_homeostasis.html",
     "source_file": "kb/disorders/Gout.yaml"
   },
   {
@@ -2725,6 +3045,7 @@ window.searchData = [
     "notes": "Explains brain-specific pathology and why Phe restriction outperforms Tyr supplementation",
     "creation_date": "2025-12-19T14:27:56Z",
     "page_url": "../../pages/disorders/Phenylketonuria.html#computational-model-multi-compartment-pku-fba-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Phenylketonuria.yaml"
   },
   {
@@ -2770,6 +3091,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-multi-level-dynamical-modelling-of-scc-in-fa",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
@@ -2815,7 +3137,50 @@ window.searchData = [
     "notes": "The stimulus represented is protein feeding. Resistance exercise and mechanical loading are not in the model, so it says nothing directly about the Blunted Load-Induced mTORC1 Signalling node; the authors note that exercise enhances muscle sensitivity to protein feeding, which is the interaction a loading extension would need to capture.",
     "creation_date": "2026-08-31T00:00:00Z",
     "page_url": "../../pages/disorders/Sarcopenia.html#computational-model-multiscale-kinetic-model-of-leucine-stimulated-muscle-protein-metabolism",
+    "model_page_url": "",
     "source_file": "kb/disorders/Sarcopenia.yaml"
+  },
+  {
+    "model_key": "CASQ2_CPVT--computational-model-multiscale-ryr2-open-and-closed-block-model--1",
+    "name": "Multiscale RyR2 Open- and Closed-Block Model",
+    "description": "The 2026 dynamic model couples experimentally determined RyR2 gating with SERCA uptake to explain why flecainide and tetracaine can differ despite both inhibiting channels.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:42363594",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CASQ2 CPVT",
+    "disease_id": "MONDO:0012762",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Diastolic Sarcoplasmic Reticulum Calcium Leak"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CASQ2_CPVT.html#computational-model-multiscale-ryr2-open-and-closed-block-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CASQ2_CPVT.yaml"
   },
   {
     "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
@@ -2869,6 +3234,7 @@ window.searchData = [
     "notes": "The MIT-licensed repository is pinned at commit d14295ced27c4cbee3e22db966daed38c40f831e and includes the training/test/A-T combined-feature CSV files plus the analysis notebook; the feature data have no separate data-license file. It does not include trained weights, a dependency manifest, or an environment lock. The notebook expects nine absent split CSV files, saves and loads weights through an author's private Google Drive path, and omits code that constructs several later analysis objects. Its formulas instantiate a five-unit latent layer rather than the four-unit architecture stated in the paper. The committed artifact is therefore not a self-contained replay of the published analysis. The 16-person A-T cohort is small and has no external validation cohort; training controls are younger on average, and exploratory clinical associations were not corrected for multiple testing. This is an individualized anomaly detector, not a longitudinal patient digital twin.",
     "creation_date": "2026-03-15T23:04:29Z",
     "page_url": "../../pages/disorders/Ataxia-telangiectasia.html#computational-model-normative-diffusion-perfusion-mri-autoencoder",
+    "model_page_url": "",
     "source_file": "kb/disorders/Ataxia_Telangiectasia.yaml"
   },
   {
@@ -2912,6 +3278,7 @@ window.searchData = [
     "notes": "The model is literature-derived rather than patient-specific and reports relative steady-state activities, not validated clinical response predictions.",
     "creation_date": "2026-04-13T05:41:42Z",
     "page_url": "../../pages/disorders/Anaplastic_Large_Cell_Lymphoma.html#computational-model-npm-alk-signaling-network-sensitivity-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Anaplastic_Large_Cell_Lymphoma.yaml"
   },
   {
@@ -2968,6 +3335,7 @@ window.searchData = [
     "notes": "Curated from the paper and supplemental equations; no exact deposited code implementation was identified. Calibration used primary cultured nasal epithelium rather than patient-specific longitudinal data.",
     "creation_date": "2025-12-19T14:27:56Z",
     "page_url": "../../pages/disorders/Cystic_Fibrosis.html#computational-model-o-donoghue-quantitative-model-of-human-nasal-epithelial-ion-transport",
+    "model_page_url": "",
     "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
@@ -3030,6 +3398,7 @@ window.searchData = [
     "notes": "CellML encoding in the Physiome Model Repository (exposure e/71); original MATLAB from the Rudy Lab. Endocardial, midmyocardial, and epicardial cell variants are provided. Base model for the CiPA IKr-dynamic ORd and ToR-ORd refinements below.",
     "creation_date": "2026-04-14T05:37:14Z",
     "page_url": "../../pages/disorders/Familial_Long_QT_Syndrome.html#computational-model-o-hara-rudy-ord-human-ventricular-action-potential-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
@@ -3071,6 +3440,7 @@ window.searchData = [
     "notes": "PLOS Computational Biology 2022 - context-specific reconstruction using RNA-seq from healthy and T2D beta cells",
     "creation_date": "2026-02-21T15:39:12Z",
     "page_url": "../../pages/disorders/Diabetes_mellitus.html#computational-model-pancreatic-beta-cell-genome-scale-metabolic-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Diabetes_Mellitus.yaml"
   },
   {
@@ -3111,6 +3481,7 @@ window.searchData = [
     "notes": "PLOS Computational Biology 2022 - context-specific reconstruction using RNA-seq from healthy and T2D beta cells",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-pancreatic-beta-cell-genome-scale-metabolic-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
@@ -3150,6 +3521,7 @@ window.searchData = [
     "notes": "Mechanistically links this module to mitochondrial_dysfunction: the arrest node itself drives the mitochondrial ROS production that sustains it.",
     "creation_date": "2026-06-23T00:00:00Z",
     "page_url": "../../pages/modules/cellular_senescence.html#computational-model-passos2010-p21-ros-senescence-feedback-loop",
+    "model_page_url": "",
     "source_file": "kb/modules/cellular_senescence.yaml"
   },
   {
@@ -3210,6 +3582,7 @@ window.searchData = [
     "notes": "The final five-author publication is PMID:41102232. Its code and data point to Zenodo record 13939516, created for the 2024 preprint; its UI shows v1, but its metadata has no semantic version. The record has concept DOI 10.5281/zenodo.13939515 and uses the bioRxiv DOI 10.1101/2024.10.10.617526 as its record DOI; a putative version DOI 10.5281/zenodo.13939516 does not resolve. The single code and data.zip file is 135,806,838 bytes (Zenodo-reported MD5 327afa8fc9df02a01c4c4318cfe04aaf; locally computed SHA-256 6656ac6fb83cf893ca33367b0f39b70829a80c72c452dbb02ea5de4c2d1099a4), passes ZIP integrity checks, and contains 398 files: ten ordered Mathematica notebooks, generated 4_model_Code.m, four input-data files, 16 precomputed Wolfram outputs, 57 manuscript figures, 308 patient-fit PDFs, a DOCX README, and .DS_Store. Zenodo metadata declares CC BY 4.0, but the ZIP has no embedded license; the final article is separately CC BY-NC-ND 4.0. The author environment is Mathematica 14.1 on an ARM Mac and uses built-ins without an environment lock. A Mathics compatibility smoke test parsed and loaded the generated package and bundled serialized cohort metadata (n=8 Hughes; n=75 DESTINY), then constructed the three ODEs and default initial conditions. Per-patient Hughes evaluation hit Mathics Association/string incompatibilities, Mathics cannot execute the required multivariate NDSolve workflow, and licensed Mathematica was unavailable, so full numerical and figure reproduction was not verified. The notebooks also depend on NotebookDirectory, $FrontEndSession, and PDF export, while solver method, numerical precision, and kernel count are unpinned. Fresh execution on a case-sensitive system also requires correcting data_destiny.csv to the deposited data_Destiny.csv and out_patients_hughes.wl to out_patients_Hughes.wl; the README misnames the final notebook. The complete million-combination search over three parameters is documented as about seven hours on an M3 Mac, while the fixed-parameter 10,000-pair workflow takes under 30 minutes; precomputed outputs permit figure inspection without recomputation. A material methods/code discrepancy affects the immune-kill parameter m_K: the paper specifies a search range of [0,1], while the deposited code searches [0,4]; 2,159 of 7,500 retained million-combination fits across 29 of 75 patients exceed 1 (maximum 3.99966), as do 200 of 7,500 fixed-c_K full-course fits for patients 60 and 69 (maximum 2.89195). The deposited code and results therefore do not exactly implement the published bound, and interpretation requires author clarification. The README also mislabels fitted p_T tuples as p_E. The deposited Hughes data have ten patients, and the workflow hard-codes eight without recording the selection rationale; the paper describes its modeled subset as the eight patients on full TKI dose. The DESTINY deposit has 78 patients (75 selected plus three extras), not the full 174 described in the paper, so the original selection cannot be rerun from this archive alone. For each selected patient, simplified fixed-c_K analyses retain the 100 best fits from 10,000 (p_T,m_K) pairs, while the full analysis retains 100 from one million (p_T,m_K,c_K) combinations. DESTINY has no NK trajectories: NK-number/suppression and NK-function parameters are fixed to population-summary values derived from the eight Hughes patients, while patient-specific p_T and m_K (and c_K in the full three-parameter analysis) are calibrated only from tumor-load data. Deposited internal ROC AUCs for relapse at 12/24/36 months rise from 0.57/0.53/0.53 using full-dose data to 0.79/0.73/0.71 through half dose and 0.92/0.95/0.92 after six post-cessation months, but the reference true scenario is the best complete-trajectory fit, not observed held-out outcomes. This is an artifact-backed, partially reproducible proof-of-concept for patient-calibrated tumor-immune dynamics, not a clinically validated digital twin. The model does not justify links to upstream BCR-ABL1 signaling, apoptosis resistance, genomic instability, or blast crisis.",
     "creation_date": "2026-01-26T02:55:13Z",
     "page_url": "../../pages/disorders/Chronic_Myeloid_Leukemia,_BCR-ABL1_Positive.html#computational-model-patient-specific-cml-tumor-nk-treatment-cessation-ode-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Chronic_Myeloid_Leukemia.yaml"
   },
   {
@@ -3250,6 +3623,7 @@ window.searchData = [
     "notes": "Used in clinical trial design and dose optimization for incretin-based therapies",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-pbpk-model-for-glp-1-receptor-agonists",
+    "model_page_url": "",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
@@ -3296,6 +3670,7 @@ window.searchData = [
     "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. Literature-referenced, not runnable in-repo: dismech-perturb has no SBML-qual execution path yet. Note this is a *probabilistic* Boolean network \u2014 cohort data enter as node transition probabilities, so it is not a plain deterministic Boolean model.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Parkinson's_Disease.html#computational-model-pd-map-cohort-specific-probabilistic-boolean-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
@@ -3362,6 +3737,7 @@ window.searchData = [
     "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Relevant configs include `config/PhysiCell_settings_PDAC.xml`, the rule table in `config/cell_rules.csv`, and coculture initial conditions under `config/ics/`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-caf-mediated-invasion-physicell-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
   },
   {
@@ -3445,6 +3821,7 @@ window.searchData = [
     "notes": "Manuscript-synced sample model from the official PhysiCell grammar_samples release. Therapy-specific initial-condition files are stored in `config/ic_cells/`, and the core executable interaction logic is in `config/cell_rules.csv`. The pinned v2.0.1 repository, XML configurations and rule tables were inspected in this review. This is a published computational model record; no simulation, calibration or patient-response validation was performed here, and it does not establish daraxonrasib immune or resistance predictions.",
     "creation_date": "2026-03-06T00:00:00Z",
     "page_url": "../../pages/disorders/Pancreatic_Ductal_Adenocarcinoma.html#computational-model-pdac-immunotherapy-physicell-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Pancreatic_Ductal_Adenocarcinoma.yaml"
   },
   {
@@ -3532,6 +3909,7 @@ window.searchData = [
     "notes": "Key validatable outputs: serum Ca, PO4, PTH, calcitriol, BMD. Genetic-validation anchors include CASR and RGS14 loci from CKD cohort data. Clinically validatable against CRIC mineral-marker data.",
     "creation_date": "2026-03-05T15:32:43Z",
     "page_url": "../../pages/disorders/CKD-Mineral_Bone_Disorder.html#computational-model-peterson-riggs-calcium-homeostasis-and-bone-remodeling-model",
+    "model_page_url": "../../pages/models/BIOMD0000000613.html",
     "source_file": "kb/disorders/CKD-Mineral_Bone_Disorder.yaml"
   },
   {
@@ -3601,6 +3979,7 @@ window.searchData = [
     "notes": "Multiscale model linking molecular/cellular bone remodeling to organ-level mineral homeostasis across progressive CKD stages. Validates against clinical BMD data stratified by GFR.",
     "creation_date": "2026-03-05T15:32:43Z",
     "page_url": "../../pages/disorders/CKD-Mineral_Bone_Disorder.html#computational-model-peterson-riggs-ckd-mbd-multiscale-extension",
+    "model_page_url": "",
     "source_file": "kb/disorders/CKD-Mineral_Bone_Disorder.yaml"
   },
   {
@@ -3655,6 +4034,7 @@ window.searchData = [
     "notes": "No exact public code or standard model archive was identified. The model is curated from the paper and is retained as a low-fidelity syndrome-level bridge, not as a patient-specific model or a representation of a known ASPS allele.",
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-phillips-coupled-sleep-wake-and-circadian-chronotype-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
@@ -3694,6 +4074,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-06-23T00:00:00Z",
     "page_url": "../../pages/modules/cellular_senescence.html#computational-model-population-model-of-dna-damage-senescence-and-stem-cell-dynamics-in-ageing",
+    "model_page_url": "",
     "source_file": "kb/modules/cellular_senescence.yaml"
   },
   {
@@ -3733,6 +4114,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/stem_cell_exhaustion.html#computational-model-predicting-clonal-self-renewal-and-extinction-of-hematopoietic-stem-cells",
+    "model_page_url": "",
     "source_file": "kb/modules/stem_cell_exhaustion.yaml"
   },
   {
@@ -3771,6 +4153,7 @@ window.searchData = [
     "notes": "The oxidative-stress term is the quantitative bridge from mitochondrial_dysfunction into this module - ROS accelerate attrition without any change in division rate.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/telomere_attrition.html#computational-model-proctor-kirkwood-telomere-shortening-and-oxidative-stress-model",
+    "model_page_url": "",
     "source_file": "kb/modules/telomere_attrition.yaml"
   },
   {
@@ -3810,6 +4193,7 @@ window.searchData = [
     "notes": "The sequestration term makes the decline self-accelerating - aggregates consume the very chaperones needed to prevent them.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/loss_of_proteostasis.html#computational-model-proctor2005-chaperone-and-heat-shock-response-model",
+    "model_page_url": "",
     "source_file": "kb/modules/loss_of_proteostasis.yaml"
   },
   {
@@ -3848,6 +4232,7 @@ window.searchData = [
     "notes": "The \"Proctor2006\" label follows the BioModels record name; the paper (PMID:17015293) appeared in J Cell Sci in 2007 after a 2006 epub.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/telomere_attrition.html#computational-model-proctor2006-telomere-uncapping-checkpoint-model",
+    "model_page_url": "",
     "source_file": "kb/modules/telomere_attrition.yaml"
   },
   {
@@ -3887,6 +4272,7 @@ window.searchData = [
     "notes": "Complements the chaperone model above - together they cover the folding and degradation arms of the same network, and the autophagy arm is modelled in disabled_macroautophagy.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/loss_of_proteostasis.html#computational-model-proctor2007-ubiquitin-proteasome-system-model",
+    "model_page_url": "",
     "source_file": "kb/modules/loss_of_proteostasis.yaml"
   },
   {
@@ -3927,6 +4313,7 @@ window.searchData = [
     "notes": "The mechanistic counterpart to the clocks above - it proposes why drift happens, where the clocks only measure that it does. Also the shared model with stem_cell_exhaustion, where the same simulation drives the functional decline.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/epigenetic_alterations.html#computational-model-przybilla2014-multiscale-model-of-epigenetic-drift-in-aging-stem-cells",
+    "model_page_url": "",
     "source_file": "kb/modules/epigenetic_alterations.yaml"
   },
   {
@@ -3966,6 +4353,7 @@ window.searchData = [
     "notes": "Shared with epigenetic_alterations. Here the interest is the population-level functional consequence; there, the molecular origin of the drift.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/stem_cell_exhaustion.html#computational-model-przybilla2014-multiscale-model-of-epigenetic-drift-in-aging-stem-cells",
+    "model_page_url": "",
     "source_file": "kb/modules/stem_cell_exhaustion.yaml"
   },
   {
@@ -4009,6 +4397,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Osteoporosis.html#computational-model-qct-based-finite-element-model-of-the-proximal-femur",
+    "model_page_url": "",
     "source_file": "kb/disorders/Osteoporosis.yaml"
   },
   {
@@ -4058,6 +4447,7 @@ window.searchData = [
     "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. This is a literature-referenced model, not yet runnable in-repo \u2014 there is no models/<model_id> artifact and dismech-perturb has no SBML-qual execution path.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Rheumatoid_Arthritis.html#computational-model-ra-fls-large-scale-boolean-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Rheumatoid_Arthritis.yaml"
   },
   {
@@ -4096,6 +4486,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/telomere_attrition.html#computational-model-rastgou-talemi2015-dna-damage-model-with-persistent-telomere-associated-foci",
+    "model_page_url": "",
     "source_file": "kb/modules/telomere_attrition.yaml"
   },
   {
@@ -4155,6 +4546,7 @@ window.searchData = [
     "notes": "The GitHub repository is pinned at unsigned commit 40220d6c398d90b41971f102acb9f84838982601 (tree acfe9582f716869dc965aad04c11f279a5c13470) and has no tags or releases. Zenodo record 10.5281/zenodo.18727138 archives software version 1.0.0 as RCC-ALM.zip (SHA-256 4e7c38b570916555fac9fd422f0e5b8d52c5ebd2f8c93a708f3b0dedf4745358), although pyproject.toml calls the package 0.1.0; all 72 archived files are byte-identical to the pinned Git tree. Software Heritage directory swh:1:dir:570c82c75e1f417940762d4d66706f3467df706c contains the matching inner Git-tree directory, but no revision object for the commit resolves, so it preserves deposited content rather than Git history. The repository LICENSE and Zenodo software record are MIT. The upstream ARON-1 dataset is Zenodo DOI 10.5281/zenodo.13353313 under CC BY 4.0. The repository contains three byte-identical copies of a derived seven-row, 19-column CSV (SHA-256 aef040b2d21069fcdb58aca45a3331fa03c85c2dfadf6b9d5e8bc713cbf1d585), but does not cite that DOI, state data-specific attribution or licensing, or provide the manual selection and conversion procedure. Curator smoke testing installed the requirements under Python 3.13.9, constructed and advanced the 643-agent default model, exercised a small data pipeline, and completed the documented 100-step non-GUI command. That command emits only console traces and does not reproduce a paper result. Reproducibility remains partial: dependencies are not fully pinned or locked; the documented Solara interface fails with the resolved unbounded Starlette version; the built wheel omits required package data and uses incompatible src.* imports outside the checkout; and the analysis notebook has no executed outputs or reference results. There are 83 tuned weights for seven non-held-out cases. The MSE result-loading code mistakenly reloads CI parameters, repeat-count handling is defective, stochastic antigen selection depends on Python hash ordering, and a class-global tumor blood-source list can contaminate repeated runs. The model is exploratory and hypothesis-generating, not a clinically validated patient digital twin. Generic mutation adaptation does not justify linking it to the entry's histologic-and-molecular-subtype node, and it does not encode the PRR15/NF-\u03baB/FDX1 cuproptosis mechanism.",
     "creation_date": "2026-02-02T00:16:36Z",
     "page_url": "../../pages/disorders/Renal_Cell_Carcinoma.html#computational-model-rcc-3d-agent-based-learning-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Renal_Cell_Carcinoma.yaml"
   },
   {
@@ -4203,6 +4595,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-19T14:27:56Z",
     "page_url": "../../pages/disorders/Phenylketonuria.html#computational-model-recon3d-with-pah-knockout",
+    "model_page_url": "",
     "source_file": "kb/disorders/Phenylketonuria.yaml"
   },
   {
@@ -4248,6 +4641,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Fanconi_Anemia.html#computational-model-repair-fanc-high-content-screening-platform",
+    "model_page_url": "",
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
@@ -4287,6 +4681,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/mitochondrial_dysfunction.html#computational-model-resolving-the-clonal-expansion-of-mtdna-deletions",
+    "model_page_url": "",
     "source_file": "kb/modules/mitochondrial_dysfunction.yaml"
   },
   {
@@ -4343,6 +4738,7 @@ window.searchData = [
     "notes": "Repository inspected at commit 493a69d40c224b93d975d890277a4d71797aee2c. The repository is linked from the Biomedical Mathematics Group's software catalog and contains the 2015 Simple_Model_Final_Sub.nb and 2018 Math_Model_Code2.nb Mathematica notebooks, but no license or environment manifest. The paper's prose names the two FASP rates kp1/kp2, whereas its parameter table and the archived notebook use kr1/kr2. A smoke test that independently transcribed the published equations and used SciPy BDF integration produced a 23.937-h wild-type period and a 20.012-h period after reducing kr1/kr2 by 90%; direct notebook execution requires proprietary Wolfram software and was not available in the verification environment.",
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-revised-per2-circadian-phosphoswitch-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
@@ -4394,6 +4790,7 @@ window.searchData = [
     "notes": "The article is CC BY 4.0. Neither model coordinates nor code were deposited; GEO GSE207187 and GSE207188 contain RNA-seq rather than model artifacts. PDB 6VJJ is an experimental KRAS-RAF1 template, not the modeled RIT1 complex. The paper does not report the model-building engine or output format; PyMOL was used only to map NMR perturbations. Consequently, the published geometry cannot be independently rebuilt from the reported methods alone. Inefficient RAF1 cysteine-rich-domain engagement is an author hypothesis, not an output of the modeled RIT1-RAF1-RBD complex.",
     "creation_date": "2026-02-04T01:40:11Z",
     "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-rit1-a57g-raf1-interface-structural-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
@@ -4440,6 +4837,7 @@ window.searchData = [
     "notes": "Spec models/rosacea_innate_boolean/spec.yaml, runner models/rosacea_innate_boolean/run.py, committed results models/rosacea_innate_boolean/results.json. Regenerate with `uv run python models/rosacea_innate_boolean/run.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean/config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
     "creation_date": "2026-04-05T12:00:00Z",
     "page_url": "../../pages/disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model",
+    "model_page_url": "../../pages/models/rosacea_innate_boolean.html",
     "source_file": "kb/disorders/Rosacea.yaml"
   },
   {
@@ -4500,6 +4898,7 @@ window.searchData = [
     "notes": "The prolonged low-dose Denufosol strategy is a model prediction, not clinical evidence. The paper notes that prior short, high-dose Denufosol failed to show sufficient phase-III benefit; the proposed schedule requires testing.",
     "creation_date": "2025-12-19T14:27:56Z",
     "page_url": "../../pages/disorders/Cystic_Fibrosis.html#computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis",
+    "model_page_url": "",
     "source_file": "kb/disorders/Cystic_Fibrosis.yaml"
   },
   {
@@ -4552,6 +4951,7 @@ window.searchData = [
     "notes": "No exact source-code repository was identified for this published model. TumorTwin is a related framework from the same modeling group but is curated separately above and must not be treated as the implementation of this study.",
     "creation_date": "2026-01-26T02:55:13Z",
     "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-serial-mri-high-grade-glioma-data-assimilation-digital-twin",
+    "model_page_url": "",
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
   },
   {
@@ -4601,6 +5001,7 @@ window.searchData = [
     "notes": "This 2026 study is a pedigree-specific mechanistic model, not a longitudinal digital twin. The article is not openly licensed and no model repository was identified. PXD068242/IPX0011703000 contains the phosphoproteomics data, not the molecular-dynamics model, and has no stated reusable model license. The model-building engine, force field, duration, trajectory files and output format are not publicly reported. `model_type` is omitted because the current enum has no category for disease-variant molecular dynamics without docking.",
     "creation_date": "2026-02-04T01:40:11Z",
     "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-shp2-n308s-molecular-dynamics-and-interaction-network-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
@@ -4640,6 +5041,7 @@ window.searchData = [
     "notes": "The explicit bridge from this module into cellular_senescence - a mitochondrial state, not a DNA-damage state, determines which senescent secretome results. The \"Sizek2023\" label follows the BioModels record name, which encodes the 2023 deposit; the paper itself (PMID:39163758) published in 2024. Encoded with the SBML qual package, so a plain SBML reader will not load it.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/mitochondrial_dysfunction.html#computational-model-sizek2023-midas-boolean-model",
+    "model_page_url": "",
     "source_file": "kb/modules/mitochondrial_dysfunction.yaml"
   },
   {
@@ -4679,6 +5081,7 @@ window.searchData = [
     "notes": "FOXO is the node through which this module connects to the insulin/IGF-1 longevity axis conserved from C. elegans daf-16 upward.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/deregulated_nutrient_sensing.html#computational-model-smith2010-foxo-post-translational-modification-model",
+    "model_page_url": "",
     "source_file": "kb/modules/deregulated_nutrient_sensing.yaml"
   },
   {
@@ -4718,6 +5121,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/deregulated_nutrient_sensing.html#computational-model-sonntag2012-irs-dependent-regulation-of-ampk-by-insulin",
+    "model_page_url": "",
     "source_file": "kb/modules/deregulated_nutrient_sensing.yaml"
   },
   {
@@ -4774,6 +5178,7 @@ window.searchData = [
     "notes": "`model_type` is deliberately omitted: information-theoretic network inference fits none of the current enum values and is not a kinetic, machine-learning or Boolean model. The paper-pinned Software Heritage revision is 7ff6a1cfdef5163ae98a663381e12cc4f065d3f6; the mutable repository home is https://github.com/YasushiSako/transfer_entropy_2. That revision has no software-license file; repository HEAD 3467850de2e45dfc2b7766ba4dce0d7af8839a00 only adds the MIT LICENSE. The README licenses the 16 CSV data files under CC BY-NC-SA 4.0. Curator static inspection confirmed that all wild-type and R1131K, vehicle and MEK-inhibitor CSVs are present. The seeded notebook has no environment lock and expects selected input pairs to be copied or renamed to SOStotal.csv and RAFtotal.csv. It also uses the removed pandas `set_axis(inplace=True)` API and fails under pandas 3.0.3 without a small compatibility edit, so it is not a one-command reproduction.",
     "creation_date": "2026-02-04T01:40:11Z",
     "page_url": "../../pages/disorders/Noonan_Syndrome.html#computational-model-sos1-r1131k-transfer-entropy-signaling-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Noonan_Syndrome.yaml"
   },
   {
@@ -4822,7 +5227,50 @@ window.searchData = [
     "notes": "The repository is pinned at commit 0a6aece22925ca48430d775589547bbfbf9e0ff0 and has no release, CI, container, dependency lock, or sample input. COPYING declares GPL-3.0, but src/pardiso_mat.c carries an Intel Confidential notice that restricts use, copying, and distribution; the effective reuse and redistribution status is therefore ambiguous. The checked-in build targets legacy Intel C Compiler, MKL/PARDISO, and OpenMP paths and flags and did not compile unmodified during curator testing on ARM macOS. The fixed-step explicit-Euler simulation uses a 1-microsecond step for 30 beats, nominally 30 million steps. The repository supplies no paper-figure parameter manifest, golden output, analysis script, or automated test. It emits voltage and current traces but does not directly label phase-2 reentry, reentrant arrhythmia, or the published phase diagram; an auxiliary cleft-potential output also omits the closing ring junction. The article is CC BY 4.0. This is a hypothesis-driven mechanism model, not an allele-specific, anatomically personalized, or clinically predictive ventricular simulation.",
     "creation_date": "2026-04-14T00:00:00Z",
     "page_url": "../../pages/disorders/Brugada_syndrome.html#computational-model-spatially-heterogeneous-sodium-channel-myocardial-ring-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Brugada_Syndrome.yaml"
+  },
+  {
+    "model_key": "CASQ2_CPVT--computational-model-stochastic-casq2-deficient-guinea-pig-myocyte-simulation--0",
+    "name": "Stochastic CASQ2-Deficient Guinea-Pig Myocyte Simulation",
+    "description": "A stochastic local-control ventricular-myocyte model approximates G112+5X-associated changes in CASQ2 buffering and calcium-release-unit parameters. Rapid pacing with adrenergic stimulation produces alternans; a rapid-to-slow transition produces EADs, not a direct experimental demonstration of DADs.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:36672764",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CASQ2 CPVT",
+    "disease_id": "MONDO:0012762",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Sarcoplasmic Reticulum Calcium Buffering"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CASQ2_CPVT.html#computational-model-stochastic-casq2-deficient-guinea-pig-myocyte-simulation",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CASQ2_CPVT.yaml"
   },
   {
     "model_key": "Brugada_syndrome--computational-model-subcellular-sodium-channel-myocardial-strand-model--0",
@@ -4872,6 +5320,7 @@ window.searchData = [
     "notes": "The repository is pinned at commit 90962d4c159d5b12133d99cb0818c84c6746a013 and has no release, CI, container, or dependency lock. COPYING declares GPL-3.0, but src/pardiso_mat.c carries an Intel Confidential notice that restricts use, copying, and distribution; the effective reuse and redistribution status is therefore ambiguous. The checked-in build targets legacy Intel C Compiler, MKL/PARDISO, and OpenMP paths and flags. It did not compile unmodified during curator testing on ARM macOS. The fixed-step explicit-Euler simulation uses a 1-microsecond step for 30 beats. Its only sample input is stale: for the supplied one-dataset, 43-state configuration, the parser reads 83 numeric fields whereas check_test/in supplies 82, shifting later values and preventing a faithful run. No paper-scenario manifest, expected outputs, or automated tests are supplied. The code emits voltage and ionic traces plus activation times but does not directly calculate CV; nai_data.out and ki_data.out are also mislabeled relative to their written state indices. The article is CC BY 4.0. The model was compared qualitatively with prior mouse and human electrophysiology, but it was not fitted to or independently validated in a Brugada patient cohort.",
     "creation_date": "2026-04-14T00:00:00Z",
     "page_url": "../../pages/disorders/Brugada_syndrome.html#computational-model-subcellular-sodium-channel-myocardial-strand-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Brugada_Syndrome.yaml"
   },
   {
@@ -4911,7 +5360,53 @@ window.searchData = [
     "notes": "The only substantially validated dynamic model covering this hallmark. The degradative capacity it represents overlaps the proteasome arm modelled in loss_of_proteostasis; the two compete for the same misfolded substrate pool.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/disabled_macroautophagy.html#computational-model-tavassoly2015-autophagy-apoptosis-decision-model",
+    "model_page_url": "",
     "source_file": "kb/modules/disabled_macroautophagy.yaml"
+  },
+  {
+    "model_key": "CDK19-Related_Disorder--computational-model-thr31asn-cdk19-cyclin-c-structural-prediction--0",
+    "name": "Thr31Asn CDK19\u2013Cyclin C Structural Prediction",
+    "description": "PyMOL-based structural analysis places Thr31 near ATP-positioning residues in the glycine-rich loop. Reduced ATP affinity and kinase activity were proposed, not measured. The paper also speculated that Tyr32His would reduce activity, which is not supported by the separate biochemical assays showing increased catalytic output.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:33568421",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CDK19-Related Disorder",
+    "disease_id": "MONDO:0030059",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant intellectual disability",
+      "Neurodevelopmental disorder",
+      "CDK8-kinase module-associated disorder"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced CDK19 Kinase Activity"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:33568421"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CDK19-Related_Disorder.html#computational-model-thr31asn-cdk19-cyclin-c-structural-prediction",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CDK19-Related_Disorder.yaml"
   },
   {
     "model_key": "Type_2_Diabetes_Mellitus--computational-model-topp-beta-cell-mass-insulin-glucose-model--0",
@@ -4986,6 +5481,7 @@ window.searchData = [
     "notes": "Wired for dismech-perturb (models/BIOMD0000000341/config.yaml). The disease-severity dial is insulin sensitivity si (baseline_gfr 0.72 = healthy); the deposited initial state (G=250 mg/dL) sits on the model's unstable saddle, i.e. the metabolically at-risk / impaired-fasting tipping point. Glucose-lowering treatments are simulated as parameter changes: metformin (R0 down), thiazolidinedione (si up), SGLT2 inhibitor (Eg0 up, insulin-independent), sulfonylurea/GLP-1 (sigma up), insulin therapy (net insulin action up). Insulin-independent therapies (SGLT2 inhibition, metformin) and sensitizers (TZD) recompensate the model to euglycemia, whereas a pure secretagogue fails once beta-cell mass has collapsed - reproducing secondary secretagogue failure in advanced disease. Thresholds are calibrated to model steady-state values, not clinical reference ranges.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-topp-beta-cell-mass-insulin-glucose-model",
+    "model_page_url": "../../pages/models/BIOMD0000000341.html",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
@@ -5043,6 +5539,7 @@ window.searchData = [
     "notes": "Code (MATLAB and CellML), the validation pipeline, and human AP morphology data at github.com/jtmff/torord; a CellML exposure is also in the Physiome Model Repository.",
     "creation_date": "2026-04-14T05:37:14Z",
     "page_url": "../../pages/disorders/Familial_Long_QT_Syndrome.html#computational-model-tor-ord-human-ventricular-myocyte-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Long_QT_Syndrome.yaml"
   },
   {
@@ -5095,6 +5592,7 @@ window.searchData = [
     "notes": "Repository inspected at commit bedf90a6d47ba48cf5cdb25901967d84730061d1. The package uses the UT Austin Research License, which permits academic, research, experimental, and personal use but excludes commercial use and redistribution. At this revision, a Python 3.11 wheel installed and core imports plus the focused cellularity-estimation test passed, but the full upstream test suite failed during collection because of stale module imports.",
     "creation_date": "2026-01-26T02:55:13Z",
     "page_url": "../../pages/disorders/Glioblastoma,_IDH-Wildtype.html#computational-model-tumortwin-high-grade-glioma-digital-twin",
+    "model_page_url": "",
     "source_file": "kb/disorders/Glioblastoma_IDH_Wildtype.yaml"
   },
   {
@@ -5141,6 +5639,7 @@ window.searchData = [
     "notes": "Curated as part of the Boolean/logical modelling track; see docs/superpowers/plans/2026-08-28-boolean-modeling-and-pathographs.md. Two companion Boolean models from the same work \u2014 respiratory epithelium apoptosis and macrophage immune-cell recruitment \u2014 were embedded in a multiscale lung-infection simulator; they are not separately curated here. Literature-referenced, not runnable in-repo.",
     "creation_date": "2026-05-26T18:00:00Z",
     "page_url": "../../pages/disorders/COVID-19.html#computational-model-type-1-interferon-signalling-boolean-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/COVID-19.yaml"
   },
   {
@@ -5180,6 +5679,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/loss_of_proteostasis.html#computational-model-uch-l1-inclusion-formation-model",
+    "model_page_url": "",
     "source_file": "kb/modules/loss_of_proteostasis.yaml"
   },
   {
@@ -5240,6 +5740,7 @@ window.searchData = [
     "notes": "A curator search on 2026-08-20 identified no public UISS-MS source repository, executable archive, or software license. The article is open access, but that does not license the simulator. Although the authors describe a digital-twin use case, this study had only population-level demographic inputs: thousands of immune repertoires were generated and subsets were selected to match aggregate trial behavior. It therefore does not validate one-to-one patient twins or prospective individual counterfactuals. The CLARITY cohort was used in selection/calibration before the extension analysis, and formal VVUQ and regulatory credibility assessment remained future work.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-uiss-ms-agent-based-treatment-simulator",
+    "model_page_url": "",
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
   },
   {
@@ -5298,6 +5799,7 @@ window.searchData = [
     "notes": "The equations and parameters are published in the article and supplement; no maintained standalone source-code repository was identified. The paper reports MATLAB for numerical calculation. This is a conceptual molecular oscillator, not a patient-specific or treatment-planning model.",
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-vanselow-per2-multisite-phosphorylation-oscillator",
+    "model_page_url": "",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
@@ -5336,6 +5838,7 @@ window.searchData = [
     "notes": "Directly couples this module to deregulated_nutrient_sensing - mTOR activity is the model's central determinant of whether an arrested cell geroconverts.",
     "creation_date": "2026-06-23T00:00:00Z",
     "page_url": "../../pages/modules/cellular_senescence.html#computational-model-verlingue2016-geroconversion-boolean-model",
+    "model_page_url": "",
     "source_file": "kb/modules/cellular_senescence.yaml"
   },
   {
@@ -5396,6 +5899,7 @@ window.searchData = [
     "notes": "No durable public deposit of the exact 2018 Repast implementation was identified. This is an mdx mouse model, not a human or patient-specific DMD digital twin; its value is hypothesis generation about regeneration microenvironments.",
     "creation_date": "2026-01-07T17:31:51Z",
     "page_url": "../../pages/disorders/Duchenne_Muscular_Dystrophy.html#computational-model-virgilio-agent-based-model-of-regeneration-in-healthy-and-mdx-skeletal-muscle",
+    "model_page_url": "",
     "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
   },
   {
@@ -5455,7 +5959,67 @@ window.searchData = [
     "notes": "This follow-up is especially useful as a negative-result case: the first model prediction failed when fibrosis area increased but matrix density fell. It should not be generalized from mdx mice to antifibrotic efficacy in people with DMD.",
     "creation_date": "2026-01-07T17:31:51Z",
     "page_url": "../../pages/disorders/Duchenne_Muscular_Dystrophy.html#computational-model-virgilio-fibrosis-perturbation-model-of-mdx-muscle-regeneration",
+    "model_page_url": "",
     "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
+  },
+  {
+    "model_key": "Epilepsy--computational-model-virtual-epilepsy-patient-cohort-brain-twins--0",
+    "name": "Virtual Epilepsy Patient Cohort brain twins",
+    "description": "A cohort of 30 patient-specific whole-brain network models for drug-resistant epilepsy. Each twin combines T1 and diffusion MRI, reconstructed SEEG electrodes, structural connectivity, a regional Epileptor neural-mass model, and a patient-specific epileptogenic-zone hypothesis to generate spontaneous, stimulation-induced, and interictal brain activity.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Python scripts with an external iEEG-BIDS virtual-patient dataset",
+    "model_software": "Python; The Virtual Brain; Epileptor; MNE-Python; NumPy; SciPy",
+    "base_model": "",
+    "model_id": "GitHub:BalanceKey/virtual_epilepsy_patient_cohort@a99c88354015f4c961d49a92c076ed0b675c740b",
+    "repository_url": "https://github.com/BalanceKey/virtual_epilepsy_patient_cohort",
+    "repository_host": "GitHub",
+    "publication": "PMID:40215461",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Epilepsy",
+    "disease_id": "MONDO:0005027",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disease"
+    ],
+    "variables": [
+      "Regional excitability",
+      "Structural connectivity",
+      "SEEG source-to-sensor gain",
+      "Stimulation waveform input"
+    ],
+    "variable_ids": [
+      "x0",
+      "weights",
+      "gain",
+      "Istim"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Network Hyperexcitability",
+      "Neuronal Hyperexcitability"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Patient-specific virtual seizures reproduced empirical spontaneous-seizure features better than randomized epileptogenic-zone assignments across the tested spatiotemporal metrics.",
+      "For stimulated seizures, the patient-specific cohort outperformed randomized twins on most metrics, but seizure-propagation similarity was not significantly different.",
+      "In an independent retrospective VEP evaluation, predicted epileptogenic-zone precision was 64% and recall was 44% relative to the clinical definition; precision was higher in seizure-free patients."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:35604575",
+      "PMID:40215461"
+    ],
+    "num_evidence": 2,
+    "notes": "Repository inspected at commit a99c88354015f4c961d49a92c076ed0b675c740b (2025-04-24). Python byte-compilation succeeds, with two non-fatal invalid-escape SyntaxWarnings. End-to-end execution was not attempted because the repository has no dependency manifest or license, does not bundle the EBRAINS patient dataset, and relies on local data paths and The Virtual Brain. The README also names one interictal-generation script that is not present under that exact filename. These limitations constrain reproducibility despite the public source and separately deposited virtual cohort.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Epilepsy.html#computational-model-virtual-epilepsy-patient-cohort-brain-twins",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Epilepsy.yaml"
   },
   {
     "model_key": "Multiple_Sclerosis--computational-model-virtual-multiple-sclerosis-patient-whole-brain-model--1",
@@ -5512,6 +6076,7 @@ window.searchData = [
     "notes": "Curator inspection on 2026-08-20 used repository commit 67cb165d2631f73cfae79643accf7bae3e7b4ef1 (also tagged v1.0). No LICENSE file or license grant was present; an MIT classifier in setup.py is not sufficient to license the code. The repository contains the delayed Stuart-Landau forward solver and an SBI demonstration, but not the clinical connectomes, MEG inputs, trained posterior, or complete 38-subject analysis. In the curator's smoke test, the default install failed to build the SWIG extension; after a manual build and dependency repairs, a synthetic three-node forward simulation produced finite time series and an alpha-band PSD. Curator comparison also found material paper/code differences in simulation duration, noise scale, priors, alpha band, and feature count. Reproducing the clinical findings therefore requires restricted data and missing workflow components. The paper reports a patent application and calls for larger multicenter replication.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Multiple_Sclerosis.html#computational-model-virtual-multiple-sclerosis-patient-whole-brain-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Multiple_Sclerosis.yaml"
   },
   {
@@ -5550,6 +6115,7 @@ window.searchData = [
     "notes": "Important corrective for this module: an age-associated rise in detectable mutant fraction is driven mostly by selection and expansion, not by a rising mutation rate.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/genomic_instability_aging.html#computational-model-watson2020-fitness-landscape-of-clonal-hematopoiesis",
+    "model_page_url": "",
     "source_file": "kb/modules/genomic_instability_aging.yaml"
   },
   {
@@ -5588,6 +6154,7 @@ window.searchData = [
     "notes": "Provides a strong null model for this module: clonal narrowing with age is predicted by neutral-plus-selection dynamics alone, so a mechanistic claim of stem-cell exhaustion needs evidence beyond the observation of reduced clonality.",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/stem_cell_exhaustion.html#computational-model-watson2020-fitness-landscape-of-clonal-hematopoiesis",
+    "model_page_url": "",
     "source_file": "kb/modules/stem_cell_exhaustion.yaml"
   },
   {
@@ -5627,6 +6194,7 @@ window.searchData = [
     "notes": "",
     "creation_date": "2026-07-01T00:00:00Z",
     "page_url": "../../pages/modules/genomic_instability_aging.html#computational-model-watson2021-interacting-evolutionary-pressures-in-aging-blood",
+    "model_page_url": "",
     "source_file": "kb/modules/genomic_instability_aging.yaml"
   },
   {
@@ -5683,6 +6251,7 @@ window.searchData = [
     "notes": "Repository inspected at commit f953b2c6d4351ff93544248189d6c71ed580938d. It contains MATLAB/R analysis and ODE code but no license, dependency manifest, or participant data. Several scripts contain author-local absolute paths, so the published workflow is not runnable end to end without manual path repair and restricted input data. The model is classified as PHYSIOLOGICAL rather than DIGITAL_TWIN because it assimilates individual light histories and state uncertainty but does not fit individual model parameters or validate counterfactual treatment response.",
     "creation_date": "2026-08-01T00:00:00Z",
     "page_url": "../../pages/disorders/Advanced_Sleep_Phase_Syndrome.html#computational-model-wearable-light-circadian-phase-particle-filter-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
@@ -5725,6 +6294,7 @@ window.searchData = [
     "notes": "Enables simulation of drug effects on dopaminergic neurotransmission",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Parkinson's_Disease.html#computational-model-whole-dopaminergic-neuron-sbml-model",
+    "model_page_url": "",
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
@@ -5766,6 +6336,7 @@ window.searchData = [
     "notes": "Predicts diabetes biomarkers and drug effects across multiple organs",
     "creation_date": "2026-02-21T15:39:12Z",
     "page_url": "../../pages/disorders/Diabetes_mellitus.html#computational-model-whole-body-human-metabolic-model-for-diabetes",
+    "model_page_url": "",
     "source_file": "kb/disorders/Diabetes_Mellitus.yaml"
   },
   {
@@ -5806,6 +6377,7 @@ window.searchData = [
     "notes": "Predicts diabetes biomarkers and drug effects across multiple organs",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Type_2_Diabetes_Mellitus.html#computational-model-whole-body-human-metabolic-model-for-diabetes",
+    "model_page_url": "",
     "source_file": "kb/disorders/Type_2_Diabetes_Mellitus.yaml"
   },
   {
@@ -5864,6 +6436,7 @@ window.searchData = [
     "notes": "Curated from the publication; no exact deposited implementation was identified. The results are mechanistic simulations of an idealized airway tree and should not be interpreted as individualized predictions of attack severity.",
     "creation_date": "2025-12-04T16:57:31Z",
     "page_url": "../../pages/disorders/Asthma.html#computational-model-winkler-integrative-bronchial-tree-model-of-asthmatic-bronchoconstriction",
+    "model_page_url": "",
     "source_file": "kb/disorders/Asthma.yaml"
   },
   {
@@ -5925,6 +6498,7 @@ window.searchData = [
     "notes": "The public simulator supports real and virtual populations for trial-design use. The DIGITAL_TWIN label denotes individualized covariate-conditioned trajectories, not a mechanistic or continuously updated personal twin; clinical use beyond trial simulation would require external validation in the intended population.",
     "creation_date": "2026-01-07T17:31:51Z",
     "page_url": "../../pages/disorders/Duchenne_Muscular_Dystrophy.html#computational-model-yoon-multivariate-dmd-progression-and-virtual-trial-models",
+    "model_page_url": "",
     "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
   },
   {
@@ -5986,14 +6560,15 @@ window.searchData = [
     "notes": "Curated from the publication and supporting equations; no exact deposited implementation was identified. Important assumptions include deterministic population averages, at most one vector copy per cell, fixed fractional progenitor depletion, immediate marrow homing, omission of non-erythroid hematopoiesis and iron/heme handling, and empirical oxygen feedback.",
     "creation_date": "2025-12-18T17:01:35Z",
     "page_url": "../../pages/disorders/Sickle_Cell_Disease.html#computational-model-zheng-multiscale-qsp-model-of-autologous-gene-therapy",
+    "model_page_url": "",
     "source_file": "kb/disorders/Sickle_Cell_Disease.yaml"
   }
 ];
 window.searchMetrics = {
-  "total_models": 124,
-  "total_source_entries": 52,
-  "total_model_types": 10,
+  "total_models": 134,
+  "total_source_entries": 61,
+  "total_model_types": 11,
   "total_runnable": 4,
-  "total_with_repository": 55
+  "total_with_repository": 56
 };
 window.dispatchEvent(new Event('searchDataReady'));

@@ -103,8 +103,15 @@ just plan-eval-issues 5       # Preview; no GitHub writes or model calls
 just enqueue-eval-issues 5    # Create the issues
 ```
 
-Issues carry `curation` and `evidence-claim-mismatch`, so the existing ai4c-agent
-curation scanner can pick them up. Their titles use the disease filename,
+Issues carry `curation` and `evidence-claim-mismatch`. The ai4c-agent curation
+scanner has a dedicated `evidence_review` job for these issues and their PRs;
+all general effort jobs exclude the task label. On each scanner run, the evidence
+job reviews one eligible issue or PR using the evidence-claim-mismatch skill.
+Corrections produce a validated PR with both labels and `Closes #<issue>`.
+Existing open PRs prevent duplicate issue work, and assigned items are skipped.
+See [scanner routing](agent-config.md#the-curation-scanner-matrix).
+
+Issue titles use the disease filename,
 for example `Review evidence–claim mismatches: Asthma.yaml`. A small HTML comment
 in the body preserves that identity if the title is edited. Every run lists both
 open and closed issues with the task label or the legacy `jev-recuration` label
