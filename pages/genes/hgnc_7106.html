@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ATXN3 - dismech genes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+        
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: #fff; color: var(--gray-800); line-height: 1.65; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+nav.site-nav {
+    position: sticky; top: 0; background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(12px); border-bottom: 1px solid var(--gray-200);
+    z-index: 100; padding: 0.75rem 1.5rem;
+}
+.nav-inner { max-width: var(--max-width); margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.nav-logo { font-weight: 700; font-size: 1.1rem; color: var(--teal); letter-spacing: -0.02em; text-decoration: none; }
+.nav-links { display: flex; gap: 1.2rem; align-items: center; font-size: 0.875rem; flex-wrap: wrap; }
+.nav-links a { color: var(--gray-600); text-decoration: none; }
+.nav-links a:hover, .nav-links a.active { color: var(--teal); }
+.container { max-width: var(--max-width); margin: 0 auto; padding: 24px 16px; }
+.breadcrumb { margin-bottom: 16px; font-size: 0.9rem; color: var(--text-muted); }
+.page-header { background: var(--teal-50); border: 1px solid var(--gray-200); padding: 2rem; border-radius: 12px; margin-bottom: 24px; }
+.page-header h1 { font-size: 2.1rem; font-weight: 700; color: var(--teal); letter-spacing: -0.02em; line-height: 1.15; }
+.page-header .subtitle { color: var(--gray-700); margin-top: 6px; font-size: 1.05rem; }
+.header-meta { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 10px; font-size: 0.78rem; font-weight: 600; background: rgba(0, 131, 143, 0.08); color: var(--teal); border: 1px solid var(--teal-light); }
+.chip.muted { background: var(--gray-50, #f8fafc); color: var(--gray-600); border-color: var(--gray-200); }
+.chip.warn { background: #fffbeb; color: #92400e; border-color: #fcd34d; }
+.chip.ok { background: #f0fdf4; color: #166534; border-color: #86efac; }
+.chip.bad { background: #fef2f2; color: #991b1b; border-color: #fca5a5; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.card h2 { font-size: 1.15rem; color: var(--gray-800); margin-bottom: 4px; }
+.layer { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+.layer a { color: inherit; text-decoration: underline; }
+.prose p { margin: 0.5em 0; }
+.prose h1 { display: none; }
+.prose h2 { font-size: 1rem; margin: 1em 0 0.3em; color: var(--gray-800); }
+.note { font-size: 0.85rem; color: var(--text-muted); }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th { text-align: left; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); border-bottom: 2px solid var(--gray-200); padding: 6px 8px; }
+td { border-bottom: 1px solid var(--gray-200); padding: 8px; vertical-align: top; }
+.table-wrap { overflow-x: auto; }
+.tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; background: #eef2ff; color: #3730a3; margin: 1px 2px 1px 0; }
+.tag.untyped { background: #fffbeb; color: #92400e; }
+.items { font-size: 0.85rem; color: var(--gray-700); }
+.items b { font-weight: 600; color: var(--gray-600); }
+@media (max-width: 720px) { .page-header { padding: 1.4rem; } .page-header h1 { font-size: 1.7rem; } }
+        .result.claim-pass { border-bottom: 1px dotted #16a34a; }
+        .result.claim-fail, .result.claim-error { background: #fef2f2; border-bottom: 2px solid #dc2626; }
+        .result.claim-unchecked { border-bottom: 1px dotted var(--gray-400, #94a3b8); }
+        .function { margin: 10px 0; padding-left: 12px; border-left: 3px solid var(--teal-light); }
+        .function .terms { font-size: 0.85rem; color: var(--gray-700); }
+        ul.plain { list-style: none; }
+        ul.problems { margin: 8px 0 0 18px; font-size: 0.85rem; color: #991b1b; }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    
+<nav class="site-nav">
+    <div class="nav-inner">
+        <a href="../../" class="nav-logo">dismech</a>
+        <div class="nav-links">
+            <a href="../../app/index.html">Browse</a>
+            <a href="../../details/">Docs</a>
+            <a href="../../pages/modules/">Modules</a>
+            <a href="index.html" class="active">Genes</a>
+            <a href="../../pages/classifications/">Classifications</a>
+            <a href="../../pages/research/index.html">Research</a>
+            <a href="https://github.com/monarch-initiative/dismech">GitHub</a>
+        </div>
+    </div>
+</nav>
+
+    <div class="container">
+        <div class="breadcrumb">
+            <a href="../../app/index.html">Browse All</a> / <a href="index.html">Genes</a> / <span>ATXN3</span>
+        </div>
+
+        <header class="page-header">
+            <h1>ATXN3</h1>
+            <div class="subtitle">ataxin 3</div>
+            <div class="header-meta">
+                <span class="chip">3 disorders</span>
+                
+                <span class="chip warn">2 untyped</span>
+                
+                <span class="chip muted">1 no genetic record</span>
+                
+                
+                <span class="chip muted">14q32.12</span>
+                <span class="chip muted">gene with protein product</span>
+                
+            </div>
+            <div class="header-meta">
+                <a class="chip muted" href="https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:7106">HGNC:7106</a><a class="chip muted" href="https://monarchinitiative.org/HGNC:7106">Monarch</a><a class="chip muted" href="https://www.ncbi.nlm.nih.gov/gene/4287">NCBI Gene 4287</a><a class="chip muted" href="https://www.ensembl.org/id/ENSG00000066427">ENSG00000066427</a><a class="chip muted" href="https://www.uniprot.org/uniprotkb/P54252">UniProt P54252</a><a class="chip muted" href="https://omim.org/entry/607047">OMIM 607047</a>
+            </div>
+            
+            <p class="note" style="margin-top:10px">
+                Previous symbols: SCA3, MJD. 
+                Aliases: ATX3, JOS.
+            </p>
+            
+            
+        </header>
+
+        
+
+        
+        <section class="card">
+            <div class="layer">Normal function · from <a href="https://github.com/ai4curation/ai-gene-review/blob/79fe13b38970ec1194c7584d57ec9f736a04967f/genes/human/ATXN3/ATXN3-ai-review.yaml">ai-gene-review</a> (P54252, commit 79fe13b38970) · AI-generated, not KB evidence</div>
+            
+            <p class="prose">Ataxin-3 (ATXN3; also called Machado-Joseph disease protein MJD1) is a deubiquitinating enzyme of the Josephin/Machado-Joseph-domain family of papain-like cysteine proteases. Its N-terminal Josephin domain carries the catalytic triad (Cys14, His119, Asn134) that hydrolyzes isopeptide bonds in polyubiquitin, while two-to-three C-terminal ubiquitin-interacting motifs (UIMs) bind ubiquitin and set the length of the chains it engages. Ataxin-3 preferentially binds and trims long polyubiquitin chains (with weak activity on chains of four or fewer ubiquitins) and cleaves both K48- and K63-linked linkages, acting as a ubiquitin-chain-editing/trimming DUB whose activity is stimulated by the AAA-ATPase VCP/p97. Through these activities it supports protein homeostasis: it participates in endoplasmic-reticulum-associated degradation (ERAD) and retrotranslocation as a p97-associated DUB, cooperates with the proteasome-shuttle factors RAD23A/RAD23B and the ubiquitin ligase STUB1/CHIP to limit ubiquitin-chain length during protein quality control, and deubiquitinates BECN1 to promote starvation-induced autophagy. Lysosome- associated ataxin-3 deubiquitinates the GTPase RHEB to negatively regulate mTORC1 signaling during amino-acid starvation, and nuclear ataxin-3 acts as a histone-binding transcriptional regulator, partnering with FOXO4 at the SOD2/MnSOD oxidative-stress gene. The protein shuttles between cytoplasm and nucleus and associates with the nuclear matrix. A polymorphic polyglutamine (CAG) tract near the C-terminus, when expanded beyond the normal range, drives misfolding, aggregation and neuronal intranuclear inclusions, causing spinocerebellar ataxia type 3 (Machado-Joseph disease), the most common autosomal-dominant ataxia.</p>
+            
+            <div class="function">
+                <div>Cysteine-protease deubiquitinase (Josephin domain) that binds and trims long polyubiquitin chains, functioning as a ubiquitin-chain-editing enzyme in protein quality control and proteasomal/ERAD degradation; activity is stimulated by VCP/p97.</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0004843">cysteine-type deubiquitinase activity</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0006515">protein quality control for misfolded or incompletely synthesized proteins</a>; <a href="http://amigo.geneontology.org/amigo/term/GO:0043161">proteasome-mediated ubiquitin-dependent protein catabolic process</a>
+                    ·
+                    
+                    <b>locations:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0005829">cytosol</a>; <a href="http://amigo.geneontology.org/amigo/term/GO:0005634">nucleus</a>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="function">
+                <div>Linkage-selective ubiquitin-chain editing: cleaves K63-linked (and K48-linked) polyubiquitin, consistent with a chain-trimming/editing DUB rather than a processive chain-disassembling DUB.</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0061578">K63-linked deubiquitinase activity</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0070536">protein K63-linked deubiquitination</a>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="function">
+                <div>Lysosome-associated deubiquitination of the GTPase RHEB that negatively regulates mTORC1 signaling; amino acids block this ATXN3 activity, stabilizing ubiquitinated RHEB and promoting mTORC1 activation.</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0004843">cysteine-type deubiquitinase activity</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:1904262">negative regulation of TORC1 signaling</a>
+                    ·
+                    
+                    <b>locations:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0005765">lysosomal membrane</a>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="function">
+                <div>p97/VCP-associated deubiquitinase acting in ER-associated degradation (ERAD), regulating retrotranslocation of misfolded ER proteins to the cytosol for proteasomal degradation.</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0004843">cysteine-type deubiquitinase activity</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:1904294">positive regulation of ERAD pathway</a>
+                    ·
+                    
+                    <b>locations:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0005789">endoplasmic reticulum membrane</a>
+                    
+                    
+                </div>
+            </div>
+            
+            <div class="function">
+                <div>Nuclear regulatory subunit of a transcription-coupled DNA repair complex: as a component of a megadalton complex with RNA polymerase II, PNKP and LIG4, wild-type ATXN3 is required for the 3&#39;-phosphatase activity of PNKP and associates with nascent RNA, supporting error-free, PNKP-mediated classical non-homologous end-joining of transcribed genes. The molecular function assigned here is activation of PNKP, which is what the loss-of-function and patient/mouse-brain data demonstrate. ATXN3&#39;s own deubiquitinase activity is NOT asserted as the catalytic step at the break site: the RNAP II deubiquitination event is a proposed model in PMID:32205441, explicitly hedged there, and the ubiquitin ligase/deubiquitinase pair for RNAP II is stated to warrant further investigation.</div>
+                <div class="terms">
+                    
+                    <b>molecular function:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0019211">phosphatase activator activity</a>
+                    ·
+                    
+                    <b>directly involved in:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0006303">double-strand break repair via nonhomologous end joining</a>
+                    ·
+                    
+                    <b>locations:</b>
+                    <a href="http://amigo.geneontology.org/amigo/term/GO:0005634">nucleus</a>
+                    
+                    
+                </div>
+            </div>
+            
+            
+        </section>
+        
+
+        <section class="card">
+            <div class="layer">In the knowledge base · computed from kb/ at build time</div>
+            <h2>Disorders</h2>
+            <p class="note">Relationship is the entry's <code>genetic[].relationship_type</code>. <span class="tag untyped">untyped</span> means the entry has a genetic record for the gene but does not type it; its free-text association is shown instead.</p>
+            <div class="table-wrap">
+            <table>
+                <thead><tr><th>Disorder</th><th>Relationship</th><th>Where the gene appears</th></tr></thead>
+                <tbody>
+                
+                <tr>
+                    <td><a href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia_Type_I.html">Autosomal Dominant Cerebellar Ataxia Type I</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Representative SCA3 coding CAG/polyglutamine expansion</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Polyglutamine Proteotoxicity</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Machado-Joseph_Disease.html">Machado-Joseph Disease</a></td>
+                    <td>
+                        
+                        <span class="tag untyped">untyped</span>
+                        
+                        <div class="note">Pathogenic CAG trinucleotide repeat expansion in exon 10</div>
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> PolyQ-expanded ataxin-3 misfolding and nuclear aggregation</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                <tr>
+                    <td><a href="../disorders/Autosomal_Dominant_Cerebellar_Ataxia.html">Autosomal Dominant Cerebellar Ataxia</a></td>
+                    <td>
+                        
+                        
+                        <span class="note">no genetic record</span>
+                        
+                        
+                        
+                        
+                    </td>
+                    <td class="items">
+                        
+                        <div><b>mechanism:</b> Coding Polyglutamine Repeat Expansion; Expanded Polyglutamine Protein</div>
+                        
+                        
+                        
+                    </td>
+                </tr>
+                
+                </tbody>
+            </table>
+            </div>
+        </section>
+
+        
+
+        
+        <section class="card">
+            <div class="layer">Mechanism modules · computed from kb/</div>
+            <ul class="plain">
+            
+                <li><a href="../modules/mismatch_repair_driven_repeat_instability.html">mismatch_repair_driven_repeat_instability</a>
+                
+                <span class="tag">named in the module itself</span></li>
+            
+                <li><a href="../modules/polyglutamine_expansion_proteotoxicity.html">polyglutamine_expansion_proteotoxicity</a>
+                <span class="note"> via Machado-Joseph Disease</span>
+                <span class="tag">named in the module itself</span></li>
+            
+            </ul>
+        </section>
+        
+
+        <p class="note">Identity from HGNC (snapshot 2026-10-01). Page layers are described in the <a href="../../elements/gene-pages/">gene pages documentation</a>.</p>
+    </div>
+</body>
+</html>
