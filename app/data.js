@@ -20798,7 +20798,8 @@ window.searchData = [
       "GBM Structural Deterioration",
       "Podocyte Injury and Loss",
       "Glomerulosclerosis",
-      "Tubulointerstitial Fibrosis"
+      "Tubulointerstitial Fibrosis",
+      "COL4A5-COL4A6 Contiguous Deletion"
     ],
     "cell_types": [
       "Podocyte",
@@ -20891,11 +20892,11 @@ window.searchData = [
     "source_file": "Alport_Syndrome.yaml",
     "page_url": "../pages/disorders/Alport_Syndrome.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 7,
+    "num_pathophysiology": 8,
     "num_genes": 3,
     "num_treatments": 11,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Alsahan-Harris Syndrome",
@@ -37315,6 +37316,90 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "3",
     "causal_graph_longest_path": "2"
+  },
+  {
+    "name": "Autosomal Dominant Nonsyndromic Hearing Loss 67",
+    "disease_id": "MONDO:0014594",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-08-31T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNA67 is postlingual, bilaterally symmetric, progressive sensorineural hearing loss caused by heterozygous OSBPL2 (ORP2) variants. Onset is between roughly ages 5 and 40, high frequencies go first, and the loss spreads across the audiogram over decades. The clinical picture is unusually reproducible across the reported families, and it is rare: a 2025 review of a large Chinese diagnostic centre found OSBPL2 in one of 607 deafness families.\nThe genetics are as narrow as the phenotype. Almost every reported pathogenic allele is an N-terminal frameshift clustered around codons 50 to 60 - p.Gln53Argfs*100 has now been reported independently in Chinese, Mongolian and Korean families, and a 2025 review calls p.Gln53 a mutation hotspot. That is not the allelic spread a haploinsufficiency gene usually shows.\nWhat this entry is really about is that the field does not agree on what the frameshift does, and the disagreement is well evidenced on both sides rather than being one paper against a consensus. The majority position is loss of function, and it has four independent mechanistic arms, each worked out in a knockout system: excess cholesterol biosynthesis with reactive oxygen species through loss of AMPK restraint; a rise in PI(4,5)P2 on the ciliary membrane with kinociliary defects and reduced Hedgehog signalling; Rho/ROCK2 and phospho-ERM downregulation with disorganised hair bundle actin; and, late, tight junction loss in the stria vascularis with blood-labyrinth barrier leakage. The competing position is that DFNA67 is a toxic proteinopathy: the truncated protein accumulates, sequesters autophagy machinery and blocks endolysosomal turnover.\nThe two positions collide on a single experiment. One group's Osbpl2 knockout mice have progressive hearing loss; another group's osbpl2-null mice hear normally, while transgenic mice expressing the human frameshift protein do not. Same gene, same species, opposite result, and no published attempt to reconcile strain, allele design or age at testing. Two features of the human genetics lean toward the toxic reading - the allelic spectrum is a codon-53 frameshift hotspot rather than the spread of null alleles a haploinsufficiency gene accumulates, and the one reported missense allele is hard to fit to a pure null mechanism - so this entry carries both models as named mechanistic hypotheses with the edges opting into one or the other, rather than picking a winner.\nThe practical stake is a drug. Rapamycin was given to a handful of adults with DFNA67 on the strength of the proteinopathy model, and if that model is right the disease has a mechanism-directed therapy; if the loss-of-function model is right, clearing a toxic aggregate treats nothing. The published result is a roughly 5 dB shift at one frequency in an uncontrolled open-label handful, which is close to test-retest noise, and the paper's own patient count is internally inconsistent. That is curated here as it stands rather than as the recommendation the authors drew from it.\nNote also that the gene has a life outside dominant deafness that the entry deliberately keeps out of the pathograph. Biallelic OSBPL2 variants cause a distinct recessive syndrome with dyschromatosis, ichthyosis, deafness and atopic disease, and the OSBPL2-disrupted pig is hypercholesterolaemic. No lipid abnormality has been reported in human DFNA67 families, and no serum-lipid phenotype is curated here on the strength of the pig.",
+    "pathophysiology": [
+      "OSBPL2 N-terminal Frameshift Variant",
+      "Loss of OSBPL2 Sterol and Phosphoinositide Transfer",
+      "Excess Cholesterol Biosynthesis and Oxidative Stress in Auditory Cells",
+      "Ciliary PI(4,5)P2 Excess and Reduced Hedgehog Signalling",
+      "Rho/ROCK2-ERM Actin Disorganisation in the Hair Bundle",
+      "Stria Vascularis Tight Junction Loss and Blood-Labyrinth Barrier Leakage",
+      "Accumulation of Truncated OSBPL2 and Autophagy Blockade",
+      "Cochlear Hair Cell Degeneration",
+      "Progressive Elevation of Auditory Thresholds"
+    ],
+    "cell_types": [
+      "cochlear outer hair cell",
+      "cochlear inner hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000601",
+      "CL:0000589"
+    ],
+    "biological_processes": [
+      "intracellular cholesterol transport",
+      "cholesterol biosynthetic process",
+      "cilium assembly",
+      "smoothened signaling pathway",
+      "actin cytoskeleton organization",
+      "bicellular tight junction assembly",
+      "autophagy"
+    ],
+    "phenotypes": [
+      "Postlingual Progressive Sensorineural Hearing Impairment",
+      "High-Frequency-First Audiometric Configuration",
+      "Bilateral Sensorineural Hearing Impairment",
+      "Severe Sensorineural Hearing Impairment in Adulthood",
+      "Tinnitus"
+    ],
+    "phenotype_categories": [
+      "Auditory"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear"
+    ],
+    "phenotype_ids": [
+      "HP:0008596",
+      "HP:0001757",
+      "HP:0008619",
+      "HP:0008625",
+      "HP:0000360"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "OSBPL2"
+    ],
+    "treatments": [
+      "Rapamycin (Sirolimus)",
+      "Hearing Amplification",
+      "Cochlear Implantation",
+      "Genetic Counselling and Predictive Testing"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Dominant_Nonsyndromic_Hearing_Loss_67.yaml",
+    "page_url": "../pages/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_67.html",
+    "num_phenotypes": 5,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Autosomal Dominant Nonsyndromic Hearing Loss 68",
@@ -62268,91 +62353,134 @@ window.searchData = [
     "disease_id": "MONDO:0013308",
     "category": "Mendelian",
     "parents": [
-      "RASopathies"
+      "RASopathy"
     ],
-    "creation_date": "2026-07-12T00:00:00Z",
+    "creation_date": "2026-08-04T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "CBL-related disorder (also called \"CBL syndrome\" or Noonan syndrome-like disorder with or without juvenile myelomonocytic leukemia) is an autosomal dominant RASopathy caused by heterozygous germline missense variants in CBL, which encodes a multivalent adaptor protein and E3 ubiquitin ligase that normally down-regulates activated receptor tyrosine kinases. Loss of CBL ubiquitin-ligase function impairs receptor down-regulation and dysregulates signal flow through the RAS-MAPK pathway, the shared effector abnormality of the RASopathies. Clinically it produces a variable Noonan-syndrome-like picture - dysmorphic craniofacial features, impaired postnatal growth, developmental delay and learning difficulties, cryptorchidism, microcephaly, and hyperpigmented (caf\u00e9-au-lait) skin lesions - together with a characteristic predisposition to juvenile myelomonocytic leukemia (JMML) and, in some individuals, later vasculitis/vasculopathy. JMML in CBL-related disorder arises via a two-hit mechanism: the germline CBL variant is the first hit and somatic copy-neutral loss of heterozygosity at 11q23 (acquired isodisomy removing the normal CBL allele) is the positively selected second hit, and the JMML is frequently self-remitting (MONDO:0013308; OMIM:613563; CBL). This entry is one of four missing core RASopathy entries requested in issue #6206.",
+    "description": "CBL-related disorder (CBL syndrome; Noonan syndrome-like disorder with or without juvenile myelomonocytic leukemia, NSLL) is an autosomal dominant RASopathy caused by heterozygous germline missense, splice-site, or in-frame variants in CBL, which encodes a multivalent adaptor protein with E3 ubiquitin ligase activity that normally terminates activated receptor tyrosine kinase signaling. Pathogenic variants cluster in the RING finger domain and the adjacent linker region \u2014 the same hot spot mutated somatically in myeloid malignancy \u2014 and abolish CBL-mediated receptor ubiquitylation while also inhibiting residual wild-type CBL and CBL-B, so activated kinases escape degradation and signal flow through RAS-MAPK is prolonged. The clinical phenotype overlaps Noonan syndrome (facial dysmorphism, impaired growth, cryptorchidism, developmental delay and a relatively high frequency of neurological features, with a comparatively low prevalence of cardiac defects) and is distinguished by two characteristic non-Noonan complications: a strong predisposition to juvenile myelomonocytic leukemia (JMML), which arises when the wild-type CBL allele is lost through acquired 11q uniparental isodisomy and which frequently regresses spontaneously; and a cerebral and systemic vasculopathy that includes early-onset moyamoya arteriopathy and later-onset vasculitis. Prenatal and lymphatic manifestations (hydrops fetalis, fetal pleural effusions, chylothorax, primary lymphedema) further connect the disorder to the RASopathy family.",
     "pathophysiology": [
-      "CBL Loss-of-Function and Impaired E3 Ubiquitin Ligase Activity",
-      "Impaired Receptor Tyrosine Kinase Down-Regulation",
+      "Germline CBL RING-Linker Variant",
+      "Loss of CBL E3 Ubiquitin Ligase Activity",
+      "Impaired Receptor Tyrosine Kinase Downregulation",
       "RAS-MAPK Pathway Hyperactivation",
-      "Somatic Second Hit and JMML Predisposition"
+      "Myeloid Progenitor Cytokine Hypersensitivity",
+      "Acquired 11q Isodisomy and Biallelic CBL Inactivation",
+      "Juvenile Myelomonocytic Leukemia",
+      "Cerebral and Systemic Vasculopathy",
+      "Lymphatic Developmental Dysregulation",
+      "Developmental RASopathy Phenotype"
     ],
     "cell_types": [
-      "monocyte"
+      "hematopoietic stem cell",
+      "granulocyte monocyte progenitor cell",
+      "vascular associated smooth muscle cell",
+      "endothelial cell"
     ],
     "cell_type_ids": [
-      "CL:0000576"
+      "CL:0000037",
+      "CL:0000557",
+      "CL:0000359",
+      "CL:0000115"
     ],
     "biological_processes": [
       "protein ubiquitination",
+      "receptor internalization",
+      "cell surface receptor protein tyrosine kinase signaling pathway",
       "Ras protein signal transduction",
-      "MAPK cascade"
+      "ERK1 and ERK2 cascade",
+      "cytokine-mediated signaling pathway"
     ],
     "phenotypes": [
-      "Facial Dysmorphism",
+      "Juvenile Myelomonocytic Leukemia",
+      "Moyamoya Angiopathy",
+      "Impaired Growth",
+      "Developmental Delay",
+      "Intellectual Disability",
+      "Cryptorchidism",
+      "Hydrops Fetalis",
+      "Fetal Pleural Effusion",
+      "Chylothorax",
+      "Lymphedema",
+      "Splenomegaly",
+      "Vasculitis",
+      "Noonan-like Facial Dysmorphism",
+      "Bilateral Ptosis",
       "Hyperpigmented Skin Lesions",
       "Microcephaly",
-      "Developmental Delay",
       "Learning Difficulties",
-      "Postnatal Growth Retardation",
-      "Cryptorchidism",
-      "Juvenile Myelomonocytic Leukemia Predisposition",
-      "Vasculitis"
+      "Postnatal Growth Retardation"
     ],
     "phenotype_categories": [
+      "Neoplasm",
+      "Vascular",
+      "Growth",
+      "Neurologic",
+      "Genitourinary",
+      "Lymphatic",
+      "Respiratory",
+      "Hematologic",
       "Craniofacial",
       "Cutaneous",
-      "Neurologic",
-      "Neurodevelopmental",
-      "Growth",
-      "Genitourinary",
-      "Neoplastic",
-      "Vascular"
+      "Neurodevelopmental"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Cardiovascular",
+      "Digestive",
+      "Eye",
       "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
       "Integument",
+      "Metabolism",
       "Musculoskeletal",
       "Neoplasm",
-      "Nervous System"
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
     ],
     "phenotype_ids": [
+      "HP:0012209",
+      "HP:0011834",
+      "HP:0004322",
+      "HP:0001263",
+      "HP:0001249",
+      "HP:0000028",
+      "HP:0001789",
+      "HP:0002202",
+      "HP:0010310",
+      "HP:0001004",
+      "HP:0001744",
+      "HP:0002633",
       "HP:0001999",
+      "HP:0001488",
       "HP:0000953",
       "HP:0000252",
-      "HP:0001263",
       "HP:0001328",
-      "HP:0008897",
-      "HP:0000028",
-      "HP:0012209",
-      "HP:0002633"
+      "HP:0008897"
     ],
     "frequencies": [],
     "genes": [
       "CBL"
     ],
     "treatments": [
-      "Genetic Counseling",
-      "Hematologic Surveillance and Supportive Care"
+      "Observation for Spontaneously Regressing JMML",
+      "Allogeneic Hematopoietic Stem Cell Transplantation",
+      "Cerebral Revascularization Surgery",
+      "Genetic Counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "CBL-related_Disorder.yaml",
     "page_url": "../pages/disorders/CBL-related_Disorder.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 18,
+    "num_pathophysiology": 10,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 4,
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "CCDC115-CDG",
@@ -127307,6 +127435,7 @@ window.searchData = [
     "pathophysiology": [
       "Nuclear Envelope and LINC Complex Dysfunction",
       "Impaired Mechanotransduction and Nuclear Mechanical Fragility",
+      "FHL1 Deficiency and Impaired Sarcomere Assembly",
       "Mechanical-Stress-Induced Nuclear Damage and DNA Damage Response",
       "Maladaptive Transcriptional Reprogramming and Fibro-Fatty Remodeling",
       "Cardiac Conduction Disease and Arrhythmogenesis"
@@ -127320,6 +127449,7 @@ window.searchData = [
     ],
     "cell_type_ids": [
       "CL:0000056",
+      "CL:0000515",
       "CL:0008002",
       "CL:0000746",
       "CL:0002068",
@@ -127328,6 +127458,7 @@ window.searchData = [
     "biological_processes": [
       "nuclear envelope organization",
       "cellular response to mechanical stimulus",
+      "myotube differentiation",
       "DNA damage response",
       "extracellular matrix organization",
       "RNA splicing",
@@ -127407,10 +127538,10 @@ window.searchData = [
     "source_file": "Emery_Dreifuss_Muscular_Dystrophy.yaml",
     "page_url": "../pages/disorders/Emery-Dreifuss_Muscular_Dystrophy.html",
     "num_phenotypes": 16,
-    "num_pathophysiology": 5,
+    "num_pathophysiology": 6,
     "num_genes": 7,
     "num_treatments": 9,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "6"
   },
   {
@@ -303997,6 +304128,139 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "SSR4-Congenital Disorder of Glycosylation",
+    "disease_id": "MONDO:0010490",
+    "category": "Mendelian",
+    "parents": [
+      "Congenital Disorder of Glycosylation"
+    ],
+    "creation_date": "2026-09-29T21:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "SSR4-CDG (CDG-Iy) is an ultra-rare X-linked congenital disorder of N-linked glycosylation caused by hemizygous loss-of-function variants in SSR4 (Xq28), which encodes the delta subunit of the heterotetrameric translocon-associated protein (TRAP) complex of the endoplasmic reticulum membrane. The TRAP complex sits at the Sec61 translocon beside the oligosaccharyltransferase, and its loss reduces the efficiency with which nascent glycoproteins receive their N-glycans, giving a type I (glycan-site occupancy) transferrin pattern that is often only marginally abnormal or even normal.\nAffected individuals are almost all males, with roughly half of variants de novo and half maternally inherited. The core phenotype, reported in every described patient, is global developmental delay with speech delay, intellectual disability, muscular hypotonia, microcephaly and a recognisable facial gestalt (deep-set eyes, wide mouth). Feeding difficulties, failure to thrive, gastrointestinal reflux, strabismus and seizures are common, and a connective-tissue component (redundant skin, joint laxity, blue sclerae, vascular tortuosity), congenital heart defects, cardiomyopathy and behavioural problems extend the spectrum. Survival into adulthood is documented. There is no causal therapy.\n",
+    "pathophysiology": [
+      "SSR4 Loss of Function",
+      "TRAP Complex Destabilization",
+      "Reduced N-Glycosylation Efficiency at the Translocon",
+      "ER Stress Response Activation",
+      "Multisystem Neurodevelopmental Disorder",
+      "Connective Tissue Involvement"
+    ],
+    "cell_types": [
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "protein N-linked glycosylation",
+      "response to endoplasmic reticulum stress"
+    ],
+    "phenotypes": [
+      "Global developmental delay",
+      "Delayed speech and language development",
+      "Intellectual disability",
+      "Hypotonia",
+      "Microcephaly",
+      "Deeply set eye",
+      "Wide mouth",
+      "Seizure",
+      "Feeding difficulties",
+      "Failure to thrive",
+      "Gastroesophageal reflux",
+      "Strabismus",
+      "Atypical behavior",
+      "Autism",
+      "Hyperkinetic movements",
+      "Thin corpus callosum",
+      "Abnormal heart morphology",
+      "Cardiomyopathy",
+      "Abnormality of coagulation",
+      "Telangiectasia",
+      "Redundant skin",
+      "Joint hypermobility",
+      "Blue sclerae",
+      "Vascular tortuosity",
+      "Type I transferrin isoform profile"
+    ],
+    "phenotype_categories": [
+      "Neurological",
+      "Neuromuscular",
+      "Craniofacial",
+      "Gastrointestinal",
+      "Growth",
+      "Ophthalmological",
+      "Behavioral",
+      "Cardiovascular",
+      "Hematological",
+      "Dermatological",
+      "Connective Tissue",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000750",
+      "HP:0001249",
+      "HP:0001252",
+      "HP:0000252",
+      "HP:0000490",
+      "HP:0000154",
+      "HP:0001250",
+      "HP:0011968",
+      "HP:0001508",
+      "HP:0002020",
+      "HP:0000486",
+      "HP:0000708",
+      "HP:0000717",
+      "HP:0002487",
+      "HP:0033725",
+      "HP:0001627",
+      "HP:0001638",
+      "HP:0001928",
+      "HP:0001009",
+      "HP:0001582",
+      "HP:0001382",
+      "HP:0000592",
+      "HP:0004948",
+      "HP:0003642"
+    ],
+    "frequencies": [
+      "OBLIGATE",
+      "FREQUENT",
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "SSR4"
+    ],
+    "treatments": [
+      "Supportive and multidisciplinary care",
+      "Preventive rehabilitation for connective tissue involvement",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SSR4-Congenital_Disorder_of_Glycosylation.yaml",
+    "page_url": "../pages/disorders/SSR4-Congenital_Disorder_of_Glycosylation.html",
+    "num_phenotypes": 25,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "STAG3-related gametogenic failure",
     "disease_id": "MONDO:0014321",
     "category": "Mendelian",
@@ -353273,7 +353537,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "26",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "4"
   },
   {
@@ -358036,17 +358300,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3319,
+  "total_disorder_pages": 3321,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7952,
-  "total_unique_evidence_sources": 49857,
-  "total_unique_publications": 46484,
+  "total_disorders_and_subtypes": 7954,
+  "total_unique_evidence_sources": 49894,
+  "total_unique_publications": 46520,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 295,
-  "total_pathographs": 3315,
-  "total_unique_pathological_events": 21890,
+  "total_pathographs": 3317,
+  "total_unique_pathological_events": 21912,
   "total_modules": 189,
-  "total_research_reports": 3436,
+  "total_research_reports": 3438,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
