@@ -26,9 +26,9 @@ from dismech.groupings import DiseaseFacts, Satisfaction, evaluate_grouping
 @pytest.fixture(autouse=True)
 def offline_terms():
     """Keep term-valued leaves offline; these tests only exercise modules."""
-    G.set_closure_enabled(False)
+    G.set_live_lookup_enabled(False)
     yield
-    G.set_closure_enabled(True)
+    G.set_live_lookup_enabled(True)
 
 
 def _facts(name: str, *conforms: str) -> DiseaseFacts:
