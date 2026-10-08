@@ -18,6 +18,7 @@ imports:
   - classifications/coarse_phenotype_terms
   - classifications/icimd
   - classifications/isds_skeletal_nosology
+  - classifications/gene_table_nmd
   - classifications/nih_research_priorities
   - classifications/ilo_occupational_diseases
   - classifications/eu_occupational_schedule
@@ -744,6 +745,140 @@ enums:
         description: >-
           A cluster of regulatory elements that controls expression of a
           gene cluster (e.g., the beta-globin LCR).
+  GeneDiseaseValidityClassificationEnum:
+    description: >-
+      How well established a gene-disease relationship is, as classified by an
+      external curation body. The values are the GenCC harmonised
+      gene-disease validity classifications; ClinGen, Gene2Phenotype,
+      Orphanet and the PanelApp instances each map their own scale onto
+      them. Used only inside a GeneDiseaseValidityAssertion, which must say
+      who made the classification: dismech records these tiers, it does not
+      assign them (#10179).
+    comments:
+      - >-
+        Each value carries a `gencc_classification` annotation naming the
+        GenCC CURIE, read from the GenCC submissions export
+        (search.thegencc.org, 2026-09-23). GENCC:100007 is not used by any
+        current submission and has no value here; there is deliberately no
+        ANIMAL_MODEL_ONLY.
+      - >-
+        Orthogonal to GeneDiseaseRelationshipEnum, which records what kind
+        of relationship is claimed (causative, risk factor, modifier). A
+        causative claim can be DEFINITIVE or LIMITED.
+    permissible_values:
+      DEFINITIVE:
+        title: Definitive
+        description: >-
+          The role of the gene in the disease has been repeatedly demonstrated
+          and has not been contradicted.
+        annotations:
+          gencc_classification: GENCC:100001
+      STRONG:
+        title: Strong
+        description: >-
+          The role of the gene in the disease has been independently
+          demonstrated in at least two separate studies, with no convincing
+          contradictory evidence.
+        annotations:
+          gencc_classification: GENCC:100002
+      MODERATE:
+        title: Moderate
+        description: >-
+          There is moderate evidence supporting a causal role, typically
+          several probands with functional support but short of Strong.
+        annotations:
+          gencc_classification: GENCC:100003
+      SUPPORTIVE:
+        title: Supportive
+        description: >-
+          The submitter supports the relationship without grading it on a
+          validity scale. Orphanet submits every gene-disease link at this
+          tier.
+        annotations:
+          gencc_classification: GENCC:100009
+      LIMITED:
+        title: Limited
+        description: >-
+          There is limited evidence for a causal role, such as few probands
+          or segregation without functional support.
+        annotations:
+          gencc_classification: GENCC:100004
+      DISPUTED:
+        title: Disputed evidence
+        description: >-
+          Conflicting evidence disputes a role for the gene in the disease.
+        annotations:
+          gencc_classification: GENCC:100005
+      REFUTED:
+        title: Refuted evidence
+        description: >-
+          Evidence refuting the role of the gene in the disease significantly
+          outweighs any supporting evidence.
+        annotations:
+          gencc_classification: GENCC:100006
+      NO_KNOWN_DISEASE_RELATIONSHIP:
+        title: No known disease relationship
+        description: >-
+          The submitter has evaluated the gene and found no evidence that it
+          causes the disease.
+        annotations:
+          gencc_classification: GENCC:100008
+  GeneDiseaseValiditySourceEnum:
+    description: >-
+      The curation body that assigned a gene-disease validity classification.
+      Values are GenCC submitters; each carries a `gencc_submitter`
+      annotation with its GenCC submitter CURIE, read from the GenCC
+      submissions export. Only the submitters whose classifications dismech
+      entries cite are enumerated; any other GenCC submitter is
+      OTHER_GENCC_SUBMITTER with its name in `notes`.
+    comments:
+      - >-
+        There is deliberately no value for dismech or a curator. A validity
+        tier is a classification made under a published framework; when no
+        external body has made one, leave `gene_disease_validity` absent and
+        say so in `Genetic.notes` rather than minting a tier (#10179).
+    permissible_values:
+      CLINGEN:
+        title: ClinGen
+        description: >-
+          ClinGen Gene-Disease Validity, assigned by a Gene Curation Expert
+          Panel under the ClinGen SOP. Cite the assertion as a `CGGV:`
+          reference.
+        annotations:
+          gencc_submitter: GENCC:000102
+      G2P:
+        title: Gene2Phenotype
+        description: >-
+          Gene2Phenotype (EMBL-EBI), which curates gene-disease pairs for
+          specific clinical panels on its own confidence scale.
+        annotations:
+          gencc_submitter: GENCC:000112
+      ORPHANET:
+        title: Orphanet
+        description: >-
+          Orphanet. Every Orphanet submission to GenCC is SUPPORTIVE, so the
+          tier records that Orphanet lists the pair, not that it graded it.
+        annotations:
+          gencc_submitter: GENCC:000110
+      GENOMICS_ENGLAND_PANELAPP:
+        title: Genomics England PanelApp
+        description: >-
+          Genomics England PanelApp, whose green/amber/red gene ratings on
+          diagnostic panels are mapped onto the GenCC tiers.
+        annotations:
+          gencc_submitter: GENCC:000104
+      PANELAPP_AUSTRALIA:
+        title: PanelApp Australia
+        description: >-
+          PanelApp Australia (Australian Genomics), which rates genes on
+          diagnostic panels on the same green/amber/red scale.
+        annotations:
+          gencc_submitter: GENCC:000111
+      OTHER_GENCC_SUBMITTER:
+        title: Other GenCC submitter
+        description: >-
+          Any other GenCC submitter (for example a diagnostic laboratory).
+          Name it in `notes`.
   GeneDiseaseRelationshipEnum:
     description: >-
       The qualitative relationship between a gene (or locus) and a disease.
@@ -1556,12 +1691,18 @@ enums:
         - rdfs:subClassOf
   DiseaseTerm:
     description: >-
-      A MONDO disease, inherited disease susceptibility, or related medical
-      condition term used to anchor a curated disorder entry
+      A MONDO disease, inherited disease susceptibility, injury, or related
+      medical condition term used to anchor a curated disorder entry
+    comments:
+      - >-
+        MONDO:0021178 (injury) is a separate MONDO root, not a subclass of
+        MONDO:0000001 (disease), so injuries such as burn, frostbite and bone
+        fracture need it listed explicitly. See design decisions section 3f.
     reachable_from:
       source_nodes:
         - MONDO:0000001  ## disease
         - MONDO:0020573  ## inherited disease susceptibility
+        - MONDO:0021178  ## injury
       is_direct: false
       relationship_types:
         - rdfs:subClassOf
@@ -1586,11 +1727,12 @@ enums:
         - rdfs:subClassOf
   DiseaseOrSubtypeTerm:
     description: >-
-      A MONDO disease term or NCIT cancer disease/subtype term used to ground a
-      disease subtype or cancer facet value.
+      A MONDO disease or injury term, or NCIT cancer disease/subtype term, used
+      to ground a disease subtype or cancer facet value.
     reachable_from:
       source_nodes:
         - MONDO:0000001  ## disease
+        - MONDO:0021178  ## injury (a separate MONDO root; see DiseaseTerm)
         - NCIT:C2991  ## Disease or Disorder
         - NCIT:C4741  ## Neoplasm by Morphology
         - NCIT:C7062  ## Neoplasm by Special Category
@@ -2101,6 +2243,15 @@ enums:
         description: Protein structure prediction (AlphaFold, RoseTTAFold) or experimental structure (PDB X-ray, cryo-EM) used to understand disease mechanisms
       MOLECULAR_DOCKING:
         description: Computational docking or molecular dynamics simulation of drug candidates to protein targets, typically informed by PDB/AlphaFold structures
+      BIOMECHANICAL:
+        description: >-
+          Continuum-mechanics model of tissue deformation under mechanical load,
+          typically a finite-element model of an organ or body region, used to
+          predict where strain or strain rate exceeds an injury threshold (e.g. a
+          finite-element head model of traumatic brain injury). Its outputs are
+          mechanical quantities, so a link from such a model to a cellular or
+          axonal node is normally a PROXY_QUANTITY divergence. See design
+          decisions section 3f.
 
   ThresholdDirectionEnum:
     description: Whether a threshold activates when the variable goes above or below the value
@@ -2455,6 +2606,84 @@ enums:
           should not use target_mechanisms or target_phenotypes because they do
           not directly modify disease pathophysiology or phenotypes.
 
+  EffectModifierTypeEnum:
+    description: >-
+      The characteristic of the treated population across which a treatment's effect
+      is reported to differ. Used on TreatmentEffectModifier.effect_modifier_type.
+    permissible_values:
+      AGE:
+        description: Chronological age or age band.
+      SEX:
+        description: Biological sex.
+      REPRODUCTIVE_STATUS:
+        description: >-
+          Menopausal, pubertal, pregnancy, or other reproductive-hormonal status,
+          recorded separately from SEX because it varies within one sex.
+      BASELINE_SEVERITY:
+        description: >-
+          Disease severity, functional status, or frailty at the start of treatment
+          (for example a performance-battery score, disease stage, or frailty status).
+      GENOTYPE:
+        description: >-
+          A germline or somatic genotype, including a pharmacogenomic variant or a
+          disease-gene subtype.
+      BIOMARKER:
+        description: A non-genetic laboratory, imaging, or molecular marker measured at baseline.
+      COMORBIDITY:
+        description: A co-occurring disease or condition.
+      ANCESTRY:
+        description: Genetic ancestry or population group.
+      CONCOMITANT_TREATMENT:
+        description: >-
+          A co-intervention received alongside the treatment (for example protein
+          supplementation alongside exercise, or a second drug).
+      OTHER:
+        description: Any other characteristic; describe it in stratum and description.
+  EffectModificationDirectionEnum:
+    description: >-
+      How the treatment's effect in the named stratum compares with its effect in the
+      comparator stratum, for the named outcome.
+    permissible_values:
+      LARGER_EFFECT:
+        description: The effect is larger in the stratum than in the comparator.
+      SMALLER_EFFECT:
+        description: The effect is smaller but still present in the stratum.
+      NO_EFFECT:
+        description: >-
+          No effect was detected in the stratum although one was detected in the
+          comparator.
+      OPPOSITE_EFFECT:
+        description: The effect runs in the opposite direction (harm, or reversal) in the stratum.
+      NO_DIFFERENCE:
+        description: >-
+          The effect was compared across strata and found not to differ. A tested null
+          is a finding worth recording, because it stops a reader from assuming a
+          subgroup difference.
+  EffectModificationAnalysisEnum:
+    description: >-
+      How the subgroup difference was established. Ordered roughly from strongest to
+      weakest: a subgroup effect claimed from a post hoc split or from comparing
+      separate studies is a hypothesis, not a finding.
+    permissible_values:
+      PRESPECIFIED_SUBGROUP:
+        description: >-
+          A subgroup analysis declared in the trial protocol or analysis plan before
+          unblinding.
+      POST_HOC_SUBGROUP:
+        description: A subgroup analysis that was not prespecified.
+      META_ANALYSIS_SUBGROUP:
+        description: Subgroup analysis or meta-regression across studies in a meta-analysis.
+      CROSS_STRATUM_COMPARISON:
+        description: >-
+          Strata that all received the treatment were compared with each other within
+          one study, without a separate untreated control for each stratum (for example
+          men versus women in a single-arm training study).
+      CROSS_STUDY_COMPARISON:
+        description: >-
+          Inferred by comparing separate studies conducted in different populations; the
+          weakest basis.
+      OTHER:
+        description: Any other basis; explain in description.
   TherapeuticModalityEnum:
     description: >-
       Broad therapeutic modality / platform of a treatment, independent of the
@@ -3116,6 +3345,38 @@ enums:
       OTHER:
         title: Other
         description: A module-collection basis not covered by the other values.
+
+  ExecutionVenueEnum:
+    description: >-
+      Broad kind of facility that would execute an ExecutableProtocol. Four
+      coarse values rather than a vendor list: the classification is what a
+      query needs (is this orderable by anyone, or does it need a local
+      collaboration?), while the provider's identity is free text in
+      `provider`, so a new laboratory is data and not a schema change.
+    permissible_values:
+      COMMERCIAL_CLOUD_LAB:
+        title: Commercial cloud lab
+        description: >-
+          A commercial remote laboratory that accepts protocol orders from any
+          paying customer and returns data, with no local presence or
+          collaboration required. Ginkgo Cloud Lab, Emerald Cloud Lab and
+          Strateos are of this kind.
+      ACADEMIC_AUTOMATION_CORE:
+        title: Academic automation core
+        description: >-
+          An institutional core facility or academic cloud lab running
+          automated protocols as a service, typically requiring an
+          institutional account, a collaboration, or a named investigator.
+      LOCAL_LABORATORY:
+        title: Local laboratory
+        description: >-
+          A specific research laboratory that has the assay running and could
+          execute it, reached through collaboration rather than by order.
+      OTHER:
+        title: Other
+        description: >-
+          A venue none of the above describes. Prefer adding a value to this
+          enum over stretching an existing one.
 
   ModuleCategoryEnum:
     description: >-
@@ -3797,6 +4058,20 @@ slots:
       Classification scheme this subtype belongs to (e.g., 'complementation_group',
       'pathway_tier', 'histological', 'molecular', 'clinical_phenotype').
     range: string
+  curated_in:
+    description: >-
+      File stem of the `kb/disorders/` entry in which this subtype is curated in
+      full (`Rocky_Mountain_Spotted_Fever`), when the stratum has been promoted
+      to its own Disease entry -- the *pointer* subtype of design decisions §3a
+      (L4) and §3e (rung 4). The parent keeps the row so the stratum stays
+      discoverable and other sections can still scope to it, but the mechanism,
+      phenotype and treatment content lives in the named entry, and a consumer
+      counting diseases should not count the pointer. The value is the same
+      identifier a cross-file entity reference uses and must resolve to an
+      existing file; `just check-granularity` reports a dangling
+      pointer and, where both are bound, a `subtype_term` that disagrees with
+      the target's `disease_term`. Omit on a subtype curated here.
+    range: string
   children:
     description: >-
       Names of other subtypes in this list that are members/children of
@@ -4129,6 +4404,28 @@ slots:
     examples:
       - value: Susceptibility
     range: string
+  gene_disease_validity:
+    description: >-
+      Gene-disease validity classifications made by external curation bodies
+      for this gene and this entry's disease. Each records the tier, who
+      assigned it, and the identifier of the assertion. Multivalued because
+      one gene-disease pair can carry several: ClinGen classifies each mode of
+      inheritance separately, an entry's subtypes can be separate ClinGen
+      diseases, and GenCC submitters do not always agree. Leave absent when no
+      external body has classified the pair; that is not the same as
+      NO_KNOWN_DISEASE_RELATIONSHIP.
+    multivalued: true
+    inlined_as_list: true
+    range: GeneDiseaseValidityAssertion
+  validity_classification:
+    description: >-
+      The tier assigned, copied from the source named in `classified_by`.
+    range: GeneDiseaseValidityClassificationEnum
+  classified_by:
+    description: >-
+      The external curation body that assigned the classification. Required,
+      so a tier is never recorded without saying whose it is.
+    range: GeneDiseaseValiditySourceEnum
   relationship_type:
     description: >-
       Controlled-vocabulary classification of the gene-disease relationship
@@ -4759,6 +5056,56 @@ slots:
       experimental workflow. May be a PMID, DOI, protocols.io DOI, URL, or other
       stable identifier.
     range: string
+  executable_protocols:
+    description: >-
+      Concrete, orderable protocols that would execute some or all of this
+      experiment, each naming a provider and that provider's own catalogue
+      identifier. Distinct from `protocol_reference`, which cites a *methods
+      paper* describing how a technique works: an ExecutableProtocol is a
+      service that can be ordered. Recording one does not propose, authorise,
+      or commit to running it.
+    multivalued: true
+    range: ExecutableProtocol
+    inlined_as_list: true
+  provider:
+    description: >-
+      The organisation that would execute the protocol, named as that
+      organisation names itself (for example `Ginkgo Cloud Lab`, `Emerald Cloud
+      Lab`, `UNC Lineberger High-Throughput Screening Facility`). Deliberately
+      free text rather than an enum: the set of providers is open and changes
+      without warning, so an enum would need a schema PR per new laboratory.
+      The durable classification is `venue_type`.
+    range: string
+  venue_type:
+    description: Broad kind of facility that would execute the protocol.
+    range: ExecutionVenueEnum
+  protocol_id:
+    description: >-
+      The provider's own stable identifier for the protocol — a catalogue
+      handle, service code, or SKU — copied exactly as the provider publishes
+      it, never composed or tidied. This is what an order would name, so a
+      reworded value is not an identifier.
+    range: string
+  protocol_url:
+    description: The provider's own page for this protocol.
+    range: uri
+  measures:
+    description: >-
+      Entity references for the pathograph nodes, phenotypes, or other modeled
+      objects this protocol would return a measurement on. Uses the same
+      hash-anchor grammar as `attaches_to`, and every value must use it. This
+      records *what the protocol can observe*, which is a weaker claim than
+      `would_support` / `would_refute`: a protocol can measure a node without
+      any one result adjudicating the hypothesis attached to it.
+    multivalued: true
+    range: string
+  inputs_required:
+    description: >-
+      What the requester must supply for the protocol to run — DNA sequences as
+      a CSV, a purified antigen, a cell line, a compound plate. Records the
+      input that is the requester's problem rather than the provider's, since
+      that is usually what decides whether a proposal is actually reachable.
+    range: string
   posed_by:
     description: >-
       Optional attribution for who posed a Discussion. ORCID is preferred when
@@ -5032,6 +5379,47 @@ slots:
       (e.g., "once every 3 weeks", "twice yearly"). Record loading or induction doses
       in the treatment description rather than here.
     range: string
+  effect_modifiers:
+    description: >-
+      Reported differences in a treatment's effect across patient subgroups (age, sex,
+      baseline severity, genotype, ...). One entry per stratum, outcome and source:
+      the same stratum can show a larger effect on one outcome and none on another.
+      Absent means no subgroup difference has been curated, not that none exists.
+    multivalued: true
+    range: TreatmentEffectModifier
+    inlined_as_list: true
+  effect_modifier_type:
+    description: The kind of patient characteristic that defines the stratum.
+    range: EffectModifierTypeEnum
+  stratum:
+    description: >-
+      The subgroup the reported effect applies to, in the source's own terms
+      (for example "women", "age 75 years or younger", "SPPB 8-9").
+    range: string
+  comparator_stratum:
+    description: >-
+      The subgroup the stratum is compared with (for example "men"). Omit only when
+      the comparison is to the whole trial population.
+    range: string
+  modified_outcome:
+    description: >-
+      The outcome on which the effect differs (for example "handgrip strength",
+      "mobility disability"). Free text; a subgroup difference is outcome-specific.
+    range: string
+  effect_in_stratum:
+    description: >-
+      How the effect in the stratum compares with the comparator, for the named
+      outcome.
+    range: EffectModificationDirectionEnum
+  modification_analysis:
+    description: How the subgroup difference was established.
+    range: EffectModificationAnalysisEnum
+  interaction_tested:
+    description: >-
+      True when the source reports a formal treatment-by-subgroup interaction test
+      (whatever its result); false when the difference rests only on separate
+      within-stratum results. Omit when the source does not say.
+    range: boolean
   dosing_interval_days:
     description: >-
       The maintenance dosing interval normalized to days, so treatments are comparable
@@ -6545,6 +6933,7 @@ classes:
       - supporting_outcome
       - refuting_outcome
       - protocol_reference
+      - executable_protocols
       - datasets
       - evidence
       - notes
@@ -6661,6 +7050,68 @@ classes:
       perturbations:
         range: ExperimentalPerturbation
         inlined_as_list: true
+
+  ExecutableProtocol:
+    description: >-
+      A concrete, orderable protocol at a named provider that would execute
+      some or all of a proposed experiment, together with what it needs as
+      input and which pathograph nodes it would return a measurement on.
+    comments:
+      - >-
+        Reached from `Experiment.executable_protocols`. A proposed experiment
+        in a `KNOWLEDGE_GAP` discussion states what *should* be measured;
+        this records that a service exists which would measure it, so the
+        feasibility of a gap is readable from the entry rather than
+        re-researched each time somebody asks what it would take to close it.
+      - >-
+        Recording a protocol is a feasibility note, not a plan. It does not
+        propose, authorise, fund, or commit to running anything, and it is not
+        evidence about the disease: nothing here asserts a result.
+      - >-
+        `provider` plus `protocol_id` is the identity of the service and
+        `venue_type` is the durable classification. Deliberately records no
+        price, turnaround, or throughput: those are commercial terms that go out
+        of date without any signal that they have, and reproducing a vendor's
+        price list is not this knowledge base's job. Cost and scheduling are
+        settled with the provider at the point of ordering.
+    slots:
+      - name
+      - description
+      - provider
+      - venue_type
+      - protocol_id
+      - protocol_url
+      - measures
+      - inputs_required
+      - retrieved_date
+      - evidence
+      - notes
+    slot_usage:
+      name:
+        description: >-
+          The protocol's name as the provider publishes it, copied exactly. A
+          summary of what it would be used for belongs in `description`.
+        required: true
+      provider:
+        required: true
+      description:
+        description: >-
+          What this protocol would contribute to the experiment, and why it is
+          the right one — the curator's reasoning, not the provider's marketing
+          copy.
+      retrieved_date:
+        description: >-
+          Date the provider's catalogue was read for the identifier recorded
+          here. Record it alongside `protocol_id` or `protocol_url`, because a
+          provider's catalogue changes without notice and without a version, so
+          an identifier with no retrieval date cannot be aged: a reader has no
+          way to tell a current handle from one that was renamed two years ago.
+      evidence:
+        description: >-
+          Literature or provider documentation supporting the protocol's
+          suitability or its precedent for this measurement. Not a place for
+          results: this object describes a protocol that has not been run.
+        recommended: false
 
   ClinicalTrial:
     description: A clinical trial relevant to treatment or research of a disease
@@ -6827,6 +7278,7 @@ classes:
       - locations
       - geography
       - classification
+      - curated_in
       - children
       - genes
       - subtype_frequency
@@ -7355,6 +7807,84 @@ classes:
         required: true
       surrogate_endpoints:
         required: true
+  GeneClassification:
+    description: >-
+      One gene's membership in a gene-classification system, as asserted by
+      that system's source. A row in a `GeneClassificationCollection`.
+
+      `values` is multivalued because gene classifications are genuinely
+      set-valued: a gene appears in as many groups as it has clinically
+      distinct disease associations. Its range is left open here because each
+      collection draws from its own enum (`GeneTableNMDGroupEnum` for the
+      neuromuscular gene table, and others as further sources are added); the
+      per-collection test asserts membership of the right enum.
+    slots:
+      - gene
+      - notes
+    attributes:
+      values:
+        description: >-
+          Classification values this gene carries in the collection's system,
+          drawn from the enum named by the collection's
+          `classification_system`. Transcribed from the source, never inferred.
+        multivalued: true
+        required: true
+        range: string
+      source_label:
+        description: >-
+          The gene symbol as written by the source, recorded when it differs
+          from the HGNC-approved symbol in `gene` (for example when the source
+          still uses a previous symbol). Lets a reader confirm the mapping.
+        range: string
+    slot_usage:
+      gene:
+        required: true
+  GeneClassificationCollection:
+    description: >-
+      A source-level transcription of one gene-classification system: which
+      genes the source lists, and which of its categories each gene falls in.
+
+      This is a lookup table, deliberately not a `Disease`-like entity. It
+      carries no pathophysiology, no per-row evidence, and no disease links;
+      provenance is recorded once at the file level. It is a transcription of a
+      source, not an inference engine — include only genes the source itself
+      lists, and do not derive memberships.
+
+      Distinct from `gene_sets`, which reference flat, typically
+      experimentally-derived gene sets (signatures, perturbation results) used
+      as enrichment inputs. A gene classification is instead a curated,
+      authoritative assertion about which genes cause disease in a domain, and
+      usually carries its own category structure.
+    slots:
+      - name
+      - description
+      - source_url
+      - source_content_current_as_of
+      - retrieved_date
+      - tracked_issues
+      - notes
+    attributes:
+      classification_system:
+        description: >-
+          Identifier for the classification system this collection transcribes,
+          naming the enum its `values` are drawn from (e.g. GENE_TABLE_NMD ->
+          GeneTableNMDGroupEnum).
+        required: true
+        range: string
+      source_version:
+        description: >-
+          The source's own version string for this snapshot, where it publishes
+          one (e.g. "GT_NMD 2026").
+        range: string
+      genes:
+        description: One row per gene listed by the source.
+        multivalued: true
+        required: true
+        inlined_as_list: true
+        range: GeneClassification
+    slot_usage:
+      name:
+        required: true
   ProteinStructure:
     description: >-
       A 3D protein structure from PDB or AlphaFold relevant to understanding
@@ -7482,6 +8012,38 @@ classes:
       - cohort_size
       - evidence
       - notes
+  GeneDiseaseValidityAssertion:
+    description: >-
+      One external classification of how well established a gene-disease
+      relationship is: the tier, who assigned it, and the assertion's
+      identifier. Attribution is required because a tier is only meaningful
+      under the framework that produced it; dismech records such tiers and
+      does not assign them (#10179). `just check-gene-validity` compares a
+      ClinGen assertion against its cached `CGGV:` record.
+    slots:
+      - validity_classification
+      - classified_by
+      - external_id
+      - subtype
+      - evidence
+      - notes
+    slot_usage:
+      validity_classification:
+        required: true
+      classified_by:
+        required: true
+      external_id:
+        description: >-
+          The source's identifier for this assertion. For ClinGen, the
+          `CGGV:assertion_...` CURIE, which is also what the evidence item
+          cites; `just check-gene-validity` reads the cached record and
+          fails if its classification differs.
+        recommended: true
+      subtype:
+        description: >-
+          The has_subtypes[].name this classification applies to, when the
+          entry's subtypes are classified separately (ATP7A: Menkes disease
+          and X-linked distal SMA).
   ProgressionInfo:
     slots:
       - phase
@@ -7703,6 +8265,7 @@ classes:
       - subtype
       - frequency
       - case_fractions
+      - gene_disease_validity
       - inheritance
       - variants
       - features
@@ -7906,6 +8469,7 @@ classes:
       - aso_details
       - dosing_interval
       - dosing_interval_days
+      - effect_modifiers
       - target_phenotypes
       - target_mechanisms
       - pdb_structures
@@ -7947,6 +8511,43 @@ classes:
       - delivery_platform
       - aso_mechanism
       - aso_chemistry
+  TreatmentEffectModifier:
+    description: >-
+      A reported difference in a treatment's effect between patient subgroups: the
+      stratum, what it is compared with, the outcome, the direction of the difference,
+      and how the difference was established. Records heterogeneity of treatment
+      effect so it is queryable ("which treatments work less well in women?") rather
+      than buried in a treatment description.
+    comments:
+      - >-
+        Effect modification is not a mechanism. Where a mechanism for the difference
+        is known, record that as a pathophysiology node and name it in description.
+      - >-
+        A difference resting on POST_HOC_SUBGROUP, CROSS_STRATUM_COMPARISON or
+        CROSS_STUDY_COMPARISON without an interaction test is a hypothesis; say so in
+        description rather than inflating effect_in_stratum.
+    slots:
+      - effect_modifier_type
+      - stratum
+      - comparator_stratum
+      - modified_outcome
+      - effect_in_stratum
+      - modification_analysis
+      - interaction_tested
+      - description
+      - evidence
+      - notes
+    slot_usage:
+      effect_modifier_type:
+        required: true
+      stratum:
+        required: true
+      modified_outcome:
+        required: true
+      effect_in_stratum:
+        required: true
+      evidence:
+        recommended: true
   DeliverySystem:
     description: >-
       How a treatment's active agent is carried to its target - the formulation

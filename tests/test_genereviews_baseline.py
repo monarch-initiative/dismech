@@ -389,12 +389,6 @@ def test_strict_exit_code_and_formats(tmp_path, index, monkeypatch, capsys):
                 writer.writerow([c.pmid, c.nbk, "1" if c.retired else "0", "", c.title])
     entry = tmp_path / "Marfan_Syndrome.yaml"
     entry.write_text("name: Marfan Syndrome\n")
-    # main() calls kb_cache.default_off(), which writes DISMECH_KB_CACHE=0 into
-    # os.environ via setdefault. Left alone, that outlives this test and disables
-    # the parsed-KB cache for every later test in the process (test_kb_cache.py
-    # failed five ways in CI). Pinning the variable through monkeypatch makes the
-    # setdefault a no-op and restores the environment on teardown.
-    monkeypatch.setenv("DISMECH_KB_CACHE", "1")
     args = [
         str(entry),
         "--index-dir",
@@ -501,7 +495,6 @@ def test_strict_fails_on_synonymless_no_chapter(tmp_path, index, monkeypatch, ca
                 writer.writerow([c.pmid, c.nbk, "1" if c.retired else "0", "", c.title])
     entry = tmp_path / "Draft.yaml"
     entry.write_text("name: Chromosome 17q12 Duplication Syndrome\n")
-    monkeypatch.setenv("DISMECH_KB_CACHE", "1")  # see test_strict_exit_code_and_formats
     args = [
         str(entry),
         "--index-dir",

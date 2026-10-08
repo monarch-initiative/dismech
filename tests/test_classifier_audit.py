@@ -25,14 +25,6 @@ from dismech.classifier.claims import extract_claim
 from dismech.classifier.typesafe import TypeSafeClassifier
 
 
-@pytest.fixture(autouse=True)
-def isolate_kb_cache_environment(monkeypatch):
-    # Record the original environment before the CLI calls default_off().
-    import os
-
-    monkeypatch.setenv("DISMECH_KB_CACHE", os.environ.get("DISMECH_KB_CACHE", "1"))
-
-
 def evidence(text="Example disease causes fever."):
     return {"reference": "PMID:1", "supports": "SUPPORT", "snippet": text}
 
