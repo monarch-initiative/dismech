@@ -2037,6 +2037,33 @@ South Asian; African American; and Hispanic or Latino.
 | Of the 20 populations | 18 (Druze only as a reference panel) | 6 | 14 |
 | Clinical-system use | Essentially none | US standard (EHRs, public health, FHIR US Core) | Clinical trial data |
 
+The populations, as looked up on 2026-10-08 by label search in OLS (HANCESTRO,
+NCIT) and in the HL7 v3 Race code system that mirrors CDC Race and Ethnicity,
+with every hit checked by hand:
+
+| Population | HANCESTRO | CDC / HL7 | NCIT |
+|---|---|---|---|
+| Singaporean Chinese | yes | no | no |
+| Singaporean Malay | yes | no | no |
+| Singaporean Indian | yes | no | no |
+| Han Chinese | yes | no | yes |
+| Japanese | yes | yes | yes |
+| Korean | yes | yes | yes |
+| Turkish | yes | no | no (a language term only) |
+| Armenian | yes | yes | yes |
+| Arab | yes | yes | yes |
+| Ashkenazi Jewish | yes | no | yes |
+| Sephardic Jewish | no | no | yes |
+| Mizrahi Jewish | no | no | yes |
+| Druze | reference panel only (HGDP) | no | no |
+| Finnish | yes | no | yes |
+| Amish | yes | no | no |
+| French Canadian | yes (*French Canadian founder*) | no | yes (*Canadian French*) |
+| East Asian | yes | no | yes |
+| South Asian | yes | no | yes |
+| African American | yes | yes (*Black or African American*) | yes |
+| Hispanic or Latino | yes | yes (ethnicity code) | yes |
+
 HANCESTRO is the only one with the Singapore groups the issue started from and
 the only one with Turkish, Finnish and Amish. It is an open (CC BY 4.0), actively
 maintained OBO ontology built for the GWAS Catalog, and it is in OLS, so it
