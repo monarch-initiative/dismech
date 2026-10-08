@@ -417,7 +417,7 @@ by meeting the stated test of another rung.
 
 | Rung | Represent as | Rule |
 |---|---|---|
-| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`, one node called "Pathogen Invasion and Replication") is retired under this rung |
+| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`; three generic host-response nodes headed by "Pathogen Invasion and Replication") was retired under this rung in #12096 |
 | **1 Grouping** (the treponematoses, the enteric fevers, the viral hepatitides) | `kb/groupings/` | A union of diseases the field already names separately, or an organ syndrome spanning unrelated organisms. Explicit `members`, `grouping_basis`, a `grouping_rationale` that states **the axes on which the members were split** and not only what they share, `mondo_mappings` with an explicit predicate; no `pathophysiology` of its own. `Treponematoses` is the reference implementation. An organ syndrome with an organism-independent mechanism is a `kb/modules/` module plus `conforms_to` instead |
 | **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:narrowMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
 | **3 Organism stratum** (species → subspecies → serovar → serotype) | `has_subtypes` on the rung-2 entry | A stratum earns a subtype when it is **documented to differ** from its siblings on at least one of: presentation or organ involvement; diagnosis; first-line treatment or drug susceptibility; prognosis; transmission route, vector or reservoir; geography or at-risk population. The threshold is documented difference, **not nomenclatural availability, and the default is to lump**. Each subtype's `description` says *what differs* and its `evidence` cites it; `subtype_term` is bound where an honest term exists and omitted rather than bound to the parent |
@@ -591,21 +591,117 @@ when it deferred to WHO/ICC and folded rather than deleted the stage entries.
 
 **Enacted in the same PR.** This clause; `Subtype.curated_in`; `check_granularity.py`
 with `tests/test_granularity.py`; the promoted pointer rows on
-`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`. **Still open
-(work items on #10115):** the
-`infectious_agent` backfill on the 22 entries the checker names and the 10 unbound agents;
-`transmission` on 56 entries; the `Viral_Hemorrhagic_Fever` and `Acute_Hepatitis_C`
-conversions; `agent_life_cycle` on the ~23 vector-borne and zoonotic entries; the rung-3
-review of the 11 undecided lumps, one at a time; the rung-1 groupings (rickettsioses,
-viral hepatitides, soil-transmitted helminthiases, enteric fevers, arboviral haemorrhagic
-fevers); retiring `Infectious_Disease`; the `UNDECIDED` infectious stubs and the
-coverage gaps the review found (typhoid, herpes zoster, anthrax and UTI still have no
-entry; diphtheria and sepsis have since been curated). Two
+`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`.
+**Enacted since (as of 2026-10-03):** the `infectious_agent` and `transmission`
+backfills on 48 entries (#12097, #12099, #12100, #12107), which also bound the
+previously free-text agents on `Choroiditis`, `Cytomegalovirus_Retinitis`, `Tetanus` and
+`Hantavirus_Pulmonary_Syndrome` and left `Southern_Tick-Associated_Rash_Illness` and
+`Paralytic_Poliomyelitis` deliberately unbound with the reason recorded in the agent's
+`description` (an undetermined agent; a virus NCBITaxon names only at serotype rank);
+`Acute_Hepatitis_C_Virus_Infection` merged into `Hepatitis_C` with the phases listed
+(#12098); `Infectious_Disease` retired to an `OUT_OF_SCOPE` stub (#12096); agent-level
+strata able to bind NCBITaxon (#10353). Typhoid fever, anthrax, diphtheria and sepsis
+have since been curated; herpes zoster and UTI still have no entry. **Still open (work
+items on #10115):** the `Viral_Hemorrhagic_Fever` conversion; `transmission` on the
+oral, genitourinary and systemic entries and on entries curated since the ladder
+landed; `agent_life_cycle` wherever the new transmission text names a vector or
+reservoir (the checker's `MISSING_LIFECYCLE` count rose as the backfills named them);
+the rung-3 review of the undecided lumps, one at a time; the rung-1 groupings
+(rickettsioses, viral hepatitides, soil-transmitted helminthiases, enteric fevers,
+arboviral haemorrhagic fevers); the `UNDECIDED` infectious stubs. Two
 decisions this clause does *not* make: an ontology binding for `Transmission`, which is
 free text today so R25's second half is a required string that no query can use — R17
 turns on transmission route and vector, so a bound slot is a prerequisite for enforcing
 rung 4, tracked in §12; and whether `Subtype.classification` should become an enum now that
 it carries the rung-3a axis.
+
+### 3f. Injury and trauma granularity (2026-10-01)
+
+**Status: ACCEPTED as the working rule (`@cmungall`, 2026-10-01), to be tested on a
+pilot before any wider curation.** The schema change it needed is enacted (see *MONDO
+constraint* below); no KB entry has yet been written under it. The first test case is the
+[traumatic brain injury pilot](../superpowers/specs/2026-10-01-traumatic-brain-injury-pilot.md).
+
+**Problem.** §1 puts exposure-related disease in scope but says nothing about physical
+injury, and the KB has handled it only implicitly. There is no entry for an injury itself
+(no traumatic brain injury, spinal cord injury, burn, fracture or crush injury), while the
+diseases that follow injury are curated with the trauma as their cause:
+`Post-Traumatic_Epilepsy` and `Chronic_Traumatic_Encephalopathy` each carry the head
+trauma as an `environmental:` record. That is a sound default, but it cannot represent
+the cases where the tissue's response to the injury is itself the disease being studied
+and treated, nor the biomechanics of the injury.
+
+**Rule: the entry sits where most of the mechanism is.**
+
+| Situation | Represent as | Examples |
+|---|---|---|
+| The injury is a one-off trigger and the disease then runs on its own mechanism | An entry for the **sequela**; the injury is an `environmental:` record linked with `influences_mechanisms` (`TRIGGERS`) and, where the entry models it, a root pathophysiology node | post-traumatic epilepsy, chronic traumatic encephalopathy, post-traumatic stress disorder |
+| The tissue response to the injury is the clinical entity managed as a unit, with its own phases and treatment window | An entry for the **injury**, its phases (primary injury, secondary injury, chronic) in `progression:` | traumatic brain injury, spinal cord injury, crush syndrome |
+| A response cascade recurs across several injuries or sequelae | A **mechanism module** that both injury and sequela entries conform to | secondary injury after neurotrauma, ischemia-reperfusion injury |
+| An anatomical or mechanical category with no single mechanism | A `GROUPING`, or an `OUT_OF_SCOPE` stub | *injury*, *head injury*, *bone fracture* as a class |
+
+This mirrors §3e: a phase is never an entry, and a sequela is its own entry. A module
+holds the shared injury biology once, so curating the sequela and modelling the injury in
+detail do not compete.
+
+**Biomechanics.** The pathograph starts at biology, and mechanical load sits upstream of
+every GO, CL or HP term. Handling, with no schema change:
+
+- The mechanical event is a root pathophysiology node at `TISSUE` or `ORGANISM`
+  `biological_scale`, with `locations` bound to UBERON. `Post-Traumatic_Epilepsy`'s
+  `Traumatic Brain Injury` node already has this shape.
+- Quantitative biomechanics (finite-element tissue-strain models, injury-threshold
+  models) goes in `computational_models:`, linked with `modeled_mechanisms`. The scale
+  gap between a tissue-strain model and an axonal or cellular node is what §3b's
+  `model_scale` records, and strain standing in for tissue damage is a `PROXY_QUANTITY`
+  divergence under §3c.
+
+**MONDO constraint.** MONDO files injuries under `MONDO:0021178` *injury*, a root that
+is **not** a subclass of `MONDO:0000001` *disease*, and `DiseaseTerm` admits only
+descendants of `disease` and `inherited disease susceptibility`. Of the 23 descendants
+of *injury* checked against OLS on 2026-10-01, those reachable from *disease* through a
+second parent validate as a `disease_term` (`MONDO:0858950` traumatic brain injury,
+`MONDO:0043797` spinal cord injury, `MONDO:0015796` acute lung injury, `MONDO:0043510`
+brain injury); those under *injury* alone do not (`MONDO:0043519` burn, `MONDO:0800177`
+frostbite, `MONDO:0005315` bone fracture and its children, `MONDO:0005203` ischemia
+reperfusion injury, `MONDO:0043458` radiation injury, `MONDO:0800482` head injury).
+**Enacted:** `MONDO:0021178` is now a source node of both `DiseaseTerm` and
+`DiseaseOrSubtypeTerm`, so every MONDO injury term can anchor an entry or a subtype.
+This admits every fracture and ankle injury as a *candidate*; the granularity table
+above, not the enum, decides which of them become entries. The widening was accepted
+partly because MONDO's top-level category is expected to become an input to curation
+rules and possibly a type designator for an entry, so injuries should sit in the KB
+under their own root rather than be forced under *disease*.
+
+**ECTO constraint.** ECTO has no term for mechanical or traumatic injury exposure:
+searches of the local build on 2026-10-01 for `l~injur`, `l~trauma`, `l~concuss`,
+`l~impact`, `l~crush`, `l~collision`, `l~acceleration` and `l~force` returned nothing.
+`ExposureTerm` also admits XCO, which does have injury terms (`XCO:0000968` experimental
+traumatic brain injury, `XCO:0001041` experimental spinal cord contusion), but those
+describe experimental procedures on animals and are wrong for a human exposure; they fit
+`animal_models:` context only. **Decided:** no ECTO term request is filed. A human trauma
+exposure is left unbound with the searches recorded in `notes`, which is the state of
+both existing entries.
+
+**Severity and lesion type are not subtypes by default.** Injury severity (mild,
+moderate, severe) is a gradient of one exposure, recorded in the environmental record
+and in `progression:`, not a `has_subtypes` split. Lesion types that usually co-occur in
+one patient (focal contusion and diffuse axonal injury in traumatic brain injury) are
+parallel pathophysiology branches from the mechanical node, not subtypes either; a
+subtype must be a stratum a patient belongs to.
+
+**Shared cascades are small modules.** Where an injury cascade overlaps existing modules
+(`glutamate_excitotoxicity`, `neuroinflammation_glial_activation`), entries conform to
+those. New modules are added per mechanism (barrier breakdown, axonal injury) so they
+are reusable outside trauma, not as one trauma-specific "secondary injury" module.
+
+**Worked example.** `Traumatic_Brain_Injury`, with the modules
+`blood_brain_barrier_breakdown` and `focal_axonal_injury_wallerian_degeneration`, and
+conformance from `Post-Traumatic_Epilepsy`. Its finite-element head model is the first
+`BIOMECHANICAL` computational model.
+
+**Still open.** Whether injury entries need their own `check-granularity`-style audit,
+or §3e's checks are enough to copy. Decide after the pilot.
 
 ## 4. Ontology constraints
 

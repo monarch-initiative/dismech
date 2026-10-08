@@ -304,11 +304,17 @@ def test_body_cache_eviction_does_not_change_results(tmp_path: Path) -> None:
     assert len(index._normalized) == 1
 
 def test_per_file_validation_loops_surface_the_snippet_count() -> None:
-    """The three ``ref_output``-capturing loops must not swallow the audit line."""
+    """The two ``ref_output``-capturing loops must not swallow the audit line.
+
+    ``validate-comorbidities-all`` and ``validate-groupings`` capture the
+    validator's output per file. ``validate-modules`` used to as well; it now
+    delegates to the batched ``validate-module-batch``, which streams the
+    validator's own summary, snippet count included, so it needs no capture.
+    """
     justfile = (ROOT / "project.justfile").read_text()
 
-    assert justfile.count("grep -o 'Snippets checked:.*'") == 3
-    assert justfile.count('echo "  ✓ OK${snippet_line:+ ($snippet_line)}"') == 3
+    assert justfile.count("grep -o 'Snippets checked:.*'") == 2
+    assert justfile.count('echo "  ✓ OK${snippet_line:+ ($snippet_line)}"') == 2
 
 
 # --- Cache-defect tolerance and the abstract-only state (issue #7450) --------

@@ -352,6 +352,47 @@ window.searchData = [
     "source_file": "kb/disorders/Parkinsons_Disease.yaml"
   },
   {
+    "model_key": "CATSHL_Syndrome--computational-model-arg621his-kinase-domain-homology-model--0",
+    "name": "Arg621His kinase-domain homology model",
+    "description": "The FGFR1 kinase crystal structure was used to infer the catalytic-loop role of the homologous FGFR3 Arg621 residue and model a histidine side chain.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:17033969",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CATSHL Syndrome",
+    "disease_id": "MONDO:0012504",
+    "category": "Mendelian",
+    "parents": [
+      "FGFR3-related skeletal dysplasia"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "FGFR3 Kinase-Domain Loss of Function"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-08-29T19:15:00Z",
+    "page_url": "../../pages/disorders/CATSHL_Syndrome.html#computational-model-arg621his-kinase-domain-homology-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CATSHL_Syndrome.yaml"
+  },
+  {
     "model_key": "Hepatitis_C--computational-model-aston2018-hcv-within-host-viral-dynamics-model--0",
     "name": "Aston2018 HCV Within-Host Viral-Dynamics Model",
     "description": "Deterministic three-state ordinary differential-equation model of healthy hepatocytes, infected hepatocytes, and circulating HCV viral load in a well-mixed liver compartment. It represents hepatocyte regeneration and death, infection, virion production and clearance, and treatment-adjusted infection and virion-production rates.",
@@ -751,6 +792,51 @@ window.searchData = [
     "source_file": "kb/disorders/Fanconi_Anemia.yaml"
   },
   {
+    "model_key": "CDK8-Related_Disorder--computational-model-cdk8-cyclin-c-molecular-dynamics--0",
+    "name": "CDK8\u2013Cyclin C Molecular Dynamics",
+    "description": "Reference, Ser62Leu and Arg178Gln CDK8\u2013cyclin C structures with ATP were compared by molecular dynamics. The modeling used CDK8 structure 4F7S and an aligned CDK9 ATP template, with unresolved regions modeled in MOE and replicate simulations in GROMACS. The variants were predicted to restrict substrate-pocket opening without grossly changing the overall fold.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:30905399",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CDK8-Related Disorder",
+    "disease_id": "MONDO:0032897",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant intellectual disability",
+      "Neurodevelopmental disorder",
+      "CDK8-kinase module-associated disorder"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Altered Substrate-Binding Geometry"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:30905399"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CDK8-Related_Disorder.html#computational-model-cdk8-cyclin-c-molecular-dynamics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CDK8-Related_Disorder.yaml"
+  },
+  {
     "model_key": "Primary_Ciliary_Dyskinesia--computational-model-cfd-model-of-mucociliary-clearance-under-ciliary-abnormalities--0",
     "name": "CFD model of mucociliary clearance under ciliary abnormalities",
     "description": "Three-dimensional computational study of mucus transport under varied ciliary density, beat pattern, frequency, coordination and missing-cilia regions. The institutional abstract reports stronger effects for density, pattern and frequency and weaker effects for some spatial arrangements. This general physiological model is not calibrated to PCD patient genotypes or proven clinical trajectories.",
@@ -1095,6 +1181,47 @@ window.searchData = [
     "page_url": "../../pages/disorders/Vitamin_D-Dependent_Rickets_Type_3.html#computational-model-cyp3a4-i301t-vitamin-d-molecular-docking-model",
     "model_page_url": "",
     "source_file": "kb/disorders/Vitamin_D-Dependent_Rickets_Type_3.yaml"
+  },
+  {
+    "model_key": "CD25_Deficiency--computational-model-cys168ter-protein-and-rna-structure-predictions--0",
+    "name": "Cys168Ter protein and RNA structure predictions",
+    "description": "The Cys168Ter case report used an ab-initio protein model, domain mapping and RNAfold. The altered stop codon predicts truncation, but mRNA folding stability showed no significant change and degradation was not measured.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:35968218",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CD25 Deficiency",
+    "disease_id": "MONDO:0011664",
+    "category": "Mendelian",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Surface CD25 Availability"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:35968218"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-09-24T19:23:48Z",
+    "page_url": "../../pages/disorders/CD25_Deficiency.html#computational-model-cys168ter-protein-and-rna-structure-predictions",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CD25_Deficiency.yaml"
   },
   {
     "model_key": "Deregulated_Nutrient_Sensing_Module--computational-model-dallepezze2016-concurrent-ampk-and-mtor-activation-by-amino-acids--1",
@@ -1448,6 +1575,48 @@ window.searchData = [
     "source_file": "kb/disorders/Sick_Sinus_Syndrome_2_Autosomal_Dominant.yaml"
   },
   {
+    "model_key": "Traumatic_Brain_Injury--computational-model-finite-element-head-model-of-brain-injury-biomechanics--0",
+    "name": "Finite-Element Head Model of Brain Injury Biomechanics",
+    "description": "A high-fidelity three-dimensional finite-element model of the human head that computes strain and strain rate in brain tissue for a given head loading. Applied to a helmet-to-helmet American football impact, a fall and a road traffic collision, it predicts that strain concentrates at the depths of sulci, and patient diffusion tensor imaging shows abnormalities in the same sulcal regions. A rat version of the model was later validated against histology after controlled cortical impact.",
+    "model_type": "Biomechanical",
+    "model_type_raw": "BIOMECHANICAL",
+    "model_format": "finite-element mesh",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:28043957",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Traumatic Brain Injury",
+    "disease_id": "MONDO:0858950",
+    "category": "Complex",
+    "parents": [],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Rapid Head Acceleration and Brain Tissue Deformation",
+      "Diffuse Axonal Injury"
+    ],
+    "num_mechanisms": 2,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:28043957"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-10-01T04:00:00Z",
+    "page_url": "../../pages/disorders/Traumatic_Brain_Injury.html#computational-model-finite-element-head-model-of-brain-injury-biomechanics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Traumatic_Brain_Injury.yaml"
+  },
+  {
     "model_key": "Phenylketonuria--computational-model-harvey-whole-body-pku-model--2",
     "name": "Harvey Whole-Body PKU Model",
     "description": "Sex-specific whole-body model for organ-resolved IEM biomarker prediction.",
@@ -1777,6 +1946,52 @@ window.searchData = [
     "page_url": "../../pages/disorders/Hyperinsulinemic_Hypoglycemia.html#computational-model-human-beta-cell-electrophysiology-and-calcium-ode",
     "model_page_url": "",
     "source_file": "kb/disorders/Hyperinsulinemic_Hypoglycemia.yaml"
+  },
+  {
+    "model_key": "Carnitine-acylcarnitine_Translocase_Deficiency--computational-model-human-slc25a20-conformational-models-and-molecular-dynamics--0",
+    "name": "Human SLC25A20 conformational models and molecular dynamics",
+    "description": "AlphaFold2/ColabFold models of cytoplasmic-open and matrix-open human SLC25A20, molecular dynamics and substrate docking explore conformational asymmetry and binding determinants. Structural analysis suggests explanations for Asp231His and Ala281Val. The reported simulations do not directly quantify patient-mutant transport or clinical phenotype.",
+    "model_type": "Molecular Docking",
+    "model_type_raw": "MOLECULAR_DOCKING",
+    "model_format": "Format not recorded",
+    "model_software": "AlphaFold 2.2.0; ColabFold AlphaFold2_advanced; AMBER22; CPPTRAJ",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:36835358",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Carnitine-acylcarnitine Translocase Deficiency",
+    "disease_id": "MONDO:0008918",
+    "category": "Mendelian",
+    "parents": [
+      "Fatty Acid Oxidation Disorder",
+      "Inborn Error of Metabolism"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "SLC25A20 transporter molecular function deficiency"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Predicted Asp231His effects involve matrix salt-bridge interactions; Ala281Val may perturb H5/H6 packing. Experimental mutant-transport confirmation is not supplied by this modeling study."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:36835358"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-02-23T00:00:00Z",
+    "page_url": "../../pages/disorders/Carnitine-acylcarnitine_Translocase_Deficiency.html#computational-model-human-slc25a20-conformational-models-and-molecular-dynamics",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Carnitine-Acylcarnitine_Translocase_Deficiency.yaml"
   },
   {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
@@ -2924,6 +3139,48 @@ window.searchData = [
     "page_url": "../../pages/disorders/Sarcopenia.html#computational-model-multiscale-kinetic-model-of-leucine-stimulated-muscle-protein-metabolism",
     "model_page_url": "",
     "source_file": "kb/disorders/Sarcopenia.yaml"
+  },
+  {
+    "model_key": "CASQ2_CPVT--computational-model-multiscale-ryr2-open-and-closed-block-model--1",
+    "name": "Multiscale RyR2 Open- and Closed-Block Model",
+    "description": "The 2026 dynamic model couples experimentally determined RyR2 gating with SERCA uptake to explain why flecainide and tetracaine can differ despite both inhibiting channels.",
+    "model_type": "Kinetic",
+    "model_type_raw": "KINETIC",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:42363594",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CASQ2 CPVT",
+    "disease_id": "MONDO:0012762",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Diastolic Sarcoplasmic Reticulum Calcium Leak"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CASQ2_CPVT.html#computational-model-multiscale-ryr2-open-and-closed-block-model",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CASQ2_CPVT.yaml"
   },
   {
     "model_key": "Ataxia-telangiectasia--computational-model-normative-diffusion-perfusion-mri-autoencoder--2",
@@ -4974,6 +5231,48 @@ window.searchData = [
     "source_file": "kb/disorders/Brugada_Syndrome.yaml"
   },
   {
+    "model_key": "CASQ2_CPVT--computational-model-stochastic-casq2-deficient-guinea-pig-myocyte-simulation--0",
+    "name": "Stochastic CASQ2-Deficient Guinea-Pig Myocyte Simulation",
+    "description": "A stochastic local-control ventricular-myocyte model approximates G112+5X-associated changes in CASQ2 buffering and calcium-release-unit parameters. Rapid pacing with adrenergic stimulation produces alternans; a rapid-to-slow transition produces EADs, not a direct experimental demonstration of DADs.",
+    "model_type": "Physiological",
+    "model_type_raw": "PHYSIOLOGICAL",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:36672764",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CASQ2 CPVT",
+    "disease_id": "MONDO:0012762",
+    "category": "Genetic",
+    "parents": [
+      "Cardiac Arrhythmia",
+      "Channelopathy"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced Sarcoplasmic Reticulum Calcium Buffering"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CASQ2_CPVT.html#computational-model-stochastic-casq2-deficient-guinea-pig-myocyte-simulation",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CASQ2_CPVT.yaml"
+  },
+  {
     "model_key": "Brugada_syndrome--computational-model-subcellular-sodium-channel-myocardial-strand-model--0",
     "name": "Subcellular sodium-channel myocardial strand model",
     "description": "A one-dimensional strand of 300 human epicardial ventricular myocytes for studying how subcellular sodium-channel distribution changes action-potential morphology and propagation. Each cell is divided into lateral and pre- and post-junctional membrane segments, represented by a modified O'Hara-Rudy dynamic model with ten Tusscher-Panfilov fast sodium current and an experimentally based rapid delayed-rectifier potassium current. Cells are coupled through gap junctions and ephaptic interactions. The disease-like manipulation reduces lateral-membrane sodium conductance while retaining junctional sodium conductance.",
@@ -5063,6 +5362,51 @@ window.searchData = [
     "page_url": "../../pages/modules/disabled_macroautophagy.html#computational-model-tavassoly2015-autophagy-apoptosis-decision-model",
     "model_page_url": "",
     "source_file": "kb/modules/disabled_macroautophagy.yaml"
+  },
+  {
+    "model_key": "CDK19-Related_Disorder--computational-model-thr31asn-cdk19-cyclin-c-structural-prediction--0",
+    "name": "Thr31Asn CDK19\u2013Cyclin C Structural Prediction",
+    "description": "PyMOL-based structural analysis places Thr31 near ATP-positioning residues in the glycine-rich loop. Reduced ATP affinity and kinase activity were proposed, not measured. The paper also speculated that Tyr32His would reduce activity, which is not supported by the separate biochemical assays showing increased catalytic output.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:33568421",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "CDK19-Related Disorder",
+    "disease_id": "MONDO:0030059",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal dominant intellectual disability",
+      "Neurodevelopmental disorder",
+      "CDK8-kinase module-associated disorder"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Reduced CDK19 Kinase Activity"
+    ],
+    "num_mechanisms": 1,
+    "findings": [],
+    "num_findings": 0,
+    "evidence_refs": [
+      "PMID:33568421"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-31T00:00:00Z",
+    "page_url": "../../pages/disorders/CDK19-Related_Disorder.html#computational-model-thr31asn-cdk19-cyclin-c-structural-prediction",
+    "model_page_url": "",
+    "source_file": "kb/disorders/CDK19-Related_Disorder.yaml"
   },
   {
     "model_key": "Type_2_Diabetes_Mellitus--computational-model-topp-beta-cell-mass-insulin-glucose-model--0",
@@ -5619,6 +5963,65 @@ window.searchData = [
     "source_file": "kb/disorders/Duchenne_Muscular_Dystrophy.yaml"
   },
   {
+    "model_key": "Epilepsy--computational-model-virtual-epilepsy-patient-cohort-brain-twins--0",
+    "name": "Virtual Epilepsy Patient Cohort brain twins",
+    "description": "A cohort of 30 patient-specific whole-brain network models for drug-resistant epilepsy. Each twin combines T1 and diffusion MRI, reconstructed SEEG electrodes, structural connectivity, a regional Epileptor neural-mass model, and a patient-specific epileptogenic-zone hypothesis to generate spontaneous, stimulation-induced, and interictal brain activity.",
+    "model_type": "Digital Twin",
+    "model_type_raw": "DIGITAL_TWIN",
+    "model_format": "Python scripts with an external iEEG-BIDS virtual-patient dataset",
+    "model_software": "Python; The Virtual Brain; Epileptor; MNE-Python; NumPy; SciPy",
+    "base_model": "",
+    "model_id": "GitHub:BalanceKey/virtual_epilepsy_patient_cohort@a99c88354015f4c961d49a92c076ed0b675c740b",
+    "repository_url": "https://github.com/BalanceKey/virtual_epilepsy_patient_cohort",
+    "repository_host": "GitHub",
+    "publication": "PMID:40215461",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Epilepsy",
+    "disease_id": "MONDO:0005027",
+    "category": "Complex",
+    "parents": [
+      "Neurological Disease"
+    ],
+    "variables": [
+      "Regional excitability",
+      "Structural connectivity",
+      "SEEG source-to-sensor gain",
+      "Stimulation waveform input"
+    ],
+    "variable_ids": [
+      "x0",
+      "weights",
+      "gain",
+      "Istim"
+    ],
+    "variable_terms": [],
+    "num_variables": 4,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Network Hyperexcitability",
+      "Neuronal Hyperexcitability"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "Patient-specific virtual seizures reproduced empirical spontaneous-seizure features better than randomized epileptogenic-zone assignments across the tested spatiotemporal metrics.",
+      "For stimulated seizures, the patient-specific cohort outperformed randomized twins on most metrics, but seizure-propagation similarity was not significantly different.",
+      "In an independent retrospective VEP evaluation, predicted epileptogenic-zone precision was 64% and recall was 44% relative to the clinical definition; precision was higher in seizure-free patients."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [
+      "PMID:35604575",
+      "PMID:40215461"
+    ],
+    "num_evidence": 2,
+    "notes": "Repository inspected at commit a99c88354015f4c961d49a92c076ed0b675c740b (2025-04-24). Python byte-compilation succeeds, with two non-fatal invalid-escape SyntaxWarnings. End-to-end execution was not attempted because the repository has no dependency manifest or license, does not bundle the EBRAINS patient dataset, and relies on local data paths and The Virtual Brain. The README also names one interictal-generation script that is not present under that exact filename. These limitations constrain reproducibility despite the public source and separately deposited virtual cohort.",
+    "creation_date": "2025-12-18T17:01:35Z",
+    "page_url": "../../pages/disorders/Epilepsy.html#computational-model-virtual-epilepsy-patient-cohort-brain-twins",
+    "model_page_url": "",
+    "source_file": "kb/disorders/Epilepsy.yaml"
+  },
+  {
     "model_key": "Multiple_Sclerosis--computational-model-virtual-multiple-sclerosis-patient-whole-brain-model--1",
     "name": "Virtual Multiple Sclerosis Patient Whole-Brain Model",
     "description": "Subject-specific delayed whole-brain model that couples 84 noisy Stuart-Landau oscillators according to each participant's DTI-derived connectome. Simulation-based Bayesian inference uses source-reconstructed MEG alpha-spectrum features to estimate a global coupling parameter and one average whole-brain conduction velocity for each participant.",
@@ -6162,10 +6565,10 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 125,
-  "total_source_entries": 53,
-  "total_model_types": 10,
+  "total_models": 134,
+  "total_source_entries": 61,
+  "total_model_types": 11,
   "total_runnable": 4,
-  "total_with_repository": 55
+  "total_with_repository": 56
 };
 window.dispatchEvent(new Event('searchDataReady'));
