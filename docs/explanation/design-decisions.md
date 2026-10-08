@@ -728,6 +728,7 @@ the table below mirrors it.
 | Food | FOODON | `FOODON:` |
 | Parasite life cycle | OPL | `OPL:` |
 | Taxonomy | NCBITaxon | `NCBITaxon:` |
+| Human populations / ancestry | Human Ancestry Ontology (HANCESTRO) | `HANCESTRO:` |
 
 **Rationale.** A constrained, OBO/Monarch-aligned set keeps terms interoperable,
 machine-validatable (offline SQLite adapters via OAK), and resistant to AI hallucination
@@ -1993,3 +1994,97 @@ Population guidance and worked examples live in the
 [noncoding-variant-impact skill](../../.claude/skills/noncoding-variant-impact/SKILL.md),
 with the schema, rendering, and export support implemented in
 [PR #11943](https://github.com/monarch-initiative/dismech/pull/11943).
+
+## 16. Population-specific variant effects bind populations to HANCESTRO (2026-10-08)
+
+**Decision.** A variant's effect can differ between human populations, and
+`Variant.population_effects` records that as a list of `VariantPopulationEffect`
+objects, one per population and source. Each record keeps the population in the
+source's own words (`population`, required), may bind it to the **Human Ancestry
+Ontology (HANCESTRO)** (`ancestry_terms`, optional), says how the source defined
+the group (`ancestry_basis`: self-reported, genetically inferred, geographic, or
+not stated), and says which aspect of the effect differs (`effect_differences`:
+classification, penetrance, severity, phenotype spectrum, allele frequency, or a
+tested `NO_DIFFERENCE`). Population-specific classification, penetrance, allele
+frequency and cohort size have their own slots; `evidence` is recommended.
+HANCESTRO is added to `conf/oak_config.yaml` (`ols:hancestro`) and to the table in
+section 4, and `AncestryTerm` is rooted at `HANCESTRO:0004` *ancestry category*,
+under which every HANCESTRO population class sits.
+
+**The gap this closes.** Issue
+[#13677](https://github.com/monarch-initiative/dismech/issues/13677) reported that
+dismech did not take population-specific variant effects into account, and the
+schema confirmed it. `Variant.clinical_significance` is a single value with no
+population, penetrance existed only on the disease-level `Inheritance` block, and
+population was recorded only per gene (`GeneCaseFraction.population`, section 8),
+never per variant. A variant that is a disease-causing allele in one population
+and a common low-penetrance allele in another had to receive one
+population-blind call, or be described in prose that no query reaches. Familial
+Mediterranean fever (FMF) is the worked example: its entry recorded no individual
+MEFV variant, although M694V, the commonest variant in Mediterranean patients,
+was carried by none of 80 Japanese patients in a nationwide series
+([PMID:19531756](https://pubmed.ncbi.nlm.nih.gov/19531756/)).
+
+**Why HANCESTRO.** Three vocabularies were compared on twenty populations that
+matter for FMF and for founder variants: Singaporean Chinese, Malay and Indian;
+Han Chinese, Japanese and Korean; Turkish, Armenian and Arab; Ashkenazi,
+Sephardic and Mizrahi Jewish; Druze; Finnish, Amish and French Canadian; East and
+South Asian; African American; and Hispanic or Latino.
+
+| | HANCESTRO | CDC Race & Ethnicity (HL7) | NCIT |
+|---|---|---|---|
+| What it codes | Ancestry and population groups used in genomic studies | US social race and ethnicity categories | Mixed race, ethnicity and population terms |
+| Of the 20 populations | 18 (Druze only as a reference panel) | 6 | 14 |
+| Clinical-system use | Essentially none | US standard (EHRs, public health, FHIR US Core) | Clinical trial data |
+
+HANCESTRO is the only one with the Singapore groups the issue started from and
+the only one with Turkish, Finnish and Amish. It is an open (CC BY 4.0), actively
+maintained OBO ontology built for the GWAS Catalog, and it is in OLS, so it
+validates the same way HP or NCIT does. Its gap is Sephardic and Mizrahi Jewish,
+which NCIT has; those populations stay in free text until HANCESTRO adds them.
+
+**Why not an HL7 vocabulary.** HL7 has no equivalent. The HL7 terminology package
+(`hl7.terminology` 7.4.0) contains no HANCESTRO registration; its population
+vocabularies (CDC Race and Ethnicity, the deprecated v3 Race and Ethnicity code
+systems, and v2 table 0189 Ethnic Group) code US social categories, and cannot say
+"Turkish" or "Singaporean Malay". The FHIR core genetics ancestry extension
+(`observation-geneticsAncestry`) is deprecated, carried no terminology binding,
+and points to the Genomics Reporting guide, whose 3.0.0 package has no ancestry
+element. Clinical relevance for this question comes instead through variant
+interpretation, which rests on population allele frequencies reported for
+research cohorts in ancestry terms. Mapping to clinical race and ethnicity codes,
+if a FHIR export needs them, is an export step, not a curation one, so curators
+learn one vocabulary.
+
+**Why the free text stays required.** A group label can name a self-identified
+ethnicity, a genetically inferred ancestry cluster, or a place, and studies
+rarely say which. Binding self-reported ethnicity as genetic ancestry would
+overstate what the study measured, so the record keeps the source's own words,
+binds a HANCESTRO term only at the level the source supports, and records the
+basis separately. HANCESTRO also mixes ancestry categories, populations and
+reference-panel cohorts (1KGP, HGDP, SGDP); a reference-panel term is bound only
+when the data came from that panel, so "Japanese patients" is `HANCESTRO:0019`
+*Japanese*, not `HANCESTRO:0754` *Japanese in Tokyo, Japan (1KGP)*.
+
+**Record only what the source states.** A population difference has to be
+reported by the source. Comparing two allele frequencies or two cohorts and
+writing the difference down is the curator's inference, not a finding, the same
+rule `TreatmentEffectModifier.effect_in_stratum` follows. A difference in
+treatment response by ancestry is a treatment effect modifier
+(`effect_modifier_type: ANCESTRY`), not a variant population effect.
+
+**Not done, and why.**
+
+- `Prevalence.population` and `GeneCaseFraction.population` remain free text with
+  no HANCESTRO binding. Extending the binding there is the natural next step, and
+  is additive, but it was kept out of scope so this change carries no migration.
+- Phenotypes have no population slot. Population-specific phenotype frequency was
+  raised in the same issue; it is a separate decision because `Phenotype` has no
+  per-population record to hang a binding on.
+- No audit lists variants with a classification but no population record for
+  ancestry-clustered diseases. It would be report-only and is deferred until more
+  entries carry population effects.
+- HANCESTRO is not registered with the HL7 Terminology Authority, so FHIR has no
+  official system URI for it. Registering it would be a request to HL7, outside
+  this repository.
+
