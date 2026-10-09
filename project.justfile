@@ -2283,6 +2283,16 @@ export-kgx-maximal out_dir="output/maximal_kgx":
 export-hpoa *args:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa {{args}}
 
+# OMIM-keyed variant of `export-hpoa`, joinable against the HPO release: rows are rekeyed
+# through MONDO's SSSOM exactMatch set (downloaded once into output/hpoa; delete it to
+# refresh). Writes output/hpoa/phenotype.dismech.omim.hpoa and omim_unmapped.tsv, which
+# lists the diseases withheld for having no single exact OMIM match.
+[group('Export')]
+export-hpoa-omim *args:
+    mkdir -p output/hpoa
+    test -s output/hpoa/mondo.sssom.tsv || curl --fail -sSL -o output/hpoa/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa --key omim --sssom output/hpoa/mondo.sssom.tsv {{args}}
+
 # Runs `export-hpoa` first (the script reads its output), then downloads the release,
 # hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
 # it -- `curl --fail` so an HTTP error aborts instead of caching an error page), and
