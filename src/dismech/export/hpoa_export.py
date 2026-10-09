@@ -61,13 +61,16 @@ rows:
   ``inherited_from``), and on X's ``children`` subtypes as inherited from X. It
   is also kept on the parent, as before: a feature of a subtype is a feature
   of some cases of the parent.
-* A subtype's own statement wins. When a phenotype is scoped to a subtype, the
-  same HP term is not also inherited onto it from above, so a subtype-level
-  ``NOT`` is never contradicted by an inherited positive row.
+* The nearest statement wins. When a phenotype is scoped to a subtype, the
+  same HP term is not inherited from above onto that subtype or onto any of its
+  ``children``, so a subtype-level ``NOT`` is never contradicted by a positive
+  row inherited past it.
 * Frequency does not propagate. The parent's frequency is measured across all
   of its subtypes and says nothing about any one of them, so an inherited row
   keeps only an obligate frequency (``HP:0040280`` / ``100%``), which is true
-  of every subtype by definition. Absence (``NOT``) propagates unchanged.
+  of every subtype by definition. Absence (``NOT``) propagates unchanged,
+  unless the parent also carries a positive row for the same HP term: mixed
+  evidence on the parent is not inherited at all.
 * Subtypes without a MONDO term (unbound, or NCIT-only) receive nothing: there
   is no identifier to anchor the rows on.
 * A subtype whose MONDO term is another entry's own ``disease_term`` is treated
@@ -125,6 +128,8 @@ SUPPORTS_TO_QUALIFIER: dict[Any, str] = {
 # row via SUPPORTS_TO_QUALIFIER.
 DROP_SUPPORTS: frozenset[str] = frozenset({"NO_EVIDENCE"})
 
+# The first 12 columns are the HPOA format, in order. Extra columns go after
+# them, never between, so a reader that takes the first 12 still sees HPOA.
 HPOA_COLUMNS = [
     "database_id",
     "disease_name",
@@ -418,6 +423,29 @@ def project_disorder(
     return hpoa_rows, comorb_rows
 
 
+def _shadowed(
+    target: str,
+    scope: str | None,
+    hpo_id: str,
+    subtypes: dict[str, dict[str, Any]],
+    stated: set[tuple[str, str]],
+) -> bool:
+    """Whether a nearer statement of ``hpo_id`` sits between ``scope`` and ``target``.
+
+    A subtype that states the term itself, or any subtype on the way down from
+    the row's source to ``target``, takes precedence over the inherited row.
+    ``scope`` is ``None`` for a row inherited from the parent, in which case
+    every subtype is below it.
+    """
+    below = set(subtypes) if scope is None else set(_descendants(scope, subtypes))
+    for name in below:
+        if (name, hpo_id) not in stated:
+            continue
+        if name == target or target in _descendants(name, subtypes):
+            return True
+    return False
+
+
 def _subtype_rows(
     pending: list[tuple[dict[str, str], str | None]],
     subtypes: dict[str, dict[str, Any]],
@@ -429,13 +457,28 @@ def _subtype_rows(
     Run after every phenotype has been read, so ``stated`` is complete whatever
     order the phenotypes appear in. Duplicates (two subtype names bound to one
     MONDO term) are emitted once.
+
+    An HP term whose unscoped parent rows carry both a positive and a ``NOT``
+    row is not inherited at all: the parent's evidence is mixed, and copying a
+    ``NOT`` meant as "not every patient" onto each subtype would assert that
+    each one lacks the feature.
     """
+    qualifiers: dict[str, set[str]] = {}
+    for base, scope in pending:
+        if scope is None:
+            qualifiers.setdefault(base["hpo_id"], set()).add(base["qualifier"])
+    mixed = {hpo_id for hpo_id, quals in qualifiers.items() if len(quals) > 1}
+
     rows: list[dict[str, str]] = []
     seen: set[tuple[str, ...]] = set()
     for base, scope in pending:
+        hpo_id = base["hpo_id"]
         for name, inherited_from in _subtype_targets(scope, subtypes, parent_id):
-            if inherited_from and (name, base["hpo_id"]) in stated:
-                continue
+            if inherited_from:
+                if scope is None and hpo_id in mixed:
+                    continue
+                if _shadowed(name, scope, hpo_id, subtypes, stated):
+                    continue
             sub = subtypes[name]
             row = dict(base)
             row["database_id"] = sub["id"]

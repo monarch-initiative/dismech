@@ -2289,6 +2289,9 @@ export-hpoa *args:
 # writes the generated report sections to stdout and the per-disease worklist to
 # `dir`/per-disease.tsv. The committed report carries hand-written sections too, so
 # merge rather than overwrite it.
+# NOTE: the export now includes MONDO-bound subtypes with rows inherited from their
+# parent (non-empty `inherited_from`), which the comparison scores like any other
+# dismech annotation, so the committed report's figures change on regeneration.
 # Compare the HPOA export against the HPO project's phenotype.hpoa release.
 [group('Export')]
 compare-hpoa-release dir="output/hpoa-compare": export-hpoa

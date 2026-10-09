@@ -891,3 +891,89 @@ def test_subtype_with_its_own_entry_inherits_nothing(tmp_path):
     assert type1 == ["HP:0000002", "HP:0000003"]
     type2 = [r["hpo_id"] for r in rows if r["database_id"] == "MONDO:0000012"]
     assert type2 == ["HP:0000001"]
+
+
+def _chain_subtypes():
+    return [
+        {
+            "name": "A",
+            "children": ["A1"],
+            "subtype_term": {"term": {"id": "MONDO:0000002", "label": "a"}},
+        },
+        {"name": "A1", "subtype_term": {"term": {"id": "MONDO:0000003", "label": "a1"}}},
+    ]
+
+
+def test_nearest_statement_wins_for_grandchildren(tmp_path):
+    seizure = {"term": {"id": "HP:0001250", "label": "Seizure"}}
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {"name": "Seizure", "phenotype_term": seizure, "evidence": _ev("PMID:1")},
+                {
+                    "name": "No seizures in A",
+                    "subtype": "A",
+                    "phenotype_term": seizure,
+                    "evidence": _ev("PMID:2", "REFUTE"),
+                },
+            ],
+            _chain_subtypes(),
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    a1 = [(r["qualifier"], r["inherited_from"]) for r in rows if r["database_id"] == "MONDO:0000003"]
+    # A states the term, so the parent's positive row stops at A.
+    assert a1 == [("NOT", "MONDO:0000002")]
+
+
+def test_unrelated_term_still_reaches_grandchildren(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Seizure",
+                    "phenotype_term": {"term": {"id": "HP:0001250", "label": "Seizure"}},
+                    "evidence": _ev(),
+                },
+                {
+                    "name": "Cataract in A",
+                    "subtype": "A",
+                    "phenotype_term": {"term": {"id": "HP:0000518", "label": "Cataract"}},
+                    "evidence": _ev(),
+                },
+            ],
+            _chain_subtypes(),
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    a1 = sorted(
+        (r["hpo_id"], r["inherited_from"]) for r in rows if r["database_id"] == "MONDO:0000003"
+    )
+    assert a1 == [("HP:0000518", "MONDO:0000002"), ("HP:0001250", "MONDO:0000001")]
+
+
+def test_mixed_parent_evidence_is_not_inherited(tmp_path):
+    path = _write(
+        tmp_path / "d.yaml",
+        _subtyped_entry(
+            [
+                {
+                    "name": "Immunodeficiency",
+                    "phenotype_term": {"term": {"id": "HP:0002721", "label": "Immunodeficiency"}},
+                    "evidence": _ev("PMID:1") + _ev("PMID:2", "REFUTE"),
+                },
+                {
+                    "name": "Clean absence",
+                    "phenotype_term": {"term": {"id": "HP:0000002", "label": "B"}},
+                    "evidence": _ev("PMID:3", "REFUTE"),
+                },
+            ]
+        ),
+    )
+    rows, _ = hpoa_rows_for_disorder(path)
+    parent = sorted((r["hpo_id"], r["qualifier"]) for r in rows if r["database_id"] == "MONDO:0000001")
+    assert parent == [("HP:0000002", "NOT"), ("HP:0002721", ""), ("HP:0002721", "NOT")]
+    sub = [(r["hpo_id"], r["qualifier"]) for r in rows if r["database_id"] == "MONDO:0000011"]
+    assert sub == [("HP:0000002", "NOT")]
