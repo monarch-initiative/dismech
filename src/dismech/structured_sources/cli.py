@@ -231,16 +231,29 @@ def rebuild_cmd(
         targets = list(src.identifiers())
     typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
     written = 0
+    skipped: list[str] = []
     for ident in targets:
         try:
             src.write_cache_file(ident, cache_dir)
         except KeyError as exc:
             typer.echo(f"  skipped {ident}: {exc}", err=True)
+            skipped.append(ident)
             continue
         written += 1
         if written % progress_every == 0:
             typer.echo(f"  ... {written}/{len(targets)}")
     typer.echo(f"wrote {written} cache files")
+    if id_ and skipped:
+        # An explicitly requested id that is not in the export is a failure,
+        # not a quiet skip: `just fetch-reference` routes here, agents read its
+        # exit code, and a typo or a withdrawn assertion must not look like
+        # success (review on #13766). The ids that did resolve are written.
+        typer.echo(
+            f"{len(skipped)} of {len(targets)} requested id(s) not found in the "
+            f"{source} export: " + ", ".join(skipped),
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("list")

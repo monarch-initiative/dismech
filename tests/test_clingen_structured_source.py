@@ -301,3 +301,47 @@ def test_rebuild_cli_accepts_an_explicit_csv(
     ).read_text()
     assert "CSV snapshot **2026-10-08**" in text
     assert f'source_sha256: "{_sha256(csv)}"' in text
+
+
+def test_rebuild_cli_fails_when_a_requested_id_is_not_in_the_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """`just fetch-reference CGGV:<typo or withdrawn id>` must not succeed.
+
+    Before #13766 LRV failed such an id with "No source found" (exit 1); the
+    rebuild used to print "skipped ..." and exit 0, which an agent reads as
+    success (review on #13766).
+    """
+    from typer.testing import CliRunner
+
+    from dismech.structured_sources.cli import app
+
+    for attr in ("bulk_files", "_manifest_snapshot_date", "_manifest_schema_tag"):
+        monkeypatch.setattr(
+            ClinGenSource, attr, getattr(ClinGenSource, attr, None), raising=False
+        )
+    csv = tmp_path / "fresh.csv"
+    csv.write_text(CSV_TEXT, encoding="utf-8")
+    withdrawn = (
+        "CGGV:assertion_c3d96af7-fd6a-4c40-b9db-3c1cd1df17a3-2025-04-15T160000.000Z"
+    )
+    result = CliRunner().invoke(
+        app,
+        [
+            "rebuild",
+            "clingen",
+            "--csv-only",
+            "--csv",
+            str(csv),
+            "--cache-dir",
+            str(tmp_path / "out"),
+            "--id",
+            HEXB_ASSERTION,
+            "--id",
+            withdrawn,
+        ],
+    )
+    assert result.exit_code != 0, result.output
+    assert "not found" in (result.output + str(result.exception or ""))
+    # The id that does exist is still written; the failure is about the other one.
+    assert (tmp_path / "out").exists() and any((tmp_path / "out").glob("CGGV_*.md"))
