@@ -294844,6 +294844,154 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Renal Tubular Dysgenesis - ACE",
+    "disease_id": "MONDO:0700337",
+    "category": "Mendelian",
+    "parents": [
+      "Renal Tubular Dysgenesis of Genetic Origin"
+    ],
+    "creation_date": "2026-10-09T13:24:52Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Renal tubular dysgenesis - ACE is the autosomal recessive form of renal tubular dysgenesis caused by biallelic loss-of-function variants in ACE, the gene encoding angiotensin I-converting enzyme. Without ACE the fetus cannot convert angiotensin I to angiotensin II, so the renin-angiotensin system cannot sustain fetal blood pressure and renal perfusion. The chronically underperfused fetal kidney fails to differentiate proximal tubules, which is the histological hallmark of the disease. Fetal anuria follows, producing early-onset oligohydramnios or anhydramnios and the Potter sequence with pulmonary hypoplasia, together with skull ossification defects. Most affected fetuses and neonates die from anuria, pulmonary hypoplasia and refractory arterial hypotension, but a growing number of children survive the neonatal period with intensive blood pressure and renal support, and some biallelic ACE genotypes present later as progressive chronic kidney disease with anemia and polyuria. ACE variants are the most frequent cause of renal tubular dysgenesis, found in about two-thirds of families.",
+    "pathophysiology": [
+      "ACE Loss of Function",
+      "Loss of Cell-Surface ACE",
+      "Loss of Tissue Angiotensin II Generation",
+      "Compensatory Renin Overexpression",
+      "Loss of Angiotensin II-Driven Erythropoiesis",
+      "Urine Concentrating Defect",
+      "Loss of Renin-Angiotensin Blood Pressure Support",
+      "Fetal Renal Hypoperfusion",
+      "Delayed Nephrogenic Angiogenesis",
+      "Proximal Tubule Dysgenesis",
+      "Reduced Aldosterone Secretion"
+    ],
+    "cell_types": [
+      "renin-secreting juxtaglomerular granular cell",
+      "kidney proximal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000648",
+      "CL:1000838"
+    ],
+    "biological_processes": [
+      "angiotensin maturation",
+      "renin secretion into blood stream",
+      "erythrocyte differentiation",
+      "renal water absorption",
+      "regulation of systemic arterial blood pressure by renin-angiotensin",
+      "kidney vasculature development",
+      "proximal tubule development",
+      "aldosterone secretion"
+    ],
+    "phenotypes": [
+      "Absent or poorly differentiated proximal tubules",
+      "Anuria",
+      "Oligohydramnios",
+      "Anhydramnios",
+      "Potter sequence facies",
+      "Pulmonary hypoplasia",
+      "Respiratory insufficiency",
+      "Joint contractures",
+      "Hypotension",
+      "Decreased skull ossification",
+      "Large fontanelles",
+      "Wide cranial sutures",
+      "Increased circulating renin concentration",
+      "Hyperechogenic kidneys",
+      "Reduced renal corticomedullary differentiation",
+      "Premature birth",
+      "Intrauterine growth retardation",
+      "Hyperkalemia",
+      "Decreased circulating aldosterone concentration",
+      "Chronic kidney disease",
+      "Anemia",
+      "Polyuria",
+      "Microcolon",
+      "Intestinal perforation"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Prenatal",
+      "Craniofacial",
+      "Respiratory",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Skeletal",
+      "Endocrine",
+      "Metabolic",
+      "Hematologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008660",
+      "HP:0100519",
+      "HP:0001562",
+      "HP:0025700",
+      "HP:0002009",
+      "HP:0002089",
+      "HP:0002093",
+      "HP:0034392",
+      "HP:0002615",
+      "HP:0004331",
+      "HP:0000239",
+      "HP:0010537",
+      "HP:0000848",
+      "HP:0004719",
+      "HP:0005565",
+      "HP:0001622",
+      "HP:0001511",
+      "HP:0002153",
+      "HP:0004319",
+      "HP:0012622",
+      "HP:0001903",
+      "HP:0000103",
+      "HP:0004388",
+      "HP:0031368"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ACE"
+    ],
+    "treatments": [
+      "Vasopressin for refractory hypotension",
+      "Fludrocortisone mineralocorticoid replacement",
+      "Peritoneal dialysis",
+      "Respiratory support",
+      "Genetic counseling and prenatal diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma ACE activity",
+      "Plasma renin activity"
+    ],
+    "source_file": "Renal_Tubular_Dysgenesis_-_ACE.yaml",
+    "page_url": "../pages/disorders/Renal_Tubular_Dysgenesis_-_ACE.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Renpenning syndrome",
     "disease_id": "MONDO:0010653",
     "category": "Mendelian",
@@ -359285,17 +359433,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3330,
+  "total_disorder_pages": 3331,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7963,
-  "total_unique_evidence_sources": 49998,
-  "total_unique_publications": 46623,
+  "total_disorders_and_subtypes": 7964,
+  "total_unique_evidence_sources": 50031,
+  "total_unique_publications": 46655,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3326,
-  "total_unique_pathological_events": 21977,
+  "total_pathographs": 3327,
+  "total_unique_pathological_events": 21987,
   "total_modules": 191,
-  "total_research_reports": 3447,
+  "total_research_reports": 3448,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
