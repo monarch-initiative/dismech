@@ -720,6 +720,7 @@ the table below mirrors it.
 | Anatomy | UBERON | `UBERON:` |
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
+| Non-human genes, on model genes only (`animal_models[].genes`, `experimental_models[].genes`) | NCBI Gene; UniProtKB for a gene product | `NCBIGene:`, `UniProtKB:` |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
 | Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
@@ -748,6 +749,17 @@ of fake identifiers.
 
 - **HGNC casing**: gene CURIEs use **lowercase** `hgnc:` (e.g. `hgnc:746`). This is the
   canonical form that passes validation; do not flag it as an error.
+- **Non-human genes (2026-10-09, #13548)**: a model system names its genes in its own
+  species, so `AnimalModel.genes` and `ExperimentalModel.genes` also accept `NCBIGene:`
+  (a gene) and `UniProtKB:` (a gene product, such as an injected protein). Every other
+  gene slot stays HGNC-only, and a human gene is `hgnc:` even inside a model. Neither
+  is an OBO ontology, and they are validated differently. `UniProtKB:` is routed
+  through OAK's `uniprot:` adapter in `conf/oak_config.yaml`. `NCBIGene:` is **not**
+  in that file: OAK's NCBI Gene adapter returns no labels, so the term validator would
+  pass any label. It is checked instead by `scripts/check_gene_namespaces.py`
+  (`just check-gene-namespaces`) against the committed `cache/ncbigene/terms.csv`,
+  which also gates either prefix appearing outside a model's `genes`. Orthology to the
+  human gene is prose for now; a structured link is a planned follow-up.
 - **`preferred_term` vs `term.label`**: `term.label` must exactly match the canonical
   ontology label (OAK-verified); `preferred_term` may be more specific/clinical when the
   ontology term is too broad.
