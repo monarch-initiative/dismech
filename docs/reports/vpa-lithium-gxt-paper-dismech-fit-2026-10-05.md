@@ -1,7 +1,7 @@
 # How the valproic acid and lithium "GxT in a dish" paper fits dismech
 
 Written 2026-10-05 against dismech `main` at commit `681ac38851`. Revised
-2026-10-09 against `main` at `12791cfbfa`, after the paper was curated.
+2026-10-09 against `main` at `bd855d0346`, after the paper was curated.
 
 ## Status of this report
 
@@ -31,8 +31,9 @@ progenitors exposed to valproic acid and lithium." *Molecular Psychiatry*, 2026.
 - PMID: 41935183
 - Full text: PMC13364665 (open access, CC BY-NC-ND)
 
-dismech does not cite it. Neither the DOI nor the PMID appears in the
-repository or in any pull request, and the paper is not in `references_cache`.
+When this report was written dismech did not cite the paper at all. It is now
+cited 13 times, all in `Fetal_Valproate_Syndrome.yaml`, and is cached in
+`references_cache/`.
 
 This review covers the main text only. The 21 supplementary tables were not
 read.
@@ -214,5 +215,14 @@ single cell type is a `BOUNDARY_OMISSION`, and acute 48-hour exposure is a
   links, not as support for human phenotypes.
 - The donors are unaffected, so the model says how typical progenitors respond
   to the drugs. It does not say how patient cells respond.
-- Snippets can be checked against the PMC full text once the reference is
-  cached.
+- Snippets can be checked against the PMC full text, which is open access and
+  now cached in `references_cache/`.
+
+## What is left
+
+Gaps 2, 3 and 4 are filed as issues and need a curator. The schema gaps are
+not filed and are a schema question rather than a curation task: the paper's
+own headline result, that common variants change how neural progenitors
+respond to these drugs, has nowhere to live in dismech today, and was dropped
+when the paper was curated. Whether dismech should be able to hold it is the
+decision this report leaves open.
