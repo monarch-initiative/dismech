@@ -153,6 +153,11 @@ Maps ontology prefixes to OAK adapters for term validation:
   also records the precondition for migrating a further prefix)
 - HGNC (and lowercase `hgnc`), GENO, ECTO (and `ExO`, which is bundled with
   ECTO), XCO, OPL, ICD10CM, icd11f → `sqlite:obo:<name>`
+- UniProtKB → `uniprot:` (OAK's experimental UniProt SPARQL adapter), for a
+  non-human gene product on a model's `genes`. **NCBIGene is not routed**: OAK's
+  NCBI Gene adapter returns no labels, so `just check-gene-namespaces` checks it
+  against `cache/ncbigene/terms.csv` instead (see *Naming Genes in a Model's
+  Own Species* below)
 
 Note this governs **automated term validation** only. Several modules build an
 adapter directly and ignore this file — notably
