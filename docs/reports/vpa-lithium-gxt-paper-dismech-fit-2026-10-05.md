@@ -1,7 +1,8 @@
 # How the valproic acid and lithium "GxT in a dish" paper fits dismech
 
 Written 2026-10-05 against dismech `main` at commit `681ac38851`. Revised
-2026-10-09 against `main` at `bd855d0346`, after the paper was curated.
+2026-10-09 against `main` at `bd855d0346`, after the paper was curated, and
+again at `1148dee5d8` to correct what it said about the issue tracker.
 
 ## Status of this report
 
@@ -220,9 +221,26 @@ single cell type is a `BOUNDARY_OMISSION`, and acute 48-hour exposure is a
 
 ## What is left
 
-Gaps 2, 3 and 4 are filed as issues and need a curator. The schema gaps are
-not filed and are a schema question rather than a curation task: the paper's
-own headline result, that common variants change how neural progenitors
-respond to these drugs, has nowhere to live in dismech today, and was dropped
-when the paper was curated. Whether dismech should be able to hold it is the
-decision this report leaves open.
+Gaps 2, 3 and 4 are filed as issues and need a curator.
+
+One of the three schema gaps is filed, which this report originally said none
+were. [#13768](https://github.com/monarch-initiative/dismech/issues/13768)
+covers the exposure and perturbation row: it asks for a structured
+perturbation on the model classes, and notes that
+`ExperimentalModel.conditions` is a list of strings.
+
+The other two rows are not filed. `cell_source` is free text, so a genotyped
+donor panel cannot be told apart from a single cell line. And a
+gene-by-exposure interaction has nowhere to live at all. That is the paper's
+own headline result — common variants change how neural progenitors respond
+to these drugs — and it was dropped when the paper was curated.
+
+Whether that last result belongs in dismech is an open question rather than a
+gap to close.
+[#13602](https://github.com/monarch-initiative/dismech/issues/13602) sorts
+models by what ties them to the disease and places statistical enrichment at
+the bottom, as probably not a model link at all. A genotype-dependent
+response is a claim of the same kind: it describes variance across a donor
+panel rather than a step in one patient's disease. It may belong in
+EnviroMech, which records the exposure-outcome association itself rather than
+hanging it on a curated disease.
