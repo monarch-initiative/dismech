@@ -489,22 +489,24 @@ Check the derived cache structure with:
 
 ```bash
 just check-reference-cache-frontmatter
+just check-reference-cache-nul-bytes
 ```
 
 If an entry is malformed or incorrect, regenerate it with
 `just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
 
+The one exception is a NUL byte. If `just check-reference-cache-nul-bytes` fails,
+run `uv run python scripts/repair_reference_cache_nuls.py --apply` and commit the
+result. Do not re-fetch: the PDF extractor writes an unmapped glyph (usually an
+`fi`/`fl` ligature) as `\x00`, so a re-fetch writes the same NULs back
+(#12543, linkml/linkml-reference-validator#100).
+
 ## Never patch the validator from inside dismech
 
-`linkml-reference-validator` (LRV) is used as a library, as-is. dismech applies **two**
-patches over its internals, and both exist in order to be deleted.
-`_wrap_url_fetch` strips scripts and page attributes out of the raw HTML
-`URLSource` caches, because this repository commits its cache to a public git
-repository (linkml/linkml-reference-validator#92). `_wrap_jstage_pdf_title`
-recovers a title for a PDF URL, which `URLSource` otherwise leaves set to the URL
-itself (linkml/linkml-reference-validator#93).
-`tests/test_upstream_validator_behaviours.py` enforces the budget: a patch must
-be one of those two, and must name its upstream issue.
+`linkml-reference-validator` (LRV) is used as a library, as-is. dismech does not
+patch it, wrap it, or reimplement any part of it, and
+`tests/test_upstream_validator_behaviours.py` fails if a patch module reappears
+or if anything imports one.
 
 This is worth stating because the repository spent months doing the opposite.
 `src/dismech/patch_reference_validator.py` grew to 650 lines that replaced nine
@@ -522,11 +524,15 @@ could fix it properly. The costs compounded:
 - **It hid the upstream problem from tests.** dismech's suite tested the patch,
   so it stayed green while the thing it was patching was still broken.
 
-Ten of the twelve are now fixed in LRV (#66-74, #85, #87, #88) and deleted here.
-The two that remain are real upstream gaps rather than workarounds, so they were
-filed rather than quietly kept. Both arrived the same way the others did -- a
-curation PR adding a patch as a side effect of curating a disease -- which is
-what the budget test now catches.
+All twelve are now fixed in LRV -- #66-74, #85, #87, #88, and finally #92 and
+#93, which closed the two that were real upstream gaps rather than workarounds
+(the URLSource HTML sanitization and the PDF-URL title). Both were filed rather
+than quietly kept, and both are gone from here now that 0.3.0 carries the fixes.
+
+Two of the twelve arrived the same way the others did -- a curation PR adding a
+patch as a side effect of curating a disease, noticed only during an unrelated
+rebase. That is what the guard in
+`tests/test_upstream_validator_behaviours.py` exists to catch.
 
 **If you genuinely must patch, the patch is temporary and the issue is filed
 first.** Open the upstream issue before writing the patch, name that issue in a

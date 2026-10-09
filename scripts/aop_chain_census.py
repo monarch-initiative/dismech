@@ -25,10 +25,10 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "src"))
 
 from dismech import kb_cache
+from dismech.model_links import MODEL_SECTIONS
 from dismech.yaml_io import safe_load_path
 
 ROOTS = ("kb/disorders", "kb/modules")
-MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 
 
 def longest_path(nodes: set[str], edges: list[tuple[str, str]]) -> list[str]:

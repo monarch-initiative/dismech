@@ -125,6 +125,12 @@ class ReferenceCacheFrontmatter(BaseModel):
     xml_extraction_version: int | None = None
     html_full_text_version: int | None = None
     absent_content_version: int | None = None
+    # Added by upstream #98 (released in 0.3.0), which re-extracts `url:` entries
+    # written before URLSource sanitized its HTML and recovered PDF titles. Found
+    # by test_the_contract_accepts_every_key_the_validator_emits rather than by a
+    # failing cache file, which is the fourth time this contract has had to grow
+    # and the first time a test caught it first.
+    url_source_version: int | None = None
     full_text_declined: str | None = None
     full_text_access_type: str | None = None
     full_text_source_item_id: str | None = None

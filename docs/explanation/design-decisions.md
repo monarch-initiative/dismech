@@ -417,7 +417,7 @@ by meeting the stated test of another rung.
 
 | Rung | Represent as | Rule |
 |---|---|---|
-| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`, one node called "Pathogen Invasion and Replication") is retired under this rung |
+| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`; three generic host-response nodes headed by "Pathogen Invasion and Replication") was retired under this rung in #12096 |
 | **1 Grouping** (the treponematoses, the enteric fevers, the viral hepatitides) | `kb/groupings/` | A union of diseases the field already names separately, or an organ syndrome spanning unrelated organisms. Explicit `members`, `grouping_basis`, a `grouping_rationale` that states **the axes on which the members were split** and not only what they share, `mondo_mappings` with an explicit predicate; no `pathophysiology` of its own. `Treponematoses` is the reference implementation. An organ syndrome with an organism-independent mechanism is a `kb/modules/` module plus `conforms_to` instead |
 | **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:narrowMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
 | **3 Organism stratum** (species → subspecies → serovar → serotype) | `has_subtypes` on the rung-2 entry | A stratum earns a subtype when it is **documented to differ** from its siblings on at least one of: presentation or organ involvement; diagnosis; first-line treatment or drug susceptibility; prognosis; transmission route, vector or reservoir; geography or at-risk population. The threshold is documented difference, **not nomenclatural availability, and the default is to lump**. Each subtype's `description` says *what differs* and its `evidence` cites it; `subtype_term` is bound where an honest term exists and omitted rather than bound to the parent |
@@ -591,16 +591,24 @@ when it deferred to WHO/ICC and folded rather than deleted the stage entries.
 
 **Enacted in the same PR.** This clause; `Subtype.curated_in`; `check_granularity.py`
 with `tests/test_granularity.py`; the promoted pointer rows on
-`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`. **Still open
-(work items on #10115):** the
-`infectious_agent` backfill on the 22 entries the checker names and the 10 unbound agents;
-`transmission` on 56 entries; the `Viral_Hemorrhagic_Fever` and `Acute_Hepatitis_C`
-conversions; `agent_life_cycle` on the ~23 vector-borne and zoonotic entries; the rung-3
-review of the 11 undecided lumps, one at a time; the rung-1 groupings (rickettsioses,
-viral hepatitides, soil-transmitted helminthiases, enteric fevers, arboviral haemorrhagic
-fevers); retiring `Infectious_Disease`; the `UNDECIDED` infectious stubs and the
-coverage gaps the review found (typhoid, herpes zoster, anthrax and UTI still have no
-entry; diphtheria and sepsis have since been curated). Two
+`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`.
+**Enacted since (as of 2026-10-03):** the `infectious_agent` and `transmission`
+backfills on 48 entries (#12097, #12099, #12100, #12107), which also bound the
+previously free-text agents on `Choroiditis`, `Cytomegalovirus_Retinitis`, `Tetanus` and
+`Hantavirus_Pulmonary_Syndrome` and left `Southern_Tick-Associated_Rash_Illness` and
+`Paralytic_Poliomyelitis` deliberately unbound with the reason recorded in the agent's
+`description` (an undetermined agent; a virus NCBITaxon names only at serotype rank);
+`Acute_Hepatitis_C_Virus_Infection` merged into `Hepatitis_C` with the phases listed
+(#12098); `Infectious_Disease` retired to an `OUT_OF_SCOPE` stub (#12096); agent-level
+strata able to bind NCBITaxon (#10353). Typhoid fever, anthrax, diphtheria and sepsis
+have since been curated; herpes zoster and UTI still have no entry. **Still open (work
+items on #10115):** the `Viral_Hemorrhagic_Fever` conversion; `transmission` on the
+oral, genitourinary and systemic entries and on entries curated since the ladder
+landed; `agent_life_cycle` wherever the new transmission text names a vector or
+reservoir (the checker's `MISSING_LIFECYCLE` count rose as the backfills named them);
+the rung-3 review of the undecided lumps, one at a time; the rung-1 groupings
+(rickettsioses, viral hepatitides, soil-transmitted helminthiases, enteric fevers,
+arboviral haemorrhagic fevers); the `UNDECIDED` infectious stubs. Two
 decisions this clause does *not* make: an ontology binding for `Transmission`, which is
 free text today so R25's second half is a required string that no query can use — R17
 turns on transmission route and vector, so a bound slot is a prerequisite for enforcing
@@ -720,6 +728,7 @@ the table below mirrors it.
 | Food | FOODON | `FOODON:` |
 | Parasite life cycle | OPL | `OPL:` |
 | Taxonomy | NCBITaxon | `NCBITaxon:` |
+| Human populations / ancestry | Human Ancestry Ontology (HANCESTRO) | `HANCESTRO:` |
 
 **Rationale.** A constrained, OBO/Monarch-aligned set keeps terms interoperable,
 machine-validatable (offline SQLite adapters via OAK), and resistant to AI hallucination
@@ -1985,3 +1994,124 @@ Population guidance and worked examples live in the
 [noncoding-variant-impact skill](../../.claude/skills/noncoding-variant-impact/SKILL.md),
 with the schema, rendering, and export support implemented in
 [PR #11943](https://github.com/monarch-initiative/dismech/pull/11943).
+
+## 16. Population-specific variant effects bind populations to HANCESTRO (2026-10-08)
+
+**Decision.** A variant's effect can differ between human populations, and
+`Variant.population_effects` records that as a list of `VariantPopulationEffect`
+objects, one per population and source. Each record keeps the population in the
+source's own words (`population`, required), may bind it to the **Human Ancestry
+Ontology (HANCESTRO)** (`ancestry_terms`, optional), says how the source defined
+the group (`ancestry_basis`: self-reported, genetically inferred, geographic, or
+not stated), and says which aspect of the effect differs (`effect_differences`:
+classification, penetrance, severity, phenotype spectrum, allele frequency, or a
+tested `NO_DIFFERENCE`). Population-specific classification, penetrance, allele
+frequency and cohort size have their own slots; `evidence` is recommended.
+HANCESTRO is added to `conf/oak_config.yaml` (`ols:hancestro`) and to the table in
+section 4, and `AncestryTerm` is rooted at `HANCESTRO:0004` *ancestry category*,
+under which every HANCESTRO population class sits.
+
+**The gap this closes.** Issue
+[#13677](https://github.com/monarch-initiative/dismech/issues/13677) reported that
+dismech did not take population-specific variant effects into account, and the
+schema confirmed it. `Variant.clinical_significance` is a single value with no
+population, penetrance existed only on the disease-level `Inheritance` block, and
+population was recorded only per gene (`GeneCaseFraction.population`, section 8),
+never per variant. A variant that is a disease-causing allele in one population
+and a common low-penetrance allele in another had to receive one
+population-blind call, or be described in prose that no query reaches. Familial
+Mediterranean fever (FMF) is the motivating case: M694V, the commonest variant in
+Mediterranean patients, was carried by none of 80 Japanese patients in a
+nationwide series ([PMID:19531756](https://pubmed.ncbi.nlm.nih.gov/19531756/)),
+and nothing in the schema could record that against the variant.
+
+**Why HANCESTRO.** Three vocabularies were compared on twenty populations that
+matter for FMF and for founder variants: Singaporean Chinese, Malay and Indian;
+Han Chinese, Japanese and Korean; Turkish, Armenian and Arab; Ashkenazi,
+Sephardic and Mizrahi Jewish; Druze; Finnish, Amish and French Canadian; East and
+South Asian; African American; and Hispanic or Latino.
+
+| | HANCESTRO | CDC Race & Ethnicity (HL7) | NCIT |
+|---|---|---|---|
+| What it codes | Ancestry and population groups used in genomic studies | US social race and ethnicity categories | Mixed race, ethnicity and population terms |
+| Of the 20 populations | 18 (Druze only as a reference panel) | 6 | 14 |
+| Clinical-system use | Essentially none | US standard (EHRs, public health, FHIR US Core) | Clinical trial data |
+
+The populations, as looked up on 2026-10-08 by label search in OLS (HANCESTRO,
+NCIT) and in the HL7 v3 Race code system that mirrors CDC Race and Ethnicity,
+with every hit checked by hand:
+
+| Population | HANCESTRO | CDC / HL7 | NCIT |
+|---|---|---|---|
+| Singaporean Chinese | yes | no | no |
+| Singaporean Malay | yes | no | no |
+| Singaporean Indian | yes | no | no |
+| Han Chinese | yes | no | yes |
+| Japanese | yes | yes | yes |
+| Korean | yes | yes | yes |
+| Turkish | yes | no | no (a language term only) |
+| Armenian | yes | yes | yes |
+| Arab | yes | yes | yes |
+| Ashkenazi Jewish | yes | no | yes |
+| Sephardic Jewish | no | no | yes |
+| Mizrahi Jewish | no | no | yes |
+| Druze | reference panel only (HGDP) | no | no |
+| Finnish | yes | no | yes |
+| Amish | yes | no | no |
+| French Canadian | yes (*French Canadian founder*) | no | yes (*Canadian French*) |
+| East Asian | yes | no | yes |
+| South Asian | yes | no | yes |
+| African American | yes | yes (*Black or African American*) | yes |
+| Hispanic or Latino | yes | yes (ethnicity code) | yes |
+
+HANCESTRO is the only one with the Singapore groups the issue started from and
+the only one with Turkish, Finnish and Amish. It is an open (CC BY 4.0), actively
+maintained OBO ontology built for the GWAS Catalog, and it is in OLS, so it
+validates the same way HP or NCIT does. Its gap is Sephardic and Mizrahi Jewish,
+which NCIT has; those populations stay in free text until HANCESTRO adds them.
+
+**Why not an HL7 vocabulary.** HL7 has no equivalent. The HL7 terminology package
+(`hl7.terminology` 7.4.0) contains no HANCESTRO registration; its population
+vocabularies (CDC Race and Ethnicity, the deprecated v3 Race and Ethnicity code
+systems, and v2 table 0189 Ethnic Group) code US social categories, and cannot say
+"Turkish" or "Singaporean Malay". The FHIR core genetics ancestry extension
+(`observation-geneticsAncestry`) is deprecated, carried no terminology binding,
+and points to the Genomics Reporting guide, whose 3.0.0 package has no ancestry
+element. Clinical relevance for this question comes instead through variant
+interpretation, which rests on population allele frequencies reported for
+research cohorts in ancestry terms. Mapping to clinical race and ethnicity codes,
+if a FHIR export needs them, is an export step, not a curation one, so curators
+learn one vocabulary.
+
+**Why the free text stays required.** A group label can name a self-identified
+ethnicity, a genetically inferred ancestry cluster, or a place, and studies
+rarely say which. Binding self-reported ethnicity as genetic ancestry would
+overstate what the study measured, so the record keeps the source's own words,
+binds a HANCESTRO term only at the level the source supports, and records the
+basis separately. HANCESTRO also mixes ancestry categories, populations and
+reference-panel cohorts (1KGP, HGDP, SGDP); a reference-panel term is bound only
+when the data came from that panel, so "Japanese patients" is `HANCESTRO:0019`
+*Japanese*, not `HANCESTRO:0754` *Japanese in Tokyo, Japan (1KGP)*.
+
+**Record only what the source states.** A population difference has to be
+reported by the source. Comparing two allele frequencies or two cohorts and
+writing the difference down is the curator's inference, not a finding, the same
+rule `TreatmentEffectModifier.effect_in_stratum` follows. A difference in
+treatment response by ancestry is a treatment effect modifier
+(`effect_modifier_type: ANCESTRY`), not a variant population effect.
+
+**Not done, and why.**
+
+- `Prevalence.population` and `GeneCaseFraction.population` remain free text with
+  no HANCESTRO binding. Extending the binding there is the natural next step, and
+  is additive, but it was kept out of scope so this change carries no migration.
+- Phenotypes have no population slot. Population-specific phenotype frequency was
+  raised in the same issue; it is a separate decision because `Phenotype` has no
+  per-population record to hang a binding on.
+- No audit lists variants with a classification but no population record for
+  ancestry-clustered diseases. It would be report-only and is deferred until more
+  entries carry population effects.
+- HANCESTRO is not registered with the HL7 Terminology Authority, so FHIR has no
+  official system URI for it. Registering it would be a request to HL7, outside
+  this repository.
+

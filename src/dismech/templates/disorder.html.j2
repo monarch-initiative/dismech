@@ -513,6 +513,45 @@
             letter-spacing: 0.02em;
         }
 
+        /* Qualifiers drawn INSIDE the pill of the term they qualify (#13550).
+           As separate sibling pills they wrapped onto their own line in the
+           narrow single-column cards, so a reader could not tell which process
+           an INCREASED belonged to. Direction gets its own colour: up red,
+           down blue, any other modifier violet; non-direction qualifiers
+           (laterality, course, onset...) are neutral. */
+        .tag-qual {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            vertical-align: baseline;
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        .tag-qual-up {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tag-qual-down {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-qual-meta {
+            background: rgba(255, 255, 255, 0.6);
+            color: #475569;
+        }
+
         .tag-parent {
             background: #e0e7ff;
             color: #3730a3;
@@ -3456,22 +3495,35 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_modifier(modifier) %}
+    {# Colour class for a modifier drawn inside its pill (see .tag-qual). #}
+    {% set modifier_directions = {
+        'INCREASED': 'up',
+        'GAIN_OF_FUNCTION': 'up',
+        'DECREASED': 'down',
+        'LOSS_OF_FUNCTION': 'down',
+        'ABSENT': 'down'
+    } %}
+
+    {% macro render_modifier(modifier, inline=false) -%}
     {% if modifier %}
+    {% if inline %}
+    <span class="tag-qual{% if modifier_directions.get(modifier) %} tag-qual-{{ modifier_directions.get(modifier) }}{% endif %}">{{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}</span>
+    {% else %}
     <span class="tag tag-modifier">
         {{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}
     </span>
     {% endif %}
-    {% endmacro %}
+    {% endif %}
+    {%- endmacro %}
 
-    {% macro render_onset_badge(onset) %}
+    {% macro render_onset_badge(onset, inline=false) %}
     {% if onset %}
     {% set onset_category = onset.get('onset_category') %}
     {% set onset_mean = onset.get('mean_age_years') %}
     {% set onset_min = onset.get('min_age_years') %}
     {% set onset_max = onset.get('max_age_years') %}
     {% if onset_category or onset_mean is not none or onset_min is not none or onset_max is not none %}
-    <span class="tag tag-classification">
+    <span class="{{ 'tag-qual tag-qual-meta' if inline else 'tag tag-classification' }}">
         Onset:
         {%- if onset_category %} {{ onset_category | replace('_', ' ') }}{% endif -%}
         {%- if onset_mean is not none and onset_min is not none and onset_max is not none -%}
@@ -3490,26 +3542,27 @@
     {% endif %}
     {% endmacro %}
 
-    {% macro render_descriptor_qualifiers(descriptor) %}
+    {% macro render_descriptor_qualifiers(descriptor, inline=false) %}
     {% if descriptor %}
-    {{ render_modifier(descriptor.modifier) }}
+    {% set qual_cls = 'tag-qual tag-qual-meta' if inline else 'tag tag-classification' %}
+    {{ render_modifier(descriptor.modifier, inline) }}
     {% if descriptor.laterality %}
-    <span class="tag tag-classification">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.spatial_extent %}
-    <span class="tag tag-classification">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.temporality %}
-    <span class="tag tag-classification">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.clinical_course %}
-    <span class="tag tag-classification">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.severity %}
-    <span class="tag tag-classification">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.onset %}
-    {{ render_onset_badge(descriptor.onset) }}
+    {{ render_onset_badge(descriptor.onset, inline) }}
     {% endif %}
     {% endif %}
     {% endmacro %}
@@ -4238,6 +4291,46 @@
     </div>
     {% endif %}
     {{ render_external_assertions_block(variant.external_assertions) }}
+    {% if variant.population_effects %}
+    <div class="crosslink-block">
+        <div class="crosslink-title">Population-specific effects</div>
+        {% for pe in variant.population_effects %}
+        <div class="variant-effect">
+            <div class="item-desc"><strong>{{ pe.population }}</strong>{% if pe.comparator_stratum %} <span style="color: #6b7280;">vs. {{ pe.comparator_stratum }}</span>{% endif %}</div>
+            {{ render_descriptor_tags(pe.ancestry_terms, "tag-bio", true, "population_effects.ancestry_terms") }}
+            {% if pe.ancestry_basis or pe.effect_differences or pe.clinical_significance or pe.penetrance or pe.cohort_size %}
+            <div class="item-meta">
+                {% if pe.ancestry_basis %}
+                <span class="tag" style="background: #f1f5f9; color: #475569;">Group defined by: {{ pe.ancestry_basis | replace('_', ' ') | lower }}</span>
+                {% endif %}
+                {% for diff in pe.effect_differences or [] %}
+                <span class="tag" style="background: #fef3c7; color: #92400e;">{% if diff == 'NO_DIFFERENCE' %}No difference found{% else %}Differs in: {{ diff | replace('_', ' ') | lower }}{% endif %}</span>
+                {% endfor %}
+                {% if pe.clinical_significance %}
+                <span class="variant-significance variant-significance-{{ pe.clinical_significance | lower | replace('_', '-') }}">{{ pe.clinical_significance | replace('_', ' ') | title }}</span>
+                {% endif %}
+                {% if pe.penetrance %}
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">Penetrance: {{ pe.penetrance | lower }}{% if pe.penetrance_percentage %} ({{ pe.penetrance_percentage }}%){% endif %}</span>
+                {% endif %}
+                {% if pe.allele_frequency is defined and pe.allele_frequency is not none %}
+                <span class="tag" style="background: #f1f5f9; color: #475569;">Allele frequency: {{ pe.allele_frequency }}</span>
+                {% endif %}
+                {% if pe.cohort_size %}
+                <span class="tag" style="background: #f1f5f9; color: #475569;">n = {{ pe.cohort_size }}</span>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% if pe.description %}
+            <div class="item-desc">{{ pe.description }}</div>
+            {% endif %}
+            {% if pe.notes %}
+            <div class="mapping-notes">{{ pe.notes }}</div>
+            {% endif %}
+            {{ render_evidence(pe.evidence) }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
     {{ render_evidence(variant.evidence) }}
     {% endmacro %}
 
@@ -4263,6 +4356,7 @@
                 <a href="../../pages/modules/">Modules</a>
                 <a href="../../pages/comorbidities/">Trajectories</a>
                 <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
                 <a href="../../pages/research/index.html">Research</a>
                 <a href="../../elements/">Schema</a>
                 <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
@@ -5359,9 +5453,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(ct.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(ct, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(ct) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -5403,9 +5497,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(bp.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(bp, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(bp) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -5419,9 +5513,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(mf.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(mf, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(mf) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -5782,7 +5876,7 @@
                     {% set tooltip = term_tooltip(gene.gene_term, "gene.gene_term") %}
                     {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
                     <span class="tag" style="background: #dbeafe; color: #1e40af;">
-                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id, describedby=tip_id) }}{% endif %}
+                        Gene: {{ gene_label }}{% if gene_id %} {{ render_curie_link(gene_id, describedby=tip_id) }}{% set gene_href = gene_id | gene_page_url %}{% if gene_href %} <a class="gene-page-link" href="{{ gene_href }}" title="Every dismech entry that names this gene">gene page</a>{% endif %}{% endif %}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
                     {% endif %}
