@@ -143246,7 +143246,8 @@ window.searchData = [
       "Coagulative mucosal necrosis and ulceration",
       "Fibrotic stricture formation",
       "Systemic absorption and glutathione-dependent oxidation to formate",
-      "Formate accumulation and high anion gap metabolic acidosis",
+      "Formate accumulation",
+      "Cytochrome c oxidase inhibition",
       "Acute circulatory collapse and multiorgan failure",
       "Nasal and upper airway epithelial cytotoxicity",
       "DNA-protein and interstrand crosslink formation",
@@ -143396,11 +143397,11 @@ window.searchData = [
     "source_file": "Formaldehyde_Poisoning.yaml",
     "page_url": "../pages/disorders/Formaldehyde_Poisoning.html",
     "num_phenotypes": 23,
-    "num_pathophysiology": 17,
+    "num_pathophysiology": 18,
     "num_genes": 3,
     "num_treatments": 8,
-    "causal_graph_edges": "37",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Fountain Syndrome",
@@ -321266,6 +321267,108 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Spinocerebellar Ataxia, Autosomal Recessive 26",
+    "disease_id": "MONDO:0033116",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinocerebellar ataxia, autosomal recessive 26 (SCAR26) is a very rare recessive cerebellar ataxia caused by biallelic variants in XRCC1, the scaffold protein of DNA single-strand break repair. Patients have progressive gait and limb ataxia with cerebellar atrophy, a length-dependent sensorimotor axonal neuropathy, dysarthria and eye movement abnormalities, including ocular motor apraxia in the first reported case. Onset ranges from infancy to the late twenties. Patient cells retain only a small amount of XRCC1, repair single-strand breaks slowly, and leave PARP1 trapped and hyperactive on repair intermediates. In Xrcc1-deficient mice and zebrafish, deleting Parp1 reduces the loss of cerebellar neurons and the ataxia, which makes PARP1 hyperactivity the central disease mechanism and a candidate therapeutic target. Three patients are described in detail in accessible publications; a further patient with seizures and microcephaly has been mentioned but not described.",
+    "pathophysiology": [
+      "Biallelic XRCC1 Variants",
+      "Reduced XRCC1 and DNA Ligase III Alpha Protein",
+      "Defective DNA Single-Strand Break Repair",
+      "PARP1 Trapping and Hyperactivation",
+      "Failed Transcriptional Recovery After DNA Damage",
+      "Deregulated Neuronal Calcium Signalling",
+      "Cerebellar Interneuron and Granule Neuron Loss"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "cerebellar basket cell",
+      "cerebellar stellate cell",
+      "cerebellar Golgi cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:2000027",
+      "CL:0010010",
+      "CL:0000119",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "single strand break repair",
+      "base-excision repair",
+      "protein poly-ADP-ribosylation",
+      "gene expression"
+    ],
+    "phenotypes": [
+      "Progressive cerebellar ataxia",
+      "Cerebellar atrophy",
+      "Pontocerebellar atrophy",
+      "Peripheral axonal neuropathy",
+      "Impaired vibratory sensation",
+      "Distal amyotrophy",
+      "Areflexia",
+      "Babinski sign",
+      "Oculomotor apraxia",
+      "Hypometric saccades",
+      "Nystagmus",
+      "Dysarthria",
+      "Specific learning disability",
+      "Seizure",
+      "Azoospermia"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Reproductive"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Genitourinary",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002073",
+      "HP:0001272",
+      "HP:0006879",
+      "HP:0003477",
+      "HP:0002495",
+      "HP:0003693",
+      "HP:0001284",
+      "HP:0003487",
+      "HP:0000657",
+      "HP:0000571",
+      "HP:0000639",
+      "HP:0001260",
+      "HP:0001328",
+      "HP:0001250",
+      "HP:0000027"
+    ],
+    "frequencies": [],
+    "genes": [
+      "XRCC1"
+    ],
+    "treatments": [
+      "Physical Therapy",
+      "Speech Language Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spinocerebellar_Ataxia_Autosomal_Recessive_26.yaml",
+    "page_url": "../pages/disorders/Spinocerebellar_Ataxia,_Autosomal_Recessive_26.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Spinocerebellar Ataxia, Autosomal Recessive 31",
     "disease_id": "MONDO:0030323",
     "category": "Mendelian",
@@ -358605,17 +358708,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3324,
+  "total_disorder_pages": 3325,
   "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7957,
-  "total_unique_evidence_sources": 49935,
-  "total_unique_publications": 46561,
+  "total_disorders_and_subtypes": 7958,
+  "total_unique_evidence_sources": 49945,
+  "total_unique_publications": 46571,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3320,
-  "total_unique_pathological_events": 21928,
+  "total_pathographs": 3321,
+  "total_unique_pathological_events": 21934,
   "total_modules": 191,
-  "total_research_reports": 3441,
+  "total_research_reports": 3442,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
