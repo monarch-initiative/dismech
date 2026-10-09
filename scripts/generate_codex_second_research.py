@@ -14,6 +14,7 @@ from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Any
 
+from dismech.research_reports import strip_run_suffix
 from dismech.yaml_io import safe_load
 
 RESEARCH_FILE_RE = re.compile(
@@ -125,7 +126,7 @@ def collect_existing_research(research_dir: str) -> dict[str, set[str]]:
         match = RESEARCH_FILE_RE.match(filename)
         if not match:
             continue
-        providers[match.group("name")].add(match.group("provider"))
+        providers[match.group("name")].add(strip_run_suffix(match.group("provider")))
     return providers
 
 

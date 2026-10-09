@@ -1,5 +1,6 @@
 ---
 reference_id: clinicaltrials:NCT02383797
+extractor_version: 1
 title: "Immunodeficiency in Cartilage-hair Hypoplasia: Correlation With Pulmonary Disease, Infections and Malignancy"
 content_type: summary
 full_text_attempted: true

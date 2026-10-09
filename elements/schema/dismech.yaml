@@ -74,6 +74,9 @@ prefixes:
   PATO:
     prefix_prefix: PATO
     prefix_reference: http://purl.obolibrary.org/obo/PATO_
+  HANCESTRO:
+    prefix_prefix: HANCESTRO
+    prefix_reference: http://purl.obolibrary.org/obo/HANCESTRO_
   ECTO:
     prefix_prefix: ECTO
     prefix_reference: http://purl.obolibrary.org/obo/ECTO_
@@ -2520,6 +2523,24 @@ enums:
       relationship_types:
       - rdfs:subClassOf
       is_direct: false
+  AncestryTerm:
+    name: AncestryTerm
+    definition_uri: https://w3id.org/monarch-initiative/dismech/AncestryTerm
+    description: A human ancestry, ethnicity, geography-based or reference population
+      term from HANCESTRO (Human Ancestry Ontology). Every population class in HANCESTRO
+      sits below `ancestry category`, including the reference panels (1KGP, HGDP,
+      SGDP) under `reference population`.
+    comments:
+    - HANCESTRO was chosen over the HL7/CDC race and ethnicity codes and NCIT population
+      terms for coverage of the populations variant studies actually report (design
+      decisions section 16).
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    reachable_from:
+      source_nodes:
+      - HANCESTRO:0004
+      relationship_types:
+      - rdfs:subClassOf
+      is_direct: false
   ExposureTerm:
     name: ExposureTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExposureTerm
@@ -3522,6 +3543,63 @@ enums:
           or phenotypes.
         meaning: NCIT:C61547
         title: Counseling
+  AncestryBasisEnum:
+    name: AncestryBasisEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/AncestryBasisEnum
+    description: How the cited source defined the population a population-scoped variant
+      effect was observed in. Recorded because the same group label can name a self-identified
+      ethnicity, a genetically inferred ancestry cluster, or a place, and a HANCESTRO
+      binding alone does not say which the source meant.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      SELF_REPORTED:
+        text: SELF_REPORTED
+        description: Participants' self-identified ethnicity, race, or ancestry, as
+          collected by questionnaire or clinical record.
+      GENETICALLY_INFERRED:
+        text: GENETICALLY_INFERRED
+        description: Ancestry assigned from the participants' genotype data, for example
+          by principal components or clustering against a reference panel.
+      GEOGRAPHIC:
+        text: GEOGRAPHIC
+        description: Defined by country, region, or recruitment site, with no statement
+          about ethnicity or genetic ancestry (for example "patients seen at hospitals
+          in Singapore").
+      NOT_STATED:
+        text: NOT_STATED
+        description: The source names a population without saying how membership was
+          determined.
+  PopulationEffectDifferenceEnum:
+    name: PopulationEffectDifferenceEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/PopulationEffectDifferenceEnum
+    description: Which aspect of a variant's effect the source reports for the population,
+      relative to the comparator population or to the variant's overall characterization.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      CLASSIFICATION:
+        text: CLASSIFICATION
+        description: The variant's pathogenicity classification or causal status differs
+          in this population (for example disease-causing in one population, a common
+          low-penetrance allele in another).
+      PENETRANCE:
+        text: PENETRANCE
+        description: The proportion of carriers who develop the disease differs.
+      SEVERITY:
+        text: SEVERITY
+        description: Disease severity, age at onset, or complication rate differs.
+      PHENOTYPE_SPECTRUM:
+        text: PHENOTYPE_SPECTRUM
+        description: Which clinical features occur, or how often, differs (for example
+          atypical or incomplete presentations).
+      ALLELE_FREQUENCY:
+        text: ALLELE_FREQUENCY
+        description: The variant's frequency among patients or in the general population
+          differs, as reported by the source.
+      NO_DIFFERENCE:
+        text: NO_DIFFERENCE
+        description: The source compared the variant's effect across populations and
+          reported no difference. A tested null is a finding; record it so a reader
+          does not assume a population effect.
   EffectModifierTypeEnum:
     name: EffectModifierTypeEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/EffectModifierTypeEnum
@@ -9177,6 +9255,7 @@ slots:
     - Diagnosis
     - Inheritance
     - Variant
+    - VariantPopulationEffect
     - FunctionalEffect
     - Mechanism
     - ModelingConsideration
@@ -9478,6 +9557,7 @@ slots:
     - Diagnosis
     - Inheritance
     - Variant
+    - VariantPopulationEffect
     - ModelingConsideration
     - ClassificationAssignment
     - Definition
@@ -9857,6 +9937,7 @@ slots:
     - ReferenceRange
     - Prevalence
     - GeneCaseFraction
+    - VariantPopulationEffect
     - AssociationSignal
     range: string
   percentage:
@@ -10029,6 +10110,75 @@ slots:
     domain_of:
     - GeneCaseFraction
     range: float
+  population_effects:
+    name: population_effects
+    definition_uri: https://w3id.org/monarch-initiative/dismech/population_effects
+    description: 'Population-scoped findings about this variant: how its classification,
+      penetrance, severity, phenotype spectrum, or frequency differs in a named population.
+      One record per population and source. Use when a variant''s effect is reported
+      to depend on the population it is observed in, rather than collapsing it into
+      the single population-blind clinical_significance.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:population_effects
+    owner: Variant
+    domain_of:
+    - Variant
+    range: VariantPopulationEffect
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  ancestry_terms:
+    name: ancestry_terms
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ancestry_terms
+    description: 'HANCESTRO terms for the population, when the source supports a binding.
+      Optional and multivalued: an admixed or multi-site cohort may take more than
+      one. Bind what the source reports, at the level it reports it; do not bind a
+      reference-panel term (1KGP, HGDP, SGDP) unless the data came from that panel.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:ancestry_terms
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    range: AncestryDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  ancestry_basis:
+    name: ancestry_basis
+    definition_uri: https://w3id.org/monarch-initiative/dismech/ancestry_basis
+    description: How the source defined membership of the population.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:ancestry_basis
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    range: AncestryBasisEnum
+  effect_differences:
+    name: effect_differences
+    definition_uri: https://w3id.org/monarch-initiative/dismech/effect_differences
+    description: Which aspects of the variant's effect the source reports as differing
+      in this population. NO_DIFFERENCE records a tested null.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:effect_differences
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    range: PopulationEffectDifferenceEnum
+    multivalued: true
+  allele_frequency:
+    name: allele_frequency
+    definition_uri: https://w3id.org/monarch-initiative/dismech/allele_frequency
+    description: Allele frequency of the variant in the population, as a proportion
+      between 0 and 1, copied from the source. Say in notes whether it was measured
+      in patients, carriers, or the general population.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:allele_frequency
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    range: float
+    minimum_value: 0
+    maximum_value: 1
   cohort_size:
     name: cohort_size
     definition_uri: https://w3id.org/monarch-initiative/dismech/cohort_size
@@ -10038,9 +10188,10 @@ slots:
     - value: '61'
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:cohort_size
-    owner: GeneCaseFraction
+    owner: VariantPopulationEffect
     domain_of:
     - GeneCaseFraction
+    - VariantPopulationEffect
     range: integer
   phase:
     name: phase
@@ -10162,6 +10313,7 @@ slots:
     - DeliverySystem
     - Transmission
     - Diagnosis
+    - VariantPopulationEffect
     - ClassificationAssignment
     - Definition
     - CriteriaSet
@@ -11487,9 +11639,10 @@ slots:
     description: Penetrance classification for this inheritance pattern
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:penetrance
-    owner: Inheritance
+    owner: VariantPopulationEffect
     domain_of:
     - Inheritance
+    - VariantPopulationEffect
     range: PenetranceEnum
   penetrance_percentage:
     name: penetrance_percentage
@@ -11497,9 +11650,10 @@ slots:
     description: Estimated penetrance percentage or range (e.g., 80-90)
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:penetrance_percentage
-    owner: Inheritance
+    owner: VariantPopulationEffect
     domain_of:
     - Inheritance
+    - VariantPopulationEffect
     range: FrequencyQuantity
   expressivity:
     name: expressivity
@@ -12156,9 +12310,10 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/clinical_significance
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:clinical_significance
-    owner: Variant
+    owner: VariantPopulationEffect
     domain_of:
     - Variant
+    - VariantPopulationEffect
     range: ClinicalSignificanceEnum
   background:
     name: background
@@ -13577,9 +13732,10 @@ slots:
       only when the comparison is to the whole trial population.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:comparator_stratum
-    owner: TreatmentEffectModifier
+    owner: VariantPopulationEffect
     domain_of:
     - TreatmentEffectModifier
+    - VariantPopulationEffect
     range: string
   modified_outcome:
     name: modified_outcome
@@ -16427,6 +16583,30 @@ slots:
     recommended: true
     inlined: true
     inlined_as_list: false
+  AncestryDescriptor_term:
+    name: AncestryDescriptor_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term
+    description: Optional HANCESTRO population or ancestry term reference
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: term
+    domain: AncestryDescriptor
+    slot_uri: dismech:term
+    alias: term
+    owner: AncestryDescriptor
+    domain_of:
+    - AncestryDescriptor
+    is_usage_slot: true
+    usage_slot_name: term
+    range: Term
+    bindings:
+    - range: AncestryTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
+    recommended: true
+    inlined: true
+    inlined_as_list: false
   ExposureDescriptor_term:
     name: ExposureDescriptor_term
     definition_uri: https://w3id.org/monarch-initiative/dismech/term
@@ -18994,6 +19174,112 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  VariantPopulationEffect_population:
+    name: VariantPopulationEffect_population
+    definition_uri: https://w3id.org/monarch-initiative/dismech/population
+    description: The population in the source's own words (for example "Japanese FMF
+      patients", "Singaporean Chinese"). Kept even when ancestry_terms is bound, because
+      it is the record of what the study said.
+    examples:
+    - value: Global
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: population
+    domain: VariantPopulationEffect
+    slot_uri: dismech:population
+    alias: population
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    is_usage_slot: true
+    usage_slot_name: population
+    range: string
+    required: true
+  VariantPopulationEffect_comparator_stratum:
+    name: VariantPopulationEffect_comparator_stratum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/comparator_stratum
+    description: The population the effect is compared with, in the source's own words
+      (for example "Eastern Mediterranean populations"). Omit when the source reports
+      the population alone.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: comparator_stratum
+    domain: VariantPopulationEffect
+    slot_uri: dismech:comparator_stratum
+    alias: comparator_stratum
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    is_usage_slot: true
+    usage_slot_name: comparator_stratum
+    range: string
+  VariantPopulationEffect_effect_differences:
+    name: VariantPopulationEffect_effect_differences
+    definition_uri: https://w3id.org/monarch-initiative/dismech/effect_differences
+    description: Which aspects of the variant's effect the source reports as differing
+      in this population. NO_DIFFERENCE records a tested null.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: effect_differences
+    domain: VariantPopulationEffect
+    slot_uri: dismech:effect_differences
+    alias: effect_differences
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    is_usage_slot: true
+    usage_slot_name: effect_differences
+    range: PopulationEffectDifferenceEnum
+    recommended: true
+    multivalued: true
+  VariantPopulationEffect_evidence:
+    name: VariantPopulationEffect_evidence
+    definition_uri: https://w3id.org/monarch-initiative/dismech/evidence
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: evidence
+    domain: VariantPopulationEffect
+    slot_uri: dismech:evidence
+    alias: evidence
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    is_usage_slot: true
+    usage_slot_name: evidence
+    range: EvidenceItem
+    recommended: true
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  VariantPopulationEffect_penetrance:
+    name: VariantPopulationEffect_penetrance
+    definition_uri: https://w3id.org/monarch-initiative/dismech/penetrance
+    description: Penetrance classification for this variant in this population.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: penetrance
+    domain: VariantPopulationEffect
+    slot_uri: dismech:penetrance
+    alias: penetrance
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    is_usage_slot: true
+    usage_slot_name: penetrance
+    range: PenetranceEnum
+  VariantPopulationEffect_cohort_size:
+    name: VariantPopulationEffect_cohort_size
+    definition_uri: https://w3id.org/monarch-initiative/dismech/cohort_size
+    description: Number of patients or carriers the population-specific finding was
+      computed from, when reported.
+    examples:
+    - value: '61'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: cohort_size
+    domain: VariantPopulationEffect
+    slot_uri: dismech:cohort_size
+    alias: cohort_size
+    owner: VariantPopulationEffect
+    domain_of:
+    - VariantPopulationEffect
+    is_usage_slot: true
+    usage_slot_name: cohort_size
+    range: integer
   ICDOMorphologyAssignment_classification_value:
     name: ICDOMorphologyAssignment_classification_value
     definition_uri: https://w3id.org/monarch-initiative/dismech/classification_value
@@ -20837,6 +21123,38 @@ classes:
             description: The metadata element is required to be present in the model
           binds_value_of: id
     class_uri: dismech:RegimenDescriptor
+  AncestryDescriptor:
+    name: AncestryDescriptor
+    definition_uri: https://w3id.org/monarch-initiative/dismech/AncestryDescriptor
+    description: A descriptor for a human population or ancestry group, bindable to
+      HANCESTRO. preferred_term keeps the source's own wording when it is more specific
+      than, or different from, the best available HANCESTRO label.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Descriptor
+    slots:
+    - preferred_term
+    - Descriptor_description
+    - modifier
+    - located_in
+    - laterality
+    - spatial_extent
+    - onset
+    - temporality
+    - clinical_course
+    - severity
+    - qualifiers
+    - AncestryDescriptor_term
+    slot_usage:
+      term:
+        name: term
+        description: Optional HANCESTRO population or ancestry term reference
+        bindings:
+        - range: AncestryTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
+    class_uri: dismech:AncestryDescriptor
   ExposureDescriptor:
     name: ExposureDescriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/ExposureDescriptor
@@ -23268,7 +23586,67 @@ classes:
     - genomic_contexts
     - affected_regions
     - regulatory_category
+    - population_effects
     class_uri: dismech:Variant
+  VariantPopulationEffect:
+    name: VariantPopulationEffect
+    definition_uri: https://w3id.org/monarch-initiative/dismech/VariantPopulationEffect
+    description: 'A finding that a variant''s effect differs, or was tested and found
+      not to differ, in a named human population: its classification, penetrance,
+      severity, phenotype spectrum, or frequency there. The population is recorded
+      in the source''s own words (population) and optionally bound to HANCESTRO (ancestry_terms),
+      with ancestry_basis saying whether the source defined the group by self-report,
+      genetic inference, or geography.'
+    comments:
+    - Record only what the source states. Do not set clinical_significance or effect_differences
+      from your own comparison of two allele frequencies or two cohorts; a population
+      difference must be reported by the source.
+    - clinical_significance here is the classification the source gives for this population.
+      It does not replace the variant-level clinical_significance, which remains the
+      overall call.
+    - A difference in response to treatment by ancestry belongs on the treatment's
+      effect_modifiers (effect_modifier_type ANCESTRY), not here.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - VariantPopulationEffect_population
+    - ancestry_terms
+    - ancestry_basis
+    - VariantPopulationEffect_comparator_stratum
+    - VariantPopulationEffect_effect_differences
+    - clinical_significance
+    - VariantPopulationEffect_penetrance
+    - penetrance_percentage
+    - allele_frequency
+    - VariantPopulationEffect_cohort_size
+    - description
+    - VariantPopulationEffect_evidence
+    - notes
+    slot_usage:
+      population:
+        name: population
+        description: The population in the source's own words (for example "Japanese
+          FMF patients", "Singaporean Chinese"). Kept even when ancestry_terms is
+          bound, because it is the record of what the study said.
+        required: true
+      comparator_stratum:
+        name: comparator_stratum
+        description: The population the effect is compared with, in the source's own
+          words (for example "Eastern Mediterranean populations"). Omit when the source
+          reports the population alone.
+      effect_differences:
+        name: effect_differences
+        recommended: true
+      evidence:
+        name: evidence
+        recommended: true
+      penetrance:
+        name: penetrance
+        description: Penetrance classification for this variant in this population.
+      cohort_size:
+        name: cohort_size
+        description: Number of patients or carriers the population-specific finding
+          was computed from, when reported.
+    class_uri: dismech:VariantPopulationEffect
   FunctionalEffect:
     name: FunctionalEffect
     definition_uri: https://w3id.org/monarch-initiative/dismech/FunctionalEffect
@@ -24384,6 +24762,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 386123
+source_file_size: 393887
 generation_date: '2025-01-01T00:00:00'
 
