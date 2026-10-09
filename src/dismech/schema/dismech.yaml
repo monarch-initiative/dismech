@@ -48,6 +48,10 @@ prefixes:
   ENVO: http://purl.obolibrary.org/obo/ENVO_
   XCO: http://purl.obolibrary.org/obo/XCO_
   FOODON: http://purl.obolibrary.org/obo/FOODON_
+  # Non-human gene and gene-product identifiers, admitted only on model genes
+  # (AnimalModel.genes, ExperimentalModel.genes) via GeneOrProductTerm.
+  NCBIGene: http://identifiers.org/ncbigene/
+  UniProtKB: http://purl.uniprot.org/uniprot/
   skos: http://www.w3.org/2004/02/skos/core#
   # Draft SEPIO LinkML model (sepio-framework/sepio-linkml). Its own
   # default_prefix is still the placeholder https://example.org/sepio-model/,
@@ -1462,6 +1466,31 @@ enums:
         - rdfs:subClassOf
   TriggerTerm:
     description: A trigger
+  GeneOrProductTerm:
+    description: >-
+      A gene or gene product in a model system. HGNC for a human gene; for a
+      non-human gene, an NCBI Gene ID or a UniProtKB accession. No hierarchy
+      constraint. The schema does not restrict the prefix: where each prefix
+      may appear is enforced by scripts/check_gene_namespaces.py.
+    comments:
+      - >-
+        HGNC uses the lowercase `hgnc:` prefix, as everywhere in this
+        repository, and is checked by the term validator.
+      - >-
+        UniProtKB uses `UniProtKB:` and resolves through the OAK `uniprot:`
+        adapter. Its label is the protein's recommended name, not the gene
+        symbol (UniProtKB:Q62507 is "Cochlin").
+      - >-
+        NCBI Gene uses `NCBIGene:` and its label is the official symbol
+        (NCBIGene:12810 is "Coch"). The term validator cannot check this
+        prefix, because OAK's NCBI Gene adapter returns no labels; it is
+        checked against cache/ncbigene/terms.csv by
+        scripts/check_gene_namespaces.py instead.
+      - >-
+        Either non-human prefix is allowed. NCBIGene fits a model that acts on
+        the gene or transcript (knockout, knock-in, knockdown, a carried
+        variant); UniProtKB fits one that acts on the product (expression of a
+        protein in a host, protein injection).
   GeneTerm:
     description: A gene term from HGNC
     comments:
@@ -6576,6 +6605,19 @@ classes:
             range: ChemicalEntityTerm
             obligation_level: REQUIRED
 
+  GeneOrProductDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a gene or gene product in a model system, bindable to
+      HGNC for a human gene, or to NCBI Gene or UniProtKB for a non-human one.
+    slot_usage:
+      term:
+        description: HGNC (hgnc:), NCBI Gene (NCBIGene:) or UniProtKB (UniProtKB:) term reference
+        bindings:
+          - binds_value_of: id
+            range: GeneOrProductTerm
+            obligation_level: REQUIRED
+
   GeneDescriptor:
     is_a: Descriptor
     description: A descriptor for genes, bindable to HGNC or other gene databases
@@ -7102,6 +7144,7 @@ classes:
       - organism
       - tissue_term
       - cell_types
+      - genes
       - conditions
       - cell_source
       - culture_system
@@ -7110,6 +7153,16 @@ classes:
       - findings
       - evidence
       - notes
+    slot_usage:
+      genes:
+        description: >-
+          Genes or gene products perturbed, expressed, or carried as a variant
+          in this system, named in the organism the cells came from: hgnc: for
+          a human gene, NCBIGene: or UniProtKB: for a non-human one (a mouse
+          cell line's knockout is the mouse gene, not its human ortholog).
+          Orthology to the human disease gene goes in description or notes.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
 
   Experiment:
     description: >-
@@ -8670,6 +8723,16 @@ classes:
         description: >-
           Pathophysiology mechanism nodes this animal model recapitulates,
           perturbs, measures, rescues, or fails to recapitulate.
+      genes:
+        description: >-
+          Genes or gene products perturbed, expressed, or carried as a variant
+          in the model, named in the model's own species: NCBIGene: (or
+          UniProtKB: for an introduced protein) for a non-human gene, hgnc:
+          for a human transgene. A mouse knockout of Coch is NCBIGene:12810,
+          not hgnc:2180. Orthology to the human disease gene goes in
+          description or notes.
+        range: GeneOrProductDescriptor
+        inlined_as_list: true
   Treatment:
     slots:
       - name
