@@ -1,6 +1,25 @@
 # How the valproic acid and lithium "GxT in a dish" paper fits dismech
 
-Date: 2026-10-05. Checked against dismech `main` at commit `681ac38851`.
+Written 2026-10-05 against dismech `main` at commit `681ac38851`. Revised
+2026-10-09 against `main` at `12791cfbfa`, after the paper was curated.
+
+## Status of this report
+
+The paper is now in dismech. `Fetal_Valproate_Syndrome.yaml` was added in
+[#13604](https://github.com/monarch-initiative/dismech/pull/13604), merged
+2026-10-06, and cites it 13 times. The five gaps below were written before
+that, and this revision records what each one became.
+
+| Gap | State |
+|---|---|
+| 1. Fetal valproate syndrome has no entry | Closed by #13604 |
+| 2. Autism valproate link has no intermediates | Open, reframed as a cross-reference. Issue [#13779](https://github.com/monarch-initiative/dismech/issues/13779) |
+| 3. Bipolar Disorder has no model sections | Open. Issue [#13600](https://github.com/monarch-initiative/dismech/issues/13600) |
+| 4. Neural tube defect entries contradict the new entry | Open. Issue [#13778](https://github.com/monarch-initiative/dismech/issues/13778) |
+| 5. Schizophrenia and Epilepsy have no model sections | Dropped as not worth the work |
+
+The schema gaps at the end of this report were confirmed by how #13604 had to
+record the model, and are the part of this report that has not been acted on.
 
 ## The paper
 
@@ -50,7 +69,22 @@ Main results:
 
 ### 1. Fetal valproate syndrome has no entry and no stub
 
-MONDO:0012275 appears nowhere in `kb/` or `stubs/`. This is the disorder the
+**Closed.** `Fetal_Valproate_Syndrome.yaml` was added in #13604: 4,165 lines,
+17 pathophysiology nodes, five experimental models and four animal models. The
+paper is curated there as the model this section anticipated, under
+`experimental_models`:
+
+```yaml
+- name: Genotyped human neural progenitor population exposed to valproic acid
+  experimental_model_type: PRIMARY_CELL_CULTURE
+  publication: PMID:41935183
+```
+
+linked to mechanism nodes with `MEASURES` and `RECAPITULATES` relationships at
+`MODERATE` fidelity. What follows is the original analysis, kept because the
+schema limits it predicted are what the merged entry ran into.
+
+MONDO:0012275 appeared nowhere in `kb/` or `stubs/`. This is the disorder the
 model most directly represents.
 
 The paper can be used for an entry, with limits. An `ExperimentalModel` could
@@ -74,6 +108,12 @@ come from the clinical and teratology literature.
 
 ### 2. Autism Spectrum Disorder: the valproate link has no molecular intermediates
 
+**Open, but reframed.** The chain this section asked for now exists in
+`Fetal_Valproate_Syndrome.yaml`, and no entry references that file: a `git
+grep` for its name across `kb/` matches only inside it. So the work is to point
+the autism entry's existing valproate factor at that chain with a cross-entry
+reference, not to add a model to the autism entry. Issue #13779.
+
 The "Prenatal valproate exposure" factor is linked to the node "Heterogeneous
 neurodevelopmental molecular effects" as `INDIRECT_UNKNOWN_INTERMEDIATES`. Its
 description says "No cited sentence follows valproate to any molecular step".
@@ -87,6 +127,8 @@ Cntnap2 knockout with maternal immune activation and a prenatal
 interferon-alpha rat.
 
 ### 3. Bipolar Disorder has no model sections
+
+**Open.** Issue #13600 proposes the lithium model described here.
 
 The entry has neither `experimental_models` nor `animal_models`. The patient
 iPSC neuron work is cited only inside pathophysiology nodes.
@@ -104,17 +146,31 @@ lithium-induced proliferation and GNL3 (PMID:36307327) is also absent.
 
 ### 4. Neural tube defects: the folate question is open or contradicted
 
+**Open, and now a contradiction between entries rather than a gap.** Issue
+#13778.
+
 - Anencephaly records the valproate link as indirect because the responsible
   step is "unsettled between folate antagonism and histone deacetylase
   inhibition".
 - Spina Bifida Cystica says VPA acts independently of maternal folate status.
   It has no model sections.
 
-The paper's folate result bears on this, but its outcome is cognition
-(educational attainment), not neural tube closure. It fits a discussion item
-better than a model link.
+`Fetal_Valproate_Syndrome.yaml` curates folate receptor antagonism as a
+mechanism, quoting that valproate-exposed cells take up less folate, while
+recording separately that the evidence for folic acid *preventing* valproate
+teratogenesis is conflicting. Those are two different claims, and the spina
+bifida wording conflates them: "independent of maternal folate status" is
+defensible about rescue and is contradicted about mechanism. The three entries
+cannot all be right.
+
+The paper's own folate result bears on this only indirectly, since its outcome
+is cognition (educational attainment) rather than neural tube closure.
 
 ### 5. Schizophrenia and Epilepsy have no model sections
+
+**Dropped** on 2026-10-09 as not worth the work: one colocalization and a
+"modest" enrichment, against the cost of opening model sections in two large
+entries. No issue filed.
 
 The contribution here is thinner.
 
@@ -124,6 +180,14 @@ The contribution here is thinner.
   regions as modest.
 
 ## Gaps in the schema
+
+**Confirmed by the merged entry, and not acted on.** #13604 hit all three rows
+below. It recorded the donor panel as `cell_source: Primary human neural
+progenitor cells from 83 genotyped multi-ancestry donors` and the exposure as
+`culture_system: Monolayer, 48-hour exposure to 1 mM valproic acid`, so both
+are prose in slots not meant for them. The genetic half of the paper was
+dropped: the entry has no mention of a response QTL, of MTHFD1, or of
+educational attainment, which is the paper's own headline result.
 
 `ExperimentalModel` can record this model, but three parts of the design have
 no structured home.
