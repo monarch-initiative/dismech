@@ -21,7 +21,7 @@ JUSTFILE = Path(__file__).resolve().parents[1] / "project.justfile"
 def _fetch_reference_recipe() -> str:
     text = JUSTFILE.read_text(encoding="utf-8")
     match = re.search(
-        r"^fetch-reference \+identifiers:\n(.*?)(?=^\S)", text, re.S | re.M
+        r"^fetch-reference \+identifiers:\n(.*?)(?=^\S)", text, re.DOTALL | re.MULTILINE
     )
     assert match, "fetch-reference recipe not found in project.justfile"
     return match.group(1)
@@ -42,7 +42,9 @@ def test_fetch_reference_routes_structured_prefix_to_its_rebuild(
 ):
     recipe = _fetch_reference_recipe()
     # A `case` arm naming the prefix...
-    arm = re.search(rf"^\s*{prefix}:\*[^)]*\)\n(.*?)^\s*;;", recipe, re.S | re.M)
+    arm = re.search(
+        rf"^\s*{prefix}:\*[^)]*\)\n(.*?)^\s*;;", recipe, re.DOTALL | re.MULTILINE
+    )
     assert arm, f"no case arm for {prefix}:* in fetch-reference"
     # ...whose body rebuilds through the structured-source CLI for that source.
     assert f"structured_sources.cli rebuild {source} --id" in arm.group(1)
