@@ -76,6 +76,7 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "MGI": Ontology("MGI", "Mouse Genome Informatics", definite=False),
     "MONDO": Ontology("MONDO", "Mondo Disease Ontology"),
     "MP": Ontology("MP", "Mammalian Phenotype Ontology"),
+    "NCBIGENE": Ontology("NCBIGene", "NCBI Gene", definite=False),
     "NCBITAXON": Ontology("NCBITaxon", "NCBI Taxonomy"),
     "NCIT": Ontology("NCIT", "NCI Thesaurus"),
     "OBA": Ontology("OBA", "Ontology of Biological Attributes"),
@@ -87,6 +88,7 @@ ONTOLOGY_NAMES: dict[str, Ontology] = {
     "SO": Ontology("SO", "Sequence Ontology"),
     "UBERON": Ontology("UBERON", "Uberon multi-species anatomy ontology"),
     "UPHENO": Ontology("UPHENO", "Unified Phenotype Ontology"),
+    "UNIPROTKB": Ontology("UniProtKB", "UniProt Knowledgebase"),
     "XCO": Ontology("XCO", "Experimental Conditions Ontology"),
 }
 
