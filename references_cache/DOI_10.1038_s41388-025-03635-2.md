@@ -1058,13 +1058,13 @@ Remodeling
 Target Loss & Bypass Activation
 WGS/scDNA/scRNA
 snATAC/snRNA
-Multi-RNA  snATAC  IMC   CODEX
+Multi-RNA� snATAC� IMC�  CODEX
 Persisters / Memory
 Immune/Inflammatory
 Vulnerability
 Metabolic & RA Tolerance
-JNK-KTR  sc/snRNA
-scRNA  CITE  IMC   CODEX
+JNK-KTR� sc/snRNA
+scRNA� CITE� IMC�  CODEX
 scMS
 MES
 Persisters
