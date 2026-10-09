@@ -2277,9 +2277,11 @@ export-kgx-maximal out_dir="output/maximal_kgx":
     uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
 
 # Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+# MONDO-bound subtypes get their own rows: unscoped phenotypes are inherited down to
+# them (marked in the `inherited_from` column). Pass --no-subtypes for parents only.
 [group('Export')]
-export-hpoa:
-    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+export-hpoa *args:
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa {{args}}
 
 # Runs `export-hpoa` first (the script reads its output), then downloads the release,
 # hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
