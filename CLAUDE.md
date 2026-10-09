@@ -4364,6 +4364,21 @@ just icees-rebuild
 just icees-rebuild --id MONDO:0004979,MONDO:0005002
 ```
 
+**A rebuilt ClinGen file says which export it came from.** `clingen-rebuild`
+reads `data/clingen/gene_validity.csv` (gitignored) when present, else the
+export passed with `--csv PATH`, else the committed
+`cache/clingen/gene_validity.csv`, which is an older export and not a current
+one; the fallback is logged, and so is a file whose sha256 differs from the
+manifest pin. The cache file's `Source` line and its `source_snapshot` /
+`source_sha256` frontmatter are taken from the file actually parsed (its own
+`FILE CREATED:` header), never from the manifest: the pin can be newer than the
+file (fresh checkout, January export, August pin) or older (a drifted-pin
+`clingen-refresh` still leaves the newer download on disk, #10426), and before
+#13575 the stamp was wrong in both directions. `just fetch-reference CGGV:…`
+routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
+ids, so the AGENTS.md instruction to regenerate any cache file with
+`fetch-reference` holds for structured prefixes too.
+
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
 no drift has occurred, run `just structured-rebuild-orphanet` locally and

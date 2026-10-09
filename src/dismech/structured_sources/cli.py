@@ -204,6 +204,15 @@ def rebuild_cmd(
     progress_every: int = typer.Option(
         500, "--progress-every", help="Log every N entries"
     ),
+    csv: Path | None = typer.Option(
+        None,
+        "--csv",
+        help=(
+            "ClinGen gene validity only: read this export instead of "
+            "data/clingen/gene_validity.csv (or the committed fallback). The "
+            "cache file is stamped with this file's own date and sha256."
+        ),
+    ),
 ) -> None:
     """Regenerate cache files for a source from current bulk data."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -211,6 +220,10 @@ def rebuild_cmd(
     src = _get_source(source)
     if isinstance(src, (ClinGenSource, ClinGenDosageSource)):
         src.include_report_text = include_report_text
+    if csv is not None:
+        if not isinstance(src, ClinGenSource):
+            raise typer.BadParameter("--csv is only supported for the clingen source")
+        src.csv_path = csv
     cache_dir.mkdir(parents=True, exist_ok=True)
     if id_:
         targets = list(id_)

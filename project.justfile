@@ -3141,6 +3141,33 @@ fetch-reference +identifiers:
             ICTRP:*|ictrp:*)
                 uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
                 ;;
+            # Structured-source prefixes have no linkml-reference-validator
+            # fetcher, so handing them to `cache reference` only ever printed
+            # "No source found" (#13575). Route each to its own rebuild.
+            CGGV:*|cggv:*)
+                if [ ! -f data/clingen/gene_validity.csv ]; then
+                    # A drifted-pin failure still leaves the download on disk
+                    # (#10426), which is what we want: the rebuild stamps the
+                    # file's own date and warns about the pin.
+                    uv run python -m dismech.structured_sources.cli refresh clingen || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen --id "$identifier"
+                ;;
+            CGDS:*|cgds:*)
+                if [ ! -f data/clingen-dosage/gene_dosage.csv ] || [ ! -f data/clingen-dosage/gene_dosage_grch38.tsv ]; then
+                    uv run python -m dismech.structured_sources.cli refresh clingen-dosage || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
+                ;;
+            ORPHA:*|Orphanet:*|orpha:*)
+                uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
+                ;;
+            ICEES:*|icees:*)
+                uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            NCIT:*|ncit:*)
+                uv run python -m dismech.structured_sources.cli rebuild ncit --id "$identifier"
+                ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
                 ;;
