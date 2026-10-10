@@ -78227,30 +78227,43 @@ window.searchData = [
       "Sporadic",
       "Dutch-type",
       "ACys",
-      "Iatrogenic"
+      "Iatrogenic",
+      "Italian-type",
+      "Flemish-type",
+      "Iowa-type",
+      "Piedmont-type",
+      "Arctic-type",
+      "CAA-related inflammation"
     ],
-    "description": "Cerebral amyloid angiopathy (CAA) is an age-related cerebral small-vessel disease characterized by deposition of amyloid-beta (Abeta) in the walls of cortical and leptomeningeal small arteries, arterioles, and capillaries. Progressive vascular amyloid deposition with smooth muscle cell loss and vessel-wall fragility predisposes to spontaneous strictly lobar intracerebral hemorrhage (often recurrent), strictly lobar cerebral microbleeds, convexity subarachnoid hemorrhage, cortical superficial siderosis, transient focal neurological episodes (\"amyloid spells\"), and progressive cognitive decline. Non-hemorrhagic markers include white matter hyperintensities and enlarged centrum semiovale perivascular spaces. The common sporadic form increases in prevalence with age and is strongly associated with the APOE genotype (\u03b54 increases risk; \u03b52 is associated with vessel fragility/hemorrhage), while rare hereditary forms are caused by mutations in APP (e.g. Dutch-type HCHWA-D, APP p.E693Q) and in non-Abeta genes such as CST3 (cystatin C / Icelandic-type ACys). A rare iatrogenic form arises from prion-like Abeta \"seeding\" after exposure to cadaveric tissue (dura mater grafts, pituitary-derived growth hormone) decades earlier. Diagnosis in life relies on the Boston criteria v2.0 (clinical and MRI markers); definitive diagnosis requires histopathology. There is no targeted disease-modifying therapy; management is supportive and centered on hemorrhage-risk mitigation.",
+    "description": "Cerebral amyloid angiopathy (CAA) is an age-related cerebral small-vessel disease most commonly characterized by deposition of amyloid-beta (Abeta) in the walls of cortical and leptomeningeal small arteries, arterioles, and capillaries. Progressive vascular amyloid deposition with smooth muscle cell loss and vessel-wall fragility predisposes to spontaneous strictly lobar intracerebral hemorrhage (often recurrent), strictly lobar cerebral microbleeds, convexity subarachnoid hemorrhage, cortical superficial siderosis, transient focal neurological episodes (\"amyloid spells\"), and progressive cognitive decline. Non-hemorrhagic markers include white matter hyperintensities and enlarged centrum semiovale perivascular spaces. The common sporadic form increases in prevalence with age and is strongly associated with the APOE genotype (\u03b54 increases risk; \u03b52 is associated with vessel fragility/hemorrhage), while rare hereditary forms are caused by mutations in APP (e.g. Dutch-type HCHWA-D, APP p.E693Q) and in non-Abeta genes such as CST3 (cystatin C / Icelandic-type ACys). A rare iatrogenic form arises from prion-like Abeta \"seeding\" after exposure to cadaveric tissue (dura mater grafts, pituitary-derived growth hormone) decades earlier. Diagnosis in life relies on the Boston criteria v2.0 (clinical and MRI markers); definitive diagnosis requires histopathology. There is no targeted disease-modifying therapy; management is supportive and centered on hemorrhage-risk mitigation.",
     "pathophysiology": [
       "Impaired perivascular amyloid-beta clearance",
       "Vascular amyloid-beta deposition",
-      "Vessel-wall degeneration and fragility",
-      "Hemorrhagic and non-hemorrhagic brain injury",
+      "Cerebral vascular smooth muscle cell degeneration",
+      "Impaired cerebrovascular reactivity",
+      "Blood-brain barrier leakage",
+      "Perivascular glial activation",
+      "Cerebral vessel-wall remodeling",
+      "Cortical microinfarction",
+      "White matter microstructural injury",
+      "Cerebral vascular hemorrhage",
+      "CAA-related immune inflammation",
       "Iatrogenic prion-like Abeta seeding",
+      "Cystatin C amyloid aggregation",
       "Vascular cystatin C amyloid deposition"
     ],
     "cell_types": [
-      "Astrocyte",
-      "Vascular endothelial cell",
-      "Vascular smooth muscle cell of the brain vasculature"
+      "smooth muscle cell of the brain vasculature",
+      "astrocyte",
+      "microglial cell"
     ],
     "cell_type_ids": [
+      "CL:0002590",
       "CL:0000127",
-      "CL:0000115",
-      "CL:0002590"
+      "CL:0000129"
     ],
     "biological_processes": [
-      "Amyloid-beta clearance",
-      "Amyloid-beta formation",
+      "amyloid-beta clearance",
       "Cystatin C amyloid fibril formation"
     ],
     "phenotypes": [
@@ -78262,7 +78275,12 @@ window.searchData = [
       "Progressive cognitive decline",
       "Dementia",
       "Seizures",
-      "White matter hyperintensities"
+      "White matter hyperintensities",
+      "Enlarged centrum semiovale perivascular spaces",
+      "Cerebral microinfarcts",
+      "Deep intracerebral hemorrhage",
+      "Encephalopathy",
+      "Headache"
     ],
     "phenotype_categories": [
       "Neurologic"
@@ -78275,11 +78293,15 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001342",
       "HP:0002138",
-      "HP:0002326",
+      "HP:6001256",
       "HP:0100543",
       "HP:0000726",
       "HP:0001250",
-      "HP:0030890"
+      "HP:0030890",
+      "HP:0012520",
+      "HP:0025722",
+      "HP:0001298",
+      "HP:0002315"
     ],
     "frequencies": [],
     "genes": [
@@ -78291,21 +78313,34 @@ window.searchData = [
       "Vascular risk factor control (blood pressure management)",
       "Immunosuppressive therapy for CAA-related inflammation",
       "Supportive care",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Individualized antithrombotic management",
+      "Anticoagulation decisions after CAA-related hemorrhage",
+      "Left atrial appendage closure in selected atrial fibrillation",
+      "Symptomatic treatment of distressing recurrent TFNEs",
+      "Second-line immunosuppression for refractory CAA-related inflammation",
+      "Medication and lifestyle risk review",
+      "Symptomatic cognitive treatment with coexisting Alzheimer disease",
+      "Investigational N-acetylcysteine for cystatin C amyloid angiopathy",
+      "Investigational ponezumab immunotherapy",
+      "Investigational tramiprosate therapy"
     ],
     "environmental": [
       "Iatrogenic Abeta exposure",
       "Hypertension"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "CSF amyloid-beta 40",
+      "CSF amyloid-beta 42"
+    ],
     "source_file": "Cerebral_Amyloid_Angiopathy.yaml",
     "page_url": "../pages/disorders/Cerebral_Amyloid_Angiopathy.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 14,
     "num_genes": 3,
-    "num_treatments": 4,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 14,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Cerebral Cavernous Malformation",
@@ -359973,14 +360008,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3335,
-  "total_subtypes": 4644,
-  "total_disorders_and_subtypes": 7979,
-  "total_unique_evidence_sources": 50138,
-  "total_unique_publications": 46749,
+  "total_subtypes": 4650,
+  "total_disorders_and_subtypes": 7985,
+  "total_unique_evidence_sources": 50161,
+  "total_unique_publications": 46764,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
   "total_pathographs": 3331,
-  "total_unique_pathological_events": 22031,
+  "total_unique_pathological_events": 22039,
   "total_modules": 191,
   "total_research_reports": 3452,
   "total_classifications": 21,
