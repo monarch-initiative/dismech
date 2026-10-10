@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Epilepsy · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Epilepsy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Epilepsy</h1>
+                
+                <p class="report-subtitle">Disease Information (Section 1)</p>
+                
+                
+                <div class="report-date">2026-08-23</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005027" target="_blank" rel="noopener noreferrer">MONDO:0005027</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">55 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>Disease Information (Section 1)</h2>
+<p>Epilepsy is a <strong>chronic neurological disorder</strong> characterized by an enduring predisposition to recurrent, unprovoked seizures resulting from abnormal, excessive, and hypersynchronous neuronal discharges. It is not a single disease but a family of syndromes classified by seizure type (focal, generalized, combined, unknown) and etiology (genetic, structural, metabolic, immune, infectious, unknown), per the International League Against Epilepsy (ILAE) framework.</p>
+<p><strong>Key identifiers (aggregated disease-level resources):</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier(s)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005027" target="_blank" rel="noopener noreferrer">MONDO:0005027</a> (epilepsy)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D004827 (Epilepsy)</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>8A6 (Epilepsy and seizures)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>G40</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Rare genetic subtypes, e.g., Dravet <a href="https://bioregistry.io/ORPHA:33069" target="_blank" rel="noopener noreferrer">ORPHA:33069</a></td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Multiple loci (GEFS+ %604233; Dravet #607208; DEE series)</td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_1826" target="_blank" rel="noopener noreferrer">DOID:1826</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names:</strong> seizure disorder; "the epilepsies"; historically "falling sickness." Subtype names include genetic generalized epilepsy (GGE), temporal lobe epilepsy (TLE), developmental and epileptic encephalopathy (DEE), Dravet syndrome, Lennox–Gastaut syndrome (LGS), and genetic epilepsy with febrile seizures plus (GEFS+).</p>
+<p><strong>Data source note:</strong> This report is derived primarily from <strong>aggregated, disease-level resources</strong> (GWAS meta-analyses, GBD modeling, ILAE task-force reports, systematic reviews, model-organism studies) rather than individual patient EHR records, though several cited studies are single-center clinical cohorts.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>F001 — Epilepsy is a common chronic brain disorder with rising global burden</h3>
+<p>Epilepsy affects <strong>approximately 70 million individuals globally</strong>, with pathogenesis primarily attributed to recurrent seizures caused by abnormal neuronal discharges (<a href="https://pubmed.ncbi.nlm.nih.gov/41306289/">PMID: 41306289</a>). GBD 2023–based deep-learning modeling projects that the <strong>age-standardized prevalence rate in LMICs will reach 907.22 per 100,000 by 2050</strong> (95% UI 731.01–1083.56), a <strong>33.32% increase from 2023</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42541262/">PMID: 42541262</a>). Critically, the increase in <strong>secondary (acquired) epilepsy is more than 7-fold that of idiopathic epilepsy</strong> since 2023, signaling a shift in the etiologic composition of the global burden toward preventable, acquired causes.</p>
+<blockquote>
+<p><em>"Epilepsy is a prevalent chronic neurological disorder, affecting approximately 70 million individuals globally, with its pathogenesis primarily attributed to recurrent seizures caused by abnormal neuronal discharges in the brain."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41306289/">PMID: 41306289</a></p>
+</blockquote>
+<h3>F002 — <em>SCN1A</em> loss-of-function causes &gt;95% of Dravet syndrome</h3>
+<p>Dravet syndrome (DS), the prototypical genetic epileptic encephalopathy, is caused by <strong>heterozygous loss-of-function variants in <em>SCN1A</em></strong>, encoding the voltage-gated sodium channel α-1 subunit (Naᵥ1.1); <strong>over 95% of cases</strong> carry such variants (<a href="https://pubmed.ncbi.nlm.nih.gov/41712149/">PMID: 41712149</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40836583/">PMID: 40836583</a>). Naᵥ1.1 is preferentially expressed in GABAergic interneurons, so its loss selectively impairs inhibition—a molecular explanation for the E/I imbalance. Computational stability analysis found <strong>pathogenic missense variants significantly more destabilizing than benign variants (FoldX ΔΔG 2.61 vs 0.31 kcal/mol)</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42490276/">PMID: 42490276</a>), yet variants at the <em>same codon</em> can produce divergent gain- vs complete loss-of-function effects (e.g., I1347T/V/F mixed function vs I1347N complete LoF), cautioning against position-based effect prediction (<a href="https://pubmed.ncbi.nlm.nih.gov/41718449/">PMID: 41718449</a>).</p>
+<blockquote>
+<p><em>"Over 95% of cases are caused by loss-of-function pathogenic variants in SCN1A, the gene encoding the voltage-gated sodium channel alpha-1 subunit."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41712149/">PMID: 41712149</a></p>
+</blockquote>
+<p><strong>HGNC/gene annotation:</strong> <em>SCN1A</em> (<a href="https://bioregistry.io/HGNC:10585" target="_blank" rel="noopener noreferrer">HGNC:10585</a>), <em>SCN1B</em> (<a href="https://bioregistry.io/HGNC:10586" target="_blank" rel="noopener noreferrer">HGNC:10586</a>), <em>SCN2A</em>, <em>GABRB3</em>, <em>GABRA1</em>, <em>GRIN1</em>, <em>GRIN2B</em>, <em>CACNA1A</em>, <em>CHD2</em>, <em>MTOR</em>, <em>ALG13</em>, <em>DEPDC5</em>.</p>
+<h3>F003 — Epileptogenesis involves E/I imbalance, microglial pruning of inhibitory synapses, and neuroinflammation</h3>
+<p>In epileptic mice, hyperactive inhibitory neurons activate microglia via GABAergic signaling, and these <strong>activated microglia preferentially phagocytose inhibitory synapses</strong>, disrupting E/I balance and amplifying network excitability (<a href="https://pubmed.ncbi.nlm.nih.gov/40425792/">PMID: 40425792</a>). Pro-inflammatory cytokines reinforce this: <strong>IL-1β promotes neuronal hyperexcitability, IL-6 mediates neuroinflammation, and TNF-α disrupts the E/I balance</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41306289/">PMID: 41306289</a>). In focal cortical dysplasia (FCD) models, the balance of inhibitory/excitatory synaptic currents shifts toward excitation in perilesional cortex, rendering it seizure-prone (<a href="https://pubmed.ncbi.nlm.nih.gov/40003890/">PMID: 40003890</a>).</p>
+<blockquote>
+<p><em>"these activated microglia preferentially phagocytose inhibitory synapses, disrupting the balance between excitatory and inhibitory synaptic transmission and amplifying network excitability."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40425792/">PMID: 40425792</a></p>
+</blockquote>
+<p><strong>GO terms:</strong> GABAergic synaptic transmission (<a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" rel="noopener noreferrer">GO:0051932</a>), synapse pruning (<a href="http://purl.obolibrary.org/obo/GO_0098883" target="_blank" rel="noopener noreferrer">GO:0098883</a>), microglial cell activation (<a href="http://purl.obolibrary.org/obo/GO_0001774" target="_blank" rel="noopener noreferrer">GO:0001774</a>), inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a>). <strong>CL terms:</strong> GABAergic interneuron (<a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" rel="noopener noreferrer">CL:0000617</a>), microglial cell (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>), glutamatergic neuron (<a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a>), astrocyte (<a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a>).</p>
+<h3>F004 — SUDEP is the leading cause of epilepsy-related premature mortality</h3>
+<p><strong>SUDEP accounts for 8–17% of epilepsy-related deaths</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42617006/">PMID: 42617006</a>). Risk is elevated by refractory epilepsy, poor seizure control (frequent generalized tonic-clonic seizures), polytherapy, nocturnal/sleep-related seizures, and genetic predisposition. Mechanisms center on <strong>neuro-cardio-respiratory dysfunction</strong>: autonomic dysfunction, impaired heart-rate variability, seizure-related tachy-/bradyarrhythmias, and altered QT dynamics. Molecular autopsy implicates channelopathy genes <em>DEPDC5</em>, <em>SCN1A</em>, and cardiac ion-channel genes. Stress and HPA-axis dysfunction further contribute to SUDEP risk (<a href="https://pubmed.ncbi.nlm.nih.gov/42556144/">PMID: 42556144</a>).</p>
+<blockquote>
+<p><em>"Sudden unexpected death in epilepsy (SUDEP) represents a major cause of mortality in individuals with epilepsy, accounting for 8-17% of epilepsy-related deaths."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42617006/">PMID: 42617006</a></p>
+</blockquote>
+<h3>F005 — Acquired epilepsies follow brain insults via inflammation, neuron loss, and circuit reorganization</h3>
+<p>The most common acquired epilepsies arise after <strong>acute brain insults—TBI, stroke, or CNS infections</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29247482/">PMID: 29247482</a>). Shared cross-etiology risk factors include <strong>intracranial bleeding, blood–brain-barrier disruption, more severe injury, and early seizures within 1 week of injury</strong>; common histopathology includes microglial activation, astrogliosis, heterotopic white-matter neurons, neuron loss, and inflammatory infiltrates. Temporally, <strong>most seizure recurrences occur within 1–2 years of the insult</strong>, with risk declining sharply thereafter—defining a critical window for anti-epileptogenic intervention (<a href="https://pubmed.ncbi.nlm.nih.gov/40824375/">PMID: 40824375</a>).</p>
+<blockquote>
+<p><em>"Risk factors for developing epilepsy that appear common to multiple acute injury etiologies include intracranial bleeding, disruption of the blood-brain barrier, more severe injury, and early seizures within 1 week of injury."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29247482/">PMID: 29247482</a></p>
+</blockquote>
+<h3>F006 — High burden of bidirectional psychiatric, cognitive, and neurodevelopmental comorbidities</h3>
+<p>People with epilepsy (PWE) have disproportionately high rates of <strong>depression, anxiety, ADHD, autism spectrum disorder, functional/dissociative seizures, and cognitive impairment</strong>, many with <strong>bidirectional relationships</strong> with epilepsy (<a href="https://pubmed.ncbi.nlm.nih.gov/41868310/">PMID: 41868310</a>). In structured inpatient screening, <strong>~1 in 5 patients received a psychiatric diagnosis, and 37% of those had not been previously diagnosed</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/41235437/">PMID: 41235437</a>). Pediatric epilepsy is commonly accompanied by anxiety, depression, attention difficulties, and executive dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/40612818/">PMID: 40612818</a>). Post-surgical memory decline affects 40–60% of patients (<a href="https://pubmed.ncbi.nlm.nih.gov/41427594/">PMID: 41427594</a>).</p>
+<blockquote>
+<p><em>"Many of these disorders have bidirectional relationships with epilepsy, reflecting overlapping biological, psychological, and social mechanisms."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41868310/">PMID: 41868310</a></p>
+</blockquote>
+<h3>F007 — Genetic mouse models recapitulate Dravet syndrome and enable precision therapy</h3>
+<p><strong>Scn1a⁺/⁻ (haploinsufficient) mice</strong> model <em>SCN1A</em>-derived epilepsy with spontaneous seizures and susceptibility to hyperthermia-, 6 Hz-, and PTZ-induced seizures, and are used to test intranasal nanoparticle-encapsulated neuropeptide Y (NP-NPY) and interneuron-targeted AAV gene therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/41074603/">PMID: 41074603</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40106582/">PMID: 40106582</a>). <strong>Scn1b-null mice</strong> model DS with spontaneous generalized seizures beginning in the second week of life plus ataxia from cerebellar Purkinje-cell hypoexcitability (<a href="https://pubmed.ncbi.nlm.nih.gov/40923316/">PMID: 40923316</a>). DS carries a <strong>10–20% rate of premature death</strong>, recapitulated in models (<a href="https://pubmed.ncbi.nlm.nih.gov/40106582/">PMID: 40106582</a>).</p>
+<blockquote>
+<p><em>"Scn1b null mice model DS, with spontaneous generalized seizures that start in the second week of life."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40923316/">PMID: 40923316</a></p>
+</blockquote>
+<h3>F008 — Complex polygenic architecture with monogenic subsets converging on synaptic/ion-channel genes</h3>
+<p>A multi-ancestry GWAS meta-analysis of <strong>29,944 cases and 52,538 controls identified 26 genome-wide-significant loci</strong> (19 specific to genetic generalized epilepsy, GGE) and <strong>29 likely causal genes</strong>; common variants explain <strong>39.6–90% of genetic risk for GGE</strong>, with gene-set analyses implicating <strong>synaptic processes in both excitatory and inhibitory neurons</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/37653029/">PMID: 37653029</a>). Overall epilepsy heritability is <strong>~32%</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/39904507/">PMID: 39904507</a>), with ≥ 400 estimated common causal variants (<a href="https://pubmed.ncbi.nlm.nih.gov/25063994/">PMID: 25063994</a>). Exome sequencing of epileptic encephalopathies found excess de novo mutations in intolerant genes including <em>GABRB3</em>, <em>ALG13</em>, <em>CACNA1A</em>, <em>CHD2</em>, <em>GABRA1</em>, <em>GRIN1</em>, <em>GRIN2B</em>, <em>MTOR</em>, <em>SCN2A</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/41726570/">PMID: 41726570</a>).</p>
+<blockquote>
+<p><em>"We identify 26 genome-wide significant loci, 19 of which are specific to genetic generalized epilepsy (GGE). We implicate 29 likely causal genes underlying these 26 loci."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/37653029/">PMID: 37653029</a></p>
+</blockquote>
+<h3>F009 — ASMs control ~70–80% of patients; ~30% are drug-resistant</h3>
+<p>Conventional ASMs (phenytoin, valproate, levetiracetam, lamotrigine, carbamazepine) control seizures in <strong>70–80% of patients</strong>, while <strong>~30% experience drug resistance</strong> or intolerable side effects (<a href="https://pubmed.ncbi.nlm.nih.gov/41496926/">PMID: 41496926</a>). For drug-resistant epilepsy (DRE): resective surgery, ketogenic diet, vagus nerve stimulation (VNS), <strong>responsive neurostimulation (RNS, 50–70% efficacy)</strong>, deep brain stimulation (DBS), and <strong>cannabidiol (~30–50% seizure reduction)</strong>. <strong>Everolimus (mTOR inhibitor) is the only precision therapy with class I evidence</strong> for seizures (in tuberous sclerosis complex, TSC) (<a href="https://pubmed.ncbi.nlm.nih.gov/40411479/">PMID: 40411479</a>). A <strong>~75% treatment gap</strong> persists in low-income countries (<a href="https://pubmed.ncbi.nlm.nih.gov/41496926/">PMID: 41496926</a>).</p>
+<blockquote>
+<p><em>"Cannabidiol (CBD) demonstrates a 30-50% seizure reduction, while responsive neurostimulation (RNS) achieves 50-70% efficacy, especially in drug-resistant epilepsy."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41496926/">PMID: 41496926</a></p>
+</blockquote>
+<h3>F010 — Canine idiopathic epilepsy is a naturally occurring cross-species model</h3>
+<p><strong>Idiopathic epilepsy (IE) is the most common chronic neurological disease in dogs and an established natural model</strong> for human epilepsy of genetic/unknown etiology (<a href="https://pubmed.ncbi.nlm.nih.gov/40707505/">PMID: 40707505</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39804158/">PMID: 39804158</a>). Dogs resemble humans in etiology and disease course; <strong>BBB dysfunction was detected by DCE-MRI in 37% of seizing dogs</strong>, with TGF-β pathway activation in piriform cortex (<a href="https://pubmed.ncbi.nlm.nih.gov/31032909/">PMID: 31032909</a>). Canine IE plasma/fecal metabolomes show altered oxidative stress, inflammation, amino-acid metabolism (lower vitamin B6), and gut-microbiome shifts paralleling human findings.</p>
+<blockquote>
+<p><em>"Idiopathic epilepsy (IE) is the most common chronic neurological disease in dogs, and a natural animal model for human epilepsy types with genetic and unknown etiology."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40707505/">PMID: 40707505</a></p>
+</blockquote>
+<h3>F011 — A substantial fraction of epilepsy is preventable</h3>
+<p>The <strong>ILAE Prevention Task Force identifies four preventable etiologic categories: perinatal insults, TBI, CNS infection, and stroke</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29637551/">PMID: 29637551</a>). <strong>Perinatal brain insults are the largest attributable fraction in children (~15% HIC, 17% LMIC); stroke accounts for ≥50% of new-onset cases in older adults; TBI ~5%; CNS infections ~5% in LMIC.</strong> Median active-epilepsy prevalence is <strong>7.0/1000 in high-income and 11.1/1000 in low/middle-income countries.</strong> <strong>Neurocysticercosis</strong> is a leading preventable cause in endemic regions, addressable via sanitation and clean water (<a href="https://pubmed.ncbi.nlm.nih.gov/40347840/">PMID: 40347840</a>).</p>
+<blockquote>
+<p><em>"Perinatal brain insults were the largest attributable fraction of preventable etiologies in children, with median estimated fractions of 17% in LMIC and 15% in HIC. Stroke was the most common preventable etiology among older adults."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29637551/">PMID: 29637551</a></p>
+</blockquote>
+<h3>F012 — <em>SCN1A</em> variants span a phenotypic continuum (GEFS+ → Dravet)</h3>
+<p><strong>Genetic epilepsy with febrile seizures plus (GEFS+) is an autosomal dominant disorder</strong> with febrile or afebrile seizures exhibiting marked phenotypic variability, forming part of the <em>SCN1A</em> spectrum (<a href="https://pubmed.ncbi.nlm.nih.gov/35627139/">PMID: 35627139</a>). The same gene thus produces a <strong>severity continuum from mild febrile seizures (GEFS+) to severe DEE (Dravet)</strong>, with <strong>incomplete penetrance and highly variable expressivity</strong>, and same-codon variants yielding divergent functional effects (<a href="https://pubmed.ncbi.nlm.nih.gov/41718449/">PMID: 41718449</a>).</p>
+<h3>F013 — Rising incidence/prevalence but falling age-standardized DALYs and mortality; secondary epilepsy grows fastest</h3>
+<p>From 1990–2021, both China and the world showed <strong>increasing incidence and prevalence, while DALYs and mortality decreased significantly</strong> (global AAPC −0.525% DALYs, −0.535% mortality), with projected continued increases in incidence/prevalence but ongoing DALY/mortality declines to 2045 (<a href="https://pubmed.ncbi.nlm.nih.gov/42404107/">PMID: 42404107</a>). GBD 2023 modeling projects LMIC age-standardized prevalence of 907/100,000 by 2050, with <strong>idiopathic and secondary epilepsy ASPRs of 323 and 584 per 100,000</strong> respectively (<a href="https://pubmed.ncbi.nlm.nih.gov/42541262/">PMID: 42541262</a>).</p>
+<blockquote>
+<p><em>"From 1990 to 2021, both China and the world showed increasing trends in incidence and prevalence. In contrast, DALYs and mortality decreased significantly."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42404107/">PMID: 42404107</a></p>
+</blockquote>
+<h3>F014 — Epigenetic reprogramming forms a "cellular memory" of epileptogenesis</h3>
+<p>The <strong>ILAE Genetics/Epigenetics Task Force</strong> established epigenetics—DNA methylation, histone post-translational modification, and noncoding RNAs—as important mechanisms controlling gene activity in epilepsy, with potential as <strong>biomarkers and novel therapies</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32301721/">PMID: 32301721</a>). Experimental status epilepticus triggers spatiotemporal hypo- and hypermethylation genome-wide, and <strong>manipulations that alter DNA methylation ameliorate cognitive and hyperexcitability phenotypes</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/30159897/">PMID: 30159897</a>). In a hippocampal neuron model, glutamate-driven excitation produced lasting histone modifications and promoter hypermethylation repressing glutamate-receptor genes <em>Gria2</em> and <em>Grin2a</em>, forming a <strong>"cellular memory of epileptogenesis"</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/29089052/">PMID: 29089052</a>). MicroRNAs (e.g., miR-134) are candidate biomarkers and antiseizure targets.</p>
+<blockquote>
+<p><em>"we hypothesized that epigenetic modifications may form the basis for a cellular memory of epileptogenesis."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/29089052/">PMID: 29089052</a></p>
+</blockquote>
+<h3>F015 — Single-cell/spatial transcriptomics reveals cell-type-specific hippocampal remodeling in TLE</h3>
+<p>Single-nucleus RNA-seq of hippocampus after pilocarpine status epilepticus showed <strong>reductions in specific Cck and Lamp5-Lhx6 GABAergic interneuron subclusters</strong>, increases in Cajal–Retzius cells and dentate granule-cell precursors, and a <strong>markedly expanded microglial subcluster termed "epilepsy-associated microglia" (EAM)</strong> whose profile overlaps microglia in Alzheimer's disease and TBI models (<a href="https://pubmed.ncbi.nlm.nih.gov/41867871/">PMID: 41867871</a>). Integrative single-cell + spatial transcriptomics in TLE with hippocampal sclerosis (TLE-HS) found <strong>complement activity elevated and higher in sclerotic than normal hippocampus</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/42458112/">PMID: 42458112</a>). Bulk + snRNA-seq implicate myeloid/microglial immune infiltration and hub genes (<em>PSD4</em>, <em>P2RY13</em>) in hippocampal sclerosis (<a href="https://pubmed.ncbi.nlm.nih.gov/41456035/">PMID: 41456035</a>).</p>
+<blockquote>
+<p><em>"Complement activity was elevated in epilepsy. The levels were higher in hippocampal sclerosis (HS) tissue than in normal hippocampus."</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42458112/">PMID: 42458112</a></p>
+</blockquote>
+<hr />
+<h2>Detailed Section-by-Section Characterization</h2>
+<h3>Section 2 — Etiology, Risk &amp; Protective Factors</h3>
+<p><strong>Causal factors</strong> span genetic (channelopathies, synaptopathies, polygenic risk), structural (FCD, hippocampal sclerosis, tumors, malformations), infectious (neurocysticercosis, meningitis/encephalitis), metabolic, immune (autoimmune encephalitis), and unknown categories.</p>
+<ul>
+<li><strong>Genetic risk factors:</strong> Monogenic causal variants (<em>SCN1A</em>, <em>SCN2A</em>, <em>KCNQ2</em>, <em>GABRB3</em>, <em>DEPDC5</em>, <em>MTOR</em>, <em>GRIN2B</em>), 26 GGE susceptibility loci, and polygenic risk scores (≥400 common causal variants; heritability ~32%) (F008; <a href="https://pubmed.ncbi.nlm.nih.gov/37653029/">PMID: 37653029</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/25063994/">PMID: 25063994</a>).</li>
+<li><strong>Environmental/acquired risk factors:</strong> TBI, stroke, CNS infection, perinatal insults, early-life seizures, intracranial bleeding, BBB disruption, febrile seizures (F005, F011). Age (bimodal: young children and elderly), family history, and stress/HPA-axis dysfunction (<a href="https://pubmed.ncbi.nlm.nih.gov/42556144/">PMID: 42556144</a>).</li>
+<li><strong>Protective/modifiable factors:</strong> Vaccination and sanitation (against neurocysticercosis/CNS infection), obstetric care, injury prevention, vascular risk-factor control, and seizure-control measures reducing SUDEP risk (F011).</li>
+<li><strong>Gene–environment interactions:</strong> Genetic susceptibility (e.g., low seizure threshold) interacts with environmental triggers (fever in Dravet/GEFS+; stress; sleep deprivation). Gut-microbiota–host epigenetic interactions may modulate treatment response (<a href="https://pubmed.ncbi.nlm.nih.gov/42236101/">PMID: 42236101</a>).</li>
+</ul>
+<h3>Section 3 — Phenotypes (with HPO terms)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO term</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seizures (core)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a></td>
+<td>Clinical sign</td>
+<td>Any age; bimodal</td>
+<td>~100% (defining)</td>
+</tr>
+<tr>
+<td>Generalized tonic-clonic seizures</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" rel="noopener noreferrer">HP:0002069</a></td>
+<td>Clinical sign</td>
+<td>Variable</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Focal-onset seizures</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" rel="noopener noreferrer">HP:0007359</a></td>
+<td>Clinical sign</td>
+<td>Variable</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>Febrile seizures</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002373" target="_blank" rel="noopener noreferrer">HP:0002373</a></td>
+<td>Clinical sign</td>
+<td>Infancy/childhood</td>
+<td>GEFS+/Dravet</td>
+</tr>
+<tr>
+<td>Status epilepticus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002133" target="_blank" rel="noopener noreferrer">HP:0002133</a></td>
+<td>Clinical sign</td>
+<td>Variable</td>
+<td>Subset</td>
+</tr>
+<tr>
+<td>Intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Neurodevelopmental</td>
+<td>Childhood</td>
+<td>DEE subtypes</td>
+</tr>
+<tr>
+<td>Developmental regression</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" rel="noopener noreferrer">HP:0002376</a></td>
+<td>Neurodevelopmental</td>
+<td>Infancy</td>
+<td>Dravet/DEE</td>
+</tr>
+<tr>
+<td>Ataxia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" rel="noopener noreferrer">HP:0001251</a></td>
+<td>Physical</td>
+<td>Variable</td>
+<td>Dravet (adult)</td>
+</tr>
+<tr>
+<td>Anxiety</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" rel="noopener noreferrer">HP:0000739</a></td>
+<td>Behavioral</td>
+<td>Any</td>
+<td>High in PWE</td>
+</tr>
+<tr>
+<td>Depression</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" rel="noopener noreferrer">HP:0000716</a></td>
+<td>Behavioral</td>
+<td>Any</td>
+<td>High in PWE</td>
+</tr>
+<tr>
+<td>Cognitive impairment</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" rel="noopener noreferrer">HP:0100543</a></td>
+<td>Behavioral/lab</td>
+<td>Any</td>
+<td>Common</td>
+</tr>
+<tr>
+<td>EEG abnormality</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" rel="noopener noreferrer">HP:0002353</a></td>
+<td>Lab</td>
+<td>Any</td>
+<td>Diagnostic</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Characteristics:</strong> Onset ranges from neonatal to geriatric; severity from mild (self-limited GEFS+) to severe (DEE with premature death). Course is typically <strong>episodic/fluctuating</strong> (seizures) superimposed on a chronic disorder; some DEEs are progressive. <strong>Quality-of-life impact</strong> is substantial—driving restrictions, employment barriers, stigma, psychiatric comorbidity, and cognitive decline (F006).</p>
+<h3>Section 4 — Genetic / Molecular Information</h3>
+<p><strong>Causal genes</strong> (F002, F008): <em>SCN1A</em> (Naᵥ1.1, Dravet/GEFS+), <em>SCN1B</em>, <em>SCN2A</em>, <em>KCNQ2</em>, <em>GABRB3</em>, <em>GABRA1</em>, <em>GRIN1</em>, <em>GRIN2B</em>, <em>CACNA1A</em>, <em>CHD2</em>, <em>MTOR</em> (mTORopathies/FCD), <em>DEPDC5</em>, <em>ALG13</em>, <em>TSC1/TSC2</em> (TSC). <strong>Variant types:</strong> missense (often destabilizing), frameshift, nonsense, splice-site, and structural. <strong>Functional consequences:</strong> predominantly loss-of-function in Dravet (Naᵥ1.1 in interneurons → disinhibition), but gain-of-function in some <em>SCN2A/SCN8A</em> and <em>GRIN</em> variants. Same-codon divergence complicates ACMG/AMP classification (<a href="https://pubmed.ncbi.nlm.nih.gov/41718449/">PMID: 41718449</a>). <strong>Somatic mosaicism</strong> in <em>MTOR</em> drives FCD (non-cell-autonomous epileptogenesis; <a href="https://pubmed.ncbi.nlm.nih.gov/34180075/">PMID: 34180075</a>). <strong>Epigenetic:</strong> DNA methylation, histone modification, ncRNA dysregulation (F014). <strong>Chromosomal:</strong> microdeletions/duplications (e.g., 15q13.3) detectable by CMA; pathogenic CNVs found in 52% of an ASD-epilepsy overlap cohort by microarray (<a href="https://pubmed.ncbi.nlm.nih.gov/42207445/">PMID: 42207445</a>).</p>
+<h3>Section 5 — Environmental Information</h3>
+<p>Toxins/withdrawal (alcohol), perinatal hypoxia-ischemia, TBI, radiation, and pollution contribute. <strong>Lifestyle factors:</strong> sleep deprivation, alcohol, and stress are seizure triggers; the gut–brain axis and diet modulate seizure susceptibility (<a href="https://pubmed.ncbi.nlm.nih.gov/42236101/">PMID: 42236101</a>). Climate change is an emerging environmental influence on neurological burden (<a href="https://pubmed.ncbi.nlm.nih.gov/42626786/">PMID: 42626786</a>). <strong>Infectious agents:</strong> <em>Taenia solium</em> (neurocysticercosis; leading preventable cause in endemic regions), bacterial/viral meningoencephalitis (F011; <a href="https://pubmed.ncbi.nlm.nih.gov/40347840/">PMID: 40347840</a>).</p>
+<h3>Section 6 — Mechanism / Pathophysiology</h3>
+<p>The unifying mechanism is <strong>excitation/inhibition imbalance</strong> (see Mechanistic Model). <strong>Molecular pathways:</strong> GABAergic/glutamatergic signaling, <strong>mTOR pathway</strong> (TSC/FCD mTORopathies; <a href="https://pubmed.ncbi.nlm.nih.gov/34298906/">PMID: 34298906</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/34180075/">PMID: 34180075</a>), <strong>TGF-β/BBB</strong> signaling, complement cascade, and cytokine (IL-1β/IL-6/TNF-α) signaling. <strong>Cellular processes:</strong> microglial synapse pruning, astrogliosis, neuroinflammation, neuronal loss, aberrant neurogenesis, synaptic reorganization (mossy-fiber sprouting). <strong>Protein dysfunction:</strong> Naᵥ1.1 loss-of-function/misfolding (F002). <strong>Metabolic changes:</strong> oxidative stress, altered amino-acid metabolism, vitamin B6 depletion (canine parallel; F010). <strong>Immune involvement:</strong> autoimmune epilepsy responsive to immunotherapy (<a href="https://pubmed.ncbi.nlm.nih.gov/40249641/">PMID: 40249641</a>); NORSE responsive to IL-6 blockade (tocilizumab; <a href="https://pubmed.ncbi.nlm.nih.gov/40100558/">PMID: 40100558</a>); Mendelian randomization links polymyositis to epilepsy via T-cell/microglial neuroinflammation (<a href="https://pubmed.ncbi.nlm.nih.gov/41466027/">PMID: 41466027</a>). <strong>Molecular profiling:</strong> single-cell/spatial transcriptomics reveal EAM and complement activation (F015).</p>
+<p><strong>Ontology annotation:</strong> <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a> (inflammatory response), <a href="http://purl.obolibrary.org/obo/GO_0098883" target="_blank" rel="noopener noreferrer">GO:0098883</a> (synapse pruning), <a href="http://purl.obolibrary.org/obo/GO_0051932" target="_blank" rel="noopener noreferrer">GO:0051932</a> (GABAergic transmission), <a href="http://purl.obolibrary.org/obo/GO_0032526" target="_blank" rel="noopener noreferrer">GO:0032526</a> (response to fever), <a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" rel="noopener noreferrer">CL:0000617</a> (GABAergic interneuron), <a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a> (microglia), <a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" rel="noopener noreferrer">UBERON:0001954</a> (Ammon's horn/hippocampus). <strong>CHEBI:</strong> GABA (<a href="http://purl.obolibrary.org/obo/CHEBI_16865" target="_blank" rel="noopener noreferrer">CHEBI:16865</a>), glutamate (<a href="http://purl.obolibrary.org/obo/CHEBI_14321" target="_blank" rel="noopener noreferrer">CHEBI:14321</a>), cannabidiol (<a href="http://purl.obolibrary.org/obo/CHEBI_69478" target="_blank" rel="noopener noreferrer">CHEBI:69478</a>).</p>
+<h3>Section 7 — Anatomical Structures Affected</h3>
+<ul>
+<li><strong>Organ:</strong> brain (<a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>); body system: nervous system (<a href="http://purl.obolibrary.org/obo/UBERON_0001016" target="_blank" rel="noopener noreferrer">UBERON:0001016</a>). Secondary: cardiovascular (SUDEP arrhythmias), respiratory (peri-ictal apnea), endocrine (HPA axis).</li>
+<li><strong>Tissue/cell:</strong> nervous tissue; GABAergic interneurons (<a href="http://purl.obolibrary.org/obo/CL_0000617" target="_blank" rel="noopener noreferrer">CL:0000617</a>), glutamatergic pyramidal neurons (<a href="http://purl.obolibrary.org/obo/CL_0000679" target="_blank" rel="noopener noreferrer">CL:0000679</a>), microglia (<a href="http://purl.obolibrary.org/obo/CL_0000129" target="_blank" rel="noopener noreferrer">CL:0000129</a>), astrocytes (<a href="http://purl.obolibrary.org/obo/CL_0000127" target="_blank" rel="noopener noreferrer">CL:0000127</a>), cerebellar Purkinje cells (<a href="http://purl.obolibrary.org/obo/CL_0000121" target="_blank" rel="noopener noreferrer">CL:0000121</a>, Dravet ataxia).</li>
+<li><strong>Subcellular:</strong> ion channels at the plasma membrane/axon initial segment (<a href="http://purl.obolibrary.org/obo/GO_0043194" target="_blank" rel="noopener noreferrer">GO:0043194</a>); nucleus (epigenetic/DNA methylation); mitochondria (metabolic/oxidative stress).</li>
+<li><strong>Localization:</strong> commonly <strong>hippocampus</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0001954" target="_blank" rel="noopener noreferrer">UBERON:0001954</a>), temporal lobe (<a href="http://purl.obolibrary.org/obo/UBERON_0001871" target="_blank" rel="noopener noreferrer">UBERON:0001871</a>), neocortex; often unilateral in mesial TLE-HS, bilateral/generalized in GGE. FCD is focal.</li>
+</ul>
+<h3>Section 8 — Temporal Development</h3>
+<p><strong>Onset:</strong> bimodal—early childhood (genetic/DEE, perinatal) and older adults (stroke-related). <strong>Onset pattern:</strong> may be acute (post-insult) or insidious (genetic). <strong>Progression:</strong> most epilepsies are chronic/lifelong with an episodic seizure course; DEEs may be progressive with developmental plateau/regression; adult Dravet shows accelerated-aging neuropathology (<a href="https://pubmed.ncbi.nlm.nih.gov/40956029/">PMID: 40956029</a>). <strong>Critical periods:</strong> acquired-epilepsy recurrence risk peaks within 1–2 years of insult (F005), defining an anti-epileptogenic intervention window. <strong>Remission:</strong> ~65–70% achieve treatment-induced remission; some childhood syndromes remit spontaneously.</p>
+<h3>Section 9 — Inheritance and Population</h3>
+<ul>
+<li><strong>Epidemiology:</strong> ~50–70 million affected worldwide; active-epilepsy prevalence 7.0/1000 (HIC) and 11.1/1000 (LMIC) (F001, F011). Rising incidence/prevalence, falling age-standardized DALYs/mortality (F013).</li>
+<li><strong>Inheritance:</strong> predominantly <strong>multifactorial/polygenic</strong>; monogenic subsets are <strong>autosomal dominant</strong> (GEFS+, most Dravet as de novo), with <strong>incomplete, age-dependent penetrance</strong> and <strong>highly variable expressivity</strong> (F012). Some AR and mitochondrial forms exist. De novo mutations are common in DEEs (F008).</li>
+<li><strong>Demographics:</strong> slight variation by sex/geography; LMICs bear disproportionate acquired burden; neurocysticercosis endemic in Latin America, sub-Saharan Africa, and parts of Asia (<a href="https://pubmed.ncbi.nlm.nih.gov/8490989/">PMID: 8490989</a>).</li>
+</ul>
+<h3>Section 10 — Diagnostics</h3>
+<ul>
+<li><strong>Electrophysiology:</strong> EEG is the cornerstone; abnormal EEG is the strongest independent predictor of epilepsy (OR 48.96 in an ASD cohort; <a href="https://pubmed.ncbi.nlm.nih.gov/42207445/">PMID: 42207445</a>); intracranial EEG for surgical planning.</li>
+<li><strong>Imaging:</strong> MRI (FCD, hippocampal sclerosis, lesions), PET, DCE-MRI for BBB (translational; <a href="https://pubmed.ncbi.nlm.nih.gov/31032909/">PMID: 31032909</a>).</li>
+<li><strong>Genetic testing:</strong> gene panels, WES, WGS, CMA/karyotype; high yield in DEE and early-onset epilepsy (GTR/ClinVar/GeneReviews). Molecular autopsy for SUDEP.</li>
+<li><strong>Labs/biomarkers:</strong> autoantibody panels (autoimmune epilepsy), metabolic workup; emerging miRNA (miR-134) and complement biomarkers (F014, F015).</li>
+<li><strong>Clinical criteria:</strong> ILAE operational definition and classification; differential diagnosis includes syncope, functional/dissociative seizures (<a href="https://pubmed.ncbi.nlm.nih.gov/39510015/">PMID: 39510015</a>), migraine, and movement disorders.</li>
+</ul>
+<h3>Section 11 — Outcome / Prognosis</h3>
+<p><strong>~70–80% achieve seizure control; ~30% remain drug-resistant</strong> (F009). <strong>SUDEP</strong> is the leading cause of premature death (8–17% of epilepsy deaths; F004). DS carries 10–20% premature mortality (F007). Morbidity is driven by injury, psychiatric/cognitive comorbidity (F006), and reduced QoL. <strong>Prognostic factors:</strong> etiology, seizure frequency/type (GTCS), drug response, EEG/imaging findings, and genetic diagnosis. Post-surgical memory decline affects 40–60% (<a href="https://pubmed.ncbi.nlm.nih.gov/41427594/">PMID: 41427594</a>).</p>
+<h3>Section 12 — Treatment (with NCIT suggestions)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Examples</th>
+<th>Efficacy/Notes</th>
+<th>NCIT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ASMs (broad)</td>
+<td>levetiracetam, valproate, lamotrigine, carbamazepine, phenytoin</td>
+<td>70–80% control</td>
+<td>NCIT:C264 (Anticonvulsant Agent)</td>
+</tr>
+<tr>
+<td>Newer ASMs</td>
+<td>cenobamate, clobazam, perampanel, fenfluramine</td>
+<td>CNB+CLB: 72–82% responders in DRE (<a href="https://pubmed.ncbi.nlm.nih.gov/41919359/">PMID: 41919359</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Cannabidiol</td>
+<td>Epidiolex</td>
+<td>30–50% seizure reduction</td>
+<td>NCIT:C81660</td>
+</tr>
+<tr>
+<td>Precision (mTOR)</td>
+<td>everolimus (TSC)</td>
+<td>Only class I precision therapy</td>
+<td>NCIT:C48387</td>
+</tr>
+<tr>
+<td>Surgery</td>
+<td>resection, corpus callosotomy</td>
+<td>Effective in focal DRE/LGS</td>
+<td>NCIT:C15329</td>
+</tr>
+<tr>
+<td>Neuromodulation</td>
+<td>VNS, RNS (50–70%), DBS</td>
+<td>For DRE</td>
+<td>NCIT:C99924 (VNS)</td>
+</tr>
+<tr>
+<td>Diet</td>
+<td>ketogenic diet</td>
+<td>Broad efficacy, esp. DEE/LGS</td>
+<td>NCIT:C92877</td>
+</tr>
+<tr>
+<td>Immunotherapy</td>
+<td>IV methylprednisolone, IVIG, tocilizumab</td>
+<td>Autoimmune/NORSE (<a href="https://pubmed.ncbi.nlm.nih.gov/40249641/">PMID: 40249641</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40100558/">PMID: 40100558</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Gene/RNA therapy</td>
+<td>AAV interneuron-targeted, ASOs, NP-NPY</td>
+<td>Preclinical/emerging (<a href="https://pubmed.ncbi.nlm.nih.gov/40106582/">PMID: 40106582</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41074603/">PMID: 41074603</a>)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Treatment strategy: mechanism/syndrome-guided (e.g., avoid sodium-channel blockers in Dravet); seizure-type-specific in LGS (<a href="https://pubmed.ncbi.nlm.nih.gov/40409093/">PMID: 40409093</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41391422/">PMID: 41391422</a>); precision therapy by genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/40411479/">PMID: 40411479</a>).</p>
+<h3>Section 13 — Prevention</h3>
+<p><strong>Primary:</strong> obstetric/perinatal care, TBI prevention, stroke risk-factor control, vaccination and sanitation against CNS infection/neurocysticercosis (F011; <a href="https://pubmed.ncbi.nlm.nih.gov/29637551/">PMID: 29637551</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40347840/">PMID: 40347840</a>). <strong>Secondary:</strong> early seizure detection, EEG screening in high-risk groups (e.g., ASD; <a href="https://pubmed.ncbi.nlm.nih.gov/42207445/">PMID: 42207445</a>). <strong>Tertiary:</strong> SUDEP risk communication and safety counseling (<a href="https://pubmed.ncbi.nlm.nih.gov/42208388/">PMID: 42208388</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42435512/">PMID: 42435512</a>), medication adherence, comorbidity management, and genetic counseling for heritable subtypes.</p>
+<h3>Section 14 — Other Species / Natural Disease</h3>
+<p><strong>Dogs (<em>Canis lupus familiaris</em>, NCBI:txid9615)</strong> develop naturally occurring idiopathic epilepsy—the most common canine chronic neurological disease—recapitulating human etiology, disease course, BBB dysfunction, and metabolomic shifts (F010; <a href="https://pubmed.ncbi.nlm.nih.gov/40707505/">PMID: 40707505</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/31032909/">PMID: 31032909</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/42280378/">PMID: 42280378</a>). This provides strong evolutionary conservation of epileptogenic mechanisms and translational value. Orthologous <em>SCN1A</em> exists across mammals. Epilepsy itself is non-transmissible; its infectious <em>cause</em> neurocysticercosis is transmitted via the <em>T. solium</em> lifecycle involving pigs.</p>
+<h3>Section 15 — Model Organisms</h3>
+<ul>
+<li><strong>Mouse (<em>Mus musculus</em>, NCBI:txid10090):</strong> Scn1a⁺/⁻ and Scn1b-null Dravet models (F007); pilocarpine/kainate chemoconvulsant TLE models; freeze-lesion FCD models; MTOR-mosaic FCD models (<a href="https://pubmed.ncbi.nlm.nih.gov/34180075/">PMID: 34180075</a>). Genetic tools: knockout, conditional, humanized. Resources: MGI, IMPC.</li>
+<li><strong>Rat:</strong> freeze-induced neocortical malformation, pilocarpine status epilepticus (<a href="https://pubmed.ncbi.nlm.nih.gov/40003890/">PMID: 40003890</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/29089052/">PMID: 29089052</a>); RGD.</li>
+<li><strong>In vitro/cellular:</strong> cultured hippocampal neurons (epigenetic memory; <a href="https://pubmed.ncbi.nlm.nih.gov/29089052/">PMID: 29089052</a>), iPSC-derived neurons, organoids.</li>
+<li><strong>Phenotype recapitulation:</strong> models reproduce spontaneous seizures, interneuron dysfunction, premature death (Dravet), and BBB/inflammation; <strong>limitations</strong> include incomplete replication of the human cognitive/behavioral comorbidity spectrum and genetic-background effects.</li>
+</ul>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The findings cohere into a <strong>convergent E/I-imbalance model</strong> in which diverse etiologies funnel into a common final pathway of hyperexcitable, hypersynchronous networks:</p>
+<pre><code>   ETIOLOGIC TRIGGERS (upstream, heterogeneous)
+   ┌───────────────────────────────────────────────────────────┐
+   │ Genetic          Acquired insults        Structural/Immune  │
+   │ • SCN1A LoF       • TBI                   • FCD (MTOR mosaic)│
+   │ • GABRB3, GRIN…   • Stroke                • Hippocampal scler│
+   │ • Polygenic (26   • CNS infection         • Autoimmune (Ab)  │
+   │   GWAS loci)      • Perinatal insult      • NORSE (IL-6)     │
+   └───────────────┬───────────────────┬───────────────────────┘
+   │                   │
+      Loss of interneuron       BBB disruption + TGF-β
+      inhibition (Nav1.1↓)      + cytokines (IL-1β,IL-6,TNF-α)
+   │                   │
+   ▼                   ▼
+┌─────────────────────────────────────────┐
+│   NEUROINFLAMMATION &amp; GLIAL REMODELING   │
+│  • Microglial pruning of INHIB. synapses │
+│  • &quot;Epilepsy-associated microglia&quot; (EAM) │
+│  • Astrogliosis, complement activation   │
+└───────────────────┬─────────────────────┘
+            ▼
+┌─────────────────────────────────────────┐
+│   E / I  IMBALANCE  → NET EXCITATION      │  ← core convergent node
+└───────────────────┬─────────────────────┘
+            ▼
+┌─────────────────────────────────────────┐
+│  EPIGENETIC &quot;CELLULAR MEMORY&quot;            │  (feed-forward, self-reinforcing)
+│  • DNA methylation of Gria2/Grin2a       │
+│  • Histone modifications, miR-134        │
+│  • Circuit reorganization (sprouting)    │
+└───────────────────┬─────────────────────┘
+            ▼
+   HYPERSYNCHRONOUS DISCHARGE → RECURRENT SEIZURES (clinical epilepsy)
+            │
+  ┌─────────────────┼──────────────────────┐
+  ▼                 ▼                      ▼
+   Psychiatric/cognitive  Drug resistance     SUDEP (neuro-cardio-
+   comorbidity (bidir.)   (~30%)              respiratory failure)
+</code></pre>
+<p><strong>Upstream vs downstream:</strong> Etiologic triggers and interneuron/inhibition loss are <strong>upstream</strong>; neuroinflammation and glial synapse-pruning are <strong>intermediate amplifiers</strong>; the epigenetic "cellular memory" and circuit reorganization are <strong>feed-forward mechanisms</strong> that render epilepsy self-sustaining and chronic; seizures, comorbidity, drug resistance, and SUDEP are <strong>downstream clinical manifestations</strong>. This model explains why a single mechanism (disinhibition) can arise from a sodium-channel mutation, a somatic mTOR mutation, a stroke, or an autoimmune attack—and why immunomodulation, neuromodulation, dietary, and precision-genetic approaches can each intercept the pathway at different nodes.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Finding(s)</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41306289/">41306289</a></td>
+<td>F001, F003</td>
+<td>Global prevalence (70M); cytokine mechanisms of hyperexcitability</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42541262/">42541262</a></td>
+<td>F001, F013</td>
+<td>GBD 2050 LMIC projections; secondary epilepsy rising 7× faster</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41712149/">41712149</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40836583/">40836583</a></td>
+<td>F002</td>
+<td><em>SCN1A</em> LoF &gt;95% of Dravet; Naᵥ1.1</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42490276/">42490276</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41718449/">41718449</a></td>
+<td>F002, F012</td>
+<td>Variant destabilization; same-codon functional divergence</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40425792/">40425792</a></td>
+<td>F003</td>
+<td>Microglial pruning of inhibitory synapses</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40003890/">40003890</a></td>
+<td>F003</td>
+<td>E/I shift toward excitation in FCD perilesional cortex</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42617006/">42617006</a></td>
+<td>F004</td>
+<td>SUDEP 8–17% of deaths; neuro-cardio-respiratory mechanism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29247482/">29247482</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40824375/">40824375</a></td>
+<td>F005</td>
+<td>Acquired etiologies; 1–2-yr critical window</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41868310/">41868310</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41235437/">41235437</a></td>
+<td>F006</td>
+<td>Bidirectional comorbidities; 1-in-5 undiagnosed psychiatric</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40923316/">40923316</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41074603/">41074603</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40106582/">40106582</a></td>
+<td>F007</td>
+<td>Mouse Dravet models; precision therapy testing</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37653029/">37653029</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/39904507/">39904507</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/25063994/">25063994</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41726570/">41726570</a></td>
+<td>F008</td>
+<td>GWAS 26 loci; heritability 32%; ≥400 variants; DEE de novo genes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41496926/">41496926</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40411479/">40411479</a></td>
+<td>F009</td>
+<td>70–80% control; RNS/CBD figures; everolimus class I</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40707505/">40707505</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/31032909/">31032909</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/39804158/">39804158</a></td>
+<td>F010</td>
+<td>Canine natural model; BBB dysfunction; metabolome</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29637551/">29637551</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/40347840/">40347840</a></td>
+<td>F011</td>
+<td>ILAE preventable etiologies; neurocysticercosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42404107/">42404107</a></td>
+<td>F013</td>
+<td>Rising incidence, falling DALYs/mortality</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32301721/">32301721</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/30159897/">30159897</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/29089052/">29089052</a></td>
+<td>F014</td>
+<td>Epigenetics as mechanism/biomarker; cellular memory</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41867871/">41867871</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/42458112/">42458112</a> / <a href="https://pubmed.ncbi.nlm.nih.gov/41456035/">41456035</a></td>
+<td>F015</td>
+<td>EAM; complement activation; HS hub genes</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Supporting/converging evidence:</strong> Autoimmune epilepsy responsive to immunotherapy (<a href="https://pubmed.ncbi.nlm.nih.gov/40249641/">PMID: 40249641</a>), NORSE responsive to tocilizumab (<a href="https://pubmed.ncbi.nlm.nih.gov/40100558/">PMID: 40100558</a>), and Mendelian-randomization linking polymyositis to epilepsy via neuroinflammation (<a href="https://pubmed.ncbi.nlm.nih.gov/41466027/">PMID: 41466027</a>) all reinforce the inflammatory arm of the model. Non-cell-autonomous FCD epileptogenesis (<a href="https://pubmed.ncbi.nlm.nih.gov/34180075/">PMID: 34180075</a>) illustrates how few mutant neurons induce network-level hyperexcitability.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Mechanism causality vs correlation:</strong> Much single-cell/epigenetic data (F014, F015) is associative or from rodent status-epilepticus models; whether EAM and complement activation are drivers or consequences of seizures requires causal perturbation in humans.</li>
+<li><strong>Genetic architecture incompleteness:</strong> Despite 26 GWAS loci and heritability of 32%, substantial "missing heritability" remains; ≥400 causal variants are estimated but most are unidentified (F008).</li>
+<li><strong>Variant interpretation:</strong> Same-codon functional divergence (F002/F012) undermines position-based prediction, leaving many <em>SCN1A</em> variants as VUS and complicating precision therapy.</li>
+<li><strong>Model-organism translation:</strong> Mouse Dravet models recapitulate seizures and premature death but incompletely model human cognitive/behavioral comorbidities and genetic-background modifiers (F007).</li>
+<li><strong>Comorbidity underdiagnosis:</strong> 37% of psychiatric comorbidity is undetected in routine care (F006), and QoL data are heterogeneous and often not phenotype-specific.</li>
+<li><strong>LMIC data gaps:</strong> GBD projections rely on modeling with wide uncertainty intervals (F001, F013); primary epidemiologic data from LMICs remain sparse.</li>
+<li><strong>Precision therapy scarcity:</strong> Only everolimus has class I precision evidence (F009); gene/RNA therapies remain largely preclinical.</li>
+<li><strong>Report scope:</strong> This is a literature-synthesis report (no primary dataset analyzed); citation snippets were validated against abstracts, but some claims rest on single studies.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Causal test of microglial pruning:</strong> Conditional depletion or complement (C1q/C3) blockade in Dravet and post-TBI models to determine whether preventing inhibitory-synapse phagocytosis is anti-epileptogenic (extends F003, F015).</li>
+<li><strong>Epigenetic therapy trials:</strong> Test DNA-methylation modulators and antimiR-134 in the 1–2-year post-insult critical window (F005, F014) as anti-epileptogenic interventions after TBI/stroke.</li>
+<li><strong>Functional variant screening:</strong> High-throughput deep mutational scanning of <em>SCN1A</em> to resolve VUS and enable genotype-matched precision therapy, addressing same-codon divergence (F002, F012).</li>
+<li><strong>Biomarker validation:</strong> Prospectively validate circulating miR-134, complement components, and BBB permeability (DCE-MRI) as predictive biomarkers of epileptogenesis and drug resistance across species (F010, F014, F015).</li>
+<li><strong>Preventive public-health modeling:</strong> Quantify epilepsy cases avertable by scaling perinatal care, TBI prevention, stroke control, and neurocysticercosis elimination in LMICs to guide investment (F011, F013).</li>
+<li><strong>SUDEP risk stratification:</strong> Combine molecular-autopsy channelopathy panels with wearable cardio-respiratory monitoring to build predictive SUDEP-risk models (F004).</li>
+<li><strong>Comorbidity integration:</strong> Embed structured psychiatric/cognitive screening (shown to detect 1-in-5 cases, 37% previously undiagnosed) into standard epilepsy care pathways and measure QoL outcomes (F006).</li>
+<li><strong>Cross-species translational pipeline:</strong> Leverage naturally epileptic dogs for anti-epileptogenic drug trials before human translation (F010).</li>
+</ol>
+<hr />
+<p><em>Report compiled from 15 confirmed findings and 62 reviewed papers. All quantitative claims are traceable to the cited PMIDs and validated abstract quotes.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Epilepsy-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Epilepsy-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.2.1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>55</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>55</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>27</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:42626786</code> (2 mentions) - Climate Change, Neurological Disorders and Brain Health: To-Know Concepts and Future Actions by the EAN Environmental Influences in Neurology Task Force.</li>
+<li>shared terms: model</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>epilepsy</code>, <code>seizure</code>, <code>genetic</code>, <code>dravet</code>, <code>gene</code>, <code>model</code>, <code>scn1a</code>, <code>epigenetic</code>, <code>sudep</code>, <code>variant</code>, <code>control</code>, <code>mechanism</code>, <code>dysfunction</code>, <code>neurocysticercosis</code>, <code>risk</code>, <code>bbb</code>, <code>interneuron</code>, <code>death</code>, <code>lmic</code>, <code>neuron</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Epilepsy-falcon.html">← Epilepsy (Falcon)</a>
+                
+                
+                <a href="Epilepsy_of_Infancy_with_Migrating_Focal_Seizures-claude_code.html">Epilepsy of Infancy with Migrating Focal Seizures (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Epilepsy.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Epilepsy-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="Epilepsy-cyberian-codex.html"><span class="provider-pill provider-cyberian">Cyberian Codex</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="Epilepsy-falcon.html"><span class="provider-pill provider-edison">Falcon</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
