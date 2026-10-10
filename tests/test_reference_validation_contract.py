@@ -49,7 +49,11 @@ def test_ci_runs_negative_controls_when_reference_policy_changes():
         assert path in filters["python"], (
             f"reference-policy changes must exercise the gate: {path}"
         )
-    lane = next(step for step in steps if step.get("run") == "just test-python-code")
+    lane = next(
+        step
+        for step in steps
+        if str(step.get("run", "")).startswith("just test-python-code")
+    )
     assert "steps.changes.outputs.python" in lane["if"]
 
 

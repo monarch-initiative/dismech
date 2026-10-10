@@ -115,6 +115,18 @@ groupings); it may refer to a module in membership criteria or a differentiating
 mechanism, but a module cannot be one of its members. This separation prevents framework
 navigation such as the Hallmarks of Aging from acquiring disease-membership semantics.
 
+**Parallel drug targets may share one mechanism module (2026-08-08).** The
+`fungal_ergosterol_synthesis_inhibition` module keeps the allylamine target Erg1
+(squalene epoxidase) and the azole target Cyp51/Erg11 (sterol
+14-alpha-demethylase) as parallel therapeutic-vulnerability branches in one module.
+The targets are separated by many biosynthetic intermediates, so neither is modeled
+as directly causing the other. They belong together because both normal dependencies
+converge on ergosterol production and ergosterol-dependent fungal plasma-membrane
+organization. Conformance is branch-specific: a disorder duplicates the applicable
+target-to-ergosterol-to-membrane slice and need not duplicate the other target branch.
+This is analogous to retaining distinct DHPS and DHFR targets within one conserved
+bacterial folate-pathway module.
+
 **Causal graph / pathograph.** Pathophysiology nodes connect via `downstream` causal
 edges with a `causal_link_type`, forming a directed graph from etiology to phenotypes.
 This graph backs the rendered pathographs and the computational-model integration
@@ -377,6 +389,320 @@ gain lineage-specific transformed-cell terms, or `CellTypeTerm` gain `NCIT:C1291
 second source node, so an entry needing "H3 K27M-mutant glioma cell" stops binding the
 generic `CL:0001063`. See [cancer-cell-of-origin.md](../cancer-cell-of-origin.md).
 
+### 3e. Infectious disease granularity ladder (2026-09-16)
+
+**Status: ENACTED at maintainer direction (`@cmungall`, 2026-09-16 session).** Origin:
+[#10115](https://github.com/monarch-initiative/dismech/issues/10115) and the
+[microbial disease granularity review](../reports/microbial-disease-granularity-2026-08-29.md),
+which proposed this as "§3b"; that number was taken by the time it was ratified. The
+review's proposed ladder is adopted with the three corrections its discussion produced,
+each marked below. Day-to-day mechanics are in
+[`CLAUDE.md`](https://github.com/monarch-initiative/dismech/blob/main/CLAUDE.md)
+under *Infectious Disease Entry Granularity*.
+
+**Decision.** Infectious disease entries follow an explicit granularity ladder, the
+infection counterpart of §3a. The generic §3 rule was written for Mendelian disease and
+§3a for somatic neoplasms; neither says what to do when one organism causes two named
+syndromes, one syndrome is caused by four unrelated organisms, or a species has two
+thousand serovars. The KB was resolving those three situations along six axes at once
+(organism, organ syndrome, eponym, phase, transmission setting, neoplastic sequela) with
+no rule for which wins, so *Legionella* was split by syndrome while four meningitis
+organisms were lumped by syndrome, and two diseases were curated in full at two rungs at
+once.
+
+**The default rung is the named clinical entity**: the pathogen–syndrome pair the field
+names, diagnoses and treats as a unit (cholera, Legionnaires' disease, Pontiac fever,
+Buruli ulcer). Neither the organism alone nor the organ syndrome alone. Move off it only
+by meeting the stated test of another rung.
+
+| Rung | Represent as | Rule |
+|---|---|---|
+| **0 Abstraction** (*infectious disease*, *viral infectious disease*, *bacterial infectious disease*) | `stubs/` entry with `entry_type: OUT_OF_SCOPE` | Too abstract to carry a mechanism. Record the reason in `notes` so the concept is not re-nominated. `Infectious_Disease` (`MONDO:0005550`; three generic host-response nodes headed by "Pathogen Invasion and Replication") was retired under this rung in #12096 |
+| **1 Grouping** (the treponematoses, the enteric fevers, the viral hepatitides) | `kb/groupings/` | A union of diseases the field already names separately, or an organ syndrome spanning unrelated organisms. Explicit `members`, `grouping_basis`, a `grouping_rationale` that states **the axes on which the members were split** and not only what they share, `mondo_mappings` with an explicit predicate; no `pathophysiology` of its own. `Treponematoses` is the reference implementation. An organ syndrome with an organism-independent mechanism is a `kb/modules/` module plus `conforms_to` instead |
+| **2 Named clinical entity** — **the default** | `Disease` entry | `disease_term` bound at the entry's own scope (`skos:narrowMatch` to the nearest class where no exact one exists; never bare parent reuse); ≥1 NCBITaxon-bound `infectious_agent`; ≥1 `transmission` route; `agent_life_cycle` with `hosts` (and `vectors`) wherever a non-human reservoir or arthropod vector exists; `life_cycle_stages` for helminth and protozoan agents; `progression` phases where the disease has a recognised phase structure; ≥1 `pathophysiology` node specific to this entity. **Test for rung 2 over rung 1:** every pathophysiology node is true of every case the entry covers. A node written vaguely enough to span two organisms with different mechanisms means the entry is at the wrong rung |
+| **3 Organism stratum** (species → subspecies → serovar → serotype) | `has_subtypes` on the rung-2 entry | A stratum earns a subtype when it is **documented to differ** from its siblings on at least one of: presentation or organ involvement; diagnosis; first-line treatment or drug susceptibility; prognosis; transmission route, vector or reservoir; geography or at-risk population. The threshold is documented difference, **not nomenclatural availability, and the default is to lump**. Each subtype's `description` says *what differs* and its `evidence` cites it; `subtype_term` is bound where an honest term exists and omitted rather than bound to the parent |
+| **3a Non-phylogenetic stratum** (pathotype, biotype, lineage, viral genotype, clade) | `has_subtypes` on the rung-2 entry, with `classification: pathotype` (or `biotype`, `lineage`, `genotype`, `clade`) | Defined by gene content or phylogeny below any rank a taxonomy names, so carried **structurally, never by an identifier**: the `description` names the defining determinant (LT/ST enterotoxin; Shiga toxin; *mecA*/SCC*mec*), `subtype_term` is bound only at a genuine serotype-rank node (*E. coli* O157:H7 → `NCBITaxon:83334`) and **never to the parent species** (binding *E. coli* to ETEC is a false grounding), and a genome or assembly accession is never a stratum's identity. The same rung-3 evidence gate applies, and it bites correctly here: ETEC, EPEC, EAEC and EHEC clear it on toxin, syndrome and (for EHEC) management; a serotype with a name and no reported clinical distinction stays lumped |
+| **4 Promoted stratum** | Own `Disease` entry, a covering rung-1 Grouping, and a **pointer** subtype left on the parent | **The Treponematoses test:** promote only when the stratum differs from its siblings on **at least two** of: transmission route or vector; reservoir host; natural history or tempo; organ systems ultimately involved; first-line therapy. Name the satisfied axes in the entry or the grouping's `grouping_rationale`. Own `disease_term`, or `skos:narrowMatch` to the parent. The parent keeps the stratum's row as a pointer (below) and drops any divergent copy of its content: nothing is *curated* at two rungs at once |
+| **Never a rung** | see below | A phase of one infection; an organ syndrome across unrelated organisms (rung 1 or a module); a post-infectious immune sequela (its own entry, cross-linked to the index infection, because the mechanism is host-immune); an infection-attributed neoplasm (§3a — the pathogen is an annotation, never a granularity axis); a mechanism shared across diseases (`kb/modules/`) |
+
+**The rules, numbered so a review can cite one.** These restate the ladder as law and
+carry the numbering the issue discussion settled on; `just check-granularity` reports
+each of its finding classes against the rule it enforces.
+
+- **R1** The default rung is the named clinical entity. Move off it only by satisfying a
+  rule below. **R2** A concept too abstract to carry a mechanism is an `OUT_OF_SCOPE`
+  stub with the reason, never an entry. **R3** A union of diseases the field already
+  names separately is a Grouping, with no `pathophysiology` of its own. **R4** An organ
+  syndrome spanning unrelated organisms is a Grouping; if the syndrome has an
+  organism-independent mechanism, a module plus `conforms_to`. **R5** An entry's
+  pathophysiology nodes must be true of every case it covers.
+- **R6** Organism strata below an entry are `has_subtypes`. **R7** A stratum earns a
+  subtype on at least one documented differentiating axis (the six in rung 3). **R8**
+  The threshold is documented difference, not nomenclatural availability. **R9** The
+  default is to lump; a deliberate lump is recorded (see *Recording a deliberate lump*).
+  **R10** Splitting is progressive and additive: a subtype added later as evidence
+  accrues is the normal lifecycle of an entry, not a repair. **R11** Every subtype states
+  what differs in `description` and cites it in `evidence`. **R12** `subtype_term` is
+  bound where an honest term exists and omitted rather than bound to the parent — MONDO
+  on a disease-level subtype, NCBITaxon on an agent-level stratum (see *Where a stratum's
+  taxonomic identity lives*).
+- **R13** Pathotype, biotype, lineage, viral genotype and clade are carried
+  structurally, not by an identifier. **R14** The subtype `description` names the
+  defining determinant. **R15** A pathotype is never bound to its parent species; bind
+  only at a genuine serotype-rank node. **R16** A genome or assembly accession is never
+  a stratum's identity; a specific isolate belongs in a `datasets:` record or an evidence
+  snippet.
+- **R17** Promote only on at least two of the five Treponematoses axes, and name them.
+  **R18** A promoted stratum gets its own `disease_term`, or `skos:narrowMatch` to the
+  parent; never bare parent reuse. **R19** Promoted siblings are covered by a Grouping.
+  **R20** The parent keeps a pointer subtype marked `curated_in` and drops any divergent
+  copy; nothing is curated at two rungs at once. *(Corrected from the issue body, which
+  asked the parent to drop the row entirely — see below.)*
+- **R21** A phase of one infection is never an entry, **and** the entry lists its phases
+  in `progression:`. **R22** A post-infectious immune sequela is its own entry,
+  cross-linked to the index infection. **R23** An infection-attributed neoplasm follows
+  §3a. **R24** A mechanism shared across diseases is a module.
+- **R25** Every microbial entry declares at least one NCBITaxon-bound `infectious_agent`
+  and at least one `transmission` route. **R26** Where a non-human reservoir or arthropod
+  vector exists, `agent_life_cycle` with `hosts` (and `vectors`) is required — R17 cannot
+  be evaluated without them. **R27** NCBITaxon is the sole binding vocabulary for
+  organisms. **R28** `disease_term` is bound at the entry's own scope; broader is wrong
+  and narrower is wrong.
+
+**Pointer subtypes are marked, not described.** *(Correction 1.)* The issue reported
+`Spotted_Fever_Rickettsiosis` as "modelled twice", because Rocky Mountain spotted fever
+and boutonneuse fever are subtypes there and full entries elsewhere, and asked for the
+rows to be dropped. Reading the entry shows it is doing exactly what §3a L4 prescribes
+for a promoted stratum: the parent is deliberately thin, each of those subtypes is a
+20-line row with a bound term, cited evidence and the sentence "Curated in full in
+`Rocky_Mountain_Spotted_Fever.yaml`", and the two files anchor to different MONDO
+classes. Dropping the rows would delete a working instance of the pattern this ladder is
+establishing. What was actually missing is that the pointer existed only as an English
+sentence inside a `description`, so a consumer counting diseases still double-counted,
+and a checker could not tell the prescribed shape from the defect it resembles. `Subtype`
+therefore gains **`curated_in`**: the file stem of the entry where the stratum is curated
+in full, the same identifier a cross-file entity reference uses. A subtype carrying it is
+a pointer and is not a disease; one that names a disease with its own entry and does
+*not* carry it is the defect (`DOUBLE_MODELLED`). The slot serves §3a's L4 rule (d) as
+much as this one, and the KB-wide backfill of the umbrella-entry pattern it now makes
+visible (`Epilepsy` listing `Juvenile Myoclonic Epilepsy`, which has its own entry; some
+250 such rows) is tracked under #10116, not here. `Viral_Hemorrhagic_Fever` is the entry
+that genuinely has the defect — eight one-line subtypes across six virus families, three
+of which are full entries with no cross-link either way — and the rung-1 conversion is
+right for it.
+
+**Where a stratum's taxonomic identity lives.** *(Correction 2.)* The issue proposed a
+`pathotype:` slot on `InfectiousAgent`. There are already two places a stratum can live —
+the disease-level `has_subtypes`, and `InfectiousAgent.has_subtypes` — and a third would
+make the choice worse, because `subtype:` discriminators elsewhere in a file resolve only
+against the disease-level list (`SECTION_KEYS` in `entity_refs.py`): a pathotype put under
+the agent could not scope a phenotype, treatment or prevalence record. So **no `pathotype:`
+slot is added**. The two existing homes divide the work: a disease-level subtype is a
+*clinical* stratum, gated by R7 and bound to MONDO where a named disease variant exists,
+with `classification:` recording the axis (`etiologic_species`, `serovar`, `pathotype`,
+`biotype`, `lineage`, `genotype`, `clade` — free text today, as the existing
+`Spotted_Fever_Rickettsiosis` rows use it); an agent-level stratum is a *taxonomic* one,
+bound to NCBITaxon, carrying no R7 gate and no foreign-key role. A serovar that is
+clinically distinct appears in both, each binding its own kind of term. A pathotype has
+no NCBITaxon node and so appears only at the disease level. Binding an agent-level stratum
+to NCBITaxon is not possible on `main` today — `Subtype.subtype_term` ranges over the
+MONDO/NCIT disease enum, which is why all three entries using the slot carry name-only
+strata — and is enacted by PR #10353 (`AgentSubtype`); until it merges, R12's agent-level
+half is aspirational and the checker reports the strata as `UNBOUND_AGENT_STRATUM`,
+advisory.
+
+**Phases are listed, not split off.** The ladder wins over MONDO on phase, exactly as
+§3a wins over MONDO on stage: MONDO has classes for metastatic carcinomas and the ten
+`Metastatic_*` entries were still folded into their parents as `stages`. A phase of one
+infection (acute vs chronic, latent vs reactivated, colonisation vs invasive) is never a
+separate entry, **and** the entry it belongs to must enumerate its phases in
+`progression:` — `ProgressionInfo` already carries `phase`, `subtype`, `age_range`,
+incubation and duration fields, and `evidence`, so this is a curation gap and not a schema
+request. Dropping a phase distinction is as wrong as promoting it, and is the easier
+mistake once the first half of the rule is in place. Where MONDO has a separate class for
+the phase, the entry records it as a `mondo_mappings` row with `skos:narrowMatch`, which
+retires the concept from the curation queue under the existing MONDO coverage rule.
+Consequence: `Acute_Hepatitis_C_Virus_Infection` (1,528 lines, `MONDO:0100371`) merges
+into `Hepatitis_C` as content plus a `progression` phase, with the same care the
+`Metastatic_*` fold took — merged, not deleted, with a `history/` record carrying
+`superseded_by` — and the MONDO class survives as a `skos:narrowMatch` mapping. The
+review's counter-argument, that a rule requiring the deletion of a substantial entry with
+its own MONDO class will lose in review, is answered by not deleting anything: the content
+moves, the identifier is kept, and the KB stops having two entries for one disease
+distinguished by when you look at it.
+
+**Recording a deliberate lump.** R9 makes an undifferentiated lump the default state, not
+a defect, which means "nobody has looked" and "somebody looked and found no documented
+difference" must be distinguishable, or the rule becomes an excuse. The mechanism is the
+one `check-environmental-evidence` already uses for an exposure that cannot be cited: a
+paragraph of the entry-level `review_notes` that begins with the sentence
+`Deliberately lumped.` and is followed by at least twenty words saying which strata were
+kept together, what was searched, and why it came up empty. `notes` is disease content
+and cannot waive; prose that merely mentions the phrase does not trigger it. The
+`TAXON_LUMP` finding clears to `LUMP_RECORDED` on that paragraph and on nothing else. The
+issue's proposed curator-filled case catalog (one row per lump/split case with
+`axis_presentation`, `axis_therapy`, … columns) is **not** created: the decision it would
+record already has a home in the entry — a subtype with its evidence, or this paragraph —
+and a parallel file would drift from it. The computed half of that catalog is the
+checker's `--format tsv` output, regenerated on demand rather than committed.
+
+**Identifier policy: NCBITaxon only.** It is the sole vocabulary in use and reaches below
+species (*S. enterica* serovar Paratyphi A `NCBITaxon:54388` at serovar rank; *E. coli*
+O157:H7 `NCBITaxon:83334` at serotype rank), so the unbound agents in the KB are curation
+misses, not ontology limits. GTDB is not adopted: it has no pathotype concept either, and
+its species assignments diverge from clinical names — queried live, it classifies
+*Shigella dysenteriae* and *S. sonnei* as *Escherichia coli*, which would collapse the
+agent of `Shigellosis` into *E. coli* and erase exactly the distinction this ladder
+preserves. GTDB is right for microbial phylogenomics and wrong for naming what a patient
+has. Genome and assembly accessions are not agent identities (R16).
+
+**What is mechanically checked.** `scripts/check_granularity.py`
+(`just check-granularity`, report-only, inside `just qc`) walks the corpus once and reports
+each infectious entry against the rules above. Its **deterministic** classes are defects
+with no judgement in them and gate under `--strict`: `MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION` (R25), `ROOT_AS_ENTRY` (R2), `DOUBLE_MODELLED` and
+`DANGLING_POINTER` (R20), `DUPLICATE_ANCHOR` (R18/R28), `PATHOTYPE_COLLAPSE` (R15). Its
+**advisory** classes are questions the ladder asks a curator and never gate: `TAXON_LUMP`
+(R7–R9), `UNBOUND_SUBTYPE` and `UNBOUND_AGENT_STRATUM` (R12), `NO_PROGRESSION` (R21),
+`MISSING_LIFECYCLE` (R26, the one heuristic — transmission prose naming a vector or
+reservoir), `POINTER_TERM_MISMATCH`. Scope follows the ladder's own exclusions: a neoplasm
+with a viral agent is assessed under §3a (R23), a Mendelian susceptibility disorder under
+§3, a post-infectious sequela under R22, a mycotoxicosis not at all, and the summary prints
+how many pathogen-marked entries each exclusion removed. Over-broad anchoring (R28's
+"broader is wrong") needs a MONDO descendant count and stays a manual audit; grouping-shaped
+entries and phase-as-entry are judgement calls. The cross-entry classes are the mechanical
+half of #10113 and #10116 as much as of this decision, and `--scope all` runs them over the
+whole corpus.
+
+**Rationale.** The organism cannot be the primary axis (one *Legionella* species causes
+two diseases the field never confuses), the organ syndrome cannot be (four meningitis
+organisms differ in age distribution, vaccine, pathogenesis and empiric therapy — ampicillin
+is added specifically for *Listeria*), and neither can phase, eponym or setting. The named
+clinical entity is the level at which infectious-disease practice actually reasons, and it
+is stable: the organism-defined core the KB already has (cholera, measles, rabies, leprosy,
+tetanus, the hepatitides A–E) sits there. Lumping by default with an evidence-gated
+subtype rung tracks the literature as it develops and keeps the two thousand *Salmonella*
+serovars from burying the handful that behave differently; requiring two axes for
+promotion keeps the split entries to the cases where a merged entry would erase how the
+disease is transmitted, prevented or treated, which is the test `Treponematoses` already
+passes in prose. The corrections above all move in one direction — toward a rule that is
+checkable and toward not destroying curated work — which is the same direction §3a took
+when it deferred to WHO/ICC and folded rather than deleted the stage entries.
+
+**Enacted in the same PR.** This clause; `Subtype.curated_in`; `check_granularity.py`
+with `tests/test_granularity.py`; the promoted pointer rows on
+`Spotted_Fever_Rickettsiosis` marked; the review merged to `docs/reports/`.
+**Enacted since (as of 2026-10-03):** the `infectious_agent` and `transmission`
+backfills on 48 entries (#12097, #12099, #12100, #12107), which also bound the
+previously free-text agents on `Choroiditis`, `Cytomegalovirus_Retinitis`, `Tetanus` and
+`Hantavirus_Pulmonary_Syndrome` and left `Southern_Tick-Associated_Rash_Illness` and
+`Paralytic_Poliomyelitis` deliberately unbound with the reason recorded in the agent's
+`description` (an undetermined agent; a virus NCBITaxon names only at serotype rank);
+`Acute_Hepatitis_C_Virus_Infection` merged into `Hepatitis_C` with the phases listed
+(#12098); `Infectious_Disease` retired to an `OUT_OF_SCOPE` stub (#12096); agent-level
+strata able to bind NCBITaxon (#10353). Typhoid fever, anthrax, diphtheria and sepsis
+have since been curated; herpes zoster and UTI still have no entry. **Still open (work
+items on #10115):** the `Viral_Hemorrhagic_Fever` conversion; `transmission` on the
+oral, genitourinary and systemic entries and on entries curated since the ladder
+landed; `agent_life_cycle` wherever the new transmission text names a vector or
+reservoir (the checker's `MISSING_LIFECYCLE` count rose as the backfills named them);
+the rung-3 review of the undecided lumps, one at a time; the rung-1 groupings
+(rickettsioses, viral hepatitides, soil-transmitted helminthiases, enteric fevers,
+arboviral haemorrhagic fevers); the `UNDECIDED` infectious stubs. Two
+decisions this clause does *not* make: an ontology binding for `Transmission`, which is
+free text today so R25's second half is a required string that no query can use — R17
+turns on transmission route and vector, so a bound slot is a prerequisite for enforcing
+rung 4, tracked in §12; and whether `Subtype.classification` should become an enum now that
+it carries the rung-3a axis.
+
+### 3f. Injury and trauma granularity (2026-10-01)
+
+**Status: ACCEPTED as the working rule (`@cmungall`, 2026-10-01), to be tested on a
+pilot before any wider curation.** The schema change it needed is enacted (see *MONDO
+constraint* below); no KB entry has yet been written under it. The first test case is the
+[traumatic brain injury pilot](../superpowers/specs/2026-10-01-traumatic-brain-injury-pilot.md).
+
+**Problem.** §1 puts exposure-related disease in scope but says nothing about physical
+injury, and the KB has handled it only implicitly. There is no entry for an injury itself
+(no traumatic brain injury, spinal cord injury, burn, fracture or crush injury), while the
+diseases that follow injury are curated with the trauma as their cause:
+`Post-Traumatic_Epilepsy` and `Chronic_Traumatic_Encephalopathy` each carry the head
+trauma as an `environmental:` record. That is a sound default, but it cannot represent
+the cases where the tissue's response to the injury is itself the disease being studied
+and treated, nor the biomechanics of the injury.
+
+**Rule: the entry sits where most of the mechanism is.**
+
+| Situation | Represent as | Examples |
+|---|---|---|
+| The injury is a one-off trigger and the disease then runs on its own mechanism | An entry for the **sequela**; the injury is an `environmental:` record linked with `influences_mechanisms` (`TRIGGERS`) and, where the entry models it, a root pathophysiology node | post-traumatic epilepsy, chronic traumatic encephalopathy, post-traumatic stress disorder |
+| The tissue response to the injury is the clinical entity managed as a unit, with its own phases and treatment window | An entry for the **injury**, its phases (primary injury, secondary injury, chronic) in `progression:` | traumatic brain injury, spinal cord injury, crush syndrome |
+| A response cascade recurs across several injuries or sequelae | A **mechanism module** that both injury and sequela entries conform to | secondary injury after neurotrauma, ischemia-reperfusion injury |
+| An anatomical or mechanical category with no single mechanism | A `GROUPING`, or an `OUT_OF_SCOPE` stub | *injury*, *head injury*, *bone fracture* as a class |
+
+This mirrors §3e: a phase is never an entry, and a sequela is its own entry. A module
+holds the shared injury biology once, so curating the sequela and modelling the injury in
+detail do not compete.
+
+**Biomechanics.** The pathograph starts at biology, and mechanical load sits upstream of
+every GO, CL or HP term. Handling, with no schema change:
+
+- The mechanical event is a root pathophysiology node at `TISSUE` or `ORGANISM`
+  `biological_scale`, with `locations` bound to UBERON. `Post-Traumatic_Epilepsy`'s
+  `Traumatic Brain Injury` node already has this shape.
+- Quantitative biomechanics (finite-element tissue-strain models, injury-threshold
+  models) goes in `computational_models:`, linked with `modeled_mechanisms`. The scale
+  gap between a tissue-strain model and an axonal or cellular node is what §3b's
+  `model_scale` records, and strain standing in for tissue damage is a `PROXY_QUANTITY`
+  divergence under §3c.
+
+**MONDO constraint.** MONDO files injuries under `MONDO:0021178` *injury*, a root that
+is **not** a subclass of `MONDO:0000001` *disease*, and `DiseaseTerm` admits only
+descendants of `disease` and `inherited disease susceptibility`. Of the 23 descendants
+of *injury* checked against OLS on 2026-10-01, those reachable from *disease* through a
+second parent validate as a `disease_term` (`MONDO:0858950` traumatic brain injury,
+`MONDO:0043797` spinal cord injury, `MONDO:0015796` acute lung injury, `MONDO:0043510`
+brain injury); those under *injury* alone do not (`MONDO:0043519` burn, `MONDO:0800177`
+frostbite, `MONDO:0005315` bone fracture and its children, `MONDO:0005203` ischemia
+reperfusion injury, `MONDO:0043458` radiation injury, `MONDO:0800482` head injury).
+**Enacted:** `MONDO:0021178` is now a source node of both `DiseaseTerm` and
+`DiseaseOrSubtypeTerm`, so every MONDO injury term can anchor an entry or a subtype.
+This admits every fracture and ankle injury as a *candidate*; the granularity table
+above, not the enum, decides which of them become entries. The widening was accepted
+partly because MONDO's top-level category is expected to become an input to curation
+rules and possibly a type designator for an entry, so injuries should sit in the KB
+under their own root rather than be forced under *disease*.
+
+**ECTO constraint.** ECTO has no term for mechanical or traumatic injury exposure:
+searches of the local build on 2026-10-01 for `l~injur`, `l~trauma`, `l~concuss`,
+`l~impact`, `l~crush`, `l~collision`, `l~acceleration` and `l~force` returned nothing.
+`ExposureTerm` also admits XCO, which does have injury terms (`XCO:0000968` experimental
+traumatic brain injury, `XCO:0001041` experimental spinal cord contusion), but those
+describe experimental procedures on animals and are wrong for a human exposure; they fit
+`animal_models:` context only. **Decided:** no ECTO term request is filed. A human trauma
+exposure is left unbound with the searches recorded in `notes`, which is the state of
+both existing entries.
+
+**Severity and lesion type are not subtypes by default.** Injury severity (mild,
+moderate, severe) is a gradient of one exposure, recorded in the environmental record
+and in `progression:`, not a `has_subtypes` split. Lesion types that usually co-occur in
+one patient (focal contusion and diffuse axonal injury in traumatic brain injury) are
+parallel pathophysiology branches from the mechanical node, not subtypes either; a
+subtype must be a stratum a patient belongs to.
+
+**Shared cascades are small modules.** Where an injury cascade overlaps existing modules
+(`glutamate_excitotoxicity`, `neuroinflammation_glial_activation`), entries conform to
+those. New modules are added per mechanism (barrier breakdown, axonal injury) so they
+are reusable outside trauma, not as one trauma-specific "secondary injury" module.
+
+**Worked example.** `Traumatic_Brain_Injury`, with the modules
+`blood_brain_barrier_breakdown` and `focal_axonal_injury_wallerian_degeneration`, and
+conformance from `Post-Traumatic_Epilepsy`. Its finite-element head model is the first
+`BIOMECHANICAL` computational model.
+
+**Still open.** Whether injury entries need their own `check-granularity`-style audit,
+or §3e's checks are enough to copy. Decide after the pilot.
+
 ## 4. Ontology constraints
 
 **Decision.** Term validation is restricted to an explicit, curated set of ontologies.
@@ -395,12 +721,14 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
+| Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
 | Food | FOODON | `FOODON:` |
 | Parasite life cycle | OPL | `OPL:` |
 | Taxonomy | NCBITaxon | `NCBITaxon:` |
+| Human populations / ancestry | Human Ancestry Ontology (HANCESTRO) | `HANCESTRO:` |
 
 **Rationale.** A constrained, OBO/Monarch-aligned set keeps terms interoperable,
 machine-validatable (offline SQLite adapters via OAK), and resistant to AI hallucination
@@ -584,15 +912,16 @@ The KGX exporter emits typed, directed edges with the knowledge source identifie
 | Predicate | Edge (subject → object) |
 |---|---|
 | `biolink:has_phenotype` | Disease → PhenotypicFeature |
-| `biolink:associated_with` | Disease → Disease |
+| `biolink:associated_with` | Disease → Disease; ExposureEvent → Disease (`disease_effect: MODULATES`, or `causal_role: ASSOCIATED_ONLY`) |
 | `biolink:has_participant` | Disease → Cell / CellularComponent / ChemicalEntity / MacromolecularComplex |
 | `biolink:disease_has_location` | Disease → AnatomicalEntity |
 | `biolink:affects` | Disease → BiologicalProcess / MolecularActivity / Pathway (with INCREASED/DECREASED direction qualifiers) |
 | `biolink:treats_or_applied_or_studied_to_treat` | Treatment → Disease |
-| `biolink:contributes_to` | Gene → Disease; ExposureEvent → Disease |
+| `biolink:contributes_to` | Gene → Disease; ExposureEvent → Disease (no declared `disease_effect`) |
 | `biolink:associated_with_decreased_likelihood_of` | ExposureEvent → Disease (protective) |
+| `biolink:exacerbates_condition` / `biolink:predisposes_to_condition` | ExposureEvent → Disease (`disease_effect: EXACERBATES` / `PREDISPOSES`) |
 | `biolink:has_mode_of_inheritance` | Disease → GeneticInheritance |
-| `biolink:causes` | OrganismTaxon → Disease |
+| `biolink:causes` | OrganismTaxon → Disease; ExposureEvent → Disease (`disease_effect: TRIGGERS`) |
 | `biolink:has_biomarker` | Disease → MolecularEntity |
 
 **Known gap:** `differential_diagnoses` and `diagnosis` sections are not yet exported. See *Gaps* below.
@@ -622,6 +951,32 @@ exactly.
 
 **Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
+
+### Jev judgments prioritize recuration; they do not replace curation
+
+**Decision.** The scheduled Jev audit sends public disease assertions and their
+selected snippets to TypeSafe to assess claim/evidence agreement. MATCH,
+MISMATCH and PARTIAL are advisory report labels, assessed per aspect and for the
+whole claim. They never automatically change KB assertions, `supports` or
+`directness`, or become benchmark curator labels.
+
+**Rationale.** A model can identify likely snippet-selection problems at corpus
+scale, while the decision to change a claim or its evidence remains a curation
+task. This audit evaluates snippet support rather than source quality or the
+claim's truth elsewhere. Missing evidence, API errors and incomplete runs remain
+separate from model judgments.
+
+**Storage and execution.** Corpus assessment history and the weekly workflow live
+in the public `monarch-initiative/dismech-evals` repository. Dismech owns the
+classifier and extraction code; `dismech-bench` owns curated benchmark cases and
+benchmark results. Local corpus outputs in dismech are ignored build artifacts.
+The evaluation repository stores each canonical input snapshot once, shared by
+assessment records across configurations. It retains historical inputs, scores
+and observed activity. A first corpus pass is large enough that committing it to
+dismech would burden ordinary checkouts; compression does not resolve that boundary.
+The evaluation workflow pins classifier and source revisions, then automatically
+commits generated data to its own repository using its own token. It has no write
+access to dismech or benchmark curation. See [the audit guide](../jev-evidence-audit.md).
 
 ### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
 
@@ -743,10 +1098,11 @@ verification cache. `geo:` is migrated; the remaining prefixes follow one at a t
   one a reordered paraphrase of a sentence that was in the cache all along
   (`GEO:GSE289185`) and one quoting GEO's uncached "overall design" field
   (`GEO:GSE316127`). KB-wide, 133,610 of 138,867 snippets verify with zero GEO failures.
-- **`cache/dataset_accessions.json` is frozen.** No script, module, test, workflow, or
+- **`cache/dataset_accessions.json` is retired and deleted.** No script, module, test, workflow, or
   recipe reads or writes it, enforced by
-  `test_no_automation_touches_the_frozen_dataset_cache`. It remains in git only until the
-  open PRs carrying edits to it have drained.
+  `test_no_automation_touches_the_frozen_dataset_cache`, which also checks Git's index
+  for reintroduction on every CI run. The temporary freeze has ended. Old PRs must
+  retain its deletion when resolving conflicts, without reading or merging its contents.
 
 **Rationale — the storage shape, not the checking, was the defect.** The old cache was one
 sorted JSON object rewritten *in full* on every run, including a run over a single
@@ -1303,8 +1659,10 @@ This section details decisions we have **not yet made or formalized**.
 
 | Area | Status | Tracking |
 |---|---|---|
+| Exposure → disease relations (`disease_effect` / `causal_role`) | **PROPOSED, not ratified.** An `environmental[]` entry can say an exposure acts on a *mechanism node* (`influences_mechanisms`), but nothing states how it acts on the *disease*. The only slot for that is free-text `effect:`, used on 285 entries across 118 files — of which ~64 carry enum-shaped values (`HARMFUL` 28, `TRIGGERS` 20, `RISK_FACTOR` 7, `CAUSATIVE` 5, `EXACERBATES` 4) written into a string because no vocabulary exists at this scope. The KGX exporter already emits the exposure→disease edge and infers its predicate by requiring unanimity across mechanism links, then regex-matching four phrasings of the prose (`kgx_export.py:_exposure_predicate`); its docstring records the unanimity rule as a workaround for one exposure protecting against a mechanism while driving another. Proposal: two scalar slots on `Environmental` — `disease_effect` (direction, reusing `EnvironmentalEffectEnum` with scope-neutral value descriptions) and `causal_role` (strength, a new `EnvironmentalCausalRoleEnum`) — supported by the entry's existing `evidence:` block, which already holds the disease-level claim. Would home the ~22 exposures #10359 could not place, and let KGX read one declared field. **Open:** whether `causal_role` is its own axis or folds into `disease_effect`; whether the `NECESSARY`/`SUFFICIENT`/`COMPONENT_CAUSE` framing is heavier than the KB needs; and how to migrate `HARMFUL` (a valence, not a direction) and `CAUSATIVE` (which collapses both axes). Settle the vocabulary before populating at scale — narrowing an enum later is the merge-shaped failure of #10061. | [#11112](https://github.com/monarch-initiative/dismech/issues/11112) · draft schema in PR |
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
-| Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
+| Chromosomal-disorder curation guidelines | **Partly addressed (§15, PR #11943).** Optional named regions, cytoband syntax, and qualitative gene landmarks represent affected intervals without patient-specific coordinates. The noncoding-variant-impact skill covers their use; a dedicated chromosomal-disorder skill and the wider formation-mechanism guidance remain open. | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
+| Noncoding region–disease representation | **Qualitative representation added (§15, PR #11943).** Regional `Genetic` records can name affected enhancers and intervals without substituting a host gene. Stable region identifiers and dedicated region nodes in external knowledge graphs remain separate follow-ups. | [#4394](https://github.com/monarch-initiative/dismech/issues/4394) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | Measurement context on `ExperimentalReadout` (spatial position, sampling rate, named comparator) | **Open; narrower than first recorded.** `model_scale` and `divergences` now cover the *scale* and *shortfall* axes on `ModelMechanismLink`, and a NAM curation pass populated both across eight links. What they do not cover is positive metadata about how a measurement was made: an **internal spatial comparator** (organoid interior vs. edge in the same construct — `STRUCTURAL_IDEALIZATION` is the wrong shape, since the spatial structure is the model's strength), a **sampling rate** (20 ms light-sheet calcium imaging, currently in free-text `culture_system`; `TEMPORAL_SCOPE` types a mismatch, not a rate), and the **comparator arm** that `ModelReadoutDirectionEnum` is explicitly defined against but which no slot names — a readout reading `DECREASED` against epicardium-free tissue rather than untreated tissue is nearly meaningless without its prose. The comparator is the narrowest and most tractable piece and every readout in the KB inherits it. Weigh against sparse population of the slots that already exist. `assays` is populated on several hundred readouts but is **never ontology-bound**: every entry carries a bare `preferred_term` and not one carries a `term:`, because `OBI` is absent from `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so a curator who tried could not validate it. Scale is near-universally `UNDETERMINED`. Both counts move with every curation pass and are deliberately not pinned in this register — read them from `just model-scale-audit` and from a `term:`-under-`assays:` scan of `kb/`. (An earlier revision of this row said `assays` was used on 0 of 289 readouts; the slot is used, it is the ontology binding that is at zero.) | [Spatially resolved in vitro models](../reports/spatially-resolved-in-vitro-models-2026-09-02.md) |
 | `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `check_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |
@@ -1315,6 +1673,8 @@ This section details decisions we have **not yet made or formalized**.
 | Per-gene `case_fractions` backfill | New structured `Genetic.case_fractions` slot added (§8). `Bardet-Biedl_Syndrome` backfilled for five genes (BBS1, BBS10, ARL6/BBS3, MKKS/BBS6, BBS9) across European, metabolic, and Indian cohorts. **Method/caveat:** dominant-gene fractions (BBS1, BBS10) appear in citable abstracts; minor-gene fractions are recoverable only from **open-access full-text** cohort papers/reviews whose cache is `full_text_xml` (the Indian-cohort figures came from PMID:27853007), since abstracts and the GeneReviews table (NBK1363 T3) and the Niederlová meta-analysis abstract (PMID:31283077) do not carry them. Backfilling the remaining minor genes is gated on finding such full-text-cacheable sources — figures must **not** be filled from memory (anti-hallucination policy, §6). Whether to deprecate the overloaded `frequency` field is also outstanding; no automated extractor yet. | schema follow-up |
 | KGX export of `differential_diagnoses` / `diagnosis` | Not yet exported; candidate predicate `biolink:disease_has_differential_diagnosis` | [#2100](https://github.com/monarch-initiative/dismech/issues/2100) |
 | RadLex-grade imaging-finding granularity | `ImagingFinding` (§9) grounds findings in NCIT + HP, which is patchy for specific radiologic appearances (e.g. contrast enhancement, T2 hyperintensity resolve to procedures or CTCAE grades). Tightening `ImagingFindingTerm` to a RadLex `reachable_from` (and `finding_term` to REQUIRED) is deferred: RadLex is not on EBI OLS4, so it needs a `bioportal:` adapter + API key in `conf/oak_config.yaml`. | schema/ontology follow-up |
+| `Transmission` route binding | **Open.** `Transmission` is `name`/`description`/`evidence`/`notes`/`effect` with no ontology slot, so §3e R25's "at least one transmission route" is a required free-text string that no query can use and no validator can check beyond presence — and R17 (promotion to a separate entry) turns on transmission route and vector. A bound slot is the prerequisite for enforcing rung 4 mechanically. Candidate vocabularies are ECTO exposure routes (already used by `exposure_term`) or a small closed enum; undecided. | [#10115](https://github.com/monarch-initiative/dismech/issues/10115) |
+| Umbrella-entry pointer backfill (`Subtype.curated_in`) | **Open.** §3e added `curated_in` so a subtype that is curated in full elsewhere is a machine-readable pointer (§3a L4 rule d had asked for one in prose). The promoted `Spotted_Fever_Rickettsiosis` rows carry it as the worked infectious-disease example. `just check-granularity --scope all` finds further subtype rows KB-wide whose `subtype_term` or name is another entry's (`Epilepsy` → `Juvenile Myoclonic Epilepsy`, `Glomerulonephritis` → `IgA Nephropathy`); most are umbrella entries whose rows are pointers in spirit and need the slot, some are the §3a L1 pattern that should be a `Grouping`. Mechanical where the MONDO terms agree; a judgement where only the names do. | [#10116](https://github.com/monarch-initiative/dismech/issues/10116), [#10113](https://github.com/monarch-initiative/dismech/issues/10113) |
 | Non-imaging detection modalities | **Resolved for electrophysiology (§10)** via phenotype post-composition (an `electrophysiology:` sidecar carrying modality + `ictal_state` + `recording_state`), *not* a finding class — because EEG/EMG/EKG terms are already HP phenotypes. `Dravet_syndrome` is the worked example. **Still open:** functional/provocation tests (e.g. tensilon, tilt-table) remain free-text `diagnosis`. | schema follow-up |
 | Investigation-readout phenotype backfill (`reports_on`) | New lean `PhenotypeReadout` slot added (§10): investigation-result phenotypes (abnormal ERG/EEG, `Elevated circulating … concentration`) attach to the mechanism they measure via a dashed observational readout edge instead of floating as orphan nodes or being mis-wired as causal `downstream` edges. `Bardet-Biedl_Syndrome` (Abnormal electroretinogram → Photoreceptor outer-segment transport defect) is the worked exemplar. **First batch done** (`scripts/migrate_readout_phenotypes.py`): 69 mis-wired causal edges across 60 files migrated to `reports_on` — restricted to **pure lab/investigation readouts that are never themselves disease drivers** (tissue-leakage enzymes: transaminases/CK/LDH/aldolase/ALP; acute-phase reactants; tumor markers AFP/β-hCG; newborn-screening acylcarnitines; the electroretinogram), HP-verified via descendants of `HP:0032180`/`HP:0034684`/`HP:0010876`/`HP:0003111`/`HP:0030453`. **Deliberately NOT flipped:** ~179 causally-active analytes where the `downstream` edge is *correct* — ammonia (→ encephalopathy), lactate (→ acidosis), vitamins (deficiency → neuropathy/retinopathy), cholesterol, hormones, ions, immunoglobulins — plus any readout carrying its own `sequelae`. **Second batch done** (floating pure readouts): 55 `reports_on` links added across 47 files by a parallel curation pass, each choosing the best-fit existing mechanism node (liver enzymes → hepatocyte-injury node, CK/aldolase/LDH → myofiber-necrosis node, ERG/EOG → photoreceptor-degeneration node, CRP/acute-phase → inflammation node, AFP/β-hCG/tryptase → tumor/mast-cell node, bone ALP → osteoblast node). **~14 deliberately left unlinked** where the disease pathograph has no node the organ-injury lab measures (e.g. transaminases in Graves/Celiac/Stevens-Johnson, the Murine-typhus organ-injury labs) — these are genuine *modeling gaps* (the entry doesn't yet represent that organ's involvement), not readout-link gaps, and were skipped rather than invent a node. **Open:** the ~58 non-pure floating readouts (causally-active analytes) and the modeling-gap skips; causally-active analytes could also optionally gain a *second* `reports_on` link alongside their (correct) causal edge where the value is used diagnostically. | KB migration (batches 1–2 done) |
 | Wire the existing `PhenotypeCategoryEnum` to `phenotypes.category` | The renderer already **derives** each phenotype's organ-system category from its HPO ancestry (`HpoCategoryProvider` → the 22 top-levels, codified as `PhenotypeCategoryEnum` in `schema/classifications/phenotype_category.yaml`), so the hand-entered `category` (still `range: string`, ~200 inconsistent values, ~4k blank) is not what drives display. The cleanup is to bind that enum to the slot and/or deprecate the free-text field in favour of the derived value — not to invent new category values. (Note: category-gated *rules* are a non-goal — the category is derived from the term, so such a rule would be circular; see §10.) | schema follow-up / KB migration |
@@ -1576,3 +1936,182 @@ retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The d
 record is
 [`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
 the tree's own build notes record what each draw forced.
+
+## 15. Affected genomic regions use names and qualitative landmarks (2026-09-21)
+
+**Decision.** `affected_regions` is an optional list of `GenomicRegion` objects
+on `GeneticContext`, `Variant`, and `Genetic`. Each region has a required name
+and optional description, cytoband (`chromosomal_region`), regulatory-element
+class, and typed gene landmarks. A named region may be the full affected
+interval or a relevant element within it; the description makes that scope
+explicit. Neither an ontology identifier nor a nucleotide coordinate pair is
+required. Existing free-text records remain valid, so this introduces no bulk
+migration.
+
+**Why qualitative regions.** Disease entries often summarize multiple alleles
+with different breakpoints. Copying one patient's coordinates onto the disease
+would manufacture precision, while a gene list loses the affected enhancer,
+boundary, or multigene interval. The pilots therefore identify the EPHA4-PAX3
+regulatory boundary, ZRS within LMBR1, and the variable 16p12.2-p11.2 deletion
+interval at the level their shared evidence supports. Specific cited variants
+can still retain genome build, coordinates, and breakpoint resolution in their
+descriptions.
+
+**Relations describe linear reference-genome placement.** `between_genes`
+contains exactly two distinct, unordered gene descriptors flanking the named
+region without overlapping it; they need not be nearest neighbors or coincide
+with its endpoints.
+`within_gene` identifies a containing gene span. `overlaps_genes` records
+overlap without claiming the list is exhaustive. `adjacent_to_genes` means
+sharing a sequence boundary without overlap, following the Sequence Ontology
+[`adjacent_to` definition](https://github.com/The-Sequence-Ontology/SO-Ontologies/blob/master/Ontology_Files/so.obo);
+it does not mean merely nearby. Left/right relations are deferred because
+reference-coordinate direction and transcriptional direction are different,
+and the current cases need neither. These relations do not describe contacts
+in three-dimensional chromatin or adjacency on a rearranged allele.
+
+**The subject matters.** The EPHA4-PAX3 boundary lies between the gene landmarks;
+the whole deletion also removes EPHA4 and cannot be described as confined
+between those genes. ZRS lies within LMBR1; a duplication containing ZRS can
+extend beyond LMBR1. Positional landmarks do not assert causal-gene involvement
+or a regulatory target. Target genes, expression changes, and their confidence
+remain separately curated. A regional `Genetic` record need not have a
+`gene_term`; using LMBR1 solely as a stand-in for ZRS would recreate the
+conflation the region object resolves.
+
+**Relationship to earlier work.** [Issue #3756](https://github.com/monarch-initiative/dismech/issues/3756)
+requested structured chromosomal regions and curation guidance, and
+[#4394](https://github.com/monarch-initiative/dismech/issues/4394) raised the
+noncoding region–disease gap. Their proposed models had not been implemented.
+[PR #8996](https://github.com/monarch-initiative/dismech/pull/8996) fixed a
+different problem: the KGX exporter no longer invents HGNC identifiers from
+arbitrary `genetic[].name` strings. That protection remains. Region names and
+positional gene landmarks are metadata, not a reason to emit a gene–disease
+causal edge. Stable region identifiers and external region-node modeling can
+be considered if an actual integration requires them.
+
+Population guidance and worked examples live in the
+[noncoding-variant-impact skill](../../.claude/skills/noncoding-variant-impact/SKILL.md),
+with the schema, rendering, and export support implemented in
+[PR #11943](https://github.com/monarch-initiative/dismech/pull/11943).
+
+## 16. Population-specific variant effects bind populations to HANCESTRO (2026-10-08)
+
+**Decision.** A variant's effect can differ between human populations, and
+`Variant.population_effects` records that as a list of `VariantPopulationEffect`
+objects, one per population and source. Each record keeps the population in the
+source's own words (`population`, required), may bind it to the **Human Ancestry
+Ontology (HANCESTRO)** (`ancestry_terms`, optional), says how the source defined
+the group (`ancestry_basis`: self-reported, genetically inferred, geographic, or
+not stated), and says which aspect of the effect differs (`effect_differences`:
+classification, penetrance, severity, phenotype spectrum, allele frequency, or a
+tested `NO_DIFFERENCE`). Population-specific classification, penetrance, allele
+frequency and cohort size have their own slots; `evidence` is recommended.
+HANCESTRO is added to `conf/oak_config.yaml` (`ols:hancestro`) and to the table in
+section 4, and `AncestryTerm` is rooted at `HANCESTRO:0004` *ancestry category*,
+under which every HANCESTRO population class sits.
+
+**The gap this closes.** Issue
+[#13677](https://github.com/monarch-initiative/dismech/issues/13677) reported that
+dismech did not take population-specific variant effects into account, and the
+schema confirmed it. `Variant.clinical_significance` is a single value with no
+population, penetrance existed only on the disease-level `Inheritance` block, and
+population was recorded only per gene (`GeneCaseFraction.population`, section 8),
+never per variant. A variant that is a disease-causing allele in one population
+and a common low-penetrance allele in another had to receive one
+population-blind call, or be described in prose that no query reaches. Familial
+Mediterranean fever (FMF) is the motivating case: M694V, the commonest variant in
+Mediterranean patients, was carried by none of 80 Japanese patients in a
+nationwide series ([PMID:19531756](https://pubmed.ncbi.nlm.nih.gov/19531756/)),
+and nothing in the schema could record that against the variant.
+
+**Why HANCESTRO.** Three vocabularies were compared on twenty populations that
+matter for FMF and for founder variants: Singaporean Chinese, Malay and Indian;
+Han Chinese, Japanese and Korean; Turkish, Armenian and Arab; Ashkenazi,
+Sephardic and Mizrahi Jewish; Druze; Finnish, Amish and French Canadian; East and
+South Asian; African American; and Hispanic or Latino.
+
+| | HANCESTRO | CDC Race & Ethnicity (HL7) | NCIT |
+|---|---|---|---|
+| What it codes | Ancestry and population groups used in genomic studies | US social race and ethnicity categories | Mixed race, ethnicity and population terms |
+| Of the 20 populations | 18 (Druze only as a reference panel) | 6 | 14 |
+| Clinical-system use | Essentially none | US standard (EHRs, public health, FHIR US Core) | Clinical trial data |
+
+The populations, as looked up on 2026-10-08 by label search in OLS (HANCESTRO,
+NCIT) and in the HL7 v3 Race code system that mirrors CDC Race and Ethnicity,
+with every hit checked by hand:
+
+| Population | HANCESTRO | CDC / HL7 | NCIT |
+|---|---|---|---|
+| Singaporean Chinese | yes | no | no |
+| Singaporean Malay | yes | no | no |
+| Singaporean Indian | yes | no | no |
+| Han Chinese | yes | no | yes |
+| Japanese | yes | yes | yes |
+| Korean | yes | yes | yes |
+| Turkish | yes | no | no (a language term only) |
+| Armenian | yes | yes | yes |
+| Arab | yes | yes | yes |
+| Ashkenazi Jewish | yes | no | yes |
+| Sephardic Jewish | no | no | yes |
+| Mizrahi Jewish | no | no | yes |
+| Druze | reference panel only (HGDP) | no | no |
+| Finnish | yes | no | yes |
+| Amish | yes | no | no |
+| French Canadian | yes (*French Canadian founder*) | no | yes (*Canadian French*) |
+| East Asian | yes | no | yes |
+| South Asian | yes | no | yes |
+| African American | yes | yes (*Black or African American*) | yes |
+| Hispanic or Latino | yes | yes (ethnicity code) | yes |
+
+HANCESTRO is the only one with the Singapore groups the issue started from and
+the only one with Turkish, Finnish and Amish. It is an open (CC BY 4.0), actively
+maintained OBO ontology built for the GWAS Catalog, and it is in OLS, so it
+validates the same way HP or NCIT does. Its gap is Sephardic and Mizrahi Jewish,
+which NCIT has; those populations stay in free text until HANCESTRO adds them.
+
+**Why not an HL7 vocabulary.** HL7 has no equivalent. The HL7 terminology package
+(`hl7.terminology` 7.4.0) contains no HANCESTRO registration; its population
+vocabularies (CDC Race and Ethnicity, the deprecated v3 Race and Ethnicity code
+systems, and v2 table 0189 Ethnic Group) code US social categories, and cannot say
+"Turkish" or "Singaporean Malay". The FHIR core genetics ancestry extension
+(`observation-geneticsAncestry`) is deprecated, carried no terminology binding,
+and points to the Genomics Reporting guide, whose 3.0.0 package has no ancestry
+element. Clinical relevance for this question comes instead through variant
+interpretation, which rests on population allele frequencies reported for
+research cohorts in ancestry terms. Mapping to clinical race and ethnicity codes,
+if a FHIR export needs them, is an export step, not a curation one, so curators
+learn one vocabulary.
+
+**Why the free text stays required.** A group label can name a self-identified
+ethnicity, a genetically inferred ancestry cluster, or a place, and studies
+rarely say which. Binding self-reported ethnicity as genetic ancestry would
+overstate what the study measured, so the record keeps the source's own words,
+binds a HANCESTRO term only at the level the source supports, and records the
+basis separately. HANCESTRO also mixes ancestry categories, populations and
+reference-panel cohorts (1KGP, HGDP, SGDP); a reference-panel term is bound only
+when the data came from that panel, so "Japanese patients" is `HANCESTRO:0019`
+*Japanese*, not `HANCESTRO:0754` *Japanese in Tokyo, Japan (1KGP)*.
+
+**Record only what the source states.** A population difference has to be
+reported by the source. Comparing two allele frequencies or two cohorts and
+writing the difference down is the curator's inference, not a finding, the same
+rule `TreatmentEffectModifier.effect_in_stratum` follows. A difference in
+treatment response by ancestry is a treatment effect modifier
+(`effect_modifier_type: ANCESTRY`), not a variant population effect.
+
+**Not done, and why.**
+
+- `Prevalence.population` and `GeneCaseFraction.population` remain free text with
+  no HANCESTRO binding. Extending the binding there is the natural next step, and
+  is additive, but it was kept out of scope so this change carries no migration.
+- Phenotypes have no population slot. Population-specific phenotype frequency was
+  raised in the same issue; it is a separate decision because `Phenotype` has no
+  per-population record to hang a binding on.
+- No audit lists variants with a classification but no population record for
+  ancestry-clustered diseases. It would be report-only and is deferred until more
+  entries carry population effects.
+- HANCESTRO is not registered with the HL7 Terminology Authority, so FHIR has no
+  official system URI for it. Registering it would be a request to HL7, outside
+  this repository.
+

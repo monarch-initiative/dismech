@@ -1,3 +1,4 @@
+{% from "_genomic_regions.html.j2" import render_affected_regions %}
 {% set pill_tips = namespace(n=0) %}<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,6 +12,7 @@
     <style>
         {% include '_palette.css.j2' %}
         {% include '_disclaimer.css.j2' %}
+        {% include '_model_cards.css.j2' %}
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -334,6 +336,45 @@
             color: #991b1b;
             text-transform: uppercase;
             letter-spacing: 0.02em;
+        }
+
+        /* Qualifiers drawn INSIDE the pill of the term they qualify (#13550).
+           As separate sibling pills they wrapped onto their own line in the
+           narrow single-column cards, so a reader could not tell which process
+           an INCREASED belonged to. Direction gets its own colour: up red,
+           down blue, any other modifier violet; non-direction qualifiers
+           (laterality, course, onset...) are neutral. */
+        .tag-qual {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            vertical-align: baseline;
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        .tag-qual-up {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tag-qual-down {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-qual-meta {
+            background: rgba(255, 255, 255, 0.6);
+            color: #475569;
         }
 
         .curie-chip,
@@ -897,7 +938,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -912,8 +953,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -966,8 +1008,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -979,7 +1021,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1137,8 +1180,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1147,12 +1191,21 @@
                 return label || id;
             }
 
+            {% include "_genomic_regions.js.j2" %}
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1188,7 +1241,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1344,20 +1405,46 @@
 </head>
 <body>
     {% include '_disclaimer.html.j2' %}
-    {% macro render_modifier(modifier) -%}
+    {# GAIN_OF_FUNCTION/LOSS_OF_FUNCTION use double arrows so they do not read as
+       interchangeable with the quantitative INCREASED/DECREASED. #}
+    {% set modifier_icons = {
+        'INCREASED': '↑',
+        'DECREASED': '↓',
+        'ABNORMAL': '⚠',
+        'DYSREGULATED': '↕',
+        'ABSENT': '∅',
+        'GAIN_OF_FUNCTION': '⇑',
+        'LOSS_OF_FUNCTION': '⇓'
+    } %}
+    {# Colour class for a modifier drawn inside its pill (see .tag-qual). #}
+    {% set modifier_directions = {
+        'INCREASED': 'up',
+        'GAIN_OF_FUNCTION': 'up',
+        'DECREASED': 'down',
+        'LOSS_OF_FUNCTION': 'down',
+        'ABSENT': 'down'
+    } %}
+
+    {% macro render_modifier(modifier, inline=false) -%}
     {% if modifier %}
-    <span class="tag tag-modifier">{{ modifier | replace('_', ' ') }}</span>
+    {% if inline %}
+    <span class="tag-qual{% if modifier_directions.get(modifier) %} tag-qual-{{ modifier_directions.get(modifier) }}{% endif %}">{{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}</span>
+    {% else %}
+    <span class="tag tag-modifier">
+        {{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}
+    </span>
+    {% endif %}
     {% endif %}
     {%- endmacro %}
 
-    {% macro render_onset_badge(onset) -%}
+    {% macro render_onset_badge(onset, inline=false) -%}
     {% if onset %}
     {% set onset_category = onset.get('onset_category') %}
     {% set onset_mean = onset.get('mean_age_years') %}
     {% set onset_min = onset.get('min_age_years') %}
     {% set onset_max = onset.get('max_age_years') %}
     {% if onset_category or onset_mean is not none or onset_min is not none or onset_max is not none %}
-    <span class="tag tag-modifier">
+    <span class="{{ 'tag-qual tag-qual-meta' if inline else 'tag tag-modifier' }}">
         Onset:
         {%- if onset_category %} {{ onset_category | replace('_', ' ') }}{% endif -%}
         {%- if onset_mean is not none and onset_min is not none and onset_max is not none -%}
@@ -1376,26 +1463,27 @@
     {% endif %}
     {%- endmacro %}
 
-    {% macro render_descriptor_qualifiers(descriptor) -%}
+    {% macro render_descriptor_qualifiers(descriptor, inline=false) -%}
     {% if descriptor %}
-    {{ render_modifier(descriptor.modifier) }}
+    {% set qual_cls = 'tag-qual tag-qual-meta' if inline else 'tag tag-modifier' %}
+    {{ render_modifier(descriptor.modifier, inline) }}
     {% if descriptor.laterality %}
-    <span class="tag tag-modifier">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.spatial_extent %}
-    <span class="tag tag-modifier">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.temporality %}
-    <span class="tag tag-modifier">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.clinical_course %}
-    <span class="tag tag-modifier">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.severity %}
-    <span class="tag tag-modifier">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.onset %}
-    {{ render_onset_badge(descriptor.onset) }}
+    {{ render_onset_badge(descriptor.onset, inline) }}
     {% endif %}
     {% endif %}
     {%- endmacro %}
@@ -1409,6 +1497,29 @@
     <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}"{% if describedby %} aria-describedby="{{ describedby }}"{% else %} title="Open {{ curie }}"{% endif %}>{{ curie }}</a>
     {% endif %}
     {% endmacro %}
+
+    {# Model-card macros. The markup lives in shared includes that
+       disorder.html.j2 uses too, so a model renders the same on both pages
+       (#13123). Only render_evidence differs: this template renders no evidence
+       expanders anywhere, so evidence is summarised as a count. #}
+    {% macro render_evidence(evidence_list, max_visible=3, accent_color="#64748b") %}
+    {% if evidence_list %}
+    <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: {{ evidence_list | length }}</span>
+    {% endif %}
+    {% endmacro %}
+    {% macro render_descriptor_tag(descriptor, tag_class="tag-bio", show_term_id=false, role="") %}{% include "_descriptor_tag.html.j2" %}{% endmacro %}
+    {% macro render_descriptor_tags(descriptors, tag_class="tag-bio", show_term_id=false, role="") %}
+    {% if descriptors %}
+    <div class="item-meta">
+        {% for descriptor in descriptors %}
+        {{ render_descriptor_tag(descriptor, tag_class, show_term_id, role) }}
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endmacro %}
+    {% macro render_findings(findings_list) %}{% include "_findings.html.j2" %}{% endmacro %}
+    {% macro render_experiment_readout(readout, show_target=true) %}{% include "_model_readout.html.j2" %}{% endmacro %}
+    {% macro render_model_mechanism_links(links) %}{% include "_model_mechanism_links.html.j2" %}{% endmacro %}
 
     {# Treatment platform rows. Twin of render_treatment_platform in
        disorder.html.j2 -- update both. The enum display labels come from the
@@ -1512,6 +1623,7 @@
                 <a href="index.html" class="active">Modules</a>
                 <a href="../../pages/comorbidities/">Trajectories</a>
                 <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
                 <a href="../../pages/research/index.html">Research</a>
                 <a href="../../elements/">Schema</a>
                 <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
@@ -1580,9 +1692,9 @@
                         {% if cell.id %}
                         {{ render_curie_link(cell.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(cell, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(cell) }}
                     {% endfor %}
                 </div>
                 {% else %}
@@ -1606,9 +1718,9 @@
                         {% if process.id %}
                         {{ render_curie_link(process.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(process, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(process) }}
                     {% endfor %}
                 </div>
                 {% else %}
@@ -1733,96 +1845,10 @@
         </div>
         {% endif %}
 
-        {% if module.computational_models %}
-        <div class="card" id="models">
-            <div class="card-header">
-                <div class="card-icon" style="background: #f0fdf4; color: #22c55e;">🧮</div>
-                <h2 class="card-title">Computational Models</h2>
-                <span class="card-count">{{ module.computational_models | length }}</span>
-            </div>
-            {% for model in module.computational_models %}
-            <div class="item-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %} data-dismech-node="{{ model.name | e }}" data-dismech-type="computational_model">
-                <div class="item-name">
-                    {{ model.name }}
-                    <span class="tag-list" style="display: inline-flex; margin-left: 8px; vertical-align: middle;">
-                        {% if model.model_type %}
-                        <span class="tag tag-role">{{ model.model_type }}</span>
-                        {% endif %}
-                        {% if model.model_format %}
-                        <span class="tag tag-component">{{ model.model_format }}</span>
-                        {% endif %}
-                        {% if model.model_software %}
-                        <span class="tag tag-bio">{{ model.model_software }}</span>
-                        {% endif %}
-                    </span>
-                </div>
-                {% if model.description %}
-                <div class="item-desc">{{ model.description }}</div>
-                {% endif %}
-                {% if model.modeled_mechanisms %}
-                <div class="item-meta">
-                    Models:
-                    {% for link in model.modeled_mechanisms %}{% if loop.index > 1 %}, {% endif %}{{ link.target }}{% endfor %}
-                </div>
-                {% endif %}
-                <div class="item-meta">
-                    {% if model.repository_url %}
-                    <a href="{{ model.repository_url }}" target="_blank" class="linkout">Repository ↗</a>
-                    {% endif %}
-                    {% if model.publication %}
-                    {{ render_curie_link(model.publication) }}
-                    {% endif %}
-                    {% if model.base_model %}
-                    <span>Base model: {{ model.base_model }}</span>
-                    {% endif %}
-                </div>
-                {% if model.notes %}
-                <div class="item-desc">{{ model.notes }}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
-
-        {% if module.experimental_models %}
-        <div class="card" id="experimental-models">
-            <div class="card-header">
-                <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">🧫</div>
-                <h2 class="card-title">Experimental Models / Non-animal Systems</h2>
-                <span class="card-count">{{ module.experimental_models | length }}</span>
-            </div>
-            {% for model in module.experimental_models %}
-            <div class="item-box anchor-target"{% if model._anchor_id %} id="{{ model._anchor_id }}"{% endif %} data-dismech-node="{{ model.name | e }}" data-dismech-type="experimental_model">
-                <div class="item-name">
-                    {{ model.name }}
-                    {% if model.experimental_model_type %}
-                    <span class="tag tag-role" style="margin-left: 8px;">{{ model.experimental_model_type | replace('_', ' ') }}</span>
-                    {% endif %}
-                </div>
-                {% if model.description %}
-                <div class="item-desc">{{ model.description }}</div>
-                {% endif %}
-                {% if model.modeled_mechanisms %}
-                <div class="item-meta">
-                    Models:
-                    {% for link in model.modeled_mechanisms %}{% if loop.index > 1 %}, {% endif %}{{ link.target }}{% if link.relationship %} ({{ link.relationship | replace('_', ' ') | lower }}){% endif %}{% endfor %}
-                </div>
-                {% endif %}
-                <div class="item-meta">
-                    {% if model.publication %}
-                    {{ render_curie_link(model.publication) }}
-                    {% endif %}
-                    {% if is_preprint(model.publication) %}
-                    <span class="badge-preprint" title="This publication is a preprint and has not been peer-reviewed.">Preprint · not peer-reviewed</span>
-                    {% endif %}
-                </div>
-                {% if model.notes %}
-                <div class="item-desc" style="color: #6b7280;">{{ model.notes }}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
+        {% set experimental_models = module.experimental_models or [] %}
+        {% set animal_models = module.animal_models or [] %}
+        {% set computational_models = module.computational_models or [] %}
+        {% include "_model_cards.html.j2" %}
 
         {% if module._module_collections %}
         <div class="card" id="module-collections">
@@ -1923,11 +1949,21 @@
             {% for patho in module.pathophysiology %}
             <div class="item-box anchor-target" id="{{ patho._anchor_id }}" data-dismech-node="{{ patho.name | e }}" data-dismech-type="pathophysiology">
                 <div class="item-name">{{ patho.name }}</div>
+                {% if patho.regulatory_category or patho.mechanism_confidence %}
+                <div class="item-meta">
+                    {% if patho.regulatory_category %}
+                    <span class="tag">Regulatory category: {{ patho.regulatory_category }}{% if patho.mechanism_confidence %} ({{ patho.mechanism_confidence | replace('_', ' ') | title }}){% endif %}</span>
+                    {% else %}
+                    <span class="tag">Mechanism confidence: {{ patho.mechanism_confidence | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <div class="item-meta">
                     {% if patho.role %}
                     <span class="tag tag-role">{{ patho.role | replace('_', ' ') }}</span>
                     {% endif %}
                 </div>
+                {% if patho.genetic_context %}{{ render_affected_regions(patho.genetic_context.affected_regions) }}{% endif %}
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
                 {% endif %}
@@ -1942,9 +1978,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(ct.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(ct, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(ct) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -1959,9 +1995,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(bp.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(bp, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(bp) }}
                     {% endfor %}
                 </div>
                 {% endif %}

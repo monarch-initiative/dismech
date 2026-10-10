@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Human Monocytic Ehrlichiosis · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Human Monocytic Ehrlichiosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Human Monocytic Ehrlichiosis</h1>
+                
+                <p class="report-subtitle">Human Monocytic Ehrlichiosis (HME): Comprehensive Disease Characterization Report</p>
+                
+                
+                <div class="report-date">2026-09-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000225" target="_blank" rel="noopener noreferrer">MONDO:0000225</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">28 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Human Monocytic Ehrlichiosis (HME): Comprehensive Disease Characterization Report</h1>
+<p><strong>Target disease:</strong> Human Monocytic Ehrlichiosis
+<strong>MONDO ID:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000225" target="_blank" rel="noopener noreferrer">MONDO:0000225</a>
+<strong>Category:</strong> Infectious Disease (tick-borne bacterial zoonosis)
+<strong>Causative organism:</strong> <em>Ehrlichia chaffeensis</em> (NCBI:txid159)</p>
+<hr />
+<h2>Summary</h2>
+<p>Human Monocytic Ehrlichiosis (HME) is an acute, potentially life-threatening tick-borne bacterial infection caused by the obligate intracellular bacterium <em>Ehrlichia chaffeensis</em> (family Anaplasmataceae, order Rickettsiales). It is transmitted primarily by the lone star tick, <em>Amblyomma americanum</em>, and is maintained in nature in an enzootic cycle in which the white-tailed deer (<em>Odocoileus virginianus</em>) serves as the keystone host and major reservoir. First recognized as a human pathogen in 1986, <em>E. chaffeensis</em> infects and replicates within cells of the mononuclear phagocyte lineage (monocytes and macrophages), residing in membrane-bound vacuoles that resemble early endosomes. The disease is endemic to the southeastern and south-central United States and its incidence has risen steeply and expanded geographically over the past three decades, tracking the northward spread of its vector.</p>
+<p>Clinically, HME presents as an undifferentiated febrile illness. Fever occurs in ~95% of patients, and the disease is characterized by a distinctive laboratory triad of <strong>thrombocytopenia, leukopenia, and elevated hepatic transaminases</strong>. Additional common features include headache, myalgia, and gastrointestinal symptoms; rash is common in children (~67%) but occurs in only about 30% of adults. Severe disease is largely <strong>immunopathological</strong> — a toxic-shock-like syndrome driven by dysregulated tumor necrosis factor-alpha (TNF-α) production by CD8⁺ T cells, suppressed protective CD4⁺ Th1/IFN-γ responses, and neutrophil-mediated tissue injury. Multi-organ involvement (central nervous system, lungs, kidneys, liver, and bone marrow) and complications such as acute respiratory distress syndrome (ARDS), acute renal failure, multi-organ failure, and secondary hemophagocytic lymphohistiocytosis (HLH) are more frequent in immunocompromised and elderly patients, who bear a disproportionate share of severe and fatal cases.</p>
+<p>HME is a <strong>non-genetic infectious disease</strong>: there are no causal human genes, pathogenic variants, or inheritance considerations — host risk is defined by exposure and immune status rather than germline genetics. Diagnosis in the acute phase relies on nucleic-acid amplification (PCR, e.g., targeting the <em>E. chaffeensis</em> TRP120 gene), supported by peripheral-blood smear examination for intracytoplasmic morulae (specific but insensitive) and retrospective serology (indirect immunofluorescence antibody, IFA, requiring convalescent seroconversion). Treatment is <strong>empiric doxycycline</strong>, which is first-line for adults and children and should not be delayed pending laboratory confirmation; early therapy prevents severe morbidity and death. No vaccine exists, so prevention rests on tick-bite avoidance (DEET/picaridin repellents, permethrin-treated clothing, tick checks, and prompt tick removal). Surveillance case-fatality is ~1–3%, but rises to ~10–16% in hospitalized/immunocompromised cohorts.</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Etiology and transmission: an obligate intracellular tick-borne bacterium (F001, F011, F012)</h3>
+<p>HME is caused by <strong><em>Ehrlichia chaffeensis</em></strong>, an obligately intracellular, tick-transmitted bacterium in the family Anaplasmataceae, order Rickettsiales. Its principal vector is the <strong>lone star tick, <em>Amblyomma americanum</em></strong> (NCBI:txid6943), and its keystone vertebrate reservoir is the <strong>white-tailed deer, <em>Odocoileus virginianus</em></strong> (NCBI:txid9874). The pathogen was first identified in 1986, and more than 1,000 patients had been reported by 2000. As stated in the foundational review, <em>"Ehrlichia chaffeensis is an obligately intracellular, tick-transmitted bacterium that is maintained in nature in a cycle involving at least one and perhaps several vertebrate reservoir hosts"</em> and the deer <em>"serves as a keystone host for all life stages of the principal tick vector (Amblyomma americanum) and is perhaps the most important vertebrate reservoir host for E. chaffeensis"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/12525424/">PMID: 12525424</a>. The disease designation itself — <em>"human monocytic ehrlichiosis [HME], caused by Ehrlichia chaffeensis"</em> — is confirmed in <a href="https://pubmed.ncbi.nlm.nih.gov/17582569/">PMID: 17582569</a>.</p>
+<p><strong>Alternative transmission routes</strong> exist beyond tick bite. A review of U.S. cases from 1997–2020 identified 132 ehrlichiosis/anaplasmosis cases among blood transfusion and solid-organ transplant recipients — <em>"12 transfusion-associated cases and 120 cases in transplant recipients; 8 cases were donor-derived"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/34670661/">PMID: 34670661</a>. Because <em>Ehrlichia</em> survives in stored blood and transplant recipients are immunosuppressed, blood transfusion and organ transplantation are recognized non-vector transmission routes.</p>
+<p><strong>Zoonotic maintenance:</strong> <em>E. chaffeensis</em> is maintained <em>"in a complex cycle involving white-tailed deer (WTD; Odocoileus virginianus) as a primary reservoir and the lone star tick (LST; Amblyomma americanum) as a primary vector"</em>, and natural <em>"disease has been documented in some domestic animals and wildlife including domestic dogs and ring-tailed lemurs"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/19819631/">PMID: 19819631</a>. The closely related <em>E. canis</em> is <em>"primarily responsible for the canine monocytic ehrlichiosis and is endemic throughout the world"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/18770538/">PMID: 18770538</a>, and <em>E. ewingii</em> causes granulocytotropic ehrlichiosis in humans and dogs (white-tailed deer are reservoirs for both <em>E. chaffeensis</em> and <em>E. ewingii</em>).</p>
+<h3>2. Clinical presentation and the laboratory triad (F002, F008, F013)</h3>
+<p>HME presents as a nonspecific febrile illness. A systematic review reported that <em>"HME primarily presents as an unspecific febrile illness (95% of the cases), often accompanied by thrombocytopenia (79.1% of the cases), leukopenia (57.8% of the cases), and abnormal liver function tests (68.1% of the cases)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a>. The core laboratory triad is confirmed independently: <em>"The diseases generally present as undifferentiated fever, but thrombocytopenia, leukopenia, and increased serum transaminase activities are important laboratory features"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/17582569/">PMID: 17582569</a>.</p>
+<p><strong>Symptom spectrum differs by age.</strong> In a pediatric case series (n=12, median age 7.4 y), <em>"Symptoms demonstrated by the patients during their illness included fever (100%), rash (67%), myalgias (58%), and vomiting, diarrhea, and headache (25%)"</em> and laboratory abnormalities included <em>"thrombocytopenia (92%), elevated liver function tests (91%), lymphopenia (75%), hyponatremia (67%), leukopenia (58%), and anemia (42%)"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/9200384/">PMID: 9200384</a>; 4 of 12 presented in shock. In adults, <em>"Patients infected with Human Monocytic Ehrlichiosis often present with symptoms including fever, headache, myalgia, and occasionally a macular rash"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/35986240/">PMID: 35986240</a> — rash being far less common (~30%) than in children and less common than in Rocky Mountain spotted fever (RMSF).</p>
+<p><strong>Gastrointestinal-hepatic involvement is prominent.</strong> <em>"Signs and symptoms include abdominal pain, nausea, vomiting, diarrhea, jaundice, and hepatosplenomegaly"</em> and <em>"If not diagnosed and treated in a timely fashion, ehrlichiosis can progress to multiorgan failure"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/10436355/">PMID: 10436355</a>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Frequency (pooled adults)</th>
+<th>Frequency (pediatric series)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>95%</td>
+<td>100%</td>
+</tr>
+<tr>
+<td>Thrombocytopenia</td>
+<td>79.1%</td>
+<td>92%</td>
+</tr>
+<tr>
+<td>Elevated LFTs / transaminases</td>
+<td>68.1%</td>
+<td>91%</td>
+</tr>
+<tr>
+<td>Leukopenia</td>
+<td>57.8%</td>
+<td>58%</td>
+</tr>
+<tr>
+<td>Rash</td>
+<td>~30%</td>
+<td>67%</td>
+</tr>
+<tr>
+<td>Lymphopenia</td>
+<td>—</td>
+<td>75%</td>
+</tr>
+<tr>
+<td>Hyponatremia</td>
+<td>—</td>
+<td>67%</td>
+</tr>
+<tr>
+<td>Anemia</td>
+<td>—</td>
+<td>42%</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><em>Suggested HPO terms:</em> Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>), Thrombocytopenia (<a href="http://purl.obolibrary.org/obo/HP_0001873" target="_blank" rel="noopener noreferrer">HP:0001873</a>), Leukopenia (<a href="http://purl.obolibrary.org/obo/HP_0001882" target="_blank" rel="noopener noreferrer">HP:0001882</a>), Elevated hepatic transaminase (<a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" rel="noopener noreferrer">HP:0002910</a>), Headache (<a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" rel="noopener noreferrer">HP:0002315</a>), Myalgia (<a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" rel="noopener noreferrer">HP:0003326</a>), Skin rash (<a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a>), Hepatosplenomegaly (<a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" rel="noopener noreferrer">HP:0001433</a>), Hyponatremia (<a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" rel="noopener noreferrer">HP:0002902</a>), Anemia (<a href="http://purl.obolibrary.org/obo/HP_0001903" target="_blank" rel="noopener noreferrer">HP:0001903</a>), Nausea and vomiting (<a href="http://purl.obolibrary.org/obo/HP_0002017" target="_blank" rel="noopener noreferrer">HP:0002017</a>), Diarrhea (<a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a>).</p>
+<h3>3. Multi-system disease and complications (F009, F005)</h3>
+<p>HME is a multi-system disease. Neurologic involvement spans a wide spectrum: <em>"Ehrlichiosis can present with a spectrum of neurologic manifestations, ranging in severity from headache to meningoencephalitis"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/16569376/">PMID: 16569376</a>. Pulmonary, renal, and hepatic complications are documented; one case report noted that the patient <em>"manifested known sequelae for this emerging disease, including dyspnea, pedal edema, increased transminases, and nephrotic syndrome"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/11272720/">PMID: 11272720</a>.</p>
+<p>Complications are strongly stratified by immune status. In the systematic review, complications were more frequent in immunocompromised versus immunocompetent patients: ARDS 34% vs 19.8%, acute renal failure 34% vs 15.8%, multi-organ failure 26% vs 14.9%, and secondary HLH 26% vs 14.9% <a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a>.</p>
+<p><em>Affected organs / body systems (UBERON):</em> blood (<a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>), central nervous system (<a href="http://purl.obolibrary.org/obo/UBERON_0001017" target="_blank" rel="noopener noreferrer">UBERON:0001017</a>), lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>). <em>Target cell types (CL):</em> monocyte (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>), macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>).</p>
+<h3>4. Pathophysiology: cellular subversion and immunopathology (F004, F003)</h3>
+<p><strong>Cellular subversion — upstream mechanism.</strong> <em>E. chaffeensis</em> replicates in membrane-bound vacuoles resembling early endosomes within monocytes/macrophages, and it deploys <strong>type IV secretion system (T4SS) effectors</strong> to remodel host-cell biology. The effector Etf-2 arrests phagosome/endosome maturation: <em>"The type IV secretion system effector Ehrlichia translocated factor-2 (Etf-2) directly binds to RAB5-GTP on E. chaffeensis-containing vacuoles. Consequently, Etf-2 hinders the engagement of RAB5 GTPase-activating protein with RAB5-GTP, delays maturation of Ehrlichia vacuoles to late endosomes, thus facilitates infection"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/40797321/">PMID: 40797321</a>. A second effector steals iron: <em>"Ehrlichia translocated factor-3 (Etf-3) is a type IV secretion system effector that binds host-cell ferritin light chain and induces ferritinophagy, thus increasing cellular labile iron pool for Ehrlichia proliferation"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/39705831/">PMID: 39705831</a>; the same iron-robbery mechanism is described in <a href="https://pubmed.ncbi.nlm.nih.gov/34074773/">PMID: 34074773</a>.</p>
+<p><strong>Immunopathology — downstream mechanism of severe disease.</strong> In the Ixodes ovatus Ehrlichia (IOE / <em>Ehrlichia</em> sp. HF) murine model of fatal ehrlichiosis, lethal infection is driven not by bacterial burden alone but by a dysregulated host response: <em>"Lethal infections caused by high or low doses of IOE were accompanied by extensive liver damage, extremely elevated levels of TNF-alpha in the serum, high frequency of Ehrlichia-specific, TNF-alpha-producing CD8(+) T cells in the spleen, decreased Ehrlicha-specific CD4(+) T cell proliferation, low IL-12 levels in the spleen, and a 40-fold decrease in the number of IFN-gamma-producing CD4(+) Th1 cells"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/14734762/">PMID: 14734762</a>. Neutrophils amplify the damage: <em>"depletion of neutrophils from lethally infected mice enhanced bacterial elimination, decreased immune-mediated pathology, and prolonged survival"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/23478316/">PMID: 23478316</a>.</p>
+<p><em>Suggested GO / molecular terms:</em> protein secretion by the type IV secretion system (<a href="http://purl.obolibrary.org/obo/GO_0030255" target="_blank" rel="noopener noreferrer">GO:0030255</a>), phagosome maturation (<a href="http://purl.obolibrary.org/obo/GO_0090382" target="_blank" rel="noopener noreferrer">GO:0090382</a>), autophagy/ferritinophagy (<a href="http://purl.obolibrary.org/obo/GO_0006914" target="_blank" rel="noopener noreferrer">GO:0006914</a>), tumor necrosis factor production (<a href="http://purl.obolibrary.org/obo/GO_0032640" target="_blank" rel="noopener noreferrer">GO:0032640</a>), positive regulation of inflammatory response (<a href="http://purl.obolibrary.org/obo/GO_0050729" target="_blank" rel="noopener noreferrer">GO:0050729</a>), early endosome (<a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" rel="noopener noreferrer">GO:0005769</a>). <em>Chemical entities (CHEBI):</em> iron (<a href="http://purl.obolibrary.org/obo/CHEBI_18248" target="_blank" rel="noopener noreferrer">CHEBI:18248</a>), doxycycline (<a href="http://purl.obolibrary.org/obo/CHEBI_50845" target="_blank" rel="noopener noreferrer">CHEBI:50845</a>).</p>
+<h3>5. Ordered mechanistic causal chain</h3>
+<pre><code>1.  Infected Amblyomma americanum tick bites human
+-&gt; inoculates Ehrlichia chaffeensis into dermis/blood
+2.  E. chaffeensis is taken up by monocytes/macrophages
+-&gt; resides in an early-endosome-like vacuole (morula)
+3.  T4SS effector Etf-2 binds RAB5-GTP on the vacuole
+-&gt; BLOCKS phagosome maturation to late endosome/lysosome
+-&gt; bacterium evades lysosomal killing (immune evasion)
+4.  T4SS effector Etf-3 binds ferritin light chain -&gt; ferritinophagy
+-&gt; RAISES labile iron pool -&gt; fuels bacterial replication
+5.  Intracellular proliferation + dissemination via mononuclear phagocytes
+-&gt; seeds liver, spleen, bone marrow, lung, kidney, CNS
+-&gt; cytopenias (thrombocytopenia, leukopenia) + transaminitis
+   +---------------------------- BRANCH ----------------------------+
+   | (a) Controlled response:                                       |
+   |     CD4+ Th1 / IFN-gamma + macrophage activation               |
+   |        -&gt; bacterial clearance -&gt; self-limited illness           |
+   |        -&gt; prompt doxycycline accelerates resolution             |
+   |                                                                |
+   | (b) Dysregulated response (severe/fatal; inferred from         |
+   |     IOE murine model + immunocompromised human cohorts):       |
+   |     Excess TNF-alpha from CD8+ T cells + suppressed CD4+ Th1    |
+   |     (40-fold down IFN-gamma) + neutrophil-mediated injury       |
+   |        -&gt; toxic-shock-like syndrome, HLH, ARDS,                 |
+   |           renal failure, multi-organ failure, death            |
+   +----------------------------------------------------------------+
+</code></pre>
+<p>Steps 3–4 are demonstrated mechanistically in cellular/molecular models; the branch to severe immunopathology (step b) is strongly supported by the IOE murine model and by the clinical over-representation of immunocompromised patients among severe/fatal human cases, but the precise human effector-cell dynamics remain <strong>inferred</strong> rather than directly demonstrated in patients.</p>
+<h3>6. Epidemiology and demographics (F010, F005)</h3>
+<p>HME is endemic to the <strong>southeastern and south-central United States</strong>. Historical surveillance (1986–1997) reported 742 HME cases, and <em>"HME was most commonly reported from southeastern and southcentral states, while HGE was most often reported from northeastern and upper midwestern states"</em>; reported cases rose sharply — <em>"The annual number of reported cases increased sharply, from 69 in 1994 to 364 in 1997"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/10511519/">PMID: 10511519</a>. Genus-level surveillance shows continued increases and northward geographic expansion tracking the vector; among the related <em>E. ewingii</em>, <em>"ehrlichiosis was reported more commonly among older, White, non-Hispanic, and male patients"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/39983701/">PMID: 39983701</a>.</p>
+<p><strong>Case fatality.</strong> The Tick-Borne Disease Working Group reported that <em>"Human monocytic ehrlichiosis and anaplasmosis are life threatening diseases with estimated case fatality rates of 2.7 and 0.3%, respectively"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/34517150/">PMID: 34517150</a>. In pooled reported (often hospitalized) cases, <em>"The overall case fatality is 11.6%, with a significant difference between immunocompetent (9.9%) and immunocompromized (16.3%) cases"</em>, and <em>"Immunocompromized patients are overrepresented among reviewed HME cases (26.7%), which indicates the role of HME as an opportunistic infection"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a>.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Surveillance case-fatality</td>
+<td>~2.7%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34517150/">PMID: 34517150</a></td>
+</tr>
+<tr>
+<td>Pooled reported-case fatality (overall)</td>
+<td>11.6%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a></td>
+</tr>
+<tr>
+<td>Case-fatality, immunocompetent</td>
+<td>9.9%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a></td>
+</tr>
+<tr>
+<td>Case-fatality, immunocompromised</td>
+<td>16.3%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a></td>
+</tr>
+<tr>
+<td>Immunocompromised share of cases</td>
+<td>26.7%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">PMID: 39093857</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>7. Diagnostics and differential diagnosis (F015, F016)</h3>
+<p>Acute-phase diagnosis relies on <strong>nucleic-acid amplification</strong>: real-time/duplex PCR targeting the <em>E. chaffeensis</em> TRP120 gene and multiplex qPCR panels. <em>"Early diagnosis is essential for rapid clinical treatment to avoid misdiagnosis and severe patient outcomes"</em> and <em>"the duplex real-time PCR assay was more sensitive than the nested PCR assay"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/24023963/">PMID: 24023963</a>. Supporting laboratory findings include the CBC triad (thrombocytopenia, leukopenia) and elevated transaminases. <strong>Serology</strong> (IFA) is the reference standard but requires a ≥4-fold rise between acute and convalescent sera (collected 2–4 weeks apart) and is therefore retrospective. <strong>Peripheral blood smear</strong> for intracytoplasmic morulae in monocytes is rapid and specific but low-sensitivity.</p>
+<p>The <strong>differential diagnosis</strong> encompasses other tick-borne illnesses. <em>"Tickborne diseases that affect patients in the United States include Lyme disease, Rocky Mountain spotted fever (RMSF), ehrlichiosis, anaplasmosis, babesiosis, tularemia, Colorado tick fever, and tickborne relapsing fever"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/32352736/">PMID: 32352736</a>, and <em>"many of the signs and symptoms can mimic other common presentations"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/37465658/">PMID: 37465658</a>. Distinguishing features of HME: less frequent rash than RMSF, prominent leukopenia/thrombocytopenia/transaminitis, and exposure geography/vector. Importantly, empiric doxycycline covers HME, anaplasmosis, ehrlichiosis, and RMSF simultaneously.</p>
+<h3>8. Treatment (F006, F013)</h3>
+<p><strong>Doxycycline is first-line</strong> for HME in both adults and children. CDC guidelines direct clinicians to <em>"recognize that doxycycline is the treatment of choice for suspected tickborne rickettsial diseases in adults and children"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/27172113/">PMID: 27172113</a> and to <em>"understand that early empiric antibiotic therapy can prevent severe morbidity and death"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/16572105/">PMID: 16572105</a>. Therapy should not be delayed pending laboratory confirmation; clinicians are advised <em>"to promptly start therapy with doxycycline, even in young children, when rickettsial infections are suspected"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/26188606/">PMID: 26188606</a> — concerns about dental staining from short courses in children are considered unfounded. Treatment is typically continued at least 3 days after defervescence (usually a 7–14 day course); defervescence usually occurs within 24–48 h of therapy. In the case series of GI/hepatic ehrlichiosis, all 8 patients responded to doxycycline <a href="https://pubmed.ncbi.nlm.nih.gov/10436355/">PMID: 10436355</a>. In severe HME-associated HLH, adjunctive corticosteroids/IVIG or anakinra have been used alongside doxycycline in case reports.</p>
+<p><em>Suggested NCIT term:</em> Doxycycline (NCIT:C299).</p>
+<h3>9. Prevention (F007)</h3>
+<p>No vaccine exists for HME; prevention rests on <strong>tick-bite avoidance</strong>. The Wilderness Medical Society guidelines give strong recommendations for <em>"the use of DEET, picaridin, and permethrin; tick checks; washing and drying clothing at high temperatures; mechanical tick removal within 36 h of attachment"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/34642107/">PMID: 34642107</a>. Antibiotic prophylaxis after a tick bite is not routine for ehrlichiosis: <em>"Prophylactic treatment after tick exposure in patients without symptoms is generally not recommended"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/32352736/">PMID: 32352736</a>.</p>
+<h3>10. Animal models and comparative biology (F014, F012)</h3>
+<p>Because <em>E. chaffeensis</em> does not cause lethal disease in immunocompetent mice, the <strong><em>Ehrlichia</em> sp. HF (IOE) fatal murine model</strong> fills a critical gap: it <em>"causes acute fatal infection in laboratory mice that resembles acute fatal human monocytic ehrlichiosis caused by Ehrlichia chaffeensis"</em> and, <em>"As there is no small laboratory animal model to study fatal human ehrlichiosis, Ehrlichia sp. HF provides a needed disease model"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/33407096/">PMID: 33407096</a>. <em>E. muris</em> provides a non-lethal, persistent-infection model. <strong>White-tailed deer and dogs</strong> serve as models of the natural transmission cycle; ticks infected with cultured organisms transmit infection — <em>"the transmission of both wild-type and transposon mutants of E. chaffeensis to its primary reservoir host, white tailed deer and to another known host, dog"</em> <a href="https://pubmed.ncbi.nlm.nih.gov/27729288/">PMID: 27729288</a>. The canine counterpart disease, canine monocytic ehrlichiosis (caused by <em>E. canis</em>), is an important veterinary analogue <a href="https://pubmed.ncbi.nlm.nih.gov/18770538/">PMID: 18770538</a>.</p>
+<p><em>Model organism / taxonomy identifiers:</em> <em>Ehrlichia chaffeensis</em> NCBI:txid159; <em>Amblyomma americanum</em> NCBI:txid6943; <em>Odocoileus virginianus</em> NCBI:txid9874; <em>Canis lupus familiaris</em> NCBI:txid9615; <em>Mus musculus</em> NCBI:txid10090.</p>
+<hr />
+<h2>Section-by-Section Reference to the Research Template</h2>
+<h3>1. Disease Information</h3>
+<p>Concise overview and identifiers as above. <strong>Key identifiers:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0000225" target="_blank" rel="noopener noreferrer">MONDO:0000225</a>; MeSH "Ehrlichiosis" (D016873); ICD-10 A77.40–A77.49 (Ehrlichiosis); ICD-11 1C30.2. There is no OMIM entry (non-genetic infectious disease). <strong>Synonyms:</strong> human monocytic ehrlichiosis, human monocytotropic ehrlichiosis, <em>Ehrlichia chaffeensis</em> infection, HME. Information is derived from <strong>aggregated disease-level resources</strong> (systematic reviews, CDC/surveillance data, case series) rather than a single EHR cohort.</p>
+<h3>2. Etiology</h3>
+<p>Primary cause is <strong>infectious</strong> (<em>E. chaffeensis</em>). <strong>Risk factors</strong> are environmental/behavioral: residence or activity in endemic southeastern/south-central U.S., outdoor/wooded exposure, tick bite, older age, male sex, and — for severe disease — <strong>immunocompromise</strong> (transplant, immunosuppression). No genetic (germline) susceptibility loci are established for humans. <strong>Protective factors</strong> are behavioral: repellent use, protective clothing, tick checks. <strong>Gene–environment interactions:</strong> not applicable in the human-germline sense; host–pathogen interaction is dominated by immune status.</p>
+<h3>3. Phenotypes</h3>
+<p>See Finding 2 table with HPO suggestions. Onset is acute; severity ranges mild → severe (variable), and untreated disease can be progressive to multi-organ failure. Quality-of-life impact is acute (days–weeks) in uncomplicated disease; survivors of severe disease may have prolonged recovery, but HME is not typically a chronic condition.</p>
+<h3>4. Genetic/Molecular Information</h3>
+<p><strong>Not applicable</strong> to the human host: HME has no causal human genes, pathogenic variants, modifier genes, epigenetic disease drivers, or chromosomal abnormalities. The relevant molecular biology is that of the <strong>pathogen genome</strong> (~1.15 Mb), encoding the T4SS apparatus and effectors (Etf-1/Etf-2/Etf-3), ~23 P28/OMP-1 outer-membrane protein paralogs, and ankyrin-repeat/tandem-repeat proteins (TRP120 is a PCR diagnostic target).</p>
+<h3>5. Environmental Information</h3>
+<p><strong>Infectious agent:</strong> <em>Ehrlichia chaffeensis</em> (NCBI:txid159). Environmental/lifestyle contributors are exposure-related (endemic geography, outdoor activity, occupational exposure such as forestry or military field exercises). No chemical toxins or pollutants are implicated.</p>
+<h3>6. Mechanism/Pathophysiology</h3>
+<p>See the ordered causal chain and Finding 4.</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p>Primary target cells: <strong>monocytes/macrophages</strong> (<a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" rel="noopener noreferrer">CL:0000576</a>, <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>). Organs: blood, liver, spleen, bone marrow, lung, kidney, CNS (UBERON terms above). Subcellular: the pathogen resides in an <strong>early-endosome-like vacuole</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005769" target="_blank" rel="noopener noreferrer">GO:0005769</a>). Involvement is systemic/bilateral where paired organs are affected.</p>
+<h3>8. Temporal Development</h3>
+<p><strong>Onset:</strong> acute, typically days after tick exposure; any age (pediatric through geriatric). <strong>Course:</strong> self-limited or rapidly resolving with timely doxycycline (defervescence within 24–48 h); progressive to multi-organ failure if untreated. Not relapsing-remitting or chronic in typical disease.</p>
+<h3>9. Inheritance and Population</h3>
+<p>No inheritance pattern (infectious). Epidemiology per Finding 6: endemic southeastern/south-central U.S., rising and geographically expanding incidence; older, male predominance; immunocompromised over-representation among severe cases.</p>
+<h3>10. Diagnostics</h3>
+<p>Per Finding 7: acute-phase PCR (TRP120) is the test of choice; IFA serology retrospective; blood-smear morulae specific but insensitive; supporting CBC and LFT abnormalities. No genetic/omics diagnostics are used clinically.</p>
+<h3>11. Outcome/Prognosis</h3>
+<p>Case-fatality ~2.7% (surveillance) to ~10–16% (hospitalized/immunocompromised). Prognostic factors: <strong>immune status, age, delay to doxycycline, and severity of cytopenias/organ dysfunction.</strong> Complications: ARDS, acute renal failure, multi-organ failure, secondary HLH. Recovery is generally complete with timely treatment.</p>
+<h3>12. Treatment</h3>
+<p>Per Finding 8: empiric doxycycline first-line; adjunctive immunomodulation (steroids/IVIG/anakinra) for HLH in severe cases (case-report level evidence).</p>
+<h3>13. Prevention</h3>
+<p>Per Finding 9: tick-bite avoidance; no vaccine; prophylaxis not routine.</p>
+<h3>14. Other Species/Natural Disease</h3>
+<p>Zoonotic maintenance in white-tailed deer; natural infection of dogs and other mammals; veterinary counterpart canine monocytic ehrlichiosis (<em>E. canis</em>). See Finding 10.</p>
+<h3>15. Model Organisms</h3>
+<p>IOE/<em>Ehrlichia</em> sp. HF fatal murine model; <em>E. muris</em> persistent model; deer and dog transmission-cycle models. See Finding 10.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<p>The unifying theme of HME pathogenesis is <strong>a two-stage host–pathogen conflict inside the mononuclear phagocyte</strong>. Upstream, <em>E. chaffeensis</em> wins the intracellular battle by secreting T4SS effectors that (i) freeze phagosome maturation (Etf-2/RAB5) to escape lysosomal destruction and (ii) divert host iron (Etf-3/ferritinophagy) to fuel replication. This explains the organism's tropism for monocytes/macrophages and its dissemination through the reticuloendothelial system, producing the hallmark cytopenias and transaminitis.</p>
+<p>Downstream, disease <strong>severity is determined by the host, not the microbe.</strong> The IOE murine model demonstrates that fatal outcomes correlate with a maladaptive immune response — excess CD8⁺-derived TNF-α, collapse of protective CD4⁺ Th1/IFN-γ immunity, and neutrophil-driven tissue injury — rather than with overwhelming bacterial load. This immunopathological framework reconciles the clinical epidemiology: immunocompromised and elderly patients, whose immune regulation is impaired, suffer disproportionately severe disease, HLH, and death. It also rationalizes the therapeutic success of early doxycycline (halting bacterial replication before the immune response becomes self-destructive) and the emerging, case-report-level role of immunomodulation (steroids, IVIG, anakinra) in the sickest patients.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12525424/">12525424</a></td>
+<td>Defines <em>E. chaffeensis</em> as obligate intracellular tick-borne pathogen; deer as keystone reservoir</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17582569/">17582569</a></td>
+<td>HME etiology; undifferentiated fever + laboratory triad</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39093857/">39093857</a></td>
+<td>Systematic review: phenotype frequencies, case-fatality by immune status</td>
+<td>Systematic review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/14734762/">14734762</a></td>
+<td>TNF-α/CD8⁺ toxic-shock-like immunopathology (IOE model)</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23478316/">23478316</a></td>
+<td>Neutrophils mediate immunopathology in fatal ehrlichiosis</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40797321/">40797321</a></td>
+<td>Etf-2 blocks phagosome maturation via RAB5</td>
+<td>In vitro/molecular</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39705831/">39705831</a></td>
+<td>Etf-3 induces ferritinophagy / iron acquisition</td>
+<td>In vitro/molecular</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34074773/">34074773</a></td>
+<td>Bacterial effector-induced ferritinophagy ("iron robbery")</td>
+<td>In vitro/molecular</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34517150/">34517150</a></td>
+<td>Population-level case-fatality (2.7%)</td>
+<td>Working group report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27172113/">27172113</a></td>
+<td>CDC: doxycycline first-line, adults &amp; children</td>
+<td>Guideline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16572105/">16572105</a></td>
+<td>Early empiric therapy prevents severe outcomes</td>
+<td>Guideline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26188606/">26188606</a></td>
+<td>Prompt doxycycline even in young children</td>
+<td>Guideline/review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34642107/">34642107</a></td>
+<td>Prevention: repellents, tick checks, removal</td>
+<td>Guideline</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32352736/">32352736</a></td>
+<td>Differential diagnosis; prophylaxis not routine</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9200384/">9200384</a></td>
+<td>Pediatric symptom/lab frequencies (rash 67%)</td>
+<td>Case series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35986240/">35986240</a></td>
+<td>Adult symptom spectrum</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16569376/">16569376</a></td>
+<td>CNS involvement</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11272720/">11272720</a></td>
+<td>Pulmonary/renal/hepatic sequelae</td>
+<td>Case report</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10511519/">10511519</a></td>
+<td>Geographic distribution; rising incidence</td>
+<td>Surveillance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39983701/">39983701</a></td>
+<td>Demographic pattern (older, male)</td>
+<td>Surveillance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34670661/">34670661</a></td>
+<td>Transfusion/transplant (donor-derived) transmission</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/19819631/">19819631</a></td>
+<td>Reservoir–vector zoonotic cycle</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18770538/">18770538</a></td>
+<td><em>E. canis</em> / canine monocytic ehrlichiosis</td>
+<td>Review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10436355/">10436355</a></td>
+<td>GI/hepatic manifestations; multi-organ failure</td>
+<td>Case series/review</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33407096/">33407096</a></td>
+<td>IOE fatal murine model</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27729288/">27729288</a></td>
+<td>Deer/dog transmission-cycle models</td>
+<td>Model organism</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/24023963/">24023963</a></td>
+<td>Duplex real-time PCR diagnosis</td>
+<td>Diagnostic</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37465658/">37465658</a></td>
+<td>Signs/symptoms mimic other illnesses</td>
+<td>Review</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Immunopathology evidence is largely from murine models.</strong> The TNF-α/CD8⁺/neutrophil toxic-shock-like mechanism is demonstrated primarily in the IOE (<em>Ehrlichia</em> sp. HF) mouse model, not <em>E. chaffeensis</em> in humans. Human immune-cell dynamics during severe HME remain inferred.</li>
+<li><strong>Case-fatality estimates are heterogeneous.</strong> Surveillance (~2.7%) versus pooled reported cases (~11.6%) differ because reported cohorts are enriched for hospitalized and immunocompromised patients; true population incidence and infection-fatality ratio are likely underestimated due to under-recognition of mild disease.</li>
+<li><strong>No human genetic susceptibility data.</strong> Whether host genetic variation modulates HME severity has not been studied at scale; the disease is treated as purely exposure/immune-status driven.</li>
+<li><strong>Effector biology is incompletely mapped.</strong> Beyond Etf-2 and Etf-3, the full T4SS effector repertoire and the roles of P28/OMP-1 paralogs and TRP/ankyrin proteins in pathogenesis are only partially characterized.</li>
+<li><strong>HLH management is anecdotal.</strong> Adjunctive immunomodulation (steroids, IVIG, anakinra) rests on case reports/small series, not trials.</li>
+<li><strong>Diagnostic sensitivity gaps.</strong> Acute serology is insensitive (retrospective), and blood-smear morulae are insensitive; PCR sensitivity depends on timing and bacterial load. There is no rapid point-of-care test.</li>
+</ol>
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Human immunophenotyping cohort:</strong> longitudinal single-cell/cytokine profiling (TNF-α, IFN-γ, CD8⁺/CD4⁺ dynamics, neutrophil activation) in patients stratified by severity to validate the murine immunopathology model in humans.</li>
+<li><strong>Effector-targeted therapeutics:</strong> advance anti-Etf nanobody / mRNA-LNP approaches (already in cellular/murine proof-of-concept) toward preclinical efficacy against <em>E. chaffeensis</em>.</li>
+<li><strong>Host-directed therapy trials:</strong> structured evaluation of adjunctive immunomodulation (corticosteroids, anakinra/IL-1 blockade, IVIG) for HME-associated HLH and toxic-shock-like syndrome.</li>
+<li><strong>Point-of-care molecular diagnostics:</strong> develop and validate rapid isothermal amplification (e.g., RPA) assays for <em>E. chaffeensis</em> to enable earlier empiric-to-confirmed transitions.</li>
+<li><strong>Prospective severity biomarkers:</strong> test serum ferritin, TNF-α, and cytopenia trajectories as early predictors of progression to HLH/multi-organ failure.</li>
+<li><strong>Expanded surveillance modeling:</strong> integrate vector-range expansion (northward <em>A. americanum</em> spread) with climate data to forecast emerging endemic zones and guide prevention messaging.</li>
+<li><strong>Blood/organ safety:</strong> evaluate donor screening strategies given documented transfusion- and transplant-associated (donor-derived) transmission.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 16 confirmed findings and 52 reviewed papers across 5 investigation iterations. Evidence types are distinguished as human clinical (case series, surveillance, guidelines), model organism (murine IOE, deer/dog), and in vitro/molecular (effector biology).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Human_Monocytic_Ehrlichiosis-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Human_Monocytic_Ehrlichiosis-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc1.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>28</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>31</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>GO:0005769</code> (2 mentions) - the report calls it "early-endosome-like vacuole"; GO calls it <strong>early endosome</strong></li>
+</ul>
+<p>Every term resolved, and every label the report gave matched.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Human_Granulocytic_Anaplasmosis-openscientist.html">← Human Granulocytic Anaplasmosis (OpenScientist)</a>
+                
+                
+                <a href="Human_Papillomavirus_Infection-falcon.html">Human Papillomavirus Infection (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Human_Monocytic_Ehrlichiosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Human_Monocytic_Ehrlichiosis-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

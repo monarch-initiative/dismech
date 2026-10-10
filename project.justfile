@@ -130,6 +130,12 @@ validate file:
 #    unverified, not wrong — so failing an in-progress edit on it strands the
 #    curator mid-file. It is reported here as advisory and enforced for real by
 #    `just validate`, `just qc`, and CI before anything merges.
+#
+#    Term validation is offline only for terms already in the cache. An
+#    uncached CURIE is looked up over the network (OLS for most prefixes), and
+#    when that lookup times out the term has not been checked at all. That case
+#    warns instead of blocking (dismech#12634), after rechecking the terms the
+#    cache does hold (dismech#12658); see the comment in the recipe.
 [group('QC')]
 validate-pre-edit file:
     #!/usr/bin/env bash
@@ -138,7 +144,32 @@ validate-pre-edit file:
     lv_config=$(just _linkml-validate-config Disease)
     uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
-    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
+    # Exit 75 from the wrapper means the ontology service did not answer, so an
+    # uncached term could not be looked up. That is an outage, not a bad term,
+    # and blocking the edit on it only teaches agents to write around the hook
+    # (dismech#12634). Warn and continue; a wrong CURIE, label or enum member
+    # still exits 1 and still blocks. `just validate` and `validate-disorders`
+    # are not relaxed, so CI still checks the terms before merge.
+    #
+    # The online run gives up on the whole file at the first lookup that times
+    # out, so on exit 75 nothing was checked, cached terms included. Rerun with
+    # --offline, which checks everything the local cache can answer for, and
+    # block only on real errors there, such as a wrong label on a cached CURIE.
+    # Terms the cache cannot answer for are listed as "not checked"
+    # (dismech#12658; see scripts/classify_offline_term_results.py).
+    term_rc=0
+    {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}} || term_rc=$?
+    if [ "$term_rc" -eq 75 ]; then
+        echo "⚠ TERMS NOT CHECKED: ontology service unavailable. Rechecking against the local cache only..." >&2
+        offline_rc=0
+        offline_out=$({{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}} --offline 2>&1) || offline_rc=$?
+        if ! printf '%s\n' "$offline_out" | uv run python scripts/classify_offline_term_results.py --exit-code "$offline_rc"; then
+            exit 1
+        fi
+        echo "Edit allowed; run \`just validate-terms\` on the edited file once the service answers." >&2
+    elif [ "$term_rc" -ne 0 ]; then
+        exit "$term_rc"
+    fi
     echo "Reference validation (advisory, cache-bound)..."
     if ! {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text; then
         echo "⚠ Reference validation reported issues (advisory here; run \`just validate\` before committing)"
@@ -465,59 +496,72 @@ validate-surrogate-endpoints:
         uv run linkml-validate --schema {{schema_path}} --target-class FDASurrogateEndpointCollection "$f"
     done
 
-# Validate all mechanism module YAML files (schema + terms + references)
+# Validate all mechanism module YAML files (schema + terms + references).
+# Same gate as CI's changed-module step: modules validate against the Disease
+# class and get exactly the checks `validate-disorders` applies, including
+# abstract-only (--no-full-text) snippet matching.
 [group('QC')]
 validate-modules:
     #!/usr/bin/env bash
+    set -u
     shopt -s nullglob
     files=({{modules_dir}}/*.yaml)
     if [ ${#files[@]} -eq 0 ]; then
         echo "No module files found in {{modules_dir}}"
         exit 0
     fi
-    just fix-references-cache "${files[@]}"
     just check-enum-cache-offline
-    failed_files=()
-    echo "Validating all mechanism module files..."
-    for f in "${files[@]}"; do
-        echo "=== $(basename $f) ==="
-        errors=""
-        # Schema validation (modules use the Disease class)
-        if ! uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -q "No issues found"; then
-            errors+="  [SCHEMA] $(uv run linkml-validate --schema {{schema_path}} --target-class Disease "$f" 2>&1 | grep -v "^$")\n"
-        fi
-        # Term validation
-        term_output=$({{term_validator}} validate-data "$f" -s {{schema_path}} -t Disease --labels -c {{oak_config}} 2>&1)
-        if ! echo "$term_output" | grep -q "Validation passed"; then
-            errors+="  [TERMS] $term_output\n"
-        fi
-        # Reference validation
-        ref_output=$({{ref_validator}} validate data "$f" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} 2>&1)
-        if echo "$ref_output" | grep -q "\[ERROR\]"; then
-            errors+="  [REFERENCES]\n$(echo "$ref_output" | grep -A2 "\[ERROR\]")\n"
-        fi
-        if [ -n "$errors" ]; then
-            failed_files+=("$f")
-            echo -e "$errors"
+    just validate-module-batch "${files[@]}"
+
+# Validate the given mechanism module files (schema + terms + references),
+# batched like `validate-disorders` so each validator process is reused across
+# files. Exit status, not grepped output, decides pass/fail. CI runs this over
+# the module files a PR changes.
+[group('QC')]
+validate-module-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    # Iterate real positional args (see `set positional-arguments` in justfile).
+    for f in "$@"; do
+        if [[ "$f" == {{modules_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
         else
-            # Surface the wrapper's affirmative snippet count (issue #7252):
-            # without it this loop prints a wall of "✓ OK" that is
-            # indistinguishable from having checked nothing.
-            snippet_line=$(echo "$ref_output" | grep -o 'Snippets checked:.*' || true)
-            echo "  ✓ OK${snippet_line:+ ($snippet_line)}"
+            echo "Skipping non-module file: $f"
         fi
     done
-    echo ""
-    echo "================================"
-    if [ ${#failed_files[@]} -eq 0 ]; then
-        echo "✓ All module files validated successfully!"
-    else
-        echo "✗ ${#failed_files[@]} module file(s) with errors:"
-        for f in "${failed_files[@]}"; do
-            echo "  - $f"
-        done
-        exit 1
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing module YAML files to validate."
+        exit 0
     fi
+
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
+    exit_code=0
+    echo "Validating ${#existing[@]} module file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Disease "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache "${existing[@]}" || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more module files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} module file(s) passed validation."
 
 # Validate a single mechanism module file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
@@ -525,13 +569,18 @@ validate-modules:
 validate-module file:
     #!/usr/bin/env bash
     set -e
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
     echo "Schema validation..."
-    uv run linkml-validate --schema {{schema_path}} --target-class Disease {{file}}
+    lv_config=$(just _linkml-validate-config Disease)
+    uv run linkml-validate --config "$lv_config" {{file}}
     echo "Term validation..."
     {{term_validator}} validate-data {{file}} -s {{schema_path}} -t Disease --labels -c {{oak_config}}
     echo "Reference validation..."
     just fix-references-cache "{{file}}"
     {{ref_validator}} validate data {{file}} --schema {{schema_path}} --target-class Disease --config {{ref_validator_config}}
+    just _normalize-cache-if-changed "$cache_stamp"
     echo "✓ All validations passed for {{file}}"
 
 # ModuleCollection currently has no ontology-bound slots, so term validation
@@ -633,13 +682,80 @@ validate-groupings:
     fi
 
 # Lint and audit disease grouping membership criteria (structural + advisory).
-# Structural lint is enforced in pytest; this report also evaluates whether
-# listed members satisfy NECESSARY criteria (advisory — criteria may be
-# aspirational). Pass a file to scope to one grouping; --strict to gate.
-# Use `--overlaps` to report all pairwise disease-member overlaps.
+# Structure and foreign keys always report; the membership audit evaluates
+# whether listed members satisfy NECESSARY criteria over the committed HP/GO
+# closure cache (cache/closure/). Pass a file to scope to one grouping;
+# --strict to gate on structure, dangling keys, uncached criterion terms and
+# NOT_SATISFIED members; --offline to never contact an ontology (what CI
+# runs). Use `--overlaps` to report all pairwise disease-member overlaps.
 [group('QC')]
 check-groupings *args="":
     uv run python -m dismech.groupings {{args}}
+
+# Populate cache/closure/<prefix>.csv with the is_a/part_of closure of every
+# HP/GO term cited by grouping membership criteria. Append-only like the term
+# caches: only uncached terms are fetched (from OLS, so this needs network).
+# The cache is a snapshot: a member annotated with an HP/GO term added to the
+# ontology after the last build reads NOT_SATISFIED until `--refresh` re-fetches
+# every cited term. `--prune` drops terms no grouping cites and is refused with
+# explicit paths. Commit the result; the audit and CI read it offline.
+[group('QC')]
+build-grouping-closure-cache *args="":
+    uv run python -m dismech.groupings --build-closure-cache {{args}}
+
+# Batched, CI-shaped validation of changed grouping files: schema, terms,
+# references, then the strict offline structural/membership audit. Mirrors
+# `validate-disorders`, which is what a grouping-only PR previously got none
+# of -- kb/groupings/ was in no CI path filter and every grouping pytest is
+# under the `kb_data` marker (schema-change lane only).
+[group('QC')]
+validate-grouping-batch *files:
+    #!/usr/bin/env bash
+    set -u
+    existing=()
+    for f in "$@"; do
+        if [[ "$f" == {{groupings_dir}}/*.yaml && -f "$f" ]]; then
+            existing+=("$f")
+        elif [[ ! -f "$f" ]]; then
+            echo "Skipping deleted/missing file: $f"
+        else
+            echo "Skipping non-grouping file: $f"
+        fi
+    done
+    if [ ${#existing[@]} -eq 0 ]; then
+        echo "No existing grouping YAML files to validate."
+        exit 0
+    fi
+
+    mkdir -p tmp
+    cache_stamp=$(mktemp tmp/dismech_cache_stamp.XXXXXX)
+    trap 'rm -f "$cache_stamp"' EXIT
+
+    exit_code=0
+    echo "Validating ${#existing[@]} grouping file(s) (batched)..."
+    echo "Schema validation (batch)..."
+    uv run linkml-validate --schema {{schema_path}} --target-class Grouping "${existing[@]}" || exit_code=1
+    echo ""
+
+    echo "Term validation (batch)..."
+    {{term_validator}} validate-data "${existing[@]}" -s {{schema_path}} -t Grouping --labels -c {{oak_config}} || exit_code=1
+    echo ""
+
+    echo "Reference validation (batch)..."
+    just fix-references-cache "${existing[@]}" || exit_code=1
+    {{ref_validator}} validate data "${existing[@]}" --schema {{schema_path}} --target-class Grouping --config {{ref_validator_config}} --no-full-text || exit_code=1
+    echo ""
+
+    echo "Structural lint, foreign keys and membership audit (strict, offline)..."
+    uv run python -m dismech.groupings --strict --offline "${existing[@]}" || exit_code=1
+    echo ""
+
+    just _normalize-cache-if-changed "$cache_stamp" || exit_code=1
+    if [ $exit_code -ne 0 ]; then
+        echo "✗ Validation failed for one or more grouping files (see above)"
+        exit $exit_code
+    fi
+    echo "✓ All ${#existing[@]} grouping file(s) passed validation."
 
 # Measure the CONFORMS_TO_MODULE `#Node` anchor gap (dismech#9403): how many
 # (member, criterion) pairs are satisfied on the module stem but not at the
@@ -648,6 +764,21 @@ check-groupings *args="":
 [group('QC')]
 grouping-anchor-audit *args="":
     uv run python scripts/grouping_module_anchor_audit.py {{args}}
+
+# Check each grouping's MONDO mapping predicate against its own members, by
+# resolving every member's MONDO term to its ANCESTORS and looking the mapped
+# class up in that set (dismech#11299 territory, but no local build needed).
+# This is the inverted form of the descendant-closure check: bounded by the
+# member list rather than by the ontology, and the OLS REST endpoint serves
+# ancestors even though the ols:mondo OAK adapter serves neither direction.
+# Needs network. Report-only; --strict exits 1 when a grouping declares
+# exactMatch/narrowMatch while holding members outside the mapped class.
+# Distinct from scripts/grouping_mondo_gaps.py, which finds MONDO descendants
+# with NO dismech entry -- irreducibly a descendant query, still needs the
+# ~588 MB local MONDO build.
+[group('QC')]
+grouping-mondo-consistency *args="":
+    uv run python scripts/grouping_mondo_consistency.py {{args}}
 
 # Report the declared grouping-of-grouping tree plus undeclared member-set
 # containments between groupings (advisory; a containment is a lead, not a ruling)
@@ -876,7 +1007,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-cancer-origin check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-duplicate-keys check-enum-values check-hypothesis-links check-delivery-system check-entity-refs check-causal-targets compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-not4curation check-folded-hyphens check-snippet-length check-title-snippets check-reference-titles check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -919,6 +1050,17 @@ knowledge-gap-audit *args="":
 [group('QC')]
 check-knowledge-gap-targets *files:
     uv run python scripts/knowledge_gap_discussion_audit.py --strict --quiet "$@"
+
+# Census of how far estrogen signalling is curated, in six tiers from "mentions
+# estrogen anywhere" down to "binds ESR1/ESR2 on a pathophysiology node". The
+# gap it measures is between binding GO:0030520 on a node and putting the
+# receptor driving it on that node. Offline, report-only, exits 0. See #12925.
+#   just estrogen-census
+#   just estrogen-census --format tsv
+#   just estrogen-census --out docs/reports/estrogen-signalling-coverage-census-<date>.md
+[group('QC')]
+estrogen-census *args="":
+    uv run python scripts/estrogen_signalling_census.py "$@"
 
 # Census of has_subtypes usage (how many subtypes are ever referenced by a
 # subtype: foreign key) plus the deterministic subtype-gene wiring check: a
@@ -984,6 +1126,22 @@ immune-antigen-audit *args="":
 [group('QC')]
 variant-mechanism-audit *args="":
     uv run python scripts/audit_variant_mechanism.py {{args}}
+
+# Ratchet on genetic[].mechanism_activity_grounding: a gene wired into the
+# pathograph whose landing node names no molecular function. Grandfathers
+# against origin/main in CI (GENE_ACTIVITY_BASELINE_REF), else against
+# tests/gene_activity_grounding_baseline.txt.
+# Fail on genes newly landing on a node with no molecular_functions
+[group('QC')]
+check-gene-activity-grounding *args="":
+    uv run python scripts/check_gene_activity_grounding.py {{args}}
+
+# Only ever to REMOVE fixed entries, or to grandfather a node that genuinely
+# has no single molecular function -- say which in the PR.
+# Rewrite tests/gene_activity_grounding_baseline.txt from the current tree
+[group('QC')]
+update-gene-activity-baseline:
+    uv run python scripts/check_gene_activity_grounding.py --update-baseline
 
 # Analyze recommended field compliance for all disorder files
 [group('QC')]
@@ -1146,11 +1304,41 @@ alias validate-references := validate-kb-references
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
+# Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
+# A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
+# re-checks them: the trial registry is the one live-API reference source with no
+# `*-refresh` recipe, and its cache records carry no retrieval timestamp, so drift
+# is not measurable offline. Reports only -- never edits the KB, since a trial
+# moving to COMPLETED/TERMINATED usually wants its description/evidence revisited
+# too. Network-dependent and therefore advisory: deliberately NOT part of `just qc`.
+# Pass --strict to gate, --only-drift for just the worklist, --format json|markdown.
+# See docs/clinical-trial-status.md.
+[group('QC')]
+clinicaltrials-status-audit *args:
+    uv run python -m dismech.clinical_trial_status {{args}}
+
 # Deterministically validate reference cache frontmatter against the
 # linkml-reference-validator cache contract before the heavier data validators.
 [group('QC')]
 check-reference-cache-frontmatter:
     uv run python -m dismech.reference_cache_frontmatter references_cache
+
+# List reference caches fetched with no quotable text (`content_type:
+# unavailable` in the frontmatter), grouped by identifier prefix and split by
+# whether the full-text route was tried (`full_text_attempted: true`) or never
+# retried under it (a `--force` refetch may recover text). Also counts how many
+# are cited in kb/ and flags any cited by an evidence item with a snippet.
+# Read-only, offline, exit 0: a triage view, not a gate. An empty fetch is often
+# transient, so this is a refetch worklist, not a list of unquotable papers.
+# See issue #9825.
+#   just list-empty-reference-caches                 # summary (parses kb/, ~35s)
+#   just list-empty-reference-caches --format tsv    # one row per record
+#   just list-empty-reference-caches --no-kb         # skip the kb/ lookup (fast)
+#
+# Reference caches with no quotable text (content_type: unavailable), exit 0.
+[group('QC')]
+list-empty-reference-caches *args="":
+    uv run python -m dismech.reference_cache_frontmatter list-empty {{args}}
 
 # Catches the ad-hoc-seeding corruption in #7682: a row built by string
 # concatenation whose label contains a comma parses to >3 fields and is
@@ -1261,6 +1449,15 @@ check-duplicate-keys *files:
 check-case-collisions:
     uv run python scripts/check_case_collisions.py
 
+# PDF text extraction emits an unmapped glyph -- usually an fi/fl ligature -- as
+# U+0000, and one NUL makes grep treat the whole file as binary and silently drop
+# it from its output. Repair with scripts/repair_reference_cache_nuls.py --apply.
+# Ungated and whole-tree for the same reason as check-case-collisions. ~2s, offline.
+# Guard against NUL bytes in references_cache/ (#12543)
+[group('QC')]
+check-reference-cache-nul-bytes:
+    uv run python scripts/check_reference_cache_nul_bytes.py
+
 # Guard against KB values that are not permissible in their slot's enum (#10061).
 # The schema-narrowing twin of check-duplicate-keys: #10003 narrowed
 # EvidenceItemSupportEnum while ~15 curation PRs carrying the retired PARTIAL
@@ -1317,11 +1514,16 @@ list-causal-targets *files:
 # under kb/hypotheses/ reaches the disease page through two verbatim name
 # matches in render.collect_hypothesis_research_links -- <slug> against the
 # entry's filename stem, and <hypothesis_id> against a declared
-# mechanistic_hypotheses[].hypothesis_group_id. Neither has a fallback, and a
-# mismatch is silent everywhere else: reports, sidecars, entry and page all
-# validate. A slug miss makes every report under it INVISIBLE; an id miss
-# renders it detached with no status. Ungated and whole-KB because the PR that
-# breaks it -- renaming an entry, folding it into a parent per design decisions
+# mechanistic_hypotheses[].hypothesis_group_id -- plus one fallback in
+# render_disorder, which retries the first lookup with slugify(entry name) when
+# it comes back empty. A mismatch surviving all of that is silent everywhere
+# else: reports, sidecars, entry and page all validate. A slug miss makes every
+# report under it INVISIBLE; an id miss renders it detached with no status.
+# Only genuinely unreachable directories fail: one that renders solely through
+# the fallback is reported as advisory, because several hundred entries have
+# slugify(name) != file stem and failing those would make this gate stricter
+# than the renderer it guards. Ungated and whole-KB because the PR that breaks
+# it -- renaming an entry, folding it into a parent per design decisions
 # section 3a, renaming a hypothesis id -- never opens kb/hypotheses/ at all.
 [group('QC')]
 check-hypothesis-links:
@@ -1371,6 +1573,17 @@ update-causal-target-baseline:
 [group('QC')]
 list-disconnected-phenotypes *args="":
     uv run python scripts/check_disconnected_phenotypes.py {{args}}
+
+# Infectious-disease entries against the granularity ladder (design decisions
+# §3e, issue #10115): deterministic classes (missing/unbound agent, missing
+# transmission, rung-0 anchor, double modelling, shared anchor, pathotype
+# collapse, dangling `curated_in` pointer) and advisory ones (undecided lumps,
+# unbound subtypes, no progression, lifecycle prompts). Report-only, exit 0;
+# `--strict` gates the deterministic classes, `--scope all` runs the
+# cross-entry classes KB-wide. See docs/quality-control.md.
+[group('QC')]
+check-granularity *args="":
+    uv run python scripts/check_granularity.py {{args}}
 
 # Derive each neoplasm entry's cell of origin from its own pathograph, and
 # report where the derivation fails. There is no `cell_of_origin:` slot: a node
@@ -1446,6 +1659,18 @@ list-qualifier-terms *files:
 [group('QC')]
 check-qualifier-terms-online *files:
     uv run python scripts/check_qualifier_terms.py --resolve "$@"
+
+# #10179. unsourced / backfill / other_disease / unplaced / overstated / uncached are
+# reported; exit 1 only when a recorded ClinGen tier contradicts its CGGV: record.
+# Compare Genetic.gene_disease_validity with the ClinGen CGGV: assertions it cites.
+[group('QC')]
+check-gene-validity *files:
+    uv run python scripts/check_gene_validity.py "$@"
+
+# Census of the same, exit 0. `--format tsv --kind backfill` is the worklist.
+[group('QC')]
+list-gene-validity *args:
+    uv run python scripts/check_gene_validity.py --report "$@"
 
 # Report gene bindings whose HGNC label is not the gene the entry names (#10948).
 # `validate-terms` checks a `term.id`/`term.label` pair against the ontology and
@@ -1579,6 +1804,24 @@ list-title-snippets:
 [group('QC')]
 update-title-snippet-baseline:
     uv run python scripts/check_title_snippets.py --update-baseline
+
+# PARTIAL and WRONG_STATEMENT left the enum in #7439 and #10003 migrated the
+# values, but not the explanations written to justify them (#12805).
+# Grandfathered against origin/main; the committed baseline only ever shrinks.
+# Fail on new prose arguing for a retired `supports` grade.
+[group('QC')]
+check-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --against-ref origin/main
+
+# List every mention of a retired `supports` grade, baselined or not (worklist).
+[group('QC')]
+list-retired-support-prose:
+    uv run python scripts/check_retired_support_prose.py --all
+
+# Shrink the retired-grade prose baseline after fixing backlog entries (never grows).
+[group('QC')]
+update-retired-support-prose-baseline:
+    uv run python scripts/check_retired_support_prose.py --update-baseline
 
 # Guard against one quoted sentence carrying two different `evidence_source`
 # values in the same file -- `evidence_source` describes the cited publication,
@@ -1890,6 +2133,12 @@ gen-module-pages:
     @echo "Generated $(ls -1 pages/modules/*.html 2>/dev/null | wc -l | tr -d ' ') module pages"
     @echo "Generated $(ls -1 pages/module-collections/*.html 2>/dev/null | wc -l | tr -d ' ') module collection pages"
 
+# gen-pages also writes these; this is the fast path when only a model changed (#13123).
+# Generate one page per models/<model_id>/ folder, plus pages/models/index.html
+[group('Pages')]
+gen-model-pages:
+    uv run python -m dismech.model_pages
+
 # Generate a single disease grouping page
 [group('Pages')]
 gen-grouping-page file:
@@ -1926,6 +2175,41 @@ gen-comorbidity-pages:
 [group('Pages')]
 gen-project-page file:
     uv run python -m dismech.render --project {{file}}
+
+# A page per gene named by 2+ disorders (or with a curated summary), plus the
+# index; re-verifies curated summaries. See docs/gene-pages.md.
+# Generate pages/genes/ (gene pages and gene index)
+[group('Pages')]
+gen-gene-pages *ARGS:
+    uv run python -m dismech.genes render {{ARGS}}
+
+# --repin accepts a new upstream release and rewrites the manifest.
+# Fetch the pinned HGNC file and ai-gene-review commit into data/
+[group('Genes')]
+genes-ingest-refresh *ARGS:
+    uv run python -m dismech.genes ingest-refresh {{ARGS}}
+
+# Rewrite kb/genes/ingest/*.tsv for every gene the KB names (never hand-edit)
+[group('Genes')]
+genes-ingest-build:
+    uv run python -m dismech.genes ingest-build
+
+# Report-only by default; --strict exits 1 on a stale or refused summary.
+# Re-run every provedown claim in kb/genes/curated/*.md against the KB
+[group('Genes')]
+genes-verify *ARGS:
+    uv run python -m dismech.genes verify {{ARGS}}
+
+# Report-only: a lead per pair, never a defect (a Disputed tier argues against typing).
+# Entries ClinGen classifies a gene for whose own genetic record does not type it
+[group('Genes')]
+genes-clingen-gaps *ARGS:
+    uv run python -m dismech.genes clingen-gaps {{ARGS}}
+
+# What the KB says about a gene, e.g. `just gene-slice hgnc:9588 --format tsv`
+[group('Genes')]
+gene-slice *ARGS:
+    uv run python -m dismech.genes slice {{ARGS}}
 
 # Generate all curation-project pages plus the project index
 [group('Pages')]
@@ -1984,10 +2268,41 @@ export-kgx:
     mkdir -p output/kgx
     uv run koza transform src/dismech/export/kgx_export.py -o output/kgx -f jsonl kb/disorders/*.yaml
 
-# Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+# Maximal KGX export: the whole KB (disorders, modules, comorbidities,
+# groupings) as one graph with entry-local pathograph nodes promoted to
+# first-class KG nodes (dismech:<stem>#<node> ids). Experimental; see the
+# module docstring for the koza join / report follow-on commands.
 [group('Export')]
-export-hpoa:
-    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa
+export-kgx-maximal out_dir="output/maximal_kgx":
+    uv run python -m dismech.export.maximal_kgx_export -o {{out_dir}}
+
+# Project disorder YAMLs to a MONDO-anchored, HPOA-extended TSV plus a disease-disease comorbidity sidecar.
+# MONDO-bound subtypes get their own rows: unscoped phenotypes are inherited down to
+# them (marked in the `inherited_from` column). Pass --no-subtypes for parents only.
+[group('Export')]
+export-hpoa *args:
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa {{args}}
+
+# Runs `export-hpoa` first (the script reads its output), then downloads the release,
+# hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
+# it -- `curl --fail` so an HTTP error aborts instead of caching an error page), and
+# writes the generated report sections to stdout and the per-disease worklist to
+# `dir`/per-disease.tsv. The committed report carries hand-written sections too, so
+# merge rather than overwrite it.
+# NOTE: the export now includes MONDO-bound subtypes with rows inherited from their
+# parent (non-empty `inherited_from`), which the comparison scores like any other
+# dismech annotation, so the committed report's figures change on regeneration.
+# Compare the HPOA export against the HPO project's phenotype.hpoa release.
+[group('Export')]
+compare-hpoa-release dir="output/hpoa-compare": export-hpoa
+    mkdir -p {{dir}}
+    test -s {{dir}}/phenotype.hpoa || curl --fail -sSL -o {{dir}}/phenotype.hpoa https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/phenotype.hpoa
+    test -s {{dir}}/hp.obo || curl --fail -sSL -o {{dir}}/hp.obo https://github.com/obophenotype/human-phenotype-ontology/releases/latest/download/hp.obo
+    test -s {{dir}}/mondo.sssom.tsv || curl --fail -sSL -o {{dir}}/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    test -s {{dir}}/mondo.obo || curl --fail -sSL -o {{dir}}/mondo.obo http://purl.obolibrary.org/obo/mondo.obo
+    uv run python scripts/hpoa_release_compare.py \
+        --hpo {{dir}}/phenotype.hpoa --sssom {{dir}}/mondo.sssom.tsv \
+        --hp-obo {{dir}}/hp.obo --mondo-obo {{dir}}/mondo.obo --out-tsv {{dir}}/per-disease.tsv
 
 # Export a flat CSV census of every disease + subtype and its MONDO mapping (or lack thereof).
 [group('Export')]
@@ -2234,6 +2549,19 @@ dr_term_validation := "--validate-terms --term-cache-dir terms_cache --term-skip
 # recipe writes `-cyberian-codex.md` for a run whose provider is `cyberian`.
 dr_fallback := ""
 dr_align := "uv run python scripts/align_research_provider.py"
+
+# Where the client writes a run's report, citations and _artifacts/ before they
+# are placed into research/ (inside tmp/, which git ignores). The client used to
+# write straight onto research/<name>-deep-research-<provider>.md, so re-running
+# a provider for a disorder that already had its report overwrote the committed
+# one, and a fallback then renamed the wreckage -- with the old run's
+# _artifacts/ -- onto the fallback provider's name (#12700). Now
+# `scripts/align_research_provider.py --into` moves the run's own files into
+# place and never replaces anything: when the name is taken, the new report
+# gets the run date appended (`Foo-deep-research-falcon-2026-10-08.md`) and
+# sits beside the old one. If placement fails, the run's output is left in the
+# staging directory and the error names it, so a paid run is never lost.
+dr_staging_dir := "tmp/research-staging"
 dr_stamp := "uv run python scripts/template_version.py stamp --quiet"
 
 # Deep research to find public datasets (GEO/SRA/dbGaP/PRIDE/...) for a disorder.
@@ -2260,6 +2588,8 @@ research-datasets provider disorder *args="":
     mondo_id=$(uv run python -c "import sys,yaml;d=yaml.safe_load(open(sys.argv[1])) or {};t=(d.get('disease_term') or {}).get('term') or {};i=(t.get('id') or '').strip() if isinstance(t,dict) else '';print(i if i.startswith('MONDO:') and i != 'MONDO:0000001' else '')" "$yaml_file" 2>/dev/null || echo "")
     output_file="{{research_dir}}/datasets/{{disorder}}-datasets-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     echo "Dataset discovery: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
@@ -2268,16 +2598,17 @@ research-datasets provider disorder *args="":
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Report which revision of a research template produced each report, and how
@@ -2385,6 +2716,8 @@ research-disorder provider disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     template_file=$([[ "{{provider}}" == "asta" ]] && echo "{{templates_dir}}/disease_pathophysiology_research_asta.md" || echo "{{templates_dir}}/disease_pathophysiology_research.md")
     echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -2394,16 +2727,17 @@ research-disorder provider disorder *args="":
         --var "mondo_id=$mondo_id" \
         --var "category=$category" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Deep research on a shared mechanism module using specified provider
@@ -2461,6 +2795,8 @@ research-module provider module *args="":
     )
     output_file="{{research_dir}}/modules/{{module}}-deep-research-{{provider}}.md"
     requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     template_file="{{templates_dir}}/module_mechanism_research.md"
     echo "Researching module: $module_name ({{provider}}) -> $output_file"
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
@@ -2472,16 +2808,17 @@ research-module provider module *args="":
         --var "module_description=$module_description" \
         --var "pathophysiology_summary=$pathophysiology_summary" \
         $provider_arg \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # Deep research on a comorbidity using specified provider
@@ -2537,6 +2874,8 @@ research-comorbidity provider comorbidity *args="":
 	rm -f "$tmpfile"
 	output_file="{{research_dir}}/{{comorbidity}}-deep-research-{{provider}}.md"
 	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
 	echo "Researching: $disease_a_label ↔ $disease_b_label ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -2548,16 +2887,17 @@ research-comorbidity provider comorbidity *args="":
 	    --var "disease_b_components=$disease_b_components" \
 	    --var "disease_b_composition=$disease_b_composition" \
 	    $provider_arg \
-	    --output "$output_file" \
-	    --separate-citations "$output_file.citations.md" \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
-	if [ -f "$output_file" ]; then
-	    {{dr_stamp}} "$output_file"
-	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
 	fi
+	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
 # Deep research on Class A surrogacy evidence for a (disease, surrogate, clinical_outcome) triple.
@@ -2583,6 +2923,8 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	surrogate_slug=$(echo "{{surrogate}}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/_/g; s/^_+|_+$//g' | cut -c1-60)
 	output_file="{{research_dir}}/surrogacy/{{disease}}-surrogacy-${surrogate_slug}-deep-research-{{provider}}.md"
 	requested_provider="{{provider}}"
+	staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+	staged_file="$staging_dir/$(basename "$output_file")"
 	echo "Researching surrogacy: $disease_name | {{surrogate}} -> {{clinical_outcome}} ({{provider}}) -> $output_file"
 	provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
 	{{dr_client}} research \
@@ -2591,16 +2933,17 @@ research-surrogacy provider disease surrogate clinical_outcome *args="":
 	    --var "surrogate={{surrogate}}" \
 	    --var "clinical_outcome={{clinical_outcome}}" \
 	    $provider_arg \
-	    --output "$output_file" \
-	    --separate-citations "$output_file.citations.md" \
+	    --output "$staged_file" \
+	    --separate-citations "$staged_file.citations.md" \
 	    {{dr_validation}} \
 	    {{dr_term_validation}} \
 	    {{dr_fallback}} \
 	    {{args}} || dr_status=$?
-	if [ -f "$output_file" ]; then
-	    {{dr_stamp}} "$output_file"
-	    {{dr_align}} "$output_file" --requested "$requested_provider"
+	if [ -f "$staged_file" ]; then
+	    {{dr_stamp}} "$staged_file"
+	    {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
 	fi
+	rmdir "$staging_dir" 2>/dev/null || true
 	exit ${dr_status:-0}
 
 # Deep research on a disorder using cyberian with codex agent
@@ -2620,6 +2963,8 @@ research-disorder-cyberian-codex disorder *args="":
     category=$(grep "^category:" "$yaml_file" | head -1 | sed 's/category: *//' || echo "")
     output_file="{{research_dir}}/{{disorder}}-deep-research-cyberian-codex.md"
     requested_provider="cyberian-codex"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
     echo "Researching: $disease_name [${mondo_id:-no MONDO ID}] (cyberian-codex) -> $output_file"
     {{dr_client}} research \
         --template {{templates_dir}}/disease_pathophysiology_research.md \
@@ -2628,16 +2973,17 @@ research-disorder-cyberian-codex disorder *args="":
         --var "category=$category" \
         --provider cyberian \
         --param agent_type=codex \
-        --output "$output_file" \
-        --separate-citations "$output_file.citations.md" \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
         {{dr_validation}} \
         {{dr_term_validation}} \
         {{dr_fallback}} \
         {{args}} || dr_status=$?
-    if [ -f "$output_file" ]; then
-        {{dr_stamp}} "$output_file"
-        {{dr_align}} "$output_file" --requested "$requested_provider"
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
     fi
+    rmdir "$staging_dir" 2>/dev/null || true
     exit ${dr_status:-0}
 
 # List available research providers
@@ -2726,6 +3072,8 @@ validate-research-terms +args:
 # Verdicts: PASS / WARN (contamination or OMIM mismatch) / FAIL (wrong entity —
 # discard the report, do not cherry-pick) / SKIP (MONDO records no causal gene).
 # Exits non-zero on FAIL, or on WARN too with --strict.
+# Needs the local MONDO build (`just fetch-ontology-dbs mondo`); exits 2 rather
+# than downloading it when absent (#12687). --no-hgnc also avoids the HGNC build.
 # Examples:
 #   just preflight-dr research/Marfan_Syndrome-deep-research-falcon.md MONDO:0007947
 #   just preflight-dr research/Foo-deep-research-falcon.md MONDO:0014572 --strict
@@ -3096,6 +3444,47 @@ ictrp-rebuild *args="":
 [group('Research')]
 ictrp-list limit="20":
     uv run python -m dismech.structured_sources.cli list ictrp --limit {{limit}}
+
+# Fetch EPA's ToxCast/Tox21 assay-endpoint annotations into data/toxcast/.
+# These describe what each assay measures — intended gene target, target family,
+# biological process, species, tissue, method and signal direction — and are the
+# input to the assay-to-pathograph-node mapping work in issue #12858. Chemical
+# hit-calls are NOT fetched; those stay with #12682.
+# Requires CTX_API_KEY (free, from ccte_api@epa.gov). Pass --force to refetch,
+# --summary to describe what is already cached.
+[group('Research')]
+toxcast-refresh *args="":
+    uv run python -m dismech.toxcast_assays {{args}}
+
+# How far ToxCast assay endpoints reach into the pathograph: endpoints whose
+# declared gene target is named by a pathophysiology node, counted by node, by
+# gene and by disease (issue #12858, projects/TOXCAST.md). A shared gene is a
+# candidate, never a mapping. Offline and report-only once `just toxcast-refresh`
+# has cached the annotations; exits 2 naming that recipe when it has not.
+#
+#   just toxcast-coverage
+#   just toxcast-coverage --format tsv --table targets   # or nodes, endpoints, diseases
+#   just toxcast-coverage --json
+#   just toxcast-coverage --check-symbols                # needs the local HGNC build
+#   just toxcast-coverage --out docs/reports/toxcast-pathograph-coverage-<date>.md
+[group('Research')]
+toxcast-coverage *args="":
+    uv run python scripts/toxcast_pathograph_coverage.py "$@"
+
+# How far the DNT in vitro battery's endpoints reach into the pathograph: the 17
+# distinct processes of DNT-IVB v1.0 and v2.0 (doi:10.3389/ftox.2024.1359507),
+# matched against pathophysiology and phenotype node names, counted by node, by
+# entry and by whether a model is linked. Lexical matching, never a mapping:
+# dismech records no crosswalk to this battery. Offline and report-only.
+#
+#   just dnt-ivb-coverage
+#   just dnt-ivb-coverage --format tsv --table nodes     # or summary
+#   just dnt-ivb-coverage --json
+#   just dnt-ivb-coverage --check-anchors pages          # needs a rendered pages/ tree
+#   just dnt-ivb-coverage --out docs/reports/dnt-ivb-pathograph-coverage-<date>.md
+[group('Research')]
+dnt-ivb-coverage *args="":
+    uv run python scripts/dnt_ivb_coverage.py "$@"
 
 # Report non-ClinicalTrials.gov registry identifiers in the KB and whether each
 # is citable as ICTRP:<TrialID>. Add --strict to fail on uncited identifiers.
@@ -3564,6 +3953,19 @@ sedml-export *args="":
 gen-model-results *args="":
     uv run python -m dismech.perturb.results_export {{args}}
 
+# Verify every repository-authored model (models/<id>/spec.yaml + run.py) has
+# current committed results: runs each run.py --check. Seconds, offline.
+[group('Analysis')]
+check-authored-models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    status=0
+    for spec in models/*/spec.yaml; do
+        dir=$(dirname "$spec")
+        uv run python "$dir/run.py" --check || status=1
+    done
+    exit $status
+
 # Check the exported archives reproduce dismech-perturb's own numbers by
 # running each .omex through tellurium's SED-ML interpreter and diffing.
 # Requires tellurium: uv pip install tellurium
@@ -3728,3 +4130,45 @@ matching-graph disease matching_report *flags:
 [group('Phenoagent')]
 phenopacket-eval paths="tests/phenoagent/data/phenopackets":
     uv run python -m phenoagent.eval {{paths}} --json workdirs/eval/phenopacket-eval.json --markdown workdirs/eval/phenopacket-eval.md
+
+# Audit disease assertion/snippet pairs with Jev; CSVs in reports/jev-audit.
+# Example: just jev-audit --section phenotypes --limit 20
+[positional-arguments]
+jev-audit *args:
+    uv run python -m dismech.classifier.audit "$@"
+
+# Preview new issues from the latest published Jev queue; no API inference.
+[positional-arguments]
+plan-eval-issues n="5":
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1"
+
+# Create up to N issues, skipping diseases with an open or closed intake issue.
+[positional-arguments]
+enqueue-eval-issues n="5":
+    uv run --no-project --with click --with httpx --with pyyaml python scripts/jev_recuration_issues.py --limit "$1" --apply
+
+# Inventory every assertion without paid API calls.
+[positional-arguments]
+jev-audit-inventory *args:
+    uv run python -m dismech.classifier.audit --dry-run --output reports/jev-inventory "$@"
+
+# Regenerate CSVs from saved results, optionally combining CI shards.
+[positional-arguments]
+jev-audit-report output="reports/jev-audit" *args:
+    uv run python -m dismech.classifier.audit_report "$@"
+
+# Import saved assessments and reconcile historical active flags without API calls.
+[positional-arguments]
+jev-audit-cache *args:
+    uv run python -m dismech.classifier.cache "$@"
+
+# ============== Curation-donation schedule (/donate-curation) ==============
+
+# Expand .claude/schedule-config.yaml (or another path) into its UTC cron(s),
+# expiry, self-disable flag, and DST-transition dates -- the deterministic core
+# of the /donate-curation skill. Pass --now to pin a reference instant.
+# Example: just schedule-expand
+# Example: just schedule-expand .claude/schedule-config.yaml --now 2026-07-15T09:00:00
+[group('Schedule')]
+schedule-expand config=".claude/schedule-config.yaml" *flags:
+    uv run python -m dismech.schedule --config {{config}} {{flags}}
