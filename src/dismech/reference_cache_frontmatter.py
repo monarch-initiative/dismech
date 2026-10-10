@@ -141,6 +141,14 @@ class ReferenceCacheFrontmatter(BaseModel):
     # read time; an upstream FR is tracked to mirror it on
     # ``ReferenceContent``.
     database: str | None = None
+    # Local extension (dismech): provenance of a structured-source cache file,
+    # written by src/dismech/structured_sources/ -- the export's own date
+    # (ClinGen's ``FILE CREATED:`` header) and the sha256 of the file parsed.
+    # Before #13575 the only stamp was the manifest's pin date, which could be
+    # newer or older than the data actually read, so it could not answer which
+    # release a quoted row came from (#12464). Absent on files built earlier.
+    source_snapshot: str | None = None
+    source_sha256: str | None = None
 
 
 @dataclass(frozen=True)
