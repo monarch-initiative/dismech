@@ -47,14 +47,48 @@ simulation does not run, write `MANIFEST.yaml` with `status: FAILED`, the failed
 step and the error, then stop. Do not answer from memory, switch to literature
 synthesis, invent results, or present proposed code as executed.
 
-Budget. Single simulations are long. Run replicates in parallel across all
-available cores, and shorten nothing that changes the model's dynamics. Run the
-control condition first. Choose the number of replicates per condition from the
-measured wall-clock time of the first control run so that every condition gets
-the same number of replicates and the whole job finishes inside the time
-available. State the replicate count and why in `methods.md`. Fewer replicates
-than the original publication is acceptable and must be reported as a
-limitation; unequal replicate counts between conditions are not acceptable.
+## Preflight, before any simulation is launched
+
+Do these three checks first and record each result in `methods.md`. They are
+cheap, and each one can make a condition unnecessary or impossible.
+
+1. **Deposited outputs.** List the files the authors deposited with the model.
+   Where a deposited run already covers a condition (for example the control, or
+   a knockout the publication reported), reuse those runs instead of re-running
+   them, and fetch only the frames the classifier needs (HTTP range requests
+   work on most repository ZIP files). Re-run a few deposited conditions only as
+   a check that your environment reproduces them.
+2. **Settings are actually read.** For every setting you are asked to perturb,
+   find the line of model code that reads it. A setting the code never reads is
+   a no-op: perturbing it gives runs identical to control. Report such a
+   setting as untestable without modifying the model, and do not spend compute
+   on it. Never modify model logic to make it testable unless the objective
+   explicitly asks for a modified model.
+3. **Cost estimate.** Time one short run (a few hundred steps) and extrapolate
+   to a full run. Multiply by the number of new runs the design needs and divide
+   by the number of cores you actually have (read the cgroup CPU quota, not just
+   the core count). If the estimate exceeds the time available, do not start a
+   batch that cannot finish: write `MANIFEST.yaml` with `status: FAILED`, the
+   failed step `compute_budget`, the measured per-run time, the cores, and the
+   estimated total, then stop. That estimate is the useful output of the run.
+
+## Outcome classification
+
+If the authors scored outcomes by eye or by hand-entered labels, an automated
+classifier is a new instrument and must be validated against their labels on
+the deposited runs before it is applied to new runs. Report the agreement per
+condition and restrict claims to the conditions where it was validated.
+
+## Budget
+
+Single simulations are long. Run replicates in parallel across all available
+cores, and shorten nothing that changes the model's dynamics. Choose the number
+of replicates per condition from the measured run time so that every new
+condition gets the same number of replicates and the whole job finishes inside
+the time available. State the replicate count and why in `methods.md`. Fewer
+replicates than the original publication is acceptable and must be reported as
+a limitation; unequal replicate counts between new conditions are not
+acceptable.
 
 Write every generated file beneath this exact directory:
 
@@ -96,8 +130,9 @@ If the run succeeds, the artifact directory must contain:
   each perturbed condition.
 
 Classify outcomes with the model authors' own scheme and, where they provide
-it, their own analysis code. Validate your classifier on the control condition
-before applying it: report how many control runs it calls normal.
+it, their own analysis code. Validate your classifier as described under
+"Outcome classification" before applying it, and at minimum report how many
+control runs it calls normal.
 
 Before declaring success, execute `analysis.py` once more into a clean `replay/`
 subdirectory with `--cache-dir {artifact_dir}/raw`. Verify the replayed
