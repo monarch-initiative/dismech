@@ -14495,7 +14495,8 @@ window.searchData = [
       "Pediatric prone-positioning trial",
       "Pediatric ECMO evaluation",
       "Pediatric fluid management",
-      "Pediatric post-discharge assessment"
+      "Pediatric post-discharge assessment",
+      "Inhaled GM-CSF Host-Directed Therapy"
     ],
     "environmental": [
       "Inhalation of chlorine gas",
@@ -14510,8 +14511,8 @@ window.searchData = [
     "num_phenotypes": 17,
     "num_pathophysiology": 21,
     "num_genes": 1,
-    "num_treatments": 20,
-    "causal_graph_edges": "61",
+    "num_treatments": 21,
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "12"
   },
   {
@@ -73740,6 +73741,267 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Cardiomyopathy Dilated 2C",
+    "disease_id": "MONDO:0032592",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cardiomyopathy, dilated, 2C (CMD2C; PPCS deficiency disorder) is an ultra-rare autosomal recessive cardiomyopathy caused by biallelic hypomorphic variants in PPCS. PPCS catalyzes the second step of de novo coenzyme A (CoA) biosynthesis from pantothenate (vitamin B5). Twelve patients from eight families have been reported (2018 index report of two families, a 2022 single case and a 2025 series). Presentation ranges from antenatal or neonatal onset to 21 years. Dilated cardiomyopathy is the constant feature and is often fatal in infancy or early childhood; ventricular arrhythmia and cardiac arrest occur in adolescents. Some genotypes, mostly with exon 1 or exon 2 variants, add hypotonia, myopathy, rhabdomyolysis and metabolic crises during intercurrent illness. Unlike PANK2- and COASY-related disease, there is no neurodegeneration with brain iron accumulation. Patient fibroblasts and iPSC-derived cardiomyocytes show reduced PPCS protein and reduced CoA. Patient cardiomyocytes and engineered heart patches show sarcomere disorganization, weak calcium transients, falling contractile force and arrhythmic events. The steps linking CoA deficiency to cardiomyocyte failure, including impaired fatty-acid activation and an energy deficit, are inferred, not measured. Pantethine bypasses the PPCS step and raises CoA in patient cells. Uncontrolled compassionate use in four patients was followed by stabilization or improvement alongside standard heart-failure care.",
+    "pathophysiology": [
+      "Homozygous PPCS Missense Variants",
+      "Compound Heterozygous PPCS Variants",
+      "Reduced PPCS Protein Stability",
+      "Cellular Coenzyme A Deficiency",
+      "Impaired Long-Chain Fatty Acid Oxidation",
+      "Cardiomyocyte Energy Deficit",
+      "Cardiomyocyte Sarcomere Disorganization",
+      "Cardiomyocyte Contractile Dysfunction",
+      "Cardiomyocyte Arrhythmogenicity",
+      "Metabolic Decompensation During Catabolic Stress"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "coenzyme A biosynthetic process",
+      "long-chain fatty acid metabolic process",
+      "fatty acid beta-oxidation",
+      "sarcomere organization",
+      "cardiac muscle contraction",
+      "regulation of cardiac muscle contraction by calcium ion signaling"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Left Ventricular Noncompaction Cardiomyopathy",
+      "Ventricular Septal Hypertrophy",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Congestive Heart Failure",
+      "Exertional Dyspnea",
+      "Cardiomegaly",
+      "Ventricular Fibrillation",
+      "Ventricular Arrhythmia",
+      "Cardiac Arrest",
+      "Prolonged QT Interval",
+      "Syncope",
+      "Pulmonary Arterial Hypertension",
+      "Hypotonia",
+      "Necrotizing Myopathy",
+      "Muscle Weakness",
+      "Rhabdomyolysis",
+      "Elevated Circulating Creatine Kinase",
+      "Hypoglycemia",
+      "Increased Circulating Lactate",
+      "Hyperammonemia",
+      "Hyperlysinemia",
+      "Elevated Circulating Tetradecenoylcarnitine",
+      "Dicarboxylic Aciduria",
+      "Elevated Hepatic Transaminases",
+      "Global Brain Atrophy",
+      "Cutis Laxa"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Neuromuscular",
+      "Metabolic",
+      "Hepatic",
+      "Neurological",
+      "Integument"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0011664",
+      "HP:0005144",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0002875",
+      "HP:0001640",
+      "HP:0001663",
+      "HP:0004308",
+      "HP:0001695",
+      "HP:0001657",
+      "HP:0001279",
+      "HP:0002092",
+      "HP:0001252",
+      "HP:0008978",
+      "HP:0001324",
+      "HP:0003201",
+      "HP:0003236",
+      "HP:0001943",
+      "HP:0002151",
+      "HP:0001987",
+      "HP:0002161",
+      "HP:6000476",
+      "HP:0003215",
+      "HP:0002910",
+      "HP:0002283",
+      "HP:0000973"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT"
+    ],
+    "genes": [
+      "PPCS"
+    ],
+    "treatments": [
+      "Pantethine supplementation",
+      "Standard heart-failure pharmacotherapy",
+      "Implantable cardioverter-defibrillator",
+      "Extracorporeal membrane oxygenation",
+      "Heart transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardiomyopathy_Dilated_2C.yaml",
+    "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2C.html",
+    "num_phenotypes": 27,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Cardiomyopathy Dilated 2D",
+    "disease_id": "MONDO:0030300",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cardiomyopathy, dilated, 2D (CMD2D; OMIM 619371) is an autosomal recessive, neonatal- to early-infantile-onset dilated cardiomyopathy caused by biallelic germline variants in RPL3L, the heart- and skeletal-muscle-specific paralog of the core 60S ribosomal protein RPL3. Affected infants present between the first day of life and about 2.5 months with left ventricular dilatation, severely reduced systolic function, atrioventricular-valve regurgitation and rapidly progressive heart failure or cardiogenic shock. Many die in infancy; survivors have mostly required ventricular assist and heart transplantation, and one infant recovered on drug therapy. No skeletal myopathy has been reported. The disorder is known from about 13 families and 16-17 published patients. Most carry one recurrent hotspot missense allele (Gly27Asp or Asp308Asn/Val) with a private second allele. ClinGen rates the recessive RPL3L relationship Moderate under the broader dilated cardiomyopathy term (MONDO:0005021); the 2026 expert panel's \"high evidence\" category includes Moderate. A 2026 study using one explanted patient heart and AC16 cardiomyocyte-like cells proposes combined mechanisms: non-hotspot alleles behave like loss of function and allow RPL3 compensation, while hotspot alleles aggregate in the nucleolus, disrupt rRNA processing and keep RPL3 repressed, producing cardiac ribosome deficiency. Rpl3l knockout mice and population RPL3L-null homozygotes lack this severe disease, so simple loss of function does not explain it.",
+    "pathophysiology": [
+      "Biallelic RPL3L Variants",
+      "Loss of RPL3L Function from Non-hotspot Alleles",
+      "Hotspot RPL3L Toxic Gain of Function",
+      "Persistent RPL3 Repression",
+      "Impaired 60S Ribosomal Subunit Biogenesis",
+      "Cardiac Ribosome Deficiency",
+      "Altered Translation Elongation Dynamics",
+      "Increased Ribosome-Mitochondria Association",
+      "Cardiomyocyte Degeneration and Death",
+      "Impaired Left Ventricular Systolic Function and Dilatation",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "regulation of alternative mRNA splicing, via spliceosome",
+      "nuclear-transcribed mRNA catabolic process, nonsense-mediated decay",
+      "ribosomal large subunit biogenesis",
+      "rRNA processing",
+      "cytoplasmic translation",
+      "translational elongation",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Left Ventricular Dilatation",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Congestive Heart Failure",
+      "Cardiogenic Shock",
+      "Mitral Regurgitation",
+      "Tricuspid Regurgitation",
+      "Pulmonary Arterial Hypertension",
+      "Cardiomegaly",
+      "Abnormal T-wave",
+      "Abnormal ST Segment",
+      "Premature Atrial Contractions",
+      "First Degree Atrioventricular Block",
+      "Myocardial Fibrosis",
+      "Lethargy",
+      "Fatigue",
+      "Vomiting",
+      "Feeding Difficulties",
+      "Tachypnea",
+      "Dyspnea",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Neurological",
+      "Constitutional",
+      "Digestive",
+      "Respiratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:4000141",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0030149",
+      "HP:0001653",
+      "HP:0005180",
+      "HP:0002092",
+      "HP:0001640",
+      "HP:0005135",
+      "HP:0012249",
+      "HP:0006699",
+      "HP:0011705",
+      "HP:0001685",
+      "HP:0001254",
+      "HP:0012378",
+      "HP:0002013",
+      "HP:0011968",
+      "HP:0002789",
+      "HP:0002094",
+      "HP:0002240"
+    ],
+    "frequencies": [],
+    "genes": [
+      "RPL3L"
+    ],
+    "treatments": [
+      "Heart failure pharmacotherapy",
+      "Ventricular assist device as bridge to transplant",
+      "Heart transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardiomyopathy_Dilated_2D.yaml",
+    "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2D.html",
+    "num_phenotypes": 21,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Dilated Cardiomyopathy 2E",
     "disease_id": "MONDO:0030366",
     "category": "Mendelian",
@@ -73810,6 +74072,91 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 10,
     "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Cardiomyopathy Dilated 2F",
+    "disease_id": "MONDO:0030680",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Cardiomyopathy, dilated, 2F (CMD2F) is an autosomal recessive dilated cardiomyopathy caused by biallelic truncating variants in BAG5, which encodes a five-BAG-domain co-chaperone that acts as a nucleotide exchange factor for HSC70/Hsp70. Affected individuals present in adolescence or young adulthood with left ventricular dilatation, reduced ejection fraction, advanced heart failure and ventricular arrhythmias that can be refractory. The clinical evidence base is small: five patients from four Japanese families in the founding report, two further compound-heterozygous patients known here only through a later summary, and three affected siblings from one consanguineous Middle Eastern family. Two mechanisms have been proposed, both from stress-provoked mouse models: disruption of junctional membrane complexes with abnormal calcium handling under catecholamine stimulation, and an impaired endoplasmic reticulum stress response with excess cardiomyocyte apoptosis. Wild-type BAG5 delivered by AAV9 rescued one mouse model; this is not a human treatment. BAG5 is distinct from BAG3, a separate autosomal dominant dilated cardiomyopathy gene.",
+    "pathophysiology": [
+      "Biallelic BAG5 Truncating Variants",
+      "Loss of BAG5 Protein",
+      "Impaired HSC70 Nucleotide Exchange and Protein Refolding",
+      "Junctional Membrane Complex Disruption",
+      "Abnormal Cardiomyocyte Calcium Handling",
+      "Impaired Cardiomyocyte ER Stress Response",
+      "Cardiomyocyte Apoptosis",
+      "Left Ventricular Dilatation and Systolic Dysfunction"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "protein refolding",
+      "intracellular calcium ion homeostasis",
+      "response to endoplasmic reticulum stress",
+      "cardiac muscle cell apoptotic process",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Left Ventricular Dilatation",
+      "Ventricular Arrhythmia",
+      "Congestive Heart Failure",
+      "Decreased QRS Voltage",
+      "T-wave Inversion",
+      "Poor R-wave Progression"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0012664",
+      "HP:4000141",
+      "HP:0004308",
+      "HP:0001635",
+      "HP:0025077",
+      "HP:0010872",
+      "HP:6001161"
+    ],
+    "frequencies": [],
+    "genes": [
+      "BAG5"
+    ],
+    "treatments": [
+      "Beta-blocker therapy",
+      "ACE inhibitor therapy",
+      "Implantable cardioverter-defibrillator",
+      "Left ventricular assist device",
+      "Heart transplantation",
+      "Genetic counseling",
+      "AAV9 BAG5 gene replacement (preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardiomyopathy_Dilated_2F.yaml",
+    "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2F.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 7,
+    "causal_graph_edges": "26",
     "causal_graph_longest_path": "7"
   },
   {
@@ -73998,6 +74345,118 @@ window.searchData = [
     "num_genes": 1,
     "num_treatments": 12,
     "causal_graph_edges": "34",
+    "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Cardiomyopathy Dilated 2I",
+    "disease_id": "MONDO:0957545",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease",
+      "familial isolated dilated cardiomyopathy"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 2I (CMD2I) is an autosomal recessive pediatric dilated cardiomyopathy associated with homozygous loss-of-function variants in CAP2, which encodes cyclase-associated protein 2, an actin monomer-binding and filament-depolymerizing protein of striated muscle. Five genotyped children from four unrelated families have been described, with onset from the first hours of life to five years of age. Reported features include biventricular dilated cardiomyopathy with heart failure, left ventricular noncompaction, nemaline rods in skeletal and cardiac muscle, conduction abnormalities and myocardial fibrosis; one infant required heart transplantation. Patient fibroblasts show loss of CAP2 protein and altered actin repolymerization kinetics. Most mechanistic evidence comes from Cap2 mutant mice, which develop dilated cardiomyopathy, sarcomere disarray, fibrosis, conduction disease with sudden death from heart block, impaired cardiac alpha-actin isoform switching and MRTF/SRF activation. The gene-disease link rests on few families, there is no ClinGen classification, and phenotype frequencies, penetrance and prognosis are not established.",
+    "pathophysiology": [
+      "Biallelic CAP2 Loss-of-Function Variants",
+      "CAP2 Protein Deficiency",
+      "Disordered Actin Filament Dynamics",
+      "Impaired Cardiac Alpha-Actin Isoform Switch and Myofibril Maturation",
+      "MRTF-SRF Pathway Activation",
+      "Sarcomere Disarray and Myofibrillar Disintegration",
+      "Myocardial Fibrotic Remodeling",
+      "Cardiac Conduction System Dysfunction",
+      "Impaired Myocardial Contractility",
+      "Intercurrent Viral Infection as Decompensation Trigger"
+    ],
+    "cell_types": [
+      "cardiac muscle cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "actin filament depolymerization",
+      "actin filament organization",
+      "cardiac myofibril assembly",
+      "positive regulation of transcription by RNA polymerase II",
+      "sarcomere organization",
+      "cardiac conduction",
+      "cardiac muscle contraction"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Congestive Heart Failure",
+      "Left Ventricular Noncompaction Cardiomyopathy",
+      "Nemaline Bodies",
+      "Hypotonia",
+      "Widened Atrophic Scar",
+      "Cardiac Conduction Abnormality",
+      "First Degree Atrioventricular Block",
+      "Premature Ventricular Contraction",
+      "Myocardial Fibrosis",
+      "Atrial Septal Defect",
+      "Mitral Regurgitation",
+      "Tricuspid Regurgitation",
+      "Increased Circulating Brain Natriuretic Peptide Concentration",
+      "Hepatomegaly"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular",
+      "Musculoskeletal",
+      "Integumentary",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0012664",
+      "HP:0001635",
+      "HP:0011664",
+      "HP:0003798",
+      "HP:0001252",
+      "HP:0031158",
+      "HP:0031546",
+      "HP:0011705",
+      "HP:0006682",
+      "HP:0001685",
+      "HP:0001631",
+      "HP:0001653",
+      "HP:0005180",
+      "HP:0033534",
+      "HP:0002240"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CAP2"
+    ],
+    "treatments": [
+      "Oral heart-failure pharmacotherapy",
+      "Intravenous inotropic support",
+      "Heart transplantation",
+      "Genetic counseling",
+      "Vaccination and infection prevention",
+      "Experimental SRF inhibition"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Cardiomyopathy_Dilated_2I.yaml",
+    "page_url": "../pages/disorders/Cardiomyopathy_Dilated_2I.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "36",
     "causal_graph_longest_path": "8"
   },
   {
@@ -111429,6 +111888,10 @@ window.searchData = [
     "description": "Dengue is a mosquito-borne viral disease caused by dengue virus and transmitted by Aedes mosquitoes, with severe cases characterized by plasma leakage and shock.",
     "pathophysiology": [
       "Antibody-Dependent Enhancement in Secondary Heterotypic Infection",
+      "Natural Killer Cell-Mediated Antibody-Dependent Cellular Cytotoxicity",
+      "Monocyte-Dependent Antibody-Dependent Cellular Phagocytosis",
+      "Complement-Mediated Antibody-Dependent Virolysis",
+      "IgA-Mediated Neutralization and Blockade of Antibody-Dependent Enhancement",
       "NS1-Induced Endothelial Glycocalyx Degradation",
       "Plasma Leakage",
       "Hypovolemic Shock",
@@ -111438,22 +111901,30 @@ window.searchData = [
       "Immune Checkpoint-Mediated T Cell Exhaustion in Secondary Dengue"
     ],
     "cell_types": [
+      "natural killer cell",
+      "monocyte",
+      "macrophage",
       "endothelial cell",
       "platelet",
-      "macrophage",
       "T cell",
-      "natural killer cell",
       "mucosal-associated invariant T (MAIT) cell"
     ],
     "cell_type_ids": [
+      "CL:0000623",
+      "CL:0000576",
+      "CL:0000235",
       "CL:0000115",
       "CL:0000233",
-      "CL:0000235",
       "CL:0000084",
-      "CL:0000623",
       "CL:0000940"
     ],
     "biological_processes": [
+      "antibody-dependent cellular cytotoxicity",
+      "natural killer cell mediated cytotoxicity",
+      "Fc-gamma receptor signaling pathway involved in phagocytosis",
+      "complement activation, classical pathway",
+      "complement-dependent cytotoxicity",
+      "immunoglobulin mediated immune response",
       "complement activation",
       "macrophage activation",
       "checkpoint-mediated restraint of T cell activation"
@@ -111497,7 +111968,7 @@ window.searchData = [
     "source_file": "Dengue.yaml",
     "page_url": "../pages/disorders/Dengue.html",
     "num_phenotypes": 5,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 12,
     "num_genes": 0,
     "num_treatments": 1,
     "causal_graph_edges": "8",
@@ -117662,6 +118133,89 @@ window.searchData = [
     "num_treatments": 6,
     "causal_graph_edges": "38",
     "causal_graph_longest_path": "10"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 1C",
+    "disease_id": "MONDO:0011094",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Left Ventricular Noncompaction",
+      "Hypertrophic Cardiomyopathy"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CMD1C",
+      "LVNC3",
+      "CMH24"
+    ],
+    "description": "Dilated cardiomyopathy 1C (CMD1C) is the autosomal dominant cardiomyopathy attributed to heterozygous missense variants in LDB3, which encodes ZASP (Cypher), a PDZ-LIM scaffold protein of the sarcomeric Z-disc in cardiac and skeletal muscle. The MONDO concept (MONDO:0011094; OMIM 601493) spans three allelic presentations: dilated cardiomyopathy with or without left ventricular noncompaction (CMD1C), left ventricular noncompaction (LVNC3), and hypertrophic cardiomyopathy (CMH24). The founding screen found five LDB3 missense variants in six of 100 probands with left ventricular dysfunction. Later reports added a late-onset familial D626N allele and Z-disc variants in hypertrophic cardiomyopathy probands. Cell and biochemical studies show that disease alleles disarrange the cytoskeleton and change ZASP binding to protein kinase C and phosphoglucomutase 1. A transgenic mouse expressing the S196L allele develops conduction defects and later ventricular dysfunction. The evidence base is small: ClinGen classifies the autosomal dominant LDB3-CMD1C relationship as Limited, rates LDB3 as Disputed for hypertrophic cardiomyopathy, and one reported allele (D117N) failed to segregate with disease. Biallelic loss-of-function LDB3 disease (dilated cardiomyopathy 2L) and LDB3 myofibrillar myopathy (zaspopathy) are separate entities.",
+    "pathophysiology": [
+      "LDB3 Heterozygous Missense Variant",
+      "Altered ZASP Signalling-Partner Binding",
+      "Z-Disc Cytoskeletal Disorganization",
+      "Maladaptive Cardiomyocyte Stress Signalling",
+      "Disturbed Cardiomyocyte Ion Currents",
+      "Left Ventricular Dilation and Systolic Dysfunction"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "sarcomere organization",
+      "cardiomyocyte maturation",
+      "cardiac conduction",
+      "heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Left ventricular noncompaction",
+      "Hypertrophic cardiomyopathy",
+      "Ventricular septal hypertrophy",
+      "Congestive heart failure",
+      "Ventricular arrhythmia",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0030682",
+      "HP:0001639",
+      "HP:0005144",
+      "HP:0001635",
+      "HP:0004308",
+      "HP:0001645"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LDB3"
+    ],
+    "treatments": [
+      "Guideline-directed heart failure pharmacotherapy",
+      "Implantable cardioverter-defibrillator",
+      "Heart transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1C.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1C.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dilated Cardiomyopathy 1CC",
@@ -137748,6 +138302,112 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Familial Male-limited Precocious Puberty",
+    "disease_id": "MONDO:0008303",
+    "category": "Mendelian",
+    "parents": [
+      "Endocrine Disorder"
+    ],
+    "creation_date": "2026-10-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial male-limited precocious puberty (FMPP, testotoxicosis) is a rare form of gonadotropin-independent (peripheral) precocious puberty caused by heterozygous constitutively activating variants in LHCGR, the luteinizing hormone/choriogonadotropin receptor. The variant receptor signals through Gs/cAMP without ligand, so Leydig cells produce testosterone while LH and FSH remain at prepubertal or suppressed levels. Boys usually present between 1 and 4 years of age with virilization, rapid growth and advanced bone age; untreated, early epiphyseal fusion reduces adult height. Inheritance is autosomal dominant with expression limited to males, and de novo cases occur. Secondary central puberty commonly follows. Treatment combines an antiandrogen with an aromatase inhibitor (or a steroidogenesis inhibitor such as ketoconazole), with a GnRH agonist added once central puberty starts.",
+    "pathophysiology": [
+      "Constitutive LHCGR Activation",
+      "Ligand-Independent Leydig Cell cAMP Signaling",
+      "Gonadotropin-Independent Testosterone Synthesis",
+      "Androgen-Driven Virilization",
+      "Peripheral Aromatization of Testosterone to Estradiol",
+      "Premature Leydig Cell Proliferation",
+      "Secondary Central Puberty Activation"
+    ],
+    "cell_types": [
+      "Leydig cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000178"
+    ],
+    "biological_processes": [
+      "adenylate cyclase-activating G protein-coupled receptor signaling pathway",
+      "testosterone biosynthetic process",
+      "androgen receptor signaling pathway",
+      "estrogen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Precocious puberty in males",
+      "Increased serum testosterone level",
+      "Decreased circulating luteinizing hormone level",
+      "Decreased circulating follicle stimulating hormone concentration",
+      "Increased serum estradiol",
+      "Accelerated skeletal maturation",
+      "Short stature",
+      "Accelerated childhood linear growth",
+      "Premature pubarche",
+      "Penile enlargement",
+      "Acne",
+      "Aggressive behavior",
+      "Leydig cell hyperplasia",
+      "Testicular germ cell tumor in adulthood",
+      "Leydig cell adenoma"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Skeletal",
+      "Growth",
+      "Genitourinary",
+      "Dermatological",
+      "Behavioral",
+      "Reproductive",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008185",
+      "HP:0030088",
+      "HP:0030344",
+      "HP:0030341",
+      "HP:0025134",
+      "HP:0005616",
+      "HP:0004322",
+      "HP:0000098",
+      "HP:0012411",
+      "HP:0000040",
+      "HP:0001061",
+      "HP:0000718",
+      "HP:0010791",
+      "HP:0010788",
+      "HP:0100618"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LHCGR"
+    ],
+    "treatments": [
+      "Antiandrogen plus Aromatase Inhibitor",
+      "Ketoconazole",
+      "GnRH Agonist for Secondary Central Puberty"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Male-limited_Precocious_Puberty.yaml",
+    "page_url": "../pages/disorders/Familial_Male-limited_Precocious_Puberty.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Familial Mediterranean Fever",
@@ -174741,6 +175401,109 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "Hypertrophic Cardiomyopathy 28",
+    "disease_id": "MONDO:0030317",
+    "category": "Mendelian",
+    "parents": [
+      "Hypertrophic Cardiomyopathy"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Hypertrophic cardiomyopathy 28 (CMH28) is the FHOD3-attributed member of the numbered familial hypertrophic cardiomyopathy series. FHOD3 encodes a formin, an actin-assembly protein; its heart-enriched long isoform is recruited to the sarcomere C-zone by cardiac myosin-binding protein C and is required to build and maintain the thin-filament array of the cardiac sarcomere. FHOD3 is therefore a sarcomere-associated rather than a core sarcomeric gene, and it is now one of the main non-sarcomeric causes of HCM, accounting for roughly 1-2% of probands in the founding Spanish/UK cohort of 3,189 patients. ClinGen classifies FHOD3 as Definitive for autosomal dominant hypertrophic cardiomyopathy.\nThe disease is autosomal dominant with incomplete penetrance and variable expressivity. Diagnosis is typically in mid-adulthood (mean 46 years in the founding cohort), most patients have asymmetric septal hypertrophy, and a minority show left ventricular hypertrabeculation, reduced ejection fraction or, in one reported family, a predominantly noncompaction phenotype. Pathogenic alleles are mostly non-truncating (missense, in-frame indels, splice-site and exon deletions) and cluster in a conserved coiled-coil / diaphanous inhibitory region and in the cardiac-specific exon 12. How these alleles change FHOD3 function has not been shown biochemically; the pathophysiology below is built from knockdown, knockout and overexpression models and is labelled accordingly. One recurrent coiled-coil allele, p.Arg637Gln, behaves as a low-penetrance intermediate-effect risk allele in heterozygotes and causes a severe early phenotype in homozygotes.",
+    "pathophysiology": [
+      "Heterozygous FHOD3 Non-Truncating Variant",
+      "Perturbed FHOD3-Directed Actin Assembly in the Cardiac Sarcomere",
+      "Sarcomere Disorganization and Impaired Myofibril Maintenance",
+      "Reduced Cardiomyocyte Contractility",
+      "CaMKII Activation",
+      "Maladaptive Hypertrophic Remodeling",
+      "Impaired Ventricular Trabecular Compaction"
+    ],
+    "cell_types": [
+      "cardiomyocyte",
+      "cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "actin filament polymerization",
+      "sarcomere organization",
+      "cardiac myofibril assembly",
+      "cardiac muscle contraction",
+      "cardiac muscle hypertrophy in response to stress",
+      "cardiac muscle tissue development"
+    ],
+    "phenotypes": [
+      "Hypertrophic cardiomyopathy",
+      "Asymmetric septal hypertrophy",
+      "Left ventricular noncompaction",
+      "Reduced left ventricular ejection fraction",
+      "Myocardial fibrosis",
+      "Arrhythmia",
+      "Dyspnea",
+      "Palpitations",
+      "Syncope",
+      "Chest pain",
+      "Left ventricular thrombus",
+      "Congestive heart failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001639",
+      "HP:0001670",
+      "HP:0030682",
+      "HP:0012664",
+      "HP:0001685",
+      "HP:0011675",
+      "HP:0002094",
+      "HP:0001962",
+      "HP:0001279",
+      "HP:0100749",
+      "HP:0040412",
+      "HP:0001635"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "FHOD3",
+      "FHOD3 p.Arg637Gln",
+      "FHOD3 rs516514 / p.Val1151Ile common variants"
+    ],
+    "treatments": [
+      "Cascade Screening and Cardiac Surveillance of At-Risk Relatives",
+      "Genetic Counseling",
+      "Pharmacotherapy for Symptomatic Hypertrophic Cardiomyopathy",
+      "Cardiac Myosin Inhibitor Therapy",
+      "Implantable Cardioverter-Defibrillator",
+      "Guideline-Directed Heart Failure Therapy",
+      "Omecamtiv Mecarbil (Preclinical)"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hypertrophic_Cardiomyopathy_28.yaml",
+    "page_url": "../pages/disorders/Hypertrophic_Cardiomyopathy_28.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 7,
+    "num_genes": 3,
+    "num_treatments": 7,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Hypertrophic Cardiomyopathy 3",
     "disease_id": "MONDO:0007267",
     "category": "Genetic",
@@ -175886,7 +176649,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "CACNA1S-related hypokalemic periodic paralysis",
-      "SCN4A-related hypokalemic periodic paralysis"
+      "SCN4A-related hypokalemic periodic paralysis",
+      "KCNA7-related hypokalemic periodic paralysis"
     ],
     "treatments": [
       "Potassium Chloride for Acute Attacks",
@@ -175903,7 +176667,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Hypokalemic_Periodic_Paralysis.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 3,
-    "num_genes": 2,
+    "num_genes": 3,
     "num_treatments": 5,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
@@ -211473,20 +212237,23 @@ window.searchData = [
       "CDK5 Activation Failure at the Centrosome",
       "Katanin p80 Deficiency in Dividing Neural Progenitors",
       "ARP2/3 De-repression from \u03b1N-Catenin Loss",
-      "Neuronal Overmigration Across the Pial Boundary"
+      "Neuronal Overmigration Across the Pial Boundary",
+      "ARX-Dependent Interneuron Tangential Migration Failure"
     ],
     "cell_types": [
       "migrating cortical neuron",
       "radial glial progenitor",
       "neuroepithelial stem cell",
-      "cerebral cortex neuron"
+      "cerebral cortex neuron",
+      "GABAergic interneuron"
     ],
     "cell_type_ids": [
       "CL:0000540",
       "CL:0000681",
       "CL:0011020",
       "CL:0002259",
-      "CL:0010012"
+      "CL:0010012",
+      "CL:0011005"
     ],
     "biological_processes": [
       "radial neuronal migration in cerebral cortex",
@@ -211572,10 +212339,10 @@ window.searchData = [
     "source_file": "Lissencephaly_Spectrum_Disorders.yaml",
     "page_url": "../pages/disorders/Lissencephaly_Spectrum_Disorders.html",
     "num_phenotypes": 13,
-    "num_pathophysiology": 11,
+    "num_pathophysiology": 12,
     "num_genes": 12,
     "num_treatments": 6,
-    "causal_graph_edges": "22",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "4"
   },
   {
@@ -219895,7 +220662,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 5,
     "num_treatments": 9,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "2"
   },
   {
@@ -294267,6 +295034,154 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Renal Tubular Dysgenesis - ACE",
+    "disease_id": "MONDO:0700337",
+    "category": "Mendelian",
+    "parents": [
+      "Renal Tubular Dysgenesis of Genetic Origin"
+    ],
+    "creation_date": "2026-10-09T13:24:52Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Renal tubular dysgenesis - ACE is the autosomal recessive form of renal tubular dysgenesis caused by biallelic loss-of-function variants in ACE, the gene encoding angiotensin I-converting enzyme. Without ACE the fetus cannot convert angiotensin I to angiotensin II, so the renin-angiotensin system cannot sustain fetal blood pressure and renal perfusion. The chronically underperfused fetal kidney fails to differentiate proximal tubules, which is the histological hallmark of the disease. Fetal anuria follows, producing early-onset oligohydramnios or anhydramnios and the Potter sequence with pulmonary hypoplasia, together with skull ossification defects. Most affected fetuses and neonates die from anuria, pulmonary hypoplasia and refractory arterial hypotension, but a growing number of children survive the neonatal period with intensive blood pressure and renal support, and some biallelic ACE genotypes present later as progressive chronic kidney disease with anemia and polyuria. ACE variants are the most frequent cause of renal tubular dysgenesis, found in about two-thirds of families.",
+    "pathophysiology": [
+      "ACE Loss of Function",
+      "Loss of Cell-Surface ACE",
+      "Loss of Tissue Angiotensin II Generation",
+      "Compensatory Renin Overexpression",
+      "Loss of Angiotensin II-Driven Erythropoiesis",
+      "Urine Concentrating Defect",
+      "Loss of Renin-Angiotensin Blood Pressure Support",
+      "Fetal Renal Hypoperfusion",
+      "Delayed Nephrogenic Angiogenesis",
+      "Proximal Tubule Dysgenesis",
+      "Reduced Aldosterone Secretion"
+    ],
+    "cell_types": [
+      "renin-secreting juxtaglomerular granular cell",
+      "kidney proximal convoluted tubule epithelial cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000648",
+      "CL:1000838"
+    ],
+    "biological_processes": [
+      "angiotensin maturation",
+      "renin secretion into blood stream",
+      "erythrocyte differentiation",
+      "renal water absorption",
+      "regulation of systemic arterial blood pressure by renin-angiotensin",
+      "kidney vasculature development",
+      "proximal tubule development",
+      "aldosterone secretion"
+    ],
+    "phenotypes": [
+      "Absent or poorly differentiated proximal tubules",
+      "Anuria",
+      "Oligohydramnios",
+      "Anhydramnios",
+      "Potter sequence facies",
+      "Pulmonary hypoplasia",
+      "Respiratory insufficiency",
+      "Joint contractures",
+      "Hypotension",
+      "Decreased skull ossification",
+      "Large fontanelles",
+      "Wide cranial sutures",
+      "Increased circulating renin concentration",
+      "Hyperechogenic kidneys",
+      "Reduced renal corticomedullary differentiation",
+      "Premature birth",
+      "Intrauterine growth retardation",
+      "Hyperkalemia",
+      "Decreased circulating aldosterone concentration",
+      "Chronic kidney disease",
+      "Anemia",
+      "Polyuria",
+      "Microcolon",
+      "Intestinal perforation"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Prenatal",
+      "Craniofacial",
+      "Respiratory",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Skeletal",
+      "Endocrine",
+      "Metabolic",
+      "Hematologic",
+      "Gastrointestinal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0008660",
+      "HP:0100519",
+      "HP:0001562",
+      "HP:0025700",
+      "HP:0002009",
+      "HP:0002089",
+      "HP:0002093",
+      "HP:0034392",
+      "HP:0002615",
+      "HP:0004331",
+      "HP:0000239",
+      "HP:0010537",
+      "HP:0000848",
+      "HP:0004719",
+      "HP:0005565",
+      "HP:0001622",
+      "HP:0001511",
+      "HP:0002153",
+      "HP:0004319",
+      "HP:0012622",
+      "HP:0001903",
+      "HP:0000103",
+      "HP:0004388",
+      "HP:0031368"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT"
+    ],
+    "genes": [
+      "ACE"
+    ],
+    "treatments": [
+      "Vasopressin for refractory hypotension",
+      "Fludrocortisone mineralocorticoid replacement",
+      "Peritoneal dialysis",
+      "Respiratory support",
+      "Genetic counseling and prenatal diagnosis"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Plasma ACE activity",
+      "Plasma renin activity"
+    ],
+    "source_file": "Renal_Tubular_Dysgenesis_-_ACE.yaml",
+    "page_url": "../pages/disorders/Renal_Tubular_Dysgenesis_-_ACE.html",
+    "num_phenotypes": 24,
+    "num_pathophysiology": 11,
+    "num_genes": 1,
+    "num_treatments": 5,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Renpenning syndrome",
     "disease_id": "MONDO:0010653",
     "category": "Mendelian",
@@ -358708,17 +359623,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3325,
-  "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7958,
-  "total_unique_evidence_sources": 49945,
-  "total_unique_publications": 46571,
+  "total_disorder_pages": 3333,
+  "total_subtypes": 4636,
+  "total_disorders_and_subtypes": 7969,
+  "total_unique_evidence_sources": 50084,
+  "total_unique_publications": 46703,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3321,
-  "total_unique_pathological_events": 21934,
+  "total_pathographs": 3329,
+  "total_unique_pathological_events": 21999,
   "total_modules": 191,
-  "total_research_reports": 3442,
+  "total_research_reports": 3450,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113

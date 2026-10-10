@@ -607,7 +607,7 @@ def _parse_snapshot_date(value: str) -> str:
 
     try:
         # Source snapshot dates carry no timezone; a naive date is correct here.
-        return datetime.strptime(value, "%d %B,%Y").date().isoformat()  # noqa: DTZ007
+        return datetime.strptime(value, "%d %B,%Y").date().isoformat()
     except ValueError:
         return value
 
