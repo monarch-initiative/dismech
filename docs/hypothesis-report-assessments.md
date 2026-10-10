@@ -317,6 +317,34 @@ drops `MANIFEST.yaml`, `analysis.py` and `environment.txt` (#11254); flattened c
 identical to a restored file are removed. Recovery does not correct the bundle: a
 manifest that uses the wrong field names still fails the gate.
 
+### Testing a hypothesis by running a published model
+
+`templates/hypothesis_model_simulation.md` is the counterpart of the dataset
+template for a published simulation model (an agent-based, ODE or other model
+deposited with its paper). It opts into the same analysis contract, and it asks
+the provider to do three things before launching any batch:
+
+- reuse runs the authors deposited, instead of re-running them;
+- confirm that every setting it is asked to perturb is actually read by the model
+  code, because a setting the code never reads gives runs identical to control;
+- time a short run and estimate the whole batch, and stop with a
+  `compute_budget` failure rather than start a batch that cannot finish.
+
+When the authors scored outcomes by eye, an automated classifier is a new
+instrument and has to be checked against their labels on the deposited runs. The
+worked case, and why the budget step exists, is the neural tube closure model in
+#13616: a provider sandbox of 2 cores for 2 hours against roughly 150 CPU-hours
+of simulation.
+
+```bash
+uv run python scripts/hypothesis_deep_research.py run \
+  openscientist <Disease> <hypothesis_id> \
+  --template templates/hypothesis_model_simulation.md \
+  --dataset-inputs '<model archive URL, deposited outputs, publication>' \
+  --target-variables '<settings to perturb and their levels>' \
+  --analysis-objective '<the prediction being tested>'
+```
+
 Commit when reviewable and reasonably small:
 
 - a manifest naming external inputs, accessions/versions, retrieval dates, and
