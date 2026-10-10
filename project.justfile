@@ -815,6 +815,22 @@ validate-terms-all:
     echo "Validating terms in ${#files[@]} disorder files (batched)..."
     {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
+# Validate the LOINC codes in KB files against the Monarch KG and write their
+# rows into cache/loinc/terms.csv. TEMPORARY: overlays the oaklib fix from
+# INCATools/ontology-access-kit#920 in an ephemeral env because the pinned
+# release returns no label for LOINC codes; delete once the pin carries the fix
+# and conf/oak_config.yaml routes LOINC. See scripts/seed_loinc_cache.sh.
+[group('QC')]
+loinc-seed-cache +files:
+    scripts/seed_loinc_cache.sh {{files}}
+
+# Rebuild cache/loinc/external_copyright_{codes,notices}.csv from the Tuva LOINC
+# table pinned in data/loinc/MANIFEST.yaml (LOINC's EXTERNAL_COPYRIGHT_NOTICE field,
+# which the Monarch KG does not carry). --repin accepts a changed download.
+[group('QC')]
+loinc-copyright-notices *flags:
+    uv run python scripts/build_loinc_copyright_notices.py {{flags}}
+
 # Validate terms in a single file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
@@ -2283,6 +2299,16 @@ export-kgx-maximal out_dir="output/maximal_kgx":
 export-hpoa *args:
     uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa {{args}}
 
+# OMIM-keyed variant of `export-hpoa`, joinable against the HPO release: rows are rekeyed
+# through MONDO's SSSOM exactMatch set (downloaded once into output/hpoa; delete it to
+# refresh). Writes output/hpoa/phenotype.dismech.omim.hpoa and omim_unmapped.tsv, which
+# lists the diseases withheld for having no single exact OMIM match.
+[group('Export')]
+export-hpoa-omim *args:
+    mkdir -p output/hpoa
+    test -s output/hpoa/mondo.sssom.tsv || curl --fail -sSL -o output/hpoa/mondo.sssom.tsv http://purl.obolibrary.org/obo/mondo/mappings/mondo.sssom.tsv
+    uv run python -m dismech.export.hpoa_export --kb-dir kb/disorders --out-dir output/hpoa --key omim --sssom output/hpoa/mondo.sssom.tsv {{args}}
+
 # Runs `export-hpoa` first (the script reads its output), then downloads the release,
 # hp.obo, mondo.obo and MONDO's SSSOM set into `dir` (cached; delete a file to refresh
 # it -- `curl --fail` so an HTTP error aborts instead of caching an error page), and
@@ -3203,6 +3229,45 @@ fetch-reference +identifiers:
                 ;;
             ICTRP:*|ictrp:*)
                 uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
+            # Structured-source prefixes have no linkml-reference-validator
+            # fetcher, so handing them to `cache reference` only ever printed
+            # "No source found" (#13575). Route each to its own rebuild.
+            # Prefixes are matched as the serializers spell them (CGGV:, CGDS:,
+            # ORPHA:/Orphanet:, ICEES:, NCIT:); a lowercase id would only
+            # reach a KeyError. A requested id absent from the export makes
+            # the rebuild exit 1, so this recipe fails the way it did when
+            # LRV reported "No source found".
+            CGGV:*)
+                if [ ! -f data/clingen/gene_validity.csv ]; then
+                    # A drifted-pin failure still leaves the download on disk
+                    # (#10426), which is what we want: the rebuild stamps the
+                    # file's own date and warns about the pin.
+                    uv run python -m dismech.structured_sources.cli refresh clingen || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen --id "$identifier"
+                ;;
+            CGDS:*)
+                if [ ! -f data/clingen-dosage/gene_dosage.csv ] || [ ! -f data/clingen-dosage/gene_dosage_grch38.tsv ]; then
+                    uv run python -m dismech.structured_sources.cli refresh clingen-dosage || true
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild clingen-dosage --id "$identifier"
+                ;;
+            ORPHA:*|Orphanet:*)
+                uv run python -m dismech.structured_sources.cli rebuild orphanet --id "$identifier"
+                ;;
+            ICEES:*)
+                uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            NCIT:*)
+                # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
+                # multi-hundred-MB build when it is absent (CLAUDE.md, oak_db).
+                # Ask first, rather than start a download from a fetch recipe.
+                if ! uv run python -c "from dismech.oak_db import local_build_present as p; raise SystemExit(0 if p('sqlite:obo:ncit') else 1)"; then
+                    echo "The local NCIT build is not present; run \`just ncit-edges-refresh\` (downloads it), then \`just ncit-edges-rebuild --id $identifier\`." >&2
+                    exit 1
+                fi
+                uv run python -m dismech.structured_sources.cli rebuild ncit --id "$identifier"
                 ;;
             *)
                 scripts/run_reference_validator.sh cache reference "$identifier"
