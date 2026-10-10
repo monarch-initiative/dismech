@@ -728,6 +728,7 @@ the table below mirrors it.
 | Food | FOODON | `FOODON:` |
 | Parasite life cycle | OPL | `OPL:` |
 | Taxonomy | NCBITaxon | `NCBITaxon:` |
+| Human populations / ancestry | Human Ancestry Ontology (HANCESTRO) | `HANCESTRO:` |
 
 **Rationale.** A constrained, OBO/Monarch-aligned set keeps terms interoperable,
 machine-validatable (offline SQLite adapters via OAK), and resistant to AI hallucination
@@ -1680,7 +1681,7 @@ This section details decisions we have **not yet made or formalized**.
 | Histopathology (NCIT) vs phenotype (HP) boundary | **Undecided — maintainer call outstanding.** `HistopathologyFindingTerm` binds the NCIT Histopathology Result branch (`NCIT:C83490`) plus a narrow `HP:0025461` (Abnormal cell morphology) carve-out; HP covers many organ-specific microscopic findings (foot-process effacement, ragged-red fibers) that fall outside both. Four questions are open: (1) should `finding_term` bind HP beyond `HP:0025461`, and what is the NCIT-vs-HP selection rule; (2) HP+NCIT dual-coding, mirroring the HP+MONDO disease-like-phenotype precedent (§4); (3) the authoritative `phenotypes` vs `histopathology` rule for a microscopic observation — §10's test ("if the term already lives in the phenotype ontology it belongs in `phenotypes`") answers the *class-existence* question but not the *slot-choice* one; (4) whether entity-level "findings" (Barrett esophagus, Castleman variants, the DNET glioneuronal element) should move to `disease_term`/subtype — independent of the vocabulary question. **Re-census (2026-08-18)** reframes the options: **325 of 707 findings (46%) across 188 files are unbound** (up from 123/76 at the 2026-07-02 triage), the `HP:0025461` carve-out carries almost no load (14 bound findings vs 368 NCIT), and the unbound tail is **not** a recurring-vocabulary gap — 324 distinct labels for 325 findings, 58% of them post-composed clauses vs 20% of bound ones. So broadening the HP root reaches at most the ~135 single-concept findings. Meanwhile **0 of 707 findings use any of the `located_in`/`modifier`/`laterality`/`spatial_extent`/`severity` slots `HistopathologyFindingDescriptor` already inherits from `Descriptor`** — undocumented on that class, unlike its `ImagingFindingDescriptor` sibling — making "bind the head term, post-compose the rest" a fifth option needing no schema change. | [#5140](https://github.com/monarch-initiative/dismech/issues/5140) · [re-census](../reports/histopathology-binding-recensus-2026-08-18.md) · [2026-07-02 triage](../reports/histopathology_ncit_triage-2026-07-02.md) |
 | Heteroplasmy and genome of origin for mtDNA disease | **Undecided — proposed, not enacted.** Gene assignment binds HGNC CURIEs on `GeneDescriptor.gene_term` with no `reachable_from` constraint. That is *complete* for mitochondrial genetics at the identifier level — all 37 mtDNA-encoded genes resolve in HGNC with correct labels and SO types — but two things it cannot express. (1) **Genome of origin.** No HGNC gene group unites the 37 (`hgnc.genegroup:1974` covers only the 13 protein-coding genes; tRNAs sit in `843`, rRNAs in `1378`), and in the OAK sqlite build every gene-group node is a label-less `rdf:type` stub, so a `reachable_from` enum on it would be unlabeled and incomplete. SO type does not separate genomes either (`MT-ND1` and `NDUFS4` are both `SO:0001217`). The only current signal is the `MT-` symbol prefix — a naming convention, not an assertion. (2) **Heteroplasmy.** `ZygosityEnum` has no homoplasmic/heteroplasmic values, and heteroplasmy is orthogonal to zygosity in any case; the fraction and its tissue-specific threshold are what determine penetrance and severity for an mtDNA disease. The concept appears in 20 files as free text only. Proposed shape: an optional `Genetic.genome` (`GenomeEnum: NUCLEAR | MITOCHONDRIAL`) plus an optional `Genetic.heteroplasmy` block (`state: HOMOPLASMIC | HETEROPLASMIC | BOTH`, `threshold_percent`, `threshold_tissue`, standard `evidence`). `genome` is mechanically backfillable over a closed 37-gene set; `heteroplasmy` needs per-entry curation from the 20 prose files. Both additive and optional, so legacy entries validate unchanged. | [report](../reports/mitochondrial-disease-genetics-review-2026-08-27.md) |
 | Quantity kind: analyte **amount** vs catalytic **activity** | **Deferred (2026-08-26).** MP splits these into two disjoint upper-level branches — abnormal *level* terms under `MP:0001764` abnormal homeostasis (e.g. `MP:0005319` *abnormal enzyme/coenzyme level*), abnormal *activity* terms under `MP:0005266` abnormal metabolism (e.g. `MP:0005584` *abnormal enzyme/coenzyme activity*). HPO does not: both live under `HP:0001939` (Abnormality of metabolism/homeostasis), and the merge is explicit in the labels — `HP:0034684` *Abnormal enzyme concentration **or** activity* ("Concentration or activity of an enzyme is above or below the limits of normal"), with `HP:0012379` its circulating child. HPO will even file an activity term *under* a level term: `HP:0003282` *Decreased circulating alkaline phosphatase activity* has parent `HP:0004379` *Abnormality of alkaline phosphatase level*. That is faithful to clinical chemistry (ALP is assayed as an activity in U/L and reported as a "level") but is not reasonable over. **Why the axis matters mechanistically:** amount and activity dissociate in all four combinations and the combination *is* the lesion — normal amount / low activity (catalytically dead missense, cofactor deficiency, inhibitor present); low amount / normal specific activity (nonsense, unstable protein); high amount / low activity (accumulated misfolded protein, compensatory upregulation). It bears directly on curated content: pseudodeficiency alleles (ARSA/HEXA — low in-vitro activity, no disease; `Metachromatic_Leukodystrophy`, `Krabbe_Disease`, `Late-Onset_Pompe_Disease`, `Hurler_syndrome`, `Multiple_Sulfatase_Deficiency`), pharmacological chaperones (migalastat) whose whole mechanism is restoring activity of protein that is already present, ERT raising activity without changing endogenous level, cofactor-responsive disorders, and the residual-enzyme-activity genotype-severity question raised in 173 disorder entries. **What DisMech does today:** draws the distinction by **slot**, not by subsumption — amount in `biochemical:` (`presence`, `reference_ranges` + unit), catalytic capability as a GO molecular function on a pathophysiology node carrying `modifier:` (PATO-bound `PATO:0002300`/`PATO:0002301`). That is the compositional form of what MP encodes as a branch split, and it is orthogonal to the quantitative-vs-qualitative axis (`INCREASED` vs `GAIN_OF_FUNCTION`, see CLAUDE.md). **Residual gap:** `biochemical:` is DisMech's own `HP:0012379` — it holds enzyme *activity assays* alongside analyte concentrations, distinguished only by free-text `name` and `reference_ranges.unit` (U/L vs nmol/mg protein/hr vs mg/dL). `Farber_Disease` ("Reduced acid ceramidase activity") and `Alpha_Mannosidosis` ("Reduced acid alpha-mannosidase activity") each carry such a record (`presence: DECREASED`, no bound `biomarker_term.term`) *and* a same-named GO MF node with `modifier: DECREASED`; those are two different assertions — an assay result and a mechanism claim — and should not be collapsed into one. **Deferred decision:** do not add a level/activity enum or restructure anything. The candidate, if the axis ever needs to be queryable, is an optional *quantity kind* slot (amount / catalytic activity / flux) on `Biochemical` and `ExperimentalReadout` — the one thing MP gets from its branch split and HPO discards. Until then the distinction rides on unit discipline in `reference_ranges` and on binding a GO molecular function for every activity claim. **Worked examples (2026-08-28).** Mouse models were curated from the MGI genotype annotations that sit on each MP branch, chosen from genes annotated on *both*: `Hypophosphatasia` (the `Alpl` null on the level branch vs. the `Alpl` A116T knock-in on the activity branch, 50% residual plasma activity with a normal postcranial skeleton), `Mucolipidosis_Type_II` (`Gnptab` gene-trap — serum hydrolase levels *up* while M6P tagging is abolished, the two directions curated as readouts on one link), `Menkes_Disease` (`Atp7a` brindled — SOD3 specific activity down, partially restored by adding copper, with SOD1 unaffected), and `Gaucher_Disease_Due_To_Saposin_C_Deficiency` (activator loss with a `FAILS_TO_RECAPITULATE` link: no glucosylceramide accumulation, no organomegaly). | schema follow-up (no issue yet) |
-| LOINC slots not yet bound | **Open; the decision itself is §16.** Two homes for a LOINC CURIE have no `LoincTerm` binding and no `LoincCode` pattern: `mappings_list` (a multi-ontology `ModelVariableDescriptor` crosswalk, 20 LOINC entries at 2026-10-06) and two CURIEs mis-slotted in `biomarker_term` (`Isolated_Thyroid-stimulating_Hormone_Deficiency`), a slot documented as NCIT-only. Whether `Biochemical.loinc_term` supersedes `mappings_list` for LOINC, and whether `Diagnosis.markers` is ever narrowed to a list (#10046), are the follow-ups. | [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md) · [#10046](https://github.com/monarch-initiative/dismech/issues/10046) |
+| LOINC slots not yet bound | **Open; the decision itself is §17.** Two homes for a LOINC CURIE have no `LoincTerm` binding and no `LoincCode` pattern: `mappings_list` (a multi-ontology `ModelVariableDescriptor` crosswalk, 20 LOINC entries at 2026-10-06) and two CURIEs mis-slotted in `biomarker_term` (`Isolated_Thyroid-stimulating_Hormone_Deficiency`), a slot documented as NCIT-only. Whether `Biochemical.loinc_term` supersedes `mappings_list` for LOINC, and whether `Diagnosis.markers` is ever narrowed to a list (#10046), are the follow-ups. | [`projects/LOINC_DIAGNOSTICS.md`](../../projects/LOINC_DIAGNOSTICS.md) · [#10046](https://github.com/monarch-initiative/dismech/issues/10046) |
 | Computed indices and composite endpoints in aging biology | **Undecided — surfaced by curation, no schema change proposed yet.** Curating biomarkers into the aging-hallmark modules (`inflammaging`, `mitochondrial_dysfunction`, `telomere_attrition`, `epigenetic_alterations`, `deregulated_nutrient_sensing`) hit the same wall five times: **dismech represents mechanisms and analytes, and does not represent anything computed over them.** On inspection this is *two* related gaps, not one, and conflating them would produce the wrong schema. **(1) Computed indices over measurements.** An epigenetic clock is a penalized regression over hundreds of CpG sites whose output is an age estimate in years; a composite biomarker panel is a fitted combination the field explicitly prefers over any single analyte (the 2025 Delphi consensus states "there is no existing consensus on the best combination of biomarkers to fully capture biological aging" and calls closing that a research priority); a deficit-accumulation frailty index is a ratio over a 36-item deficit list. None is an analyte, so none belongs in `Biochemical` — yet `Biochemical.readouts` is the only place a `BiomarkerReadout` link to a pathograph node can live, so DNAm PhenoAge is currently curated there under protest, with the reasoning recorded in the entry's own `notes`. **(2) Composite clinical outcome endpoints.** Disability-free survival (ASPREE: a time-to-event composite of death, dementia, and persistent physical disability) and multimorbidity (TAME: a count of incident age-related diseases) are *outcomes*, not measurements — a different type again, and the thing a candidate surrogate would be surrogate *for*. `kb/surrogate_endpoints/fda_surrogate_endpoints.yaml` holds 225 FDA rows and none is an aging endpoint, so `BiomarkerReadout.regulatory_endpoint_refs` has no target and every `endpoint_context: CANDIDATE_SURROGATE` in these modules currently points nowhere. The frailty index straddles the two, being a computed index used as an outcome. **Nothing existing covers it:** `SeverityTier`/`severity_scale` is a threshold-label pair on a model variable, not an estimator; `computational_models:` means mechanistic simulation (tellurium/SED-ML), not a fitted predictor. **Candidate shapes, none worked through:** (a) a `CompositeMeasure`/`derived_index` class carrying the input features, the fitting provenance, and reusing `BiomarkerReadout` for its mechanism links; (b) admit estimators to `computational_models:` and reach the pathograph via the existing `ModelMechanismLink`, accepting that "computational model" then means two different things; (c) extend `SurrogateEndpoint` beyond the FDA import to carry non-regulatory clinical outcome assessments, addressing gap (2) only. **Interim state:** five `KNOWLEDGE_GAP` discussions record the problem where a curator will meet it — `knowledge_gap_composite_vs_single_inflammaging_markers` and `knowledge_gap_surrogate_for_which_geroscience_endpoint` in `inflammaging`, `knowledge_gap_no_ontology_term_for_epigenetic_clock` in `epigenetic_alterations`, plus the marker-or-driver and telomere-reliability gaps. **Ontology sub-gap (§4):** NCIT has no term for an epigenetic clock or for biological age — "Epigenetic Clock" returns nothing and "Biological Age" returns only *Biological Agent* and descendants. `NCIT:C17961` (DNA Methylation) and `NCIT:C16269` (Aging) were considered and rejected as not-the-measurement; the interim binding names the assay (`NCIT:C63328`, DNA Methylation Analysis) and carries the clock identity in `preferred_term`, per the Ontology Term Contract. An NCIT term request is the real fix and is not yet filed. This blocks little today but compounds: five hallmark modules remain uncurated, and each will work around the same absence. | [report](../reports/biomarkers-of-aging-gap-analysis-2026-08-31.md) · schema follow-up |
 | Obsolete ontology terms | Should fail validation but do not yet | [#712](https://github.com/monarch-initiative/dismech/issues/712) |
 | Unlisted ontology prefixes | Silently skipped by term validation (only a warning) — an unconstrained prefix can pass unchecked | — |
@@ -1995,7 +1996,127 @@ Population guidance and worked examples live in the
 with the schema, rendering, and export support implemented in
 [PR #11943](https://github.com/monarch-initiative/dismech/pull/11943).
 
-## 16. LOINC on disease entries: loinc2mondo is dismech content, loinc2hpo is not (2026-10-06)
+## 16. Population-specific variant effects bind populations to HANCESTRO (2026-10-08)
+
+**Decision.** A variant's effect can differ between human populations, and
+`Variant.population_effects` records that as a list of `VariantPopulationEffect`
+objects, one per population and source. Each record keeps the population in the
+source's own words (`population`, required), may bind it to the **Human Ancestry
+Ontology (HANCESTRO)** (`ancestry_terms`, optional), says how the source defined
+the group (`ancestry_basis`: self-reported, genetically inferred, geographic, or
+not stated), and says which aspect of the effect differs (`effect_differences`:
+classification, penetrance, severity, phenotype spectrum, allele frequency, or a
+tested `NO_DIFFERENCE`). Population-specific classification, penetrance, allele
+frequency and cohort size have their own slots; `evidence` is recommended.
+HANCESTRO is added to `conf/oak_config.yaml` (`ols:hancestro`) and to the table in
+section 4, and `AncestryTerm` is rooted at `HANCESTRO:0004` *ancestry category*,
+under which every HANCESTRO population class sits.
+
+**The gap this closes.** Issue
+[#13677](https://github.com/monarch-initiative/dismech/issues/13677) reported that
+dismech did not take population-specific variant effects into account, and the
+schema confirmed it. `Variant.clinical_significance` is a single value with no
+population, penetrance existed only on the disease-level `Inheritance` block, and
+population was recorded only per gene (`GeneCaseFraction.population`, section 8),
+never per variant. A variant that is a disease-causing allele in one population
+and a common low-penetrance allele in another had to receive one
+population-blind call, or be described in prose that no query reaches. Familial
+Mediterranean fever (FMF) is the motivating case: M694V, the commonest variant in
+Mediterranean patients, was carried by none of 80 Japanese patients in a
+nationwide series ([PMID:19531756](https://pubmed.ncbi.nlm.nih.gov/19531756/)),
+and nothing in the schema could record that against the variant.
+
+**Why HANCESTRO.** Three vocabularies were compared on twenty populations that
+matter for FMF and for founder variants: Singaporean Chinese, Malay and Indian;
+Han Chinese, Japanese and Korean; Turkish, Armenian and Arab; Ashkenazi,
+Sephardic and Mizrahi Jewish; Druze; Finnish, Amish and French Canadian; East and
+South Asian; African American; and Hispanic or Latino.
+
+| | HANCESTRO | CDC Race & Ethnicity (HL7) | NCIT |
+|---|---|---|---|
+| What it codes | Ancestry and population groups used in genomic studies | US social race and ethnicity categories | Mixed race, ethnicity and population terms |
+| Of the 20 populations | 18 (Druze only as a reference panel) | 6 | 14 |
+| Clinical-system use | Essentially none | US standard (EHRs, public health, FHIR US Core) | Clinical trial data |
+
+The populations, as looked up on 2026-10-08 by label search in OLS (HANCESTRO,
+NCIT) and in the HL7 v3 Race code system that mirrors CDC Race and Ethnicity,
+with every hit checked by hand:
+
+| Population | HANCESTRO | CDC / HL7 | NCIT |
+|---|---|---|---|
+| Singaporean Chinese | yes | no | no |
+| Singaporean Malay | yes | no | no |
+| Singaporean Indian | yes | no | no |
+| Han Chinese | yes | no | yes |
+| Japanese | yes | yes | yes |
+| Korean | yes | yes | yes |
+| Turkish | yes | no | no (a language term only) |
+| Armenian | yes | yes | yes |
+| Arab | yes | yes | yes |
+| Ashkenazi Jewish | yes | no | yes |
+| Sephardic Jewish | no | no | yes |
+| Mizrahi Jewish | no | no | yes |
+| Druze | reference panel only (HGDP) | no | no |
+| Finnish | yes | no | yes |
+| Amish | yes | no | no |
+| French Canadian | yes (*French Canadian founder*) | no | yes (*Canadian French*) |
+| East Asian | yes | no | yes |
+| South Asian | yes | no | yes |
+| African American | yes | yes (*Black or African American*) | yes |
+| Hispanic or Latino | yes | yes (ethnicity code) | yes |
+
+HANCESTRO is the only one with the Singapore groups the issue started from and
+the only one with Turkish, Finnish and Amish. It is an open (CC BY 4.0), actively
+maintained OBO ontology built for the GWAS Catalog, and it is in OLS, so it
+validates the same way HP or NCIT does. Its gap is Sephardic and Mizrahi Jewish,
+which NCIT has; those populations stay in free text until HANCESTRO adds them.
+
+**Why not an HL7 vocabulary.** HL7 has no equivalent. The HL7 terminology package
+(`hl7.terminology` 7.4.0) contains no HANCESTRO registration; its population
+vocabularies (CDC Race and Ethnicity, the deprecated v3 Race and Ethnicity code
+systems, and v2 table 0189 Ethnic Group) code US social categories, and cannot say
+"Turkish" or "Singaporean Malay". The FHIR core genetics ancestry extension
+(`observation-geneticsAncestry`) is deprecated, carried no terminology binding,
+and points to the Genomics Reporting guide, whose 3.0.0 package has no ancestry
+element. Clinical relevance for this question comes instead through variant
+interpretation, which rests on population allele frequencies reported for
+research cohorts in ancestry terms. Mapping to clinical race and ethnicity codes,
+if a FHIR export needs them, is an export step, not a curation one, so curators
+learn one vocabulary.
+
+**Why the free text stays required.** A group label can name a self-identified
+ethnicity, a genetically inferred ancestry cluster, or a place, and studies
+rarely say which. Binding self-reported ethnicity as genetic ancestry would
+overstate what the study measured, so the record keeps the source's own words,
+binds a HANCESTRO term only at the level the source supports, and records the
+basis separately. HANCESTRO also mixes ancestry categories, populations and
+reference-panel cohorts (1KGP, HGDP, SGDP); a reference-panel term is bound only
+when the data came from that panel, so "Japanese patients" is `HANCESTRO:0019`
+*Japanese*, not `HANCESTRO:0754` *Japanese in Tokyo, Japan (1KGP)*.
+
+**Record only what the source states.** A population difference has to be
+reported by the source. Comparing two allele frequencies or two cohorts and
+writing the difference down is the curator's inference, not a finding, the same
+rule `TreatmentEffectModifier.effect_in_stratum` follows. A difference in
+treatment response by ancestry is a treatment effect modifier
+(`effect_modifier_type: ANCESTRY`), not a variant population effect.
+
+**Not done, and why.**
+
+- `Prevalence.population` and `GeneCaseFraction.population` remain free text with
+  no HANCESTRO binding. Extending the binding there is the natural next step, and
+  is additive, but it was kept out of scope so this change carries no migration.
+- Phenotypes have no population slot. Population-specific phenotype frequency was
+  raised in the same issue; it is a separate decision because `Phenotype` has no
+  per-population record to hang a binding on.
+- No audit lists variants with a classification but no population record for
+  ancestry-clustered diseases. It would be report-only and is deferred until more
+  entries carry population effects.
+- HANCESTRO is not registered with the HL7 Terminology Authority, so FHIR has no
+  official system URI for it. Registering it would be a request to HL7, outside
+  this repository.
+
+## 17. LOINC on disease entries: loinc2mondo is dismech content, loinc2hpo is not (2026-10-06)
 
 **Decision.** A LOINC code identifies a *measurement* — an analyte in a
 specimen, a panel, an instrument's total score. That is a third axis beside the
