@@ -23078,7 +23078,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 37,
     "num_treatments": 11,
-    "causal_graph_edges": "52",
+    "causal_graph_edges": "53",
     "causal_graph_longest_path": "5"
   },
   {
@@ -119328,6 +119328,79 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 1M",
+    "disease_id": "MONDO:0011840",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1M (CMD1M) is the numbered dilated-cardiomyopathy locus assigned to CSRP3, which encodes muscle LIM protein (MLP), a striated-muscle LIM-only protein found at the sarcomeric Z-disc, the costamere and the nucleus. MLP binds telethonin (T-cap) and alpha-actinin-2 at the Z-disc and has been proposed as part of the cardiomyocyte mechanical stretch sensor.\nThe locus rests on a small human evidence base. The founding report (2002) described the N-terminal variant p.Trp4Arg (W4R) in dilated cardiomyopathy and showed that it weakens the MLP-telethonin interaction. A 2003 screen added p.Lys69Arg (K69R) in one patient with dilated cardiomyopathy and endocardial fibroelastosis; in the same screen W4R did not segregate with disease in a second family. W4R was later shown to be carried by up to 1% of people of European ancestry, and a 945-case comparison against population reference data found no detectable excess of rare CSRP3 variants in dilated cardiomyopathy (odds ratio 1.10; a modest effect is not excluded). ClinGen's Dilated Cardiomyopathy Gene Curation Expert Panel classifies CSRP3 for this disease as Limited (autosomal dominant).\nMost mechanistic knowledge comes from the Csrp3 (Mlp) knockout mouse, a classic model that develops postnatal dilated cardiomyopathy and heart failure after cytoarchitectural disruption of cardiomyocytes. In humans, by contrast, CSRP3 is a Definitive hypertrophic-cardiomyopathy gene (allelic disorder CMH12), and both the W4R knock-in mouse and MLP-null human stem-cell cardiomyocytes develop hypertrophic rather than dilated phenotypes. This entry records that mismatch rather than resolving it.",
+    "pathophysiology": [
+      "Heterozygous CSRP3 Missense Variant",
+      "Loss of MLP Binding to Telethonin and Alpha-Actinin-2",
+      "Reduced Myocardial MLP Abundance",
+      "Defective Cardiomyocyte Stretch Sensing",
+      "Impaired Z-Disc Calcineurin-NFAT Stress Signalling",
+      "Disrupted Cardiomyocyte Cytoarchitecture",
+      "Sarcoplasmic Reticulum Calcium Cycling Defect",
+      "Left Ventricular Dilation and Systolic Dysfunction",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Detection of muscle stretch",
+      "Cellular response to mechanical stimulus",
+      "Calcineurin-NFAT signaling cascade",
+      "Sarcomere organization",
+      "Sarcoplasmic reticulum calcium ion transport",
+      "Heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Congestive Heart Failure",
+      "Endocardial Fibroelastosis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0001706"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CSRP3"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Therapy",
+      "Cardiac Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1M.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1M.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dilated Cardiomyopathy 1NN",
@@ -224582,6 +224655,7 @@ window.searchData = [
     "pathophysiology": [
       "Mediator Complex Disruption",
       "CDK8 Kinase Module Dysfunction",
+      "MED12-COMPASS H3K4 Methylation Failure",
       "Neurodevelopmental Transcriptional Dysregulation",
       "Cortical Neuron Migration and Projection Defects",
       "MED13 Ubiquitination Regulatory Cluster Variants",
@@ -224604,6 +224678,7 @@ window.searchData = [
       "Regulation of gene expression",
       "Wnt signaling pathway",
       "Notch signaling pathway",
+      "epigenetic regulation of gene expression",
       "Neuron migration",
       "Neuron projection development",
       "Dendrite development",
@@ -224712,11 +224787,11 @@ window.searchData = [
     "source_file": "Mediator_Complex_Neurodevelopmental_Disorder.yaml",
     "page_url": "../pages/disorders/Mediator_Complex_Neurodevelopmental_Disorder.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 13,
     "num_treatments": 0,
-    "causal_graph_edges": "49",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Medullary Sponge Kidney",
@@ -359716,17 +359791,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3334,
+  "total_disorder_pages": 3335,
   "total_subtypes": 4636,
-  "total_disorders_and_subtypes": 7970,
-  "total_unique_evidence_sources": 50089,
-  "total_unique_publications": 46708,
+  "total_disorders_and_subtypes": 7971,
+  "total_unique_evidence_sources": 50101,
+  "total_unique_publications": 46718,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3330,
-  "total_unique_pathological_events": 22004,
+  "total_pathographs": 3331,
+  "total_unique_pathological_events": 22012,
   "total_modules": 191,
-  "total_research_reports": 3451,
+  "total_research_reports": 3452,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
