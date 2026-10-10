@@ -21695,10 +21695,12 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein misfolding",
-      "Aggregation",
+      "Amyloid-beta generation by gamma-secretase cleavage of APP",
+      "Amyloid-beta aggregation into fibrils",
       "Neuroinflammation",
       "Protein hyperphosphorylation",
       "Microtubule destabilization",
+      "Neurofibrillary tangle assembly",
       "Neurotransmitter release",
       "Synaptic plasticity",
       "Immune activation",
@@ -21711,6 +21713,7 @@ window.searchData = [
       "Mitophagy",
       "Blood-brain barrier regulation",
       "Cerebral blood flow",
+      "LRP1-mediated vascular amyloid-beta clearance",
       "Amyloid-beta clearance",
       "Cerebrospinal fluid circulation",
       "Autophagy",
@@ -21727,7 +21730,7 @@ window.searchData = [
       "Interferon-gamma (type II interferon) production",
       "M1 muscarinic (Gq/PLC-coupled) receptor signaling",
       "Amyloidogenic APP processing",
-      "Synapse pruning",
+      "Complement-mediated synapse pruning",
       "Complement activation",
       "Microglial engulfment of synaptic material",
       "Lysosomal lumen acidification",
@@ -21814,7 +21817,7 @@ window.searchData = [
     "num_pathophysiology": 26,
     "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "63",
+    "causal_graph_edges": "66",
     "causal_graph_longest_path": "10"
   },
   {
@@ -38276,7 +38279,13 @@ window.searchData = [
     ],
     "creation_date": "2026-05-08T16:23:43Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "PKD1",
+      "PKD6",
+      "PKD7",
+      "PKD8",
+      "ALG9-associated ADPKD"
+    ],
     "description": "Autosomal dominant polycystic kidney disease (ADPKD) is an inherited multisystem disorder, most often caused by PKD1 or PKD2 variants, with progressive renal epithelial cysts, frequent liver cysts and vascular complications. Reduced polycystin function permits cyst-promoting ciliary signaling; cAMP-dependent epithelial proliferation and fluid secretion contribute to expansion. The initiating ciliary signal and an obligatory flow-calcium sequence remain unresolved. Cyst burden and interstitial injury can lead to hypertension and kidney failure. Less common causal genes produce distinct patterns of kidney size, fibrosis, age at onset and liver involvement; typical PKD1/PKD2 prognostic models do not automatically apply to them.",
     "pathophysiology": [
       "Somatic PKD1 or PKD2 inactivation in cyst epithelium",
@@ -80867,7 +80876,9 @@ window.searchData = [
       "CMT1A",
       "CMT1B",
       "CMTX1",
+      "CMT1C",
       "CMT1D",
+      "CMT1F",
       "CMT1H",
       "CMT1J"
     ],
@@ -80878,6 +80889,9 @@ window.searchData = [
       "Connexin-32 Gap Junction Failure in CMTX1",
       "Fibulin-5 Extracellular Matrix Defect",
       "ITPR3 Calcium Release Dysregulation",
+      "EGR2 Schwann-Cell Myelination Program Failure",
+      "LITAF Endolysosomal Homeostasis Failure",
+      "NEFL Neurofilament Assembly and Transport Defect",
       "Demyelination and Secondary Axonal Loss"
     ],
     "cell_types": [
@@ -80893,7 +80907,9 @@ window.searchData = [
       "Endoplasmic reticulum unfolded protein response",
       "Gap junction assembly",
       "elastic fiber assembly",
-      "release of sequestered calcium ion into cytosol"
+      "release of sequestered calcium ion into cytosol",
+      "Schwann cell differentiation",
+      "intermediate filament organization"
     ],
     "phenotypes": [
       "Distal Muscle Weakness",
@@ -80927,6 +80943,8 @@ window.searchData = [
       "MPZ",
       "GJB1",
       "EGR2",
+      "LITAF",
+      "NEFL",
       "FBLN5",
       "ITPR3"
     ],
@@ -80941,10 +80959,10 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease_Type_1.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_1.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
-    "num_genes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "3"
   },
   {
@@ -140394,7 +140412,7 @@ window.searchData = [
   },
   {
     "name": "Fanconi Renotubular Syndrome",
-    "disease_id": "MONDO:0001083",
+    "disease_id": "MONDO:0100238",
     "category": "Mendelian",
     "parents": [
       "Renal tubular transport disease",
@@ -140492,8 +140510,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Far-East Scarlet-Like Fever",
@@ -174566,6 +174584,7 @@ window.searchData = [
       "TTN"
     ],
     "treatments": [
+      "Cardiac Myosin Inhibitors",
       "Beta Blockers",
       "Calcium Channel Blockers",
       "Septal Myectomy",
@@ -174586,9 +174605,9 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 28,
-    "num_treatments": 8,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 9,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Hypertrophic Cardiomyopathy 1",
@@ -191206,12 +191225,14 @@ window.searchData = [
       "X-Linked Ichthyosis",
       "Autosomal Recessive Congenital Ichthyosis",
       "Keratinopathic Ichthyosis",
-      "Netherton Syndrome"
+      "Netherton Syndrome",
+      "Ichthyosis With Erythrokeratoderma"
     ],
     "description": "Inherited ichthyosis is a heterogeneous group of Mendelian disorders of cornification affecting most or all of the integument. The shared clinical surface is abnormal epidermal scaling and/or hyperkeratosis, but the underlying causes span defects in keratinocyte differentiation, cornified envelope formation, epidermal lipid handling, protease control, and skin barrier maintenance.",
     "pathophysiology": [
       "Disrupted Keratinocyte Differentiation and Cornification",
       "Epidermal Lipid Metabolism Defect",
+      "Reduced Kallikrein-11 Proteolysis and Delayed Desquamation",
       "Stratum Corneum Barrier Impairment",
       "Skin Microbiome Dysbiosis",
       "Th17/JAK-STAT Inflammatory Activation"
@@ -191230,6 +191251,8 @@ window.searchData = [
       "lipid transport",
       "ceramide biosynthetic process",
       "establishment of skin barrier",
+      "corneocyte desquamation",
+      "proteolysis",
       "inflammatory response",
       "T-helper 17 type immune response",
       "JAK-STAT signaling pathway"
@@ -191278,7 +191301,8 @@ window.searchData = [
       "NIPAL4",
       "KRT1",
       "KRT10",
-      "KRT2"
+      "KRT2",
+      "KLK11"
     ],
     "treatments": [
       "Topical emollients and keratolytic/supportive therapy",
@@ -191291,10 +191315,10 @@ window.searchData = [
     "source_file": "Inherited_Ichthyosis.yaml",
     "page_url": "../pages/disorders/Inherited_Ichthyosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 5,
-    "num_genes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 12,
     "num_treatments": 4,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -359792,14 +359816,14 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3335,
-  "total_subtypes": 4636,
-  "total_disorders_and_subtypes": 7971,
-  "total_unique_evidence_sources": 50101,
-  "total_unique_publications": 46718,
+  "total_subtypes": 4644,
+  "total_disorders_and_subtypes": 7979,
+  "total_unique_evidence_sources": 50127,
+  "total_unique_publications": 46743,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
   "total_pathographs": 3331,
-  "total_unique_pathological_events": 22012,
+  "total_unique_pathological_events": 22016,
   "total_modules": 191,
   "total_research_reports": 3452,
   "total_classifications": 21,
