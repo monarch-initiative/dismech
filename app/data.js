@@ -53005,7 +53005,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 7,
     "num_treatments": 7,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
