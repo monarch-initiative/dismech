@@ -76757,7 +76757,17 @@ window.searchData = [
     ],
     "creation_date": "2025-12-18T17:01:35Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Classical",
+      "Non-classical",
+      "Subclinical",
+      "Latent",
+      "Nonresponsive",
+      "Potential",
+      "Seronegative",
+      "Refractory Type I",
+      "Refractory Type II"
+    ],
     "description": "Celiac disease is a chronic immune-mediated enteropathy of the small intestine triggered by dietary gluten in genetically susceptible individuals carrying HLA-DQ2 or HLA-DQ8 haplotypes. Deamidated gluten peptides presented to gluten-reactive CD4+ T cells drive a mucosal immune response that produces villous atrophy, crypt hyperplasia, intraepithelial lymphocytosis, and characteristic anti-tissue-transglutaminase autoantibodies. The resulting malabsorption causes chronic diarrhea, weight loss, iron deficiency anemia, and other nutritional deficiencies, and the disease typically remits on a strict gluten-free diet.",
     "pathophysiology": [
       "Gluten-Triggered Immune Response",
@@ -76818,7 +76828,9 @@ window.searchData = [
       "Osteoporosis",
       "Arthritis",
       "Short stature",
-      "Female infertility"
+      "Female infertility",
+      "Hypoproteinemia",
+      "Arthralgia"
     ],
     "phenotype_categories": [
       "Gastrointestinal",
@@ -76872,7 +76884,9 @@ window.searchData = [
       "HP:0000939",
       "HP:0001369",
       "HP:0004322",
-      "HP:0008222"
+      "HP:0008222",
+      "HP:0003075",
+      "HP:0002829"
     ],
     "frequencies": [
       "FREQUENT",
@@ -76918,11 +76932,11 @@ window.searchData = [
     ],
     "source_file": "Celiac_Disease.yaml",
     "page_url": "../pages/disorders/Celiac_Disease.html",
-    "num_phenotypes": 22,
+    "num_phenotypes": 24,
     "num_pathophysiology": 9,
     "num_genes": 12,
     "num_treatments": 6,
-    "causal_graph_edges": "25",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
   {
@@ -360249,10 +360263,10 @@ window.searchData = [
 ];
 window.searchMetrics = {
   "total_disorder_pages": 3336,
-  "total_subtypes": 4687,
-  "total_disorders_and_subtypes": 8023,
-  "total_unique_evidence_sources": 50222,
-  "total_unique_publications": 46803,
+  "total_subtypes": 4696,
+  "total_disorders_and_subtypes": 8032,
+  "total_unique_evidence_sources": 50241,
+  "total_unique_publications": 46820,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
   "total_pathographs": 3332,
