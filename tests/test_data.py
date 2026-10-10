@@ -31,6 +31,7 @@ from dismech.entity_refs import (
     iter_entity_refs,
     parse_entity_ref,
 )
+from dismech.model_links import iter_model_links
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -73,8 +74,6 @@ MODEL_BEARING_FILES = DISORDER_FILES + MODULE_FILES
 # `would_refute`, perturbation/readout `target`) are resolved as foreign keys.
 # Same three trees as `conforms_to`: groupings use a different grammar.
 ENTITY_REF_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
-# Model sections whose entries may carry `modeled_mechanisms` links.
-MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
@@ -316,9 +315,9 @@ def check_valid_module_files(filepath, validator, data=None):
     A schema tightening invalidates a module exactly as it invalidates a
     disorder entry, but the whole-KB conformance sweep covered disorders,
     comorbidities and groupings and left ``kb/modules/`` out (dismech#8320).
-    ``just validate-modules`` catches this locally and is in ``just qc``, but
-    CI only ever runs it over *changed* files — which is the blind spot #8320
-    was filed about.
+    ``just validate-modules`` catches this locally and is in ``just qc``, and
+    CI runs ``just validate-module-batch`` over the module files a PR changes;
+    this sweep covers the modules a schema change touches without editing them.
     """
     data = _document(filepath, data)
 
@@ -1318,14 +1317,27 @@ def check_linked_animal_model_labels_are_unique(filepath, data=None):
 
 
 def _iter_mechanism_links(data):
-    """Yield (section, model_index, link_index, model, link) across model sections."""
-    for section in MODEL_SECTIONS:
-        for i, model in enumerate(data.get(section, []) or []):
-            if not isinstance(model, dict):
-                continue
-            for j, link in enumerate(model.get("modeled_mechanisms", []) or []):
-                if isinstance(link, dict):
-                    yield section, i, j, model, link
+    """Yield (path_prefix, model_index, link_index, model, link) for every model link.
+
+    Delegates to `dismech.model_links.iter_model_links`, which also reaches the
+    `model_systems` of a proposed experiment. Those were skipped while this
+    walked only `MODEL_SECTIONS`, so every check below -- divergence typing,
+    scale agreement, readout targets, caveat requirements -- had no opinion on a
+    link declared inside a `KNOWLEDGE_GAP` proposal (dismech#13375).
+
+    The first element was the bare section name and is now the dotted path to
+    the list holding the model, so the callers' existing
+    `f"{section}[{i}].modeled_mechanisms[{j}]"` formatting yields a correct deep
+    location without changing.
+    """
+    for site in iter_model_links(data):
+        yield (
+            site.path_prefix,
+            site.model_index,
+            site.link_index,
+            site.model,
+            site.link,
+        )
 
 
 def check_model_readout_targets_match_link(filepath, data=None):
@@ -2499,12 +2511,22 @@ def test_disorder_file(filepath, validator):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
 def test_module_file(filepath, validator):
-    """Schema conformance plus model-link and conforms_to checks for one module."""
+    """Schema conformance plus every structural check a disorder entry gets.
+
+    A module is a ``Disease`` document, so nothing in ``DISORDER_CHECKS`` is
+    specific to disorders: required fields, reference prefixes, subtype and
+    mechanism-target foreign keys, and dataset accession shape all apply.
+    """
     data = _document(filepath)
     failures = _failures(
         filepath,
         data,
-        (check_valid_module_files, *MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS),
+        (
+            check_valid_module_files,
+            *DISORDER_CHECKS,
+            *MODEL_BEARING_CHECKS,
+            *CONFORMS_TO_CHECKS,
+        ),
         validator=validator,
     )
     _assert_all_passed(filepath, failures)

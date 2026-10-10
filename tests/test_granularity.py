@@ -357,8 +357,15 @@ def test_undecided_lump_is_advisory_and_a_recorded_one_is_informational(corpus, 
         (WAIVER_LONG, True),
         (WAIVER_SHORT, False),
         ("Prose that merely mentions " + WAIVER_LONG, False),
+        # Both scalar styles must waive. A folded scalar (`>-`) renders a
+        # paragraph break as one newline and a literal scalar (`|-`) as two;
+        # the first implementation accepted only the latter, so an honest
+        # waiver written in the KB's dominant prose style was silently
+        # ignored and TAXON_LUMP kept firing with nothing to explain it.
         ("First paragraph.\n\n" + WAIVER_LONG, True),
-        ("First paragraph.\n" + WAIVER_LONG, False),
+        ("First paragraph.\n" + WAIVER_LONG, True),
+        # A folded scalar indents its continuation lines.
+        ("First paragraph.\n   " + WAIVER_LONG, True),
     ],
 )
 def test_lump_waiver_needs_the_sentinel_at_a_paragraph_start_and_reasoning_after_it(

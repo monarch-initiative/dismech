@@ -362,7 +362,7 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--kb-dir", default=Path("kb/disorders"), type=Path)
     parser.add_argument("--content-current-as-of", default="2026-04-29")
-    parser.add_argument("--retrieved-date", default=date.today().isoformat())  # noqa: DTZ011
+    parser.add_argument("--retrieved-date", default=date.today().isoformat())
     args = parser.parse_args()
 
     collection = import_workbook(
