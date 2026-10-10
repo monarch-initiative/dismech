@@ -7505,6 +7505,99 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "ALG8-related Autosomal Dominant Polycystic Kidney And/Or Liver Disease",
+    "disease_id": "MONDO:1060122",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Dominant Polycystic Kidney Disease",
+      "Autosomal Dominant Polycystic Liver Disease"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "ALG8-related autosomal dominant polycystic kidney and/or liver disease is the cystic disorder of people heterozygous for a loss-of-function variant in ALG8. ALG8 encodes the endoplasmic-reticulum alpha-1,3-glucosyltransferase that adds the second of three glucoses to the lipid-linked oligosaccharide precursor of N-linked glycosylation. Biallelic loss of the same gene causes a severe multisystem congenital disorder of glycosylation (ALG8-CDG, CDG-Ih); the monoallelic disease described here is a different, organ-restricted and usually mild condition.\nThe phenotype sits between the two classical dominant cystic disorders. Most carriers who develop disease have a modest number of kidney cysts without marked kidney enlargement, and kidney function is usually preserved; progression to kidney failure is rare. Liver cysts are common, and a minority develop severe polycystic liver disease with liver volume above two litres, so the gene was first found in isolated polycystic liver disease cohorts and later in cystic kidney cohorts. Penetrance for cysts is incomplete and expressivity is variable even within one family, and predicted loss-of-function ALG8 alleles are present in roughly one in a thousand people, so many carriers have only a few cysts or none.\nMechanistically ALG8 belongs with GANAB, PRKCSH, SEC63, ALG5, ALG9 and DNAJB11 as an endoplasmic-reticulum proteostasis gene that sits upstream of the polycystin complex. Loss of ALG8 leaves polycystin-1 hypoglycosylated, reduces its steady-state level and blocks its trafficking to the cell surface and the primary cilium. Reduced functional polycystin-1 is the shared final pathway into cystogenesis in kidney tubule and biliary epithelium.",
+    "pathophysiology": [
+      "Heterozygous ALG8 Loss of Function",
+      "Defective Polycystin-1 Glycosylation and Maturation",
+      "Endoplasmic Reticulum Unfolded Protein Response Activation",
+      "Reduced Ciliary and Surface Polycystin-1",
+      "Somatic Second Hit in Cyst Epithelium",
+      "Renal Cystogenesis",
+      "Hepatic Cystogenesis"
+    ],
+    "cell_types": [
+      "kidney epithelial cell",
+      "cholangiocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002518",
+      "CL:1000488"
+    ],
+    "biological_processes": [
+      "dolichol-linked oligosaccharide biosynthetic process",
+      "protein N-linked glycosylation",
+      "protein folding in endoplasmic reticulum",
+      "IRE1-mediated unfolded protein response",
+      "protein localization to cilium"
+    ],
+    "phenotypes": [
+      "Multiple Renal Cysts",
+      "Hepatic Cysts",
+      "Polycystic Liver Disease",
+      "Hepatomegaly",
+      "Abdominal Pain",
+      "Hypertension",
+      "Nephrolithiasis",
+      "Decreased Glomerular Filtration Rate"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Hepatobiliary",
+      "Gastrointestinal",
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Genitourinary"
+    ],
+    "phenotype_ids": [
+      "HP:0005562",
+      "HP:0001407",
+      "HP:0006557",
+      "HP:0002240",
+      "HP:0002027",
+      "HP:0000822",
+      "HP:0000787",
+      "HP:0012213"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ALG8",
+      "PKD1"
+    ],
+    "treatments": [
+      "Liver Resection, Fenestration or Transplantation",
+      "Somatostatin Analogue Therapy",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ALG8-related_Autosomal_Dominant_Polycystic_Kidney_And_Or_Liver_Disease.yaml",
+    "page_url": "../pages/disorders/ALG8-related_Autosomal_Dominant_Polycystic_Kidney_And_Or_Liver_Disease.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 7,
+    "num_genes": 2,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "ALG9-congenital disorder of glycosylation",
     "disease_id": "MONDO:0012117",
     "category": "Mendelian",
@@ -22985,7 +23078,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 37,
     "num_treatments": 11,
-    "causal_graph_edges": "52",
+    "causal_graph_edges": "53",
     "causal_graph_longest_path": "5"
   },
   {
@@ -119235,6 +119328,79 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
+  },
+  {
+    "name": "Dilated Cardiomyopathy 1M",
+    "disease_id": "MONDO:0011840",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1M (CMD1M) is the numbered dilated-cardiomyopathy locus assigned to CSRP3, which encodes muscle LIM protein (MLP), a striated-muscle LIM-only protein found at the sarcomeric Z-disc, the costamere and the nucleus. MLP binds telethonin (T-cap) and alpha-actinin-2 at the Z-disc and has been proposed as part of the cardiomyocyte mechanical stretch sensor.\nThe locus rests on a small human evidence base. The founding report (2002) described the N-terminal variant p.Trp4Arg (W4R) in dilated cardiomyopathy and showed that it weakens the MLP-telethonin interaction. A 2003 screen added p.Lys69Arg (K69R) in one patient with dilated cardiomyopathy and endocardial fibroelastosis; in the same screen W4R did not segregate with disease in a second family. W4R was later shown to be carried by up to 1% of people of European ancestry, and a 945-case comparison against population reference data found no detectable excess of rare CSRP3 variants in dilated cardiomyopathy (odds ratio 1.10; a modest effect is not excluded). ClinGen's Dilated Cardiomyopathy Gene Curation Expert Panel classifies CSRP3 for this disease as Limited (autosomal dominant).\nMost mechanistic knowledge comes from the Csrp3 (Mlp) knockout mouse, a classic model that develops postnatal dilated cardiomyopathy and heart failure after cytoarchitectural disruption of cardiomyocytes. In humans, by contrast, CSRP3 is a Definitive hypertrophic-cardiomyopathy gene (allelic disorder CMH12), and both the W4R knock-in mouse and MLP-null human stem-cell cardiomyocytes develop hypertrophic rather than dilated phenotypes. This entry records that mismatch rather than resolving it.",
+    "pathophysiology": [
+      "Heterozygous CSRP3 Missense Variant",
+      "Loss of MLP Binding to Telethonin and Alpha-Actinin-2",
+      "Reduced Myocardial MLP Abundance",
+      "Defective Cardiomyocyte Stretch Sensing",
+      "Impaired Z-Disc Calcineurin-NFAT Stress Signalling",
+      "Disrupted Cardiomyocyte Cytoarchitecture",
+      "Sarcoplasmic Reticulum Calcium Cycling Defect",
+      "Left Ventricular Dilation and Systolic Dysfunction",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Detection of muscle stretch",
+      "Cellular response to mechanical stimulus",
+      "Calcineurin-NFAT signaling cascade",
+      "Sarcomere organization",
+      "Sarcoplasmic reticulum calcium ion transport",
+      "Heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Congestive Heart Failure",
+      "Endocardial Fibroelastosis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0001706"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CSRP3"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Therapy",
+      "Cardiac Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1M.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1M.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Dilated Cardiomyopathy 1NN",
@@ -224489,6 +224655,7 @@ window.searchData = [
     "pathophysiology": [
       "Mediator Complex Disruption",
       "CDK8 Kinase Module Dysfunction",
+      "MED12-COMPASS H3K4 Methylation Failure",
       "Neurodevelopmental Transcriptional Dysregulation",
       "Cortical Neuron Migration and Projection Defects",
       "MED13 Ubiquitination Regulatory Cluster Variants",
@@ -224511,6 +224678,7 @@ window.searchData = [
       "Regulation of gene expression",
       "Wnt signaling pathway",
       "Notch signaling pathway",
+      "epigenetic regulation of gene expression",
       "Neuron migration",
       "Neuron projection development",
       "Dendrite development",
@@ -224619,11 +224787,11 @@ window.searchData = [
     "source_file": "Mediator_Complex_Neurodevelopmental_Disorder.yaml",
     "page_url": "../pages/disorders/Mediator_Complex_Neurodevelopmental_Disorder.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 13,
     "num_treatments": 0,
-    "causal_graph_edges": "49",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Medullary Sponge Kidney",
@@ -359623,17 +359791,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3333,
+  "total_disorder_pages": 3335,
   "total_subtypes": 4636,
-  "total_disorders_and_subtypes": 7969,
-  "total_unique_evidence_sources": 50085,
-  "total_unique_publications": 46704,
+  "total_disorders_and_subtypes": 7971,
+  "total_unique_evidence_sources": 50101,
+  "total_unique_publications": 46718,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3329,
-  "total_unique_pathological_events": 21999,
+  "total_pathographs": 3331,
+  "total_unique_pathological_events": 22012,
   "total_modules": 191,
-  "total_research_reports": 3450,
+  "total_research_reports": 3452,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
