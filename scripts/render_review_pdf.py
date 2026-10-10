@@ -978,7 +978,7 @@ def main():
 
     md = template.render(
         d=data,
-        now=datetime.now().strftime("%Y-%m-%d %H:%M"),
+        now=datetime.now().strftime("%Y-%m-%d %H:%M"),  # noqa: DTZ005
         commit_hash=commit_hash,
     )
     # Clean up excessive blank lines
