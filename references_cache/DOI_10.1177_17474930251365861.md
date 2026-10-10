@@ -1,48 +1,36 @@
 ---
-reference_id: PMID:40721902
+reference_id: DOI:10.1177/17474930251365861
 extractor_version: 1
-title: "Diagnosis and management of cerebral amyloid angiopathy: a scientific statement from the International CAA Association and the World Stroke Organization."
+title: "Diagnosis and management of cerebral amyloid angiopathy: a scientific statement from the International CAA Association and the World Stroke Organization"
 authors:
-- Cordonnier C
-- Klijn C
-- Smith EE
-- Al-Shahi Salman R
-- Chwalisz BK
-- van Etten E
-- Muir RT
-- Piazza F
-- Schreiber S
-- Schreuder FH
-- Selim M
-- Shoamanesh A
-- Viswanathan A
-- Wermer M
-- Zandi M
-- Charidimou A
-- Greenberg SM
-- Werring D
-journal: Int J Stroke
+- Charlotte Cordonnier
+- Catharina Klijn
+- Eric Edward Smith
+- Rustam Al-Shahi Salman
+- Bart K. Chwalisz
+- Ellis van Etten
+- Ryan T Muir
+- Fabrizio Piazza
+- Stefanie Schreiber
+- Floris HBM Schreuder
+- Magdy Selim
+- Ashkan Shoamanesh
+- Anand Viswanathan
+- Marieke Wermer
+- Michael Zandi
+- Andreas Charidimou
+- Steven M. Greenberg
+- David Werring
+journal: International Journal of Stroke
 year: '2025'
 doi: 10.1177/17474930251365861
-keywords:
-- Humans
-- "Cerebral Amyloid Angiopathy/diagnosis, therapy, complications"
-- "Cerebral Hemorrhage/etiology, therapy, diagnosis"
-- Disease Management
-- Fibrinolytic Agents/therapeutic use
-- Risk Factors
-- "Societies, Medical"
-- "Stroke/therapy, diagnosis"
-publication_types:
-- Journal Article
-- Practice Guideline
 content_type: abstract_only
-full_text_attempted: true
+is_preprint: false
 ---
 
-# Diagnosis and management of cerebral amyloid angiopathy: a scientific statement from the International CAA Association and the World Stroke Organization.
-**Authors:** Cordonnier C, Klijn C, Smith EE, Al-Shahi Salman R, Chwalisz BK, van Etten E, Muir RT, Piazza F, Schreiber S, Schreuder FH, Selim M, Shoamanesh A, Viswanathan A, Wermer M, Zandi M, Charidimou A, Greenberg SM, Werring D
-**Journal:** Int J Stroke (2025)
+# Diagnosis and management of cerebral amyloid angiopathy: a scientific statement from the International CAA Association and the World Stroke Organization
+**Authors:** Charlotte Cordonnier, Catharina Klijn, Eric Edward Smith, Rustam Al-Shahi Salman, Bart K. Chwalisz, Ellis van Etten, Ryan T Muir, Fabrizio Piazza, Stefanie Schreiber, Floris HBM Schreuder, Magdy Selim, Ashkan Shoamanesh, Anand Viswanathan, Marieke Wermer, Michael Zandi, Andreas Charidimou, Steven M. Greenberg, David Werring
+**Journal:** International Journal of Stroke (2025)
 **DOI:** [10.1177/17474930251365861](https://doi.org/10.1177/17474930251365861)
 
 ## Content
