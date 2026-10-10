@@ -3441,6 +3441,127 @@ phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
 
+### LOINC Codes: Which Measurement a Disease Is Diagnosed, Monitored or Staged By
+
+A LOINC code is the identity of a *measurement* — an analyte in a specimen, a
+panel, an instrument's total score — as distinct from the analyte entity
+(`biomarker_term`, NCIT) and from the abnormal state it reveals
+(`phenotype_term`, HP). It belongs on a disease entry when its component names
+**the disease, its agent, its gene, or a decision threshold the disease owns**:
+an HIV antibody assay, hexosaminidase A activity, a CFTR sequencing panel, the
+PHQ-9 with its severity cut-offs. Three slots carry it:
+
+| Claim | Slot |
+|---|---|
+| this test reads these observables | `diagnosis[].measurements` — the "thing" beside the NCIT `diagnosis_term` "action", as `therapeutic_agent` is to `treatment_term` |
+| this marker is quantified by this measurement | `biochemical[].loinc_term` — a code without having to invent a reference interval |
+| this disease owns a cut-off or grading on the measurement | `reference_ranges` on the `diagnosis` row (or on the marker), keyed on the same code via `loinc_term`, with the cut-offs as `interpretation_bands` |
+
+```yaml
+diagnosis:
+- name: Cognitive screening            # diagnosis_term (NCIT procedure) omitted here
+  notes: >-                           # MoCA is a third-party instrument: its LOINC notice, verbatim
+    Copyright © Tina Brosseau for Center for Diagnosis & Research on Alzheimer's disease (CEDRA). Used with permission.
+  measurements:
+  - preferred_term: MoCA
+    term:
+      id: LOINC:72133-2                 # the instrument (a LOINC panel) is the test's identity
+      label: Montreal Cognitive Assessment [MoCA]
+  reference_ranges:
+  - loinc_term: {id: LOINC:72172-0, label: Total score [MoCA]}   # the cut-off is on the score
+    interpretation_bands:
+    - {name: Normal, lower_bound: 26, abnormal_flag: NORMAL}
+    - {name: Cognitive impairment, upper_bound: 26, abnormal_flag: LOW}
+```
+
+The `notes` line is not optional: both MoCA codes carry a third-party
+copyright notice in LOINC (see *Licensing* below), and the test fails without
+it. Note the two codes. The panel identifies the test; the total-score code
+carries the threshold, because a numeric cut-off on a panel is a category
+error — the panel names the instrument, the score code names the number. Most
+instruments in LOINC have both (MMSE `72107-6` / `72106-8`, GDS `48542-5` /
+`48544-1`), and search returns the panel first.
+
+Rules that follow from what a LOINC code is:
+
+- **Bind the Part or the panel / total-score code for identity, never a
+  method- or specimen-specific code.** LOINC has dozens of codes for one assay
+  (PHQ-9 returns 56; HIV antibody more), differing by method, specimen and
+  reporting context. Binding one of those for a test's identity puts the same
+  test on different codes in different entries. Method-level codes belong only
+  inside a `definitions[]` phenotype algorithm that needs them.
+- **The label is LOINC's Long Common Name**, exactly as served — not the
+  colon-delimited Fully Specified Name and not a tidied synonym. The first
+  validated sweep found both forms in `kb/` (`Calcitriol [...]` for a code whose
+  name is `1,25-Dihydroxyvitamin D [...]`; `Erythrocyte [Sedimentation Rate] in
+  Blood` for `Erythrocyte sedimentation rate [Velocity] in Red Blood Cells`).
+  Same failure shape as *A Gene Binding Only Has To Be Self-Consistent*.
+- **A population reference interval is not disease content.** Serum calcium
+  8.5–10.5 is true of everyone. A disease owns its diagnostic cut-off and its
+  staging bands; carry the interval only where a band needs it as an anchor.
+- **The test→phenotype map ("potassium high → Hyperkalemia") is not curated
+  here.** It is a property of the test, has no paper to quote, and its
+  consumers are EHR pipelines and the KG. dismech's `ReferenceRangeBand.phenotype_term`
+  may cite it; it does not author it.
+- **`Diagnosis.markers` is superseded, not removed.** The free-text analyte
+  list stays valid; put new tests in `measurements`. Repacking the 129 existing
+  `markers` strings is a worklist (#10046), never an autofill.
+
+**Validation.** `LoincTerm` is a label-match enum with no hierarchy, the
+`GeneTerm` pattern, and the binding sits on the `loinc_term` slot itself, so the
+existing `{id, label}` shape is unchanged. The authority is the Monarch KG,
+which carries the full LOINC table (~108k `biolink:ClinicalMeasurement` nodes,
+labelled with the Long Common Name) through OAK's `monarch:` adapter. Two
+consequences while Phase 0 of `projects/LOINC_DIAGNOSTICS.md` is in flight:
+
+- Codes already in `cache/loinc/terms.csv` validate offline today, the
+  cache-first way every prefix does. `test_committed_loinc_labels_match_the_cache`
+  runs that check over the whole KB.
+- A **new** code is skipped by `just validate-terms` with an unknown-prefix
+  warning until `LOINC` is routed in `conf/oak_config.yaml`, which waits on an
+  oaklib release carrying INCATools/ontology-access-kit#920 (the shipped
+  adapter reads `symbol`, which only genes populate, so it returns no label for
+  anything else). **Until then, never type a LOINC label.** Run
+  `just loinc-seed-cache <file>` — it overlays the fixed adapter in an
+  ephemeral env and writes the validator's own rows — then
+  `just normalize-cache`, and commit `cache/loinc/terms.csv` with the entry.
+  `test_committed_loinc_labels_match_the_cache` fails on an uncached code, so
+  a label copied by hand from a web page turns the nightly sweep red even when
+  it is right. When the pin lands, the adapter string needs quoting in YAML:
+  `LOINC: "monarch:"`.
+- `loinc_term` and `measurements[].term` are `LoincCode`, a `Term` whose `id`
+  must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$`. That is `linkml-validate`'s job,
+  not the term validator's: the binding resolves a CURIE through the adapter
+  for *its own* prefix, so without the pattern a real NCIT term with its
+  correct label would be accepted in a LOINC slot.
+- The API serves the last KG release; a code LOINC added recently is lag, not
+  absence. And a `mappings_list` term is a multi-ontology slot with no binding,
+  so a LOINC code there is still unchecked — four such codes were found by
+  hand in the first sweep, two with wrong labels.
+
+**Licensing.** LOINC is free to use under the LOINC terms of use, which carry
+two obligations this repository meets mechanically:
+
+- **The LOINC notice** ("This material contains content from LOINC®…") must be
+  on every document containing LOINC content, web pages included. It is in
+  `NOTICE`, in `cache/loinc/README.md`, and in the footer of every rendered
+  disorder or module page whose YAML carries a LOINC code
+  (`_loinc_notice.html.j2`). Nothing for a curator to do.
+- **Third-party instrument notices.** A LOINC code that identifies an
+  instrument someone else owns (PHQ-9, GAD-7, MoCA, MMSE, BDI-II, the Barthel
+  Index, NIHSS…) carries that owner's notice in LOINC's
+  `EXTERNAL_COPYRIGHT_NOTICE` field, and the notice must travel with the code.
+  The Monarch KG drops that field; `cache/loinc/external_copyright_codes.csv`
+  and `external_copyright_notices.csv` hold it, extracted by
+  `just loinc-copyright-notices` from the Tuva Project's LOINC table pinned in
+  `data/loinc/MANIFEST.yaml`. **When you bind such a code, copy its notice
+  verbatim into the `notes` (or `description`) of the same diagnosis row or
+  marker.** `test_third_party_loinc_codes_carry_their_owner_notice` fails
+  otherwise. Look a code up with
+  `rg "<CURIE>," cache/loinc/external_copyright_codes.csv`, then the notice id
+  in `external_copyright_notices.csv`. Bind the code and cite published
+  thresholds; never reproduce an instrument's items.
+
 ### Prevalence (disease occurrence)
 
 Model disease occurrence with the **structured** `Prevalence` slots, not the

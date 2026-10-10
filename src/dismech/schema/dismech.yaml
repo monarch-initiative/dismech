@@ -1467,6 +1467,22 @@ enums:
     comments:
       - Uses HGNC gene nomenclature committee identifiers
       - Validation requires exact label match with HGNC database
+  LoincTerm:
+    description: >-
+      A LOINC code for a clinical measurement, panel, or LOINC Part. No
+      hierarchy constraint - validates that the code exists and that the label
+      is LOINC's Long Common Name.
+    comments:
+      - >-
+        LOINC is served through the Monarch KG (OAK `monarch:` adapter), which
+        carries the full LOINC table as biolink:ClinicalMeasurement nodes and
+        labels each with its Long Common Name. A code added to LOINC is
+        validatable only after the next KG release.
+      - >-
+        Bind the LOINC Part (`LOINC:LP...`) or the panel / total-score code
+        when the slot names a measurement's identity; method- and
+        specimen-specific codes belong only inside a `definitions[]`
+        phenotype algorithm that needs them.
   CellTypeTerm:
     description: A cell type
     reachable_from:
@@ -4893,8 +4909,45 @@ slots:
     description: >-
       LOINC code for a measured analyte or clinical observation (e.g., LOINC:2823-3
       for serum potassium). Binds to the LOINC namespace.
-    range: Term
+    comments:
+      - >-
+        On a ReferenceRange this names the measurement the interval and its
+        bands apply to. On a Biochemical it names the measurement that
+        quantifies the marker, so a biomarker can carry a code without
+        an interval being invented for it.
+      - The label is LOINC's Long Common Name, as served by the Monarch KG.
+    range: LoincCode
     inlined: true
+    bindings:
+      - binds_value_of: id
+        range: LoincTerm
+        obligation_level: REQUIRED
+  measurements:
+    description: >-
+      The measurements a diagnostic test consists of, each bound to LOINC. The
+      diagnosis_term says what kind of procedure the test is (an NCIT clinical
+      intervention: enzyme assay, molecular genetic testing); measurements say
+      which observables it reads: hexosaminidase A activity in leukocytes, a
+      CFTR sequencing panel, the PHQ-9 total score. The same action/thing
+      split as treatment_term and therapeutic_agent.
+    comments:
+      - One entry per distinct measurement. A two-analyte test is two entries.
+      - >-
+        Bind the LOINC Part or the panel / total-score code for the
+        measurement's identity, not a method- or specimen-specific code; LOINC
+        has dozens of codes for one assay, and binding method codes here puts
+        the same test on different codes in different entries. Method codes
+        belong in a definitions[] phenotype algorithm.
+      - >-
+        preferred_term is the curator's name for the measurement in this
+        disease ("sweat chloride"); term.label is the Long Common Name.
+      - >-
+        Decision thresholds the disease owns (a diagnostic cut-off, a severity
+        grading) go in the sibling reference_ranges, keyed on the same LOINC
+        code via loinc_term.
+    multivalued: true
+    range: MeasurementDescriptor
+    inlined_as_list: true
   lower_bound:
     description: >-
       Lower bound of a reference interval (inclusive). Null indicates no lower limit.
@@ -6392,6 +6445,18 @@ classes:
       - id
       - label
 
+  LoincCode:
+    is_a: Term
+    description: >-
+      A Term whose id is a LOINC code, LOINC Part (LP...) or LOINC Group
+      (LG...). Same {id, label} shape as Term; the pattern on id is what stops
+      a CURIE from another vocabulary being accepted in a LOINC slot, which the
+      LoincTerm binding alone cannot do, because the term validator resolves a
+      CURIE through whatever adapter its own prefix names.
+    slot_usage:
+      id:
+        pattern: "^LOINC:(LP|LG)?[0-9]+-[0-9]$"
+
   # Base descriptor class for structured term references
   Descriptor:
     abstract: true
@@ -6615,6 +6680,22 @@ classes:
         bindings:
           - binds_value_of: id
             range: BiomarkerTerm
+            obligation_level: REQUIRED
+
+  MeasurementDescriptor:
+    is_a: Descriptor
+    description: >-
+      A descriptor for a clinical measurement, bindable to LOINC. Names the
+      observable a test reads (an analyte in a specimen, a panel, an
+      instrument's total score), as distinct from the analyte entity itself,
+      which BiomarkerDescriptor binds to NCIT.
+    slot_usage:
+      term:
+        description: LOINC code for the measurement, panel, or LOINC Part
+        range: LoincCode
+        bindings:
+          - binds_value_of: id
+            range: LoincTerm
             obligation_level: REQUIRED
 
   GeneProductDescriptor:
@@ -8278,6 +8359,7 @@ classes:
     slots:
       - name
       - biomarker_term
+      - loinc_term
       - presence
       - readouts
       - reference_ranges
@@ -8729,12 +8811,29 @@ classes:
     slots:
       - name
       - diagnosis_term
+      - measurements
+      - reference_ranges
       - presence
       - evidence
       - notes
       - results
       - markers
       - description
+    slot_usage:
+      reference_ranges:
+        description: >-
+          Decision thresholds this disease owns for a measurement named in
+          measurements: a diagnostic cut-off, a staging or severity grading
+          (MoCA below 26, PHQ-9 5/10/15/20, GOLD FEV1 bands). Each range names
+          its measurement through loinc_term and carries the cut-offs as
+          interpretation_bands. This is not the place for a population
+          reference interval, which is true of everyone and belongs to no
+          disease.
+      markers:
+        description: >-
+          Free-text list of the analytes a test reads. Superseded by
+          measurements, which binds each one to LOINC; keep existing values,
+          and put new tests in measurements.
   Inheritance:
     slots:
       - name

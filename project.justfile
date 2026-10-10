@@ -815,6 +815,22 @@ validate-terms-all:
     echo "Validating terms in ${#files[@]} disorder files (batched)..."
     {{term_validator}} validate-data "${files[@]}" -s {{schema_path}} -t Disease --labels -c {{oak_config}}
 
+# Validate the LOINC codes in KB files against the Monarch KG and write their
+# rows into cache/loinc/terms.csv. TEMPORARY: overlays the oaklib fix from
+# INCATools/ontology-access-kit#920 in an ephemeral env because the pinned
+# release returns no label for LOINC codes; delete once the pin carries the fix
+# and conf/oak_config.yaml routes LOINC. See scripts/seed_loinc_cache.sh.
+[group('QC')]
+loinc-seed-cache +files:
+    scripts/seed_loinc_cache.sh {{files}}
+
+# Rebuild cache/loinc/external_copyright_{codes,notices}.csv from the Tuva LOINC
+# table pinned in data/loinc/MANIFEST.yaml (LOINC's EXTERNAL_COPYRIGHT_NOTICE field,
+# which the Monarch KG does not carry). --repin accepts a changed download.
+[group('QC')]
+loinc-copyright-notices *flags:
+    uv run python scripts/build_loinc_copyright_notices.py {{flags}}
+
 # Validate terms in a single file
 # Skips `check-enum-cache` (whole-cache OAK re-derivation); see `validate`.
 [group('QC')]
