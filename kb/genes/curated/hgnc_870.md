@@ -52,7 +52,6 @@ The KB mechanism nodes and the ai-gene-review core functions share
 by exact GO identifier; the Wilson Disease nodes also mark the review's core molecular function,
 the P-type copper transporter activity, as decreased.
 
-<span class="result" data-compare="names" data-code="g.untyped()">Liver Cirrhosis<span class="method"></span></span>
-carries a genetic record for ATP7B with no relationship type
-(<span class="result" data-code="g.relationship('Liver Cirrhosis')">untyped<span class="method"></span></span>),
-which is the remaining curation gap on this page.
+Liver Cirrhosis types ATP7B as a
+<span class="result" data-code="g.relationship('Liver Cirrhosis')">risk factor<span class="method"></span></span>
+rather than a cause: Wilson disease is one of several routes to cirrhosis.
