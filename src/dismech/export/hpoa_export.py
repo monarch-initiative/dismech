@@ -76,6 +76,24 @@ rows:
 * A subtype whose MONDO term is another entry's own ``disease_term`` is treated
   like a ``curated_in`` pointer: it inherits nothing, because that entry is its
   curation. Rows stated of it directly are still emitted.
+
+OMIM keying
+-----------
+``--key omim`` rewrites every row onto the OMIM id MONDO itself declares
+equivalent, read from MONDO's SSSOM mapping set (``skos:exactMatch`` rows
+only), so the file can be joined against the HPO release:
+
+* ``database_id`` becomes the OMIM id and ``disease_name`` the mapping set's
+  OMIM label; the original MONDO id is kept in an extra ``mondo_id`` column.
+  ``inherited_from`` stays a MONDO id, since it records dismech provenance.
+* An IEA row that cites its own disease cites the OMIM id instead, the
+  release's own convention for such rows. An inherited IEA row cites the
+  disease it came from, so it keeps that disease's MONDO id.
+* A disease with no exact OMIM match, one matching only an OMIM phenotypic
+  series (``OMIMPS:``, which HPOA does not key on), or one matching more than
+  one OMIM entry gets no rows. Each is listed, with the reason and the number
+  of rows withheld, in ``omim_unmapped.tsv`` beside the export.
+* The comorbidity sidecar stays MONDO-keyed: it is not an HPOA file.
 """
 from __future__ import annotations
 
@@ -146,6 +164,11 @@ HPOA_COLUMNS = [
     "dismech_name",
     "inherited_from",
 ]
+
+# Written after the HPOA columns in --key omim mode.
+OMIM_EXTRA_COLUMNS = ["mondo_id"]
+
+OMIM_UNMAPPED_COLUMNS = ["mondo_id", "disease_name", "reason", "rows_withheld", "candidates"]
 
 # Frequencies that hold for every subtype when they hold for the parent.
 OBLIGATE_FREQUENCIES: frozenset[str] = frozenset({FREQUENCY_TO_HP["OBLIGATE"], "100%"})
@@ -494,12 +517,89 @@ def _subtype_rows(
     return rows
 
 
+def load_omim_xrefs(sssom_path: Path) -> dict[str, list[tuple[str, str]]]:
+    """MONDO id -> [(OMIM or OMIMPS id, label)], from SSSOM ``skos:exactMatch`` rows."""
+    out: dict[str, list[tuple[str, str]]] = {}
+    with sssom_path.open(encoding="utf-8") as fh:
+        for row in csv.DictReader(
+            (line for line in fh if not line.startswith("#")), delimiter="\t"
+        ):
+            if row.get("predicate_id") != "skos:exactMatch":
+                continue
+            subject, obj = row.get("subject_id") or "", row.get("object_id") or ""
+            if subject.startswith("MONDO:") and obj.startswith(("OMIM:", "OMIMPS:")):
+                out.setdefault(subject, []).append((obj, row.get("object_label") or ""))
+    return out
+
+
+def rekey_to_omim(
+    rows: list[dict[str, str]],
+    xrefs: dict[str, list[tuple[str, str]]],
+) -> tuple[list[dict[str, str]], list[dict[str, str]]]:
+    """Rewrite MONDO-keyed rows onto OMIM; return (rows, unmapped report).
+
+    Only a disease with exactly one exact OMIM match is kept. See the module
+    docstring for what happens to the rest.
+    """
+    out: list[dict[str, str]] = []
+    unmapped: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        mondo_id = row["database_id"]
+        matches = xrefs.get(mondo_id, [])
+        omim = [m for m in matches if m[0].startswith("OMIM:")]
+        if len(omim) == 1:
+            omim_id, omim_label = omim[0]
+            new = dict(row)
+            new["database_id"] = omim_id
+            new["disease_name"] = omim_label or row["disease_name"]
+            new["mondo_id"] = mondo_id
+            if new["reference"] == mondo_id:
+                new["reference"] = omim_id
+            out.append(new)
+            continue
+        if omim:
+            reason, candidates = "multiple_omim", [m[0] for m in omim]
+        elif matches:
+            reason, candidates = "phenotypic_series_only", [m[0] for m in matches]
+        else:
+            reason, candidates = "no_omim", []
+        entry = unmapped.setdefault(
+            mondo_id,
+            {
+                "mondo_id": mondo_id,
+                "disease_name": row["disease_name"],
+                "reason": reason,
+                "rows_withheld": 0,
+                "candidates": " ".join(sorted(candidates)),
+            },
+        )
+        entry["rows_withheld"] += 1
+    report = sorted(unmapped.values(), key=lambda e: (-e["rows_withheld"], e["mondo_id"]))
+    return out, report
+
+
 def export(
-    kb_dir: Path, out_dir: Path, propagate_subtypes: bool = True
+    kb_dir: Path,
+    out_dir: Path,
+    propagate_subtypes: bool = True,
+    key: str = "mondo",
+    sssom_path: Path | None = None,
 ) -> tuple[int, int]:
-    """Project every disorder YAML in ``kb_dir`` to TSV files under ``out_dir``."""
+    """Project every disorder YAML in ``kb_dir`` to TSV files under ``out_dir``.
+
+    ``key="omim"`` writes ``phenotype.dismech.omim.hpoa`` keyed on OMIM, plus
+    ``omim_unmapped.tsv``, and needs MONDO's SSSOM mapping set at ``sssom_path``.
+    """
+    if key not in ("mondo", "omim"):
+        raise ValueError(f"unknown key {key!r}; expected 'mondo' or 'omim'")
+    if key == "omim" and sssom_path is None:
+        raise ValueError("key='omim' needs sssom_path (MONDO's mondo.sssom.tsv)")
+    xrefs = load_omim_xrefs(sssom_path) if key == "omim" else {}
+
     out_dir.mkdir(parents=True, exist_ok=True)
-    hpoa_path = out_dir / "phenotype.dismech.hpoa"
+    hpoa_path = out_dir / (
+        "phenotype.dismech.omim.hpoa" if key == "omim" else "phenotype.dismech.hpoa"
+    )
     comorb_path = out_dir / "disease_comorbidity.tsv"
     today = datetime.now(UTC).strftime("%Y-%m-%d")
 
@@ -511,7 +611,12 @@ def export(
     ) as co_f:
         hp_f.write(
             "#description: dismech disease-phenotype annotations, "
-            "MONDO-anchored, HPOA-extended\n"
+            + (
+                "OMIM-keyed via MONDO SSSOM exactMatch (mondo_id column keeps "
+                "the source), HPOA-extended\n"
+                if key == "omim"
+                else "MONDO-anchored, HPOA-extended\n"
+            )
         )
         hp_f.write(f"#date: {today}\n")
         hp_f.write(f"#version: {HPOA_VERSION}\n")
@@ -532,7 +637,7 @@ def export(
         )
         hp_writer = csv.DictWriter(
             hp_f,
-            fieldnames=HPOA_COLUMNS,
+            fieldnames=HPOA_COLUMNS + (OMIM_EXTRA_COLUMNS if key == "omim" else []),
             delimiter="\t",
             lineterminator="\n",
             extrasaction="ignore",
@@ -570,9 +675,23 @@ def export(
         # curated there, exactly as a `curated_in` pointer would say: inheriting
         # the parent's pooled phenotypes onto it would mix two curations of one
         # disease. Rows the parent states of that subtype directly are kept.
-        for row in all_hpoa:
-            if row["inherited_from"] and row["database_id"] in entry_ids:
-                continue
+        kept = [
+            row
+            for row in all_hpoa
+            if not (row["inherited_from"] and row["database_id"] in entry_ids)
+        ]
+        if key == "omim":
+            kept, unmapped = rekey_to_omim(kept, xrefs)
+            with (out_dir / "omim_unmapped.tsv").open("w", newline="") as un_f:
+                un_writer = csv.DictWriter(
+                    un_f,
+                    fieldnames=OMIM_UNMAPPED_COLUMNS,
+                    delimiter="\t",
+                    lineterminator="\n",
+                )
+                un_writer.writeheader()
+                un_writer.writerows(unmapped)
+        for row in kept:
             hp_writer.writerow(row)
             total_hpoa += 1
 
@@ -594,9 +713,30 @@ def main() -> int:
         action="store_false",
         help="Emit parent diseases only, without per-subtype rows.",
     )
+    parser.add_argument(
+        "--key",
+        choices=("mondo", "omim"),
+        default="mondo",
+        help="Disease id to key rows on. 'omim' needs --sssom.",
+    )
+    parser.add_argument(
+        "--sssom",
+        type=Path,
+        help="MONDO's SSSOM mapping set (mondo.sssom.tsv), for --key omim.",
+    )
     args = parser.parse_args()
-    n_hpoa, n_comorb = export(args.kb_dir, args.out_dir, args.propagate_subtypes)
-    print(f"wrote {n_hpoa} HPOA rows -> {args.out_dir / 'phenotype.dismech.hpoa'}")
+    if args.key == "omim" and args.sssom is None:
+        parser.error("--key omim needs --sssom PATH (MONDO's mondo.sssom.tsv)")
+    n_hpoa, n_comorb = export(
+        args.kb_dir, args.out_dir, args.propagate_subtypes, args.key, args.sssom
+    )
+    name = "phenotype.dismech.omim.hpoa" if args.key == "omim" else "phenotype.dismech.hpoa"
+    print(f"wrote {n_hpoa} HPOA rows -> {args.out_dir / name}")
+    if args.key == "omim":
+        unmapped_path = args.out_dir / "omim_unmapped.tsv"
+        with unmapped_path.open() as fh:
+            n_unmapped = sum(1 for _ in fh) - 1
+        print(f"{n_unmapped} diseases had no single exact OMIM match -> {unmapped_path}")
     print(f"wrote {n_comorb} comorbidity rows -> {args.out_dir / 'disease_comorbidity.tsv'}")
     return 0
 
