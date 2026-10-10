@@ -489,10 +489,17 @@ Check the derived cache structure with:
 
 ```bash
 just check-reference-cache-frontmatter
+just check-reference-cache-nul-bytes
 ```
 
 If an entry is malformed or incorrect, regenerate it with
 `just fetch-reference <ID>`; never patch its filename, frontmatter, or content.
+
+The one exception is a NUL byte. If `just check-reference-cache-nul-bytes` fails,
+run `uv run python scripts/repair_reference_cache_nuls.py --apply` and commit the
+result. Do not re-fetch: the PDF extractor writes an unmapped glyph (usually an
+`fi`/`fl` ligature) as `\x00`, so a re-fetch writes the same NULs back
+(#12543, linkml/linkml-reference-validator#100).
 
 ## Never patch the validator from inside dismech
 

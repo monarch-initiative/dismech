@@ -433,7 +433,7 @@ recruiting
 11-09-2024
 NCT05775874 Phase II, 
 single-
-arm open-
+arm�open-
 label, 
 multicenter 
 study
