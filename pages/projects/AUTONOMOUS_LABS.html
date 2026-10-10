@@ -339,6 +339,7 @@
                 <a href="../../pages/groupings/">Groupings</a>
                 <a href="../../pages/comorbidities/">Trajectories</a>
                 <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
                 <a href="../../pages/research/index.html">Research</a>
                 <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
                     <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -374,11 +375,15 @@
                 
                 
                 <div class="panel">
-                    <h2>Diseases (1)</h2>
+                    <h2>Diseases (2)</h2>
                     <div class="chip-list">
                         
                             
                             <a class="chip" href="../disorders/Ewing_Sarcoma.html">Ewing Sarcoma</a>
+                            
+                        
+                            
+                            <a class="chip" href="../disorders/Prolidase_Deficiency.html">Prolidase Deficiency</a>
                             
                         
                     </div>
@@ -484,6 +489,77 @@ loop:</p>
   APIs, liquid handlers, and cloud-lab interfaces to plan and execute chemistry
   workflows under constrained conditions.</li>
 </ul>
+<h2 id="commercial-cloud-lab-catalogues-what-is-actually-orderable">Commercial Cloud-Lab Catalogues: What Is Actually Orderable</h2>
+<p>The execution layer above lists candidate standards. This section records what a
+specific commercial catalogue turned out to contain, because the answer changed
+which demonstrator is reachable.</p>
+<p>Ginkgo Cloud Lab (<code>https://cloud.ginkgo.bio/protocols</code>, read 2026-10-01)
+publishes 18 protocols. They are almost entirely <strong>protein biochemistry</strong>:
+cell-free expression validation and optimisation, HiBiT and A280
+quantification, Strep-tag and His-tag purification, LabChip purity, a SYPRO
+Orange thermal shift assay, Echo-MS detection of an enzymatic reaction,
+minibinder expression with SPR target onboarding, IVT mRNA/circRNA synthesis,
+E. coli and Pichia expression, and assay-onboarding services. Input is
+typically DNA sequences submitted as a CSV.</p>
+<p>Commercial terms — price, turnaround, throughput — are deliberately recorded
+nowhere in this repository. They change with no signal that they have, and
+this project is not a reseller's catalogue; a curator settles them with the
+provider when something is actually ordered.</p>
+<p><strong>The Ewing chromatin demonstrator above is not executable on this catalogue.</strong>
+Nothing in it does chromatin accessibility, cell-line culture, or a
+sequencing readout, so HT-FAIRE, ATAC-qPCR and low-input ATAC-seq are all out
+of scope; that loop needs the UNC automation core it was designed around. This
+is not a defect in the demonstrator — it is a statement about which rung of the
+execution layer each catalogue serves. A commercial cloud lab of this shape
+reaches <strong>protein-level</strong> mechanism questions: variant functional impact,
+expression, folding, binding, and enzyme turnover.</p>
+<p>So the first entry curated against this catalogue is a protein-biochemistry
+gap rather than the Ewing one:
+<code>Prolidase_Deficiency</code> → <code>pd_allele_panel_abundance_stability_catalysis</code>
+(see <code>Experiment.executable_protocols</code>, and the CLAUDE.md section of the same
+name). Clinical practice reports one "residual prolidase activity" figure per
+patient, measured in erythrocyte or fibroblast lysate, and the entry's open gap
+records that severity is uncoupled from it. Three catalogue protocols decompose
+that figure into abundance (HiBiT), folding (thermal shift) and catalysis
+(Echo-MS on an imidodipeptide substrate), which is a decomposition the clinical
+assay cannot make. That amount-versus-activity distinction is the axis deferred
+in design decisions §12, which names the residual-activity genotype-severity
+question among its motivating cases.</p>
+<p>Open questions before this is a closed loop:</p>
+<ul>
+<li><strong>There is no public submission API.</strong> The catalogue is served as a storefront;
+  ordering appears to be a commercial transaction, not an API call. Any claim
+  that a plan can be "submitted programmatically" is unverified, and the final
+  hop is currently a human.</li>
+<li><strong>Scoping a panel needs a conversation, not the catalogue.</strong> The published
+  prices do not state what they are charged per, and several protocols give no
+  maximum panel size, so the cost and scheduling of a real submission cannot be
+  read off the listing at all. This is part of why the schema does not try to
+  carry them.</li>
+<li><strong>Method validation is per-substrate.</strong> Echo-MS is open-access in principle, but
+  whether a given substrate/product pair is validated is a separate question, and
+  the provider sells method onboarding as its own line item.</li>
+</ul>
+<h2 id="pre-execution-verification">Pre-Execution Verification</h2>
+<p><code>ExecutableProtocol</code> records that a run is <em>possible</em>. It deliberately says
+nothing about whether a particular run should proceed, which is the gate the
+section below is about. The candidate mechanism for that gate is
+<a href="https://github.com/normalform-ai/clauz3"><code>clauz3</code></a> with its
+<a href="https://github.com/normalform-ai/clauz3-tools-autolabs">autolabs domain library</a>:
+an agent-authored plan calls trusted side-effecting functions, carries
+<code>@clauz3.guarantee(...)</code> decorators, and <code>clauz3 prove</code> discharges those
+guarantees with Z3 <em>before</em> anything executes. Its existing <code>lims</code> domain
+already carries the contract shapes this project needs — instrument
+allowlists, cumulative budget bounds, and a <code>no_hazard_sequence</code> biosecurity
+contract on the oligo-ordering flow, which is exactly the step a variant-panel
+experiment reaches when its DNA templates are ordered.</p>
+<p>That work is not in this repository and is not a dependency of the schema
+block: a cloud-lab contract domain would be a change to
+<code>clauz3-tools-autolabs</code>, scoped there and provable against mock effects with
+no provider access at all. Recorded here so the division is explicit —
+dismech states what a gap would take; the verifier decides whether a plan
+honouring that is allowed to run; neither is the human review this project
+requires before either.</p>
 <h2 id="safety-and-governance">Safety And Governance</h2>
 <p>The platform should keep human review as a hard gate before execution. Required
 checks include PI approval, institutional biosafety review where relevant,
