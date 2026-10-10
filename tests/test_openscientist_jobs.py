@@ -152,7 +152,10 @@ def test_find_report_markdown_prefers_final_report_and_skips_tooling(
 ) -> None:
     bundle = tmp_path / "bundle.zip"
     bundle.write_bytes(sample_bundle("# The report\n"))
-    assert find_report_markdown(bundle, Path(RUN_DIR)) == "# The report\n"
+    assert find_report_markdown(bundle, Path(RUN_DIR)) == (
+        "final_report.md",
+        "# The report\n",
+    )
 
 
 def test_download_bundle_retries_a_gateway_timeout(tmp_path: Path) -> None:
@@ -260,7 +263,11 @@ def test_failed_run_records_job_and_names_the_recovery_command(
     )
     assert result.status == "ERROR_1"
     assert JOB_ID in result.detail and "fetch openscientist Long_COVID" in result.detail
-    assert read_job_record(result.output_file)["job_id"] == JOB_ID
+    assert f"--template {template}" in result.detail
+    job_record = read_job_record(result.output_file)
+    assert job_record["job_id"] == JOB_ID
+    assert job_record["template_file"] == str(template)
+    assert len(job_record["template_sha"]) == 40
 
 
 class FakeJobs:
@@ -386,3 +393,114 @@ def test_fetched_report_puts_the_response_inside_one_output_section(
     assert lines.index("ANALYSIS_STATUS: FAILED") > lines.index("## Output")
     assert lines.index("## Question") < lines.index("# Hypothesis Test by Simulation")
     assert lines.index("# Hypothesis Test by Simulation") < lines.index("## Output")
+
+
+def test_download_bundle_restarts_when_the_resume_range_is_rejected(
+    tmp_path: Path,
+) -> None:
+    payload = sample_bundle()
+    (tmp_path / "bundle.zip.part").write_bytes(payload)
+    seen: list[str | None] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request.headers.get("Range"))
+        if request.headers.get("Range"):
+            return httpx.Response(416)
+        return httpx.Response(200, content=payload)
+
+    client = OpenScientistJobs(
+        api_key="k", backoff_seconds=0, transport=httpx.MockTransport(handler)
+    )
+    path = client.download_bundle(JOB_ID, tmp_path / "bundle.zip")
+    assert seen == [f"bytes={len(payload)}-", None]
+    assert path.read_bytes() == payload
+
+
+def test_fetch_uses_the_template_recorded_at_run_time(tmp_path: Path) -> None:
+    record = _record(tmp_path)
+    output_root = tmp_path / "out"
+    report = hdr.output_file_for(record, output_root, "openscientist")
+    write_job_record(
+        report,
+        provider="openscientist",
+        job_id=JOB_ID,
+        template_file="templates/hypothesis_dataset_analysis.md",
+        template_sha="a" * 40,
+    )
+    # No marker at all: under the recorded analysis template this is invalid,
+    # where the default literature template would have passed it as OK.
+    result = hdr.fetch_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        jobs=FakeJobs(sample_bundle("# Report without a status marker\n")),
+    )
+    assert result.status == "INVALID_ANALYSIS_RUN"
+    frontmatter = yaml.safe_load(report.read_text().split("---")[1])
+    assert frontmatter["template_file"] == "templates/hypothesis_dataset_analysis.md"
+    assert frontmatter["template_file_source"] == "recorded-at-run"
+    assert frontmatter["template_sha"] == "a" * 40
+    assert frontmatter["report_member"] == "final_report.md"
+
+
+def test_fetch_refuses_a_template_that_contradicts_the_job_record(
+    tmp_path: Path,
+) -> None:
+    record = _record(tmp_path)
+    output_root = tmp_path / "out"
+    report = hdr.output_file_for(record, output_root, "openscientist")
+    write_job_record(
+        report,
+        provider="openscientist",
+        job_id=JOB_ID,
+        template_file="templates/hypothesis_dataset_analysis.md",
+    )
+    jobs = FakeJobs(sample_bundle())
+    result = hdr.fetch_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        template=Path("templates/hypothesis_deep_research.md"),
+        jobs=jobs,
+    )
+    assert result.status == "TEMPLATE_MISMATCH"
+    assert jobs.fetched == []
+
+
+def test_literature_run_does_not_download_the_bundle(
+    tmp_path: Path, monkeypatch
+) -> None:
+    kb_dir = tmp_path / "kb" / "disorders"
+    write_disorder(kb_dir)
+    template = tmp_path / "t.md"
+    template.write_text("Hypothesis {hypothesis_group_id}\n", encoding="utf-8")
+    record = hdr.find_hypothesis(
+        kb_dir, "Long_COVID", "canonical_persistence_immune_model"
+    )
+    output_root = tmp_path / "out"
+    report = hdr.output_file_for(record, output_root, "openscientist")
+
+    def fake_run(command, **kwargs):
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text("---\nprovider: openscientist\n---\n\n# Report\n")
+        stderr = f"INFO - OpenScientist job submitted: {JOB_ID}\n"
+        return hdr.subprocess.CompletedProcess(command, 0, stdout="", stderr=stderr)
+
+    def no_download(*args, **kwargs):
+        raise AssertionError("a literature run must not download the bundle")
+
+    monkeypatch.setattr(hdr.subprocess, "run", fake_run)
+    monkeypatch.setattr(hdr, "restore_openscientist_artifacts", no_download)
+    result = hdr.run_record(
+        record,
+        provider="openscientist",
+        output_root=output_root,
+        template=template,
+        extra_args=[],
+        timeout_seconds=10,
+        dry_run=False,
+        overwrite=False,
+        validate_terms=False,
+    )
+    assert result.status == "OK"
+    assert read_job_record(report)["job_id"] == JOB_ID

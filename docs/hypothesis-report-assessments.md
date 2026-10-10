@@ -305,17 +305,27 @@ then applies the same manifest binding and analysis gate as `run`:
 ```bash
 uv run python scripts/hypothesis_deep_research.py fetch \
   openscientist <Disease> <hypothesis_id> \
-  --template templates/hypothesis_dataset_analysis.md \
-  [--job-id <id>] [--overwrite]
+  [--template <the template the job ran under>] [--job-id <id>] [--overwrite]
 ```
+
+The `.job.yaml` record also stores the template the job ran under and its git
+blob hash, and `fetch` uses that template by default; an explicit `--template`
+that disagrees with the record is refused, because it would apply the wrong
+analysis gate. The recovered report's frontmatter says where its
+`template_file` came from (`recorded-at-run`, `fetch-argument`, or
+`fetch-default` when no record exists). Commit the `.job.yaml` beside the report
+it describes: it is small, and it is the only link from the report back to the
+provider job.
 
 Without `--job-id`, `fetch` uses the `.job.yaml` record, then a single recent job
 whose question names the hypothesis; when several match it lists them and stops.
-After a successful `run`, the runner also restores the artifact directory from the
-bundle. The client otherwise keeps only some file extensions and flattens paths, which
-drops `MANIFEST.yaml`, `analysis.py` and `environment.txt` (#11254); flattened copies
-identical to a restored file are removed. Recovery does not correct the bundle: a
-manifest that uses the wrong field names still fails the gate.
+After a successful `run` that produces an artifact bundle (an analysis-contract
+template, or a report claiming `ANALYSIS_STATUS: SUCCEEDED`), the runner also
+restores the artifact directory from the bundle. The client otherwise keeps only
+some file extensions and flattens paths, which drops `MANIFEST.yaml`,
+`analysis.py` and `environment.txt` (#11254); flattened copies identical to a
+restored file are removed. Recovery does not correct the bundle: a manifest that
+uses the wrong field names still fails the gate.
 
 ### Testing a hypothesis by running a published model
 

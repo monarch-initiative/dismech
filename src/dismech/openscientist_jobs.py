@@ -52,15 +52,31 @@ def job_record_path(report_path: Path) -> Path:
     return Path(f"{report_path}.job.yaml")
 
 
-def write_job_record(report_path: Path, *, provider: str, job_id: str) -> Path:
-    """Write (or refresh) the job sidecar for a report and return its path."""
+def write_job_record(
+    report_path: Path,
+    *,
+    provider: str,
+    job_id: str,
+    template_file: str | None = None,
+    template_sha: str | None = None,
+) -> Path:
+    """Write (or refresh) the job sidecar for a report and return its path.
+
+    The template path and its git blob hash are recorded when the job is launched,
+    so a later ``fetch`` applies the gate of the template the job actually ran
+    under, and can tell when the template has changed since.
+    """
     path = job_record_path(report_path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    record = {
+    record: dict[str, Any] = {
         "provider": provider,
         "job_id": job_id,
         "recorded_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
+    if template_file:
+        record["template_file"] = template_file
+    if template_sha:
+        record["template_sha"] = template_sha
     path.write_text(yaml.safe_dump(record, sort_keys=False), encoding="utf-8")
     return path
 
@@ -146,10 +162,13 @@ class OpenScientistJobs:
     def download_bundle(self, job_id: str, destination: Path) -> Path:
         """Download the job's artifact ZIP, retrying and resuming where possible.
 
-        A partial file left by an interrupted attempt is resumed with an HTTP Range
-        request; a server that ignores the range (200 instead of 206) restarts the
-        download from zero. The file is written to ``<destination>.part`` and renamed
-        only once it is a readable ZIP archive.
+        A partial file left by an attempt that died with a transport error or timeout
+        is resumed with an HTTP Range request; a server that ignores the range (200
+        instead of 206) restarts the download from zero, and one that rejects it (416)
+        has the partial file discarded. A stream that ends cleanly but short leaves a
+        file that is not a ZIP archive; that file is discarded rather than resumed,
+        so resume only helps when the transfer fails with an exception. The file is
+        written to ``<destination>.part`` and renamed only once it is a readable ZIP.
         """
         url = f"{self.base_url}/api/v1/jobs/{job_id}/artifacts"
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -170,6 +189,11 @@ class OpenScientistJobs:
                     ) as client,
                     client.stream("GET", url, headers=headers) as response,
                 ):
+                    if response.status_code == 416:
+                        # The server rejected the resume range: start over.
+                        partial.unlink(missing_ok=True)
+                        last_error = RuntimeError(f"HTTP 416 resuming {url}")
+                        continue
                     if response.status_code in RETRYABLE_STATUS_CODES:
                         last_error = RuntimeError(
                             f"HTTP {response.status_code} downloading {url}"
@@ -253,7 +277,9 @@ def remove_flattened_duplicates(artifact_dir: Path) -> list[Path]:
     """Delete client-flattened copies whose canonical file now exists byte-for-byte.
 
     The client writes ``a/b.csv`` under ``artifact_dir`` as
-    ``<artifact_dir with / replaced by _>_a_b.csv``. When the canonical file has been
+    ``<artifact_dir with / replaced by _>_a_b.csv`` (the naming of the OpenScientist
+    provider's artifact extraction in deep-research-client 0.2.12). If the client
+    changes that scheme nothing matches and nothing is removed, which fails safe. When the canonical file has been
     restored and is identical, the flattened copy is redundant and is removed.
     """
     prefix = artifact_dir.as_posix().strip("/").replace("/", "_") + "_"
@@ -279,8 +305,8 @@ def remove_flattened_duplicates(artifact_dir: Path) -> list[Path]:
     return removed
 
 
-def find_report_markdown(bundle: Path, artifact_dir: Path) -> str | None:
-    """Return the provider's markdown report from a bundle, or None.
+def find_report_markdown(bundle: Path, artifact_dir: Path) -> tuple[str, str] | None:
+    """Return ``(member name, text)`` of the provider's markdown report, or None.
 
     Prefers a member named like ``final_report.md``; otherwise the largest markdown
     member outside the run's artifact directory.
@@ -303,4 +329,4 @@ def find_report_markdown(bundle: Path, artifact_dir: Path) -> str | None:
             if PurePosixPath(info.filename).name.lower().startswith("final_report")
         ]
         chosen = (named or sorted(candidates, key=lambda info: info.file_size))[-1]
-        return archive.read(chosen).decode("utf-8", errors="replace")
+        return chosen.filename, archive.read(chosen).decode("utf-8", errors="replace")

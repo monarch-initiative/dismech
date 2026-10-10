@@ -53,6 +53,7 @@ from dismech.openscientist_jobs import (
     write_job_record,
 )
 from dismech.research_reports import AlignmentError, align_report_provider
+from dismech.template_versions import blob_sha
 from dismech.yaml_io import safe_load
 
 DEFAULT_KB_DIR = Path("kb/disorders")
@@ -625,12 +626,17 @@ def finish_artifact_quarantine(
 
 
 def record_provider_job(
-    provider: str, output_file: Path, *streams: str | bytes | None
+    provider: str,
+    output_file: Path,
+    *streams: str | bytes | None,
+    template: Path | None = None,
 ) -> str | None:
     """Record the provider job ID announced in the client's output, if any.
 
     The record sits beside the report as ``<report>.job.yaml`` so a run whose client
-    died after the provider finished can still be recovered with ``fetch``.
+    died after the provider finished can still be recovered with ``fetch``. It also
+    records the template the job ran under, with its git blob hash, so ``fetch``
+    applies that template's gate rather than whatever template it is given.
     """
     if normalize_provider(provider) != "openscientist":
         return None
@@ -643,16 +649,26 @@ def record_provider_job(
     )
     job_id = extract_job_id(text)
     if job_id:
-        write_job_record(output_file, provider="openscientist", job_id=job_id)
+        write_job_record(
+            output_file,
+            provider="openscientist",
+            job_id=job_id,
+            template_file=str(template) if template else None,
+            template_sha=blob_sha(template)
+            if template and template.is_file()
+            else None,
+        )
     return job_id
 
 
-def fetch_hint(record: HypothesisRecord, provider: str, job_id: str) -> str:
+def fetch_hint(
+    record: HypothesisRecord, provider: str, job_id: str, template: Path
+) -> str:
     """Return the command that recovers a finished provider job."""
     return (
         f"provider job {job_id} may have finished; recover with: "
         f"uv run python scripts/hypothesis_deep_research.py fetch {provider} "
-        f"{record.disease_slug} {record.hypothesis_group_id}"
+        f"{record.disease_slug} {record.hypothesis_group_id} --template {template}"
     )
 
 
@@ -827,9 +843,16 @@ def run_record(
         output_ok = output_file.exists() and output_file.stat().st_size > 0
         detail = tail_detail(result)
         job_id = record_provider_job(
-            normalized, output_file, result.stdout, result.stderr
+            normalized, output_file, result.stdout, result.stderr, template=template
         )
-        if job_id and result.returncode == 0 and output_ok:
+        # Only runs that produce an artifact bundle need it restored; a literature
+        # report has none, and the bundle can be large and slow to build.
+        produces_artifacts = analysis_contract_required or (
+            output_ok
+            and "ANALYSIS_STATUS: SUCCEEDED"
+            in output_file.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
+        if job_id and result.returncode == 0 and output_ok and produces_artifacts:
             with tempfile.TemporaryDirectory(prefix="openscientist-bundle-") as tmp:
                 _bundle, restore_detail = restore_openscientist_artifacts(
                     job_id, artifact_dir, bundle_dir=Path(tmp)
@@ -837,7 +860,8 @@ def run_record(
             if restore_detail:
                 detail = f"{detail}; {restore_detail}".lstrip("; ")
         elif job_id and result.returncode != 0:
-            detail = f"{detail}; {fetch_hint(record, normalized, job_id)}".lstrip("; ")
+            hint = fetch_hint(record, normalized, job_id, template)
+            detail = f"{detail}; {hint}".lstrip("; ")
         if result.returncode == 0 and output_ok:
             try:
                 report_claims_analysis_success = (
@@ -925,10 +949,10 @@ def run_record(
         duration = time.monotonic() - started
         timeout_detail = f"timeout after {timeout_seconds}s"
         job_id = record_provider_job(
-            normalized, output_file, expired.stdout, expired.stderr
+            normalized, output_file, expired.stdout, expired.stderr, template=template
         )
         if job_id:
-            timeout_detail += f"; {fetch_hint(record, normalized, job_id)}"
+            timeout_detail += f"; {fetch_hint(record, normalized, job_id, template)}"
         detail = finish_artifact_quarantine(
             artifact_backup,
             status="TIMEOUT",
@@ -976,7 +1000,7 @@ def fetch_record(
     *,
     provider: str,
     output_root: Path,
-    template: Path,
+    template: Path | None = None,
     job_id: str | None = None,
     overwrite: bool = False,
     jobs: OpenScientistJobs | None = None,
@@ -987,6 +1011,10 @@ def fetch_record(
     read timeout, a killed runner). It writes the provider's markdown report with a
     frontmatter recording the job, restores the full ``artifact_dir`` subtree, and then
     applies the same manifest binding and analysis gate as ``run``.
+
+    The template defaults to the one recorded in ``.job.yaml`` when the job was
+    launched. An explicit ``template`` that disagrees with the record is refused,
+    because it would apply the wrong analysis gate and stamp the wrong provenance.
     """
     normalized = normalize_provider(provider)
     output_file = output_file_for(record, output_root, normalized)
@@ -1015,6 +1043,24 @@ def fetch_record(
         return result("UNSUPPORTED_PROVIDER", "fetch supports openscientist only", 2)
     if output_file.exists() and not overwrite:
         return result("SKIPPED_EXISTS", "use --overwrite to replace existing output")
+    recorded = read_job_record(output_file) or {}
+    recorded_template = recorded.get("template_file")
+    if template and recorded_template and Path(recorded_template) != template:
+        return result(
+            "TEMPLATE_MISMATCH",
+            f"job record says this job ran under {recorded_template}, not {template}",
+            2,
+        )
+    if template:
+        template_source = "fetch-argument"
+    elif recorded_template:
+        template, template_source = Path(recorded_template), "recorded-at-run"
+    else:
+        template, template_source = DEFAULT_TEMPLATE, "fetch-default"
+    if recorded.get("template_sha"):
+        template_sha = recorded["template_sha"]
+    else:
+        template_sha = blob_sha(template) if template.is_file() else None
     try:
         jobs = jobs or OpenScientistJobs.from_environment()
         resolved, problem = resolve_job_id(record, output_file, jobs, job_id)
@@ -1033,8 +1079,8 @@ def fetch_record(
         bundle, restore_detail = restore_openscientist_artifacts(
             resolved, artifact_dir, bundle_dir=Path(tmp), jobs=jobs
         )
-        markdown = find_report_markdown(bundle, artifact_dir) if bundle else None
-    if not markdown:
+        found = find_report_markdown(bundle, artifact_dir) if bundle else None
+    if not found:
         detail = restore_detail or f"bundle for job {resolved} has no markdown report"
         detail = finish_artifact_quarantine(
             artifact_backup, status="MISSING_OUTPUT", detail=detail
@@ -1050,9 +1096,12 @@ def fetch_record(
         "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "recovered_with": "scripts/hypothesis_deep_research.py fetch",
         "template_file": str(template),
+        "template_file_source": template_source,
+        "template_sha": template_sha,
+        "report_member": found[0],
     }
     frontmatter = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True).rstrip()
-    body = markdown.lstrip("\ufeff")
+    body = found[1].lstrip("\ufeff")
     question = str(job.get("research_question") or "").strip()
     # Same section layout the client writes, which the analysis gate relies on: the
     # provider response must sit inside a single "## Output" section.
@@ -1062,7 +1111,13 @@ def fetch_record(
         f"## Question\n\n{question}\n\n## Output\n\n{body}",
         encoding="utf-8",
     )
-    write_job_record(output_file, provider=normalized, job_id=resolved)
+    write_job_record(
+        output_file,
+        provider=normalized,
+        job_id=resolved,
+        template_file=str(template),
+        template_sha=template_sha,
+    )
 
     detail = restore_detail
     analysis_required = template_requires_analysis_contract(template)
@@ -1253,7 +1308,13 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="Provider job ID. Defaults to the report's .job.yaml record, then to the "
         "single recent job whose question names this hypothesis.",
     )
-    fetch_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
+    fetch_parser.add_argument(
+        "--template",
+        type=Path,
+        default=None,
+        help="Template the job ran under. Defaults to the one in the .job.yaml record; "
+        "a different value is refused.",
+    )
     fetch_parser.add_argument("--overwrite", action="store_true")
 
     missing_parser = subparsers.add_parser(
