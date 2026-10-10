@@ -29,7 +29,7 @@ That is a property of the test, not of any disease; it does not fit the
 evidence policy (there is no paper to quote for a definition), and its
 consumers are EHR pipelines and the Monarch KG rather than dismech. dismech's
 only role there is a gap report feeding whoever maintains that mapping. The
-decision is recorded as §16 of `docs/explanation/design-decisions.md`, which
+decision is recorded as §17 of `docs/explanation/design-decisions.md`, which
 lands with the Phase 1 schema PR (#13636); §12 keeps a row for the LOINC homes
 that remain unbound after it.
 
@@ -117,7 +117,7 @@ merges — additive schema, so the rebase is a no-op.
 - [ ] `Diagnosis.measurements` (multivalued) and `Diagnosis.reference_ranges`
 - [ ] `Biochemical.loinc_term`, leaving the range-level slot for the interval itself
 - [ ] `LoincCode`: a `Term` subclass whose `id` must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$`, so a real NCIT term cannot pass in a LOINC slot (the binding resolves a CURIE through the adapter for its *own* prefix)
-- [ ] decision-register §16: loinc2mondo in dismech; loinc2hpo out of scope; Part-level identity convention; §12 row for the unbound homes
+- [ ] decision-register §17: loinc2mondo in dismech; loinc2hpo out of scope; Part-level identity convention; §12 row for the unbound homes
 - [ ] first validated sweep over the files carrying LOINC codes, fix what it finds, seed `cache/loinc/terms.csv` (done in #13636: 21 files, 43 codes, 2 labels wrong in bound slots, 2 more in `mappings_list`)
 - [ ] **follow-up after #13636 merges:** migrate the 21 `mappings_list` LOINC entries — add `loinc_term` on each marker; keep the `mappings_list` row only where the marker is a model-variable mapping — and move the 2 `biomarker_term` LOINC codes in `Isolated_Thyroid-stimulating_Hormone_Deficiency` to `loinc_term`. Until then those 23 codes are unchecked by every gate; two of the `mappings_list` labels were already found wrong by hand and fixed in #13636.
 
@@ -160,7 +160,7 @@ and a MoCA total are exactly that. For this project, **code plus bands is
 enough**: the LOINC total-score code gives the composite an identity without
 minting a term, and the bands carry the disease-owned thresholds. The scoring
 logic — which items, what weights — still has no home, and this project does
-not try to give it one; §16 says the same. If a tranche finds it needs the
+not try to give it one; §17 says the same. If a tranche finds it needs the
 logic, that is the moment to reopen the §12 row, not to improvise a slot.
 
 Suggested order: **A** first (small, authoritative, LOINC-native in the DBS

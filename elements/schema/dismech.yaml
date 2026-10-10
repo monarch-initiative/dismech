@@ -2091,6 +2091,21 @@ enums:
     - Uses HGNC gene nomenclature committee identifiers
     - Validation requires exact label match with HGNC database
     from_schema: https://w3id.org/monarch-initiative/dismech
+  LoincTerm:
+    name: LoincTerm
+    definition_uri: https://w3id.org/monarch-initiative/dismech/LoincTerm
+    description: A LOINC code for a clinical measurement, panel, or LOINC Part. No
+      hierarchy constraint - validates that the code exists and that the label is
+      LOINC's Long Common Name.
+    comments:
+    - LOINC is served through the Monarch KG (OAK `monarch:` adapter), which carries
+      the full LOINC table as biolink:ClinicalMeasurement nodes and labels each with
+      its Long Common Name. A code added to LOINC is validatable only after the next
+      KG release.
+    - Bind the LOINC Part (`LOINC:LP...`) or the panel / total-score code when the
+      slot names a measurement's identity; method- and specimen-specific codes belong
+      only inside a `definitions[]` phenotype algorithm that needs them.
+    from_schema: https://w3id.org/monarch-initiative/dismech
   CellTypeTerm:
     name: CellTypeTerm
     definition_uri: https://w3id.org/monarch-initiative/dismech/CellTypeTerm
@@ -12515,14 +12530,54 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/loinc_term
     description: LOINC code for a measured analyte or clinical observation (e.g.,
       LOINC:2823-3 for serum potassium). Binds to the LOINC namespace.
+    comments:
+    - On a ReferenceRange this names the measurement the interval and its bands apply
+      to. On a Biochemical it names the measurement that quantifies the marker, so
+      a biomarker can carry a code without an interval being invented for it.
+    - The label is LOINC's Long Common Name, as served by the Monarch KG.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:loinc_term
-    owner: ReferenceRange
+    owner: Biochemical
     domain_of:
     - ReferenceRange
-    range: Term
+    - Biochemical
+    range: LoincCode
+    bindings:
+    - range: LoincTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     inlined: true
     inlined_as_list: false
+  measurements:
+    name: measurements
+    definition_uri: https://w3id.org/monarch-initiative/dismech/measurements
+    description: 'The measurements a diagnostic test consists of, each bound to LOINC.
+      The diagnosis_term says what kind of procedure the test is (an NCIT clinical
+      intervention: enzyme assay, molecular genetic testing); measurements say which
+      observables it reads: hexosaminidase A activity in leukocytes, a CFTR sequencing
+      panel, the PHQ-9 total score. The same action/thing split as treatment_term
+      and therapeutic_agent.'
+    comments:
+    - One entry per distinct measurement. A two-analyte test is two entries.
+    - Bind the LOINC Part or the panel / total-score code for the measurement's identity,
+      not a method- or specimen-specific code; LOINC has dozens of codes for one assay,
+      and binding method codes here puts the same test on different codes in different
+      entries. Method codes belong in a definitions[] phenotype algorithm.
+    - preferred_term is the curator's name for the measurement in this disease ("sweat
+      chloride"); term.label is the Long Common Name.
+    - Decision thresholds the disease owns (a diagnostic cut-off, a severity grading)
+      go in the sibling reference_ranges, keyed on the same LOINC code via loinc_term.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:measurements
+    owner: Diagnosis
+    domain_of:
+    - Diagnosis
+    range: MeasurementDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   lower_bound:
     name: lower_bound
     definition_uri: https://w3id.org/monarch-initiative/dismech/lower_bound
@@ -12554,9 +12609,10 @@ slots:
       by LOINC code with population qualifier and UCUM units.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:reference_ranges
-    owner: Biochemical
+    owner: Diagnosis
     domain_of:
     - Biochemical
+    - Diagnosis
     range: ReferenceRange
     multivalued: true
     inlined: true
@@ -16014,6 +16070,24 @@ slots:
     usage_slot_name: curation_timestamp
     range: datetime
     required: true
+  LoincCode_id:
+    name: LoincCode_id
+    definition_uri: https://w3id.org/monarch-initiative/dismech/id
+    description: Ontology term identifier (CURIE)
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: id
+    domain: LoincCode
+    slot_uri: dismech:id
+    identifier: true
+    alias: id
+    owner: LoincCode
+    domain_of:
+    - LoincCode
+    is_usage_slot: true
+    usage_slot_name: id
+    range: uriorcurie
+    required: true
+    pattern: ^LOINC:(LP|LG)?[0-9]+-[0-9]$
   Descriptor_description:
     name: Descriptor_description
     definition_uri: https://w3id.org/monarch-initiative/dismech/description
@@ -16338,6 +16412,30 @@ slots:
     range: Term
     bindings:
     - range: BiomarkerTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
+    recommended: true
+    inlined: true
+    inlined_as_list: false
+  MeasurementDescriptor_term:
+    name: MeasurementDescriptor_term
+    definition_uri: https://w3id.org/monarch-initiative/dismech/term
+    description: LOINC code for the measurement, panel, or LOINC Part
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: term
+    domain: MeasurementDescriptor
+    slot_uri: dismech:term
+    alias: term
+    owner: MeasurementDescriptor
+    domain_of:
+    - MeasurementDescriptor
+    is_usage_slot: true
+    usage_slot_name: term
+    range: LoincCode
+    bindings:
+    - range: LoincTerm
       obligation_level:
         text: REQUIRED
         description: The metadata element is required to be present in the model
@@ -18042,6 +18140,11 @@ slots:
     description: LOINC code for the measured analyte (e.g., LOINC:2823-3 for serum
       potassium, LOINC:2777-1 for serum phosphate). Required for machine-queryable
       reference interval lookups.
+    comments:
+    - On a ReferenceRange this names the measurement the interval and its bands apply
+      to. On a Biochemical it names the measurement that quantifies the marker, so
+      a biomarker can carry a code without an interval being invented for it.
+    - The label is LOINC's Long Common Name, as served by the Monarch KG.
     from_schema: https://w3id.org/monarch-initiative/dismech
     is_a: loinc_term
     domain: ReferenceRange
@@ -18052,7 +18155,13 @@ slots:
     - ReferenceRange
     is_usage_slot: true
     usage_slot_name: loinc_term
-    range: Term
+    range: LoincCode
+    bindings:
+    - range: LoincTerm
+      obligation_level:
+        text: REQUIRED
+        description: The metadata element is required to be present in the model
+      binds_value_of: id
     recommended: true
     inlined: true
     inlined_as_list: false
@@ -19174,6 +19283,47 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  Diagnosis_reference_ranges:
+    name: Diagnosis_reference_ranges
+    definition_uri: https://w3id.org/monarch-initiative/dismech/reference_ranges
+    description: 'Decision thresholds this disease owns for a measurement named in
+      measurements: a diagnostic cut-off, a staging or severity grading (MoCA below
+      26, PHQ-9 5/10/15/20, GOLD FEV1 bands). Each range names its measurement through
+      loinc_term and carries the cut-offs as interpretation_bands. This is not the
+      place for a population reference interval, which is true of everyone and belongs
+      to no disease.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: reference_ranges
+    domain: Diagnosis
+    slot_uri: dismech:reference_ranges
+    alias: reference_ranges
+    owner: Diagnosis
+    domain_of:
+    - Diagnosis
+    is_usage_slot: true
+    usage_slot_name: reference_ranges
+    range: ReferenceRange
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  Diagnosis_markers:
+    name: Diagnosis_markers
+    definition_uri: https://w3id.org/monarch-initiative/dismech/markers
+    description: Free-text list of the analytes a test reads. Superseded by measurements,
+      which binds each one to LOINC; keep existing values, and put new tests in measurements.
+    examples:
+    - value: CRP, ESR, SAA
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: markers
+    domain: Diagnosis
+    slot_uri: dismech:markers
+    alias: markers
+    owner: Diagnosis
+    domain_of:
+    - Diagnosis
+    is_usage_slot: true
+    usage_slot_name: markers
+    range: string
   VariantPopulationEffect_population:
     name: VariantPopulationEffect_population
     definition_uri: https://w3id.org/monarch-initiative/dismech/population
@@ -20330,6 +20480,24 @@ classes:
     - id
     - label
     class_uri: dismech:Term
+  LoincCode:
+    name: LoincCode
+    definition_uri: https://w3id.org/monarch-initiative/dismech/LoincCode
+    description: A Term whose id is a LOINC code, LOINC Part (LP...) or LOINC Group
+      (LG...). Same {id, label} shape as Term; the pattern on id is what stops a CURIE
+      from another vocabulary being accepted in a LOINC slot, which the LoincTerm
+      binding alone cannot do, because the term validator resolves a CURIE through
+      whatever adapter its own prefix names.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Term
+    slots:
+    - label
+    - LoincCode_id
+    slot_usage:
+      id:
+        name: id
+        pattern: ^LOINC:(LP|LG)?[0-9]+-[0-9]$
+    class_uri: dismech:LoincCode
   Descriptor:
     name: Descriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/Descriptor
@@ -20817,6 +20985,40 @@ classes:
             description: The metadata element is required to be present in the model
           binds_value_of: id
     class_uri: dismech:BiomarkerDescriptor
+  MeasurementDescriptor:
+    name: MeasurementDescriptor
+    definition_uri: https://w3id.org/monarch-initiative/dismech/MeasurementDescriptor
+    description: A descriptor for a clinical measurement, bindable to LOINC. Names
+      the observable a test reads (an analyte in a specimen, a panel, an instrument's
+      total score), as distinct from the analyte entity itself, which BiomarkerDescriptor
+      binds to NCIT.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: Descriptor
+    slots:
+    - preferred_term
+    - Descriptor_description
+    - modifier
+    - located_in
+    - laterality
+    - spatial_extent
+    - onset
+    - temporality
+    - clinical_course
+    - severity
+    - qualifiers
+    - MeasurementDescriptor_term
+    slot_usage:
+      term:
+        name: term
+        description: LOINC code for the measurement, panel, or LOINC Part
+        range: LoincCode
+        bindings:
+        - range: LoincTerm
+          obligation_level:
+            text: REQUIRED
+            description: The metadata element is required to be present in the model
+          binds_value_of: id
+    class_uri: dismech:MeasurementDescriptor
   GeneProductDescriptor:
     name: GeneProductDescriptor
     definition_uri: https://w3id.org/monarch-initiative/dismech/GeneProductDescriptor
@@ -23010,6 +23212,7 @@ classes:
     slots:
     - name
     - biomarker_term
+    - loinc_term
     - presence
     - readouts
     - reference_ranges
@@ -23539,12 +23742,28 @@ classes:
     slots:
     - name
     - diagnosis_term
+    - measurements
+    - Diagnosis_reference_ranges
     - presence
     - evidence
     - notes
     - results
-    - markers
+    - Diagnosis_markers
     - description
+    slot_usage:
+      reference_ranges:
+        name: reference_ranges
+        description: 'Decision thresholds this disease owns for a measurement named
+          in measurements: a diagnostic cut-off, a staging or severity grading (MoCA
+          below 26, PHQ-9 5/10/15/20, GOLD FEV1 bands). Each range names its measurement
+          through loinc_term and carries the cut-offs as interpretation_bands. This
+          is not the place for a population reference interval, which is true of everyone
+          and belongs to no disease.'
+      markers:
+        name: markers
+        description: Free-text list of the analytes a test reads. Superseded by measurements,
+          which binds each one to LOINC; keep existing values, and put new tests in
+          measurements.
     class_uri: dismech:Diagnosis
   Inheritance:
     name: Inheritance
@@ -24762,6 +24981,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 393887
+source_file_size: 398416
 generation_date: '2025-01-01T00:00:00'
 
