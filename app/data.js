@@ -21695,10 +21695,12 @@ window.searchData = [
     ],
     "biological_processes": [
       "Protein misfolding",
-      "Aggregation",
+      "Amyloid-beta generation by gamma-secretase cleavage of APP",
+      "Amyloid-beta aggregation into fibrils",
       "Neuroinflammation",
       "Protein hyperphosphorylation",
       "Microtubule destabilization",
+      "Neurofibrillary tangle assembly",
       "Neurotransmitter release",
       "Synaptic plasticity",
       "Immune activation",
@@ -21711,6 +21713,7 @@ window.searchData = [
       "Mitophagy",
       "Blood-brain barrier regulation",
       "Cerebral blood flow",
+      "LRP1-mediated vascular amyloid-beta clearance",
       "Amyloid-beta clearance",
       "Cerebrospinal fluid circulation",
       "Autophagy",
@@ -21727,7 +21730,7 @@ window.searchData = [
       "Interferon-gamma (type II interferon) production",
       "M1 muscarinic (Gq/PLC-coupled) receptor signaling",
       "Amyloidogenic APP processing",
-      "Synapse pruning",
+      "Complement-mediated synapse pruning",
       "Complement activation",
       "Microglial engulfment of synaptic material",
       "Lysosomal lumen acidification",
@@ -21814,7 +21817,7 @@ window.searchData = [
     "num_pathophysiology": 26,
     "num_genes": 9,
     "num_treatments": 7,
-    "causal_graph_edges": "63",
+    "causal_graph_edges": "66",
     "causal_graph_longest_path": "10"
   },
   {
@@ -23078,7 +23081,7 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 37,
     "num_treatments": 11,
-    "causal_graph_edges": "52",
+    "causal_graph_edges": "53",
     "causal_graph_longest_path": "5"
   },
   {
@@ -38276,7 +38279,13 @@ window.searchData = [
     ],
     "creation_date": "2026-05-08T16:23:43Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "PKD1",
+      "PKD6",
+      "PKD7",
+      "PKD8",
+      "ALG9-associated ADPKD"
+    ],
     "description": "Autosomal dominant polycystic kidney disease (ADPKD) is an inherited multisystem disorder, most often caused by PKD1 or PKD2 variants, with progressive renal epithelial cysts, frequent liver cysts and vascular complications. Reduced polycystin function permits cyst-promoting ciliary signaling; cAMP-dependent epithelial proliferation and fluid secretion contribute to expansion. The initiating ciliary signal and an obligatory flow-calcium sequence remain unresolved. Cyst burden and interstitial injury can lead to hypertension and kidney failure. Less common causal genes produce distinct patterns of kidney size, fibrosis, age at onset and liver involvement; typical PKD1/PKD2 prognostic models do not automatically apply to them.",
     "pathophysiology": [
       "Somatic PKD1 or PKD2 inactivation in cyst epithelium",
@@ -69610,57 +69619,117 @@ window.searchData = [
     "creation_date": "2026-06-19T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COX5A-related COX deficiency (mitochondrial complex IV deficiency nuclear type 20, MC4DN20) is a rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic variants in COX5A. Unlike most members of the nuclear complex IV deficiency group, which arise from assembly-factor or metallochaperone defects, COX5A encodes a nuclear-encoded *structural* subunit of the holoenzyme. The reported pathogenic variant lies within the evolutionarily conserved COX5A/COX4 interface domain and is thought to disrupt the interaction between these two subunits during Complex IV biogenesis, so that the monomeric COX1 assembly intermediate accumulates and the mature holoenzyme is not formed, producing an isolated Complex IV deficiency. It was first identified in two affected siblings of a consanguineous family who presented with early-onset pulmonary arterial hypertension, lactic acidemia, and failure to thrive. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to a destabilized structural subunit at the COX5A/COX4 interface.\n",
+    "description": "COX5A-related cytochrome c oxidase deficiency (MC4DN20) is an autosomal recessive mitochondrial disorder caused by biallelic COX5A variants. COX5A is a nuclear-encoded structural subunit required for normal complex IV biogenesis. Patient fibroblasts show reduced COX5A and complex IV abundance, impaired assembly and reduced enzyme activity, with residual assembled enzyme. The founding p.Arg107Cys siblings had infantile pulmonary arterial hypertension, lactic acidemia, hypotonia and severe growth failure with early death. A later p.Ile89Ser patient had a milder course with childhood ketotic hypoglycemia, severe short stature and hypergonadotropic hypogonadism, without cardiovascular or neurodevelopmental involvement. Copper rescue is a cell-culture finding; clinical benefit has not been demonstrated in these reports.",
     "pathophysiology": [
-      "COX5A Structural Subunit Loss and Failed Complex IV Assembly",
-      "Impaired Terminal Electron Transfer and ATP Synthesis",
-      "Lactic Acidosis and Metabolic Decompensation",
-      "High-Energy Tissue Dysfunction"
+      "Predicted COX5A-COX4 Interface Disruption",
+      "Reduced COX5A Protein Abundance",
+      "Impaired Complex IV Assembly",
+      "Reduced Complex IV Abundance",
+      "Reduced Cytochrome c Oxidase Activity",
+      "Altered Complex IV Supercomplex Distribution",
+      "Increased Circulating Lactate"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "mitochondrial respiratory chain complex IV assembly",
-      "mitochondrial electron transport, cytochrome c to oxygen",
-      "ATP synthesis coupled electron transport",
-      "lactate biosynthetic process",
-      "aerobic respiration"
+      "mitochondrial electron transport, cytochrome c to oxygen"
     ],
     "phenotypes": [
       "Pulmonary arterial hypertension",
-      "Lactic acidemia",
-      "Failure to thrive"
+      "Elevated blood lactate",
+      "Failure to thrive",
+      "Hypotonia",
+      "Developmental delay",
+      "Gastroesophageal reflux",
+      "Vomiting",
+      "Hepatomegaly",
+      "Elevated hepatic transaminases",
+      "Cardiomegaly",
+      "Tricuspid regurgitation",
+      "Right atrial enlargement",
+      "Right ventricular dilatation",
+      "Respiratory distress",
+      "Metabolic acidosis",
+      "Ketotic hypoglycemia",
+      "Severe short stature",
+      "Hypergonadotropic hypogonadism",
+      "Cerebral cortical atrophy",
+      "Periventricular white matter hyperintensities",
+      "Wide anterior fontanel",
+      "Frontal bossing",
+      "Synophrys",
+      "Deeply set eyes",
+      "Long eyelashes",
+      "Small hands",
+      "Short feet",
+      "Pineal cyst"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
       "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
       "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0002092",
-      "HP:0003128",
-      "HP:0001508"
+      "HP:0002151",
+      "HP:0001508",
+      "HP:0001252",
+      "HP:0012758",
+      "HP:0002020",
+      "HP:0002013",
+      "HP:0002240",
+      "HP:0002910",
+      "HP:0001640",
+      "HP:0005180",
+      "HP:0030718",
+      "HP:0005133",
+      "HP:0002098",
+      "HP:0001942",
+      "HP:0012734",
+      "HP:0003510",
+      "HP:0000815",
+      "HP:0002120",
+      "HP:0030891",
+      "HP:0000260",
+      "HP:0002007",
+      "HP:0000664",
+      "HP:0000490",
+      "HP:0000527",
+      "HP:0200055",
+      "HP:0001773",
+      "HP:0012683"
     ],
     "frequencies": [],
     "genes": [
-      "COX5A pathogenic variants causing MC4DN20"
+      "COX5A"
     ],
     "treatments": [
-      "Supportive and Metabolic Care",
-      "Copper Supplementation (investigational)"
+      "High-calorie enteral nutrition",
+      "Thiamine, carnitine and coenzyme Q10",
+      "Copper chloride (preclinical)"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "COX5A-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COX5A-Related_COX_Deficiency.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 28,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 3,
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "COX6A2-Related COX Deficiency",
@@ -69973,54 +70042,147 @@ window.searchData = [
     "creation_date": "2026-06-24T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "COXFA4-related COX deficiency (mitochondrial complex IV deficiency nuclear type 21, MC4DN21) is an ultra-rare autosomal recessive nuclear form of isolated cytochrome c oxidase (COX, Complex IV) deficiency caused by biallelic loss-of-function variants in COXFA4 (HGNC-approved current symbol; the gene was formerly named NDUFA4 and is still widely referred to by that name in the clinical literature and in OMIM). COXFA4/NDUFA4 was historically misassigned as a Complex I (NADH:ubiquinone oxidoreductase) subunit, but work from 2012 onward established it as a stoichiometric 14th subunit of cytochrome c oxidase, which motivated its renaming to COX subunit FA4 (COXFA4). Loss of the subunit destabilizes the holoenzyme and produces an isolated Complex IV deficiency. The disorder was first defined by Pitceathly et al. (2013), who identified homozygous NDUFA4 splice-donor-site mutations in a consanguineous pedigree with isolated COX deficiency presenting as a Leigh syndrome neurological phenotype, and a second unrelated patient with a homozygous deletion of the gene was later reported (Misceo et al., 2024) with psychomotor delay, multifocal white-matter changes including the brainstem, and lactic acidosis, again compatible with a relatively mild Leigh syndrome. It conforms to the conserved Complex IV assembly-deficiency mechanism, with the lesion localized to a destabilized nuclear-encoded structural subunit.\n",
+    "description": "Autosomal recessive COXFA4-related mitochondrial disease (MC4DN21) is caused by biallelic loss-of-function variants in a nuclear-encoded complex IV subunit formerly called NDUFA4. Splice variants and genomic deletions cause loss of detectable subunit protein and impair late maturation, stability and activity of cytochrome c oxidase. Residual enzyme and partial COXFA4L2 compensation distinguish this from a complete block of core-complex assembly. The spectrum includes Leigh-like encephalopathy, developmental and movement disorders, lactic acidosis and variable cardiac involvement; some individuals have mild developmental disease without established Leigh syndrome. Childhood progression, adult survival and early deaths have all been reported. Cellular paralog rescue and polyamine supplementation in Xenopus remain preclinical findings.",
     "pathophysiology": [
-      "COXFA4/NDUFA4 Subunit Loss and Failed Complex IV Assembly",
-      "Impaired Terminal Electron Transfer and ATP Synthesis",
-      "Lactic Acidosis and Metabolic Decompensation",
-      "High-Energy Tissue Dysfunction"
+      "COXFA4 splice-site single-nucleotide variants",
+      "COXFA4 splice-donor nucleotide deletion",
+      "COXFA4 genomic deletions",
+      "COXFA4 deletion-insertion",
+      "Abnormal COXFA4 splicing",
+      "Loss of COXFA4 protein",
+      "Reduced mature complex IV accumulation",
+      "Reduced complex IV activity",
+      "Impaired mitochondrial respiration",
+      "Increased COXFA4L2 expression",
+      "Partial paralog compensation",
+      "Reduced ODC-pathway transcripts in experimental models",
+      "Reduced polyamine abundance in Xenopus"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "mitochondrial respiratory chain complex IV assembly",
-      "mitochondrial electron transport, cytochrome c to oxygen",
-      "ATP synthesis coupled electron transport",
-      "lactate biosynthetic process",
-      "aerobic respiration"
+      "aerobic respiration",
+      "gene expression"
     ],
     "phenotypes": [
       "Global developmental delay",
+      "Hypotonia",
+      "Spasticity",
+      "Intellectual disability",
+      "Ataxia",
+      "Dystonia",
+      "Nystagmus",
+      "Dysarthria",
+      "Developmental regression",
+      "Seizures",
+      "Scoliosis",
+      "Leukoencephalopathy",
+      "Muscle weakness",
+      "Sensory axonal neuropathy",
       "Lactic acidosis",
-      "Leukoencephalopathy"
+      "Microcephaly",
+      "Failure to thrive",
+      "Short stature",
+      "Cardiomyopathy",
+      "Thin corpus callosum",
+      "Feeding difficulties",
+      "Constipation",
+      "Wolff-Parkinson-White pattern",
+      "Respiratory distress",
+      "Joint contractures",
+      "Delayed speech and language development",
+      "Exercise intolerance",
+      "Patent ductus arteriosus",
+      "Muscle atrophy",
+      "Pyramidal signs",
+      "Dysphagia",
+      "Ptosis",
+      "Optic atrophy",
+      "Cataract",
+      "Supraventricular tachycardia"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Growth",
+      "Head and Neck",
       "Metabolism",
-      "Nervous System"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001263",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0001249",
+      "HP:0001251",
+      "HP:0001332",
+      "HP:0000639",
+      "HP:0001260",
+      "HP:0002376",
+      "HP:0001250",
+      "HP:0002650",
+      "HP:0002352",
+      "HP:0001324",
+      "HP:0003390",
       "HP:0003128",
-      "HP:0002352"
+      "HP:0000252",
+      "HP:0001508",
+      "HP:0004322",
+      "HP:0001638",
+      "HP:0033725",
+      "HP:0011968",
+      "HP:0002019",
+      "HP:0001716",
+      "HP:0002098",
+      "HP:0034392",
+      "HP:0000750",
+      "HP:0003546",
+      "HP:0001643",
+      "HP:0003202",
+      "HP:0007256",
+      "HP:0002015",
+      "HP:0000508",
+      "HP:0000648",
+      "HP:0000518",
+      "HP:0004755"
     ],
     "frequencies": [],
     "genes": [
-      "COXFA4 (NDUFA4) pathogenic variants causing MC4DN21"
+      "COXFA4"
     ],
     "treatments": [
-      "Supportive and Multidisciplinary Care"
+      "Multidisciplinary supportive care",
+      "Antiseizure treatment",
+      "Acidosis correction",
+      "Nutritional support",
+      "Clinical surveillance",
+      "Medication and perioperative precautions",
+      "Genetic counseling",
+      "Dystonia management",
+      "Cardiac care",
+      "Rehabilitation",
+      "Experimental polyamine supplementation",
+      "Experimental COXFA4 or COXFA4L2 complementation"
     ],
     "environmental": [],
-    "biochemical": [],
+    "biochemical": [
+      "Tissue-dependent cytochrome c oxidase deficiency",
+      "Persistent circulating lactate elevation"
+    ],
     "source_file": "COXFA4-Related_COX_Deficiency.yaml",
     "page_url": "../pages/disorders/COXFA4-Related_COX_Deficiency.html",
-    "num_phenotypes": 3,
-    "num_pathophysiology": 4,
+    "num_phenotypes": 35,
+    "num_pathophysiology": 13,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 12,
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "CPLX1-Related Developmental and Epileptic Encephalopathy",
@@ -78065,30 +78227,43 @@ window.searchData = [
       "Sporadic",
       "Dutch-type",
       "ACys",
-      "Iatrogenic"
+      "Iatrogenic",
+      "Italian-type",
+      "Flemish-type",
+      "Iowa-type",
+      "Piedmont-type",
+      "Arctic-type",
+      "CAA-related inflammation"
     ],
-    "description": "Cerebral amyloid angiopathy (CAA) is an age-related cerebral small-vessel disease characterized by deposition of amyloid-beta (Abeta) in the walls of cortical and leptomeningeal small arteries, arterioles, and capillaries. Progressive vascular amyloid deposition with smooth muscle cell loss and vessel-wall fragility predisposes to spontaneous strictly lobar intracerebral hemorrhage (often recurrent), strictly lobar cerebral microbleeds, convexity subarachnoid hemorrhage, cortical superficial siderosis, transient focal neurological episodes (\"amyloid spells\"), and progressive cognitive decline. Non-hemorrhagic markers include white matter hyperintensities and enlarged centrum semiovale perivascular spaces. The common sporadic form increases in prevalence with age and is strongly associated with the APOE genotype (\u03b54 increases risk; \u03b52 is associated with vessel fragility/hemorrhage), while rare hereditary forms are caused by mutations in APP (e.g. Dutch-type HCHWA-D, APP p.E693Q) and in non-Abeta genes such as CST3 (cystatin C / Icelandic-type ACys). A rare iatrogenic form arises from prion-like Abeta \"seeding\" after exposure to cadaveric tissue (dura mater grafts, pituitary-derived growth hormone) decades earlier. Diagnosis in life relies on the Boston criteria v2.0 (clinical and MRI markers); definitive diagnosis requires histopathology. There is no targeted disease-modifying therapy; management is supportive and centered on hemorrhage-risk mitigation.",
+    "description": "Cerebral amyloid angiopathy (CAA) is an age-related cerebral small-vessel disease most commonly characterized by deposition of amyloid-beta (Abeta) in the walls of cortical and leptomeningeal small arteries, arterioles, and capillaries. Progressive vascular amyloid deposition with smooth muscle cell loss and vessel-wall fragility predisposes to spontaneous strictly lobar intracerebral hemorrhage (often recurrent), strictly lobar cerebral microbleeds, convexity subarachnoid hemorrhage, cortical superficial siderosis, transient focal neurological episodes (\"amyloid spells\"), and progressive cognitive decline. Non-hemorrhagic markers include white matter hyperintensities and enlarged centrum semiovale perivascular spaces. The common sporadic form increases in prevalence with age and is strongly associated with the APOE genotype (\u03b54 increases risk; \u03b52 is associated with vessel fragility/hemorrhage), while rare hereditary forms are caused by mutations in APP (e.g. Dutch-type HCHWA-D, APP p.E693Q) and in non-Abeta genes such as CST3 (cystatin C / Icelandic-type ACys). A rare iatrogenic form arises from prion-like Abeta \"seeding\" after exposure to cadaveric tissue (dura mater grafts, pituitary-derived growth hormone) decades earlier. Diagnosis in life relies on the Boston criteria v2.0 (clinical and MRI markers); definitive diagnosis requires histopathology. There is no targeted disease-modifying therapy; management is supportive and centered on hemorrhage-risk mitigation.",
     "pathophysiology": [
       "Impaired perivascular amyloid-beta clearance",
       "Vascular amyloid-beta deposition",
-      "Vessel-wall degeneration and fragility",
-      "Hemorrhagic and non-hemorrhagic brain injury",
+      "Cerebral vascular smooth muscle cell degeneration",
+      "Impaired cerebrovascular reactivity",
+      "Blood-brain barrier leakage",
+      "Perivascular glial activation",
+      "Cerebral vessel-wall remodeling",
+      "Cortical microinfarction",
+      "White matter microstructural injury",
+      "Cerebral vascular hemorrhage",
+      "CAA-related immune inflammation",
       "Iatrogenic prion-like Abeta seeding",
+      "Cystatin C amyloid aggregation",
       "Vascular cystatin C amyloid deposition"
     ],
     "cell_types": [
-      "Astrocyte",
-      "Vascular endothelial cell",
-      "Vascular smooth muscle cell of the brain vasculature"
+      "smooth muscle cell of the brain vasculature",
+      "astrocyte",
+      "microglial cell"
     ],
     "cell_type_ids": [
+      "CL:0002590",
       "CL:0000127",
-      "CL:0000115",
-      "CL:0002590"
+      "CL:0000129"
     ],
     "biological_processes": [
-      "Amyloid-beta clearance",
-      "Amyloid-beta formation",
+      "amyloid-beta clearance",
       "Cystatin C amyloid fibril formation"
     ],
     "phenotypes": [
@@ -78100,7 +78275,12 @@ window.searchData = [
       "Progressive cognitive decline",
       "Dementia",
       "Seizures",
-      "White matter hyperintensities"
+      "White matter hyperintensities",
+      "Enlarged centrum semiovale perivascular spaces",
+      "Cerebral microinfarcts",
+      "Deep intracerebral hemorrhage",
+      "Encephalopathy",
+      "Headache"
     ],
     "phenotype_categories": [
       "Neurologic"
@@ -78113,11 +78293,15 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0001342",
       "HP:0002138",
-      "HP:0002326",
+      "HP:6001256",
       "HP:0100543",
       "HP:0000726",
       "HP:0001250",
-      "HP:0030890"
+      "HP:0030890",
+      "HP:0012520",
+      "HP:0025722",
+      "HP:0001298",
+      "HP:0002315"
     ],
     "frequencies": [],
     "genes": [
@@ -78129,21 +78313,34 @@ window.searchData = [
       "Vascular risk factor control (blood pressure management)",
       "Immunosuppressive therapy for CAA-related inflammation",
       "Supportive care",
-      "Genetic counseling"
+      "Genetic counseling",
+      "Individualized antithrombotic management",
+      "Anticoagulation decisions after CAA-related hemorrhage",
+      "Left atrial appendage closure in selected atrial fibrillation",
+      "Symptomatic treatment of distressing recurrent TFNEs",
+      "Second-line immunosuppression for refractory CAA-related inflammation",
+      "Medication and lifestyle risk review",
+      "Symptomatic cognitive treatment with coexisting Alzheimer disease",
+      "Investigational N-acetylcysteine for cystatin C amyloid angiopathy",
+      "Investigational ponezumab immunotherapy",
+      "Investigational tramiprosate therapy"
     ],
     "environmental": [
       "Iatrogenic Abeta exposure",
       "Hypertension"
     ],
-    "biochemical": [],
+    "biochemical": [
+      "CSF amyloid-beta 40",
+      "CSF amyloid-beta 42"
+    ],
     "source_file": "Cerebral_Amyloid_Angiopathy.yaml",
     "page_url": "../pages/disorders/Cerebral_Amyloid_Angiopathy.html",
-    "num_phenotypes": 9,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 14,
+    "num_pathophysiology": 14,
     "num_genes": 3,
-    "num_treatments": 4,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 14,
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Cerebral Cavernous Malformation",
@@ -80867,7 +81064,9 @@ window.searchData = [
       "CMT1A",
       "CMT1B",
       "CMTX1",
+      "CMT1C",
       "CMT1D",
+      "CMT1F",
       "CMT1H",
       "CMT1J"
     ],
@@ -80878,6 +81077,9 @@ window.searchData = [
       "Connexin-32 Gap Junction Failure in CMTX1",
       "Fibulin-5 Extracellular Matrix Defect",
       "ITPR3 Calcium Release Dysregulation",
+      "EGR2 Schwann-Cell Myelination Program Failure",
+      "LITAF Endolysosomal Homeostasis Failure",
+      "NEFL Neurofilament Assembly and Transport Defect",
       "Demyelination and Secondary Axonal Loss"
     ],
     "cell_types": [
@@ -80893,7 +81095,9 @@ window.searchData = [
       "Endoplasmic reticulum unfolded protein response",
       "Gap junction assembly",
       "elastic fiber assembly",
-      "release of sequestered calcium ion into cytosol"
+      "release of sequestered calcium ion into cytosol",
+      "Schwann cell differentiation",
+      "intermediate filament organization"
     ],
     "phenotypes": [
       "Distal Muscle Weakness",
@@ -80927,6 +81131,8 @@ window.searchData = [
       "MPZ",
       "GJB1",
       "EGR2",
+      "LITAF",
+      "NEFL",
       "FBLN5",
       "ITPR3"
     ],
@@ -80941,10 +81147,10 @@ window.searchData = [
     "source_file": "Charcot-Marie-Tooth_Disease_Type_1.yaml",
     "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_1.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
-    "num_genes": 6,
+    "num_pathophysiology": 9,
+    "num_genes": 8,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "3"
   },
   {
@@ -119330,6 +119536,79 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Dilated Cardiomyopathy 1M",
+    "disease_id": "MONDO:0011840",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1M (CMD1M) is the numbered dilated-cardiomyopathy locus assigned to CSRP3, which encodes muscle LIM protein (MLP), a striated-muscle LIM-only protein found at the sarcomeric Z-disc, the costamere and the nucleus. MLP binds telethonin (T-cap) and alpha-actinin-2 at the Z-disc and has been proposed as part of the cardiomyocyte mechanical stretch sensor.\nThe locus rests on a small human evidence base. The founding report (2002) described the N-terminal variant p.Trp4Arg (W4R) in dilated cardiomyopathy and showed that it weakens the MLP-telethonin interaction. A 2003 screen added p.Lys69Arg (K69R) in one patient with dilated cardiomyopathy and endocardial fibroelastosis; in the same screen W4R did not segregate with disease in a second family. W4R was later shown to be carried by up to 1% of people of European ancestry, and a 945-case comparison against population reference data found no detectable excess of rare CSRP3 variants in dilated cardiomyopathy (odds ratio 1.10; a modest effect is not excluded). ClinGen's Dilated Cardiomyopathy Gene Curation Expert Panel classifies CSRP3 for this disease as Limited (autosomal dominant).\nMost mechanistic knowledge comes from the Csrp3 (Mlp) knockout mouse, a classic model that develops postnatal dilated cardiomyopathy and heart failure after cytoarchitectural disruption of cardiomyocytes. In humans, by contrast, CSRP3 is a Definitive hypertrophic-cardiomyopathy gene (allelic disorder CMH12), and both the W4R knock-in mouse and MLP-null human stem-cell cardiomyocytes develop hypertrophic rather than dilated phenotypes. This entry records that mismatch rather than resolving it.",
+    "pathophysiology": [
+      "Heterozygous CSRP3 Missense Variant",
+      "Loss of MLP Binding to Telethonin and Alpha-Actinin-2",
+      "Reduced Myocardial MLP Abundance",
+      "Defective Cardiomyocyte Stretch Sensing",
+      "Impaired Z-Disc Calcineurin-NFAT Stress Signalling",
+      "Disrupted Cardiomyocyte Cytoarchitecture",
+      "Sarcoplasmic Reticulum Calcium Cycling Defect",
+      "Left Ventricular Dilation and Systolic Dysfunction",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "Detection of muscle stretch",
+      "Cellular response to mechanical stimulus",
+      "Calcineurin-NFAT signaling cascade",
+      "Sarcomere organization",
+      "Sarcoplasmic reticulum calcium ion transport",
+      "Heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Congestive Heart Failure",
+      "Endocardial Fibroelastosis"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001635",
+      "HP:0001706"
+    ],
+    "frequencies": [],
+    "genes": [
+      "CSRP3"
+    ],
+    "treatments": [
+      "Guideline-Directed Heart Failure Therapy",
+      "Cardiac Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1M.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1M.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1NN",
     "disease_id": "MONDO:0014396",
     "category": "Genetic",
@@ -122874,7 +123153,8 @@ window.searchData = [
       "Tear-Film Replenishment and Conservation",
       "Meibomian-Gland-Directed Lid Warming and Hygiene",
       "Topical Cyclosporin A for Inflammatory DED",
-      "Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)"
+      "Visible-Light-Activated Carbon-Monoxide Nanoplatform (Preclinical)",
+      "Astaxanthin, Free or Liposomal (Preclinical)"
     ],
     "environmental": [
       "Prolonged Digital Screen Use",
@@ -122889,8 +123169,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 12,
     "num_genes": 0,
-    "num_treatments": 4,
-    "causal_graph_edges": "31",
+    "num_treatments": 5,
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "8"
   },
   {
@@ -140321,7 +140601,7 @@ window.searchData = [
   },
   {
     "name": "Fanconi Renotubular Syndrome",
-    "disease_id": "MONDO:0001083",
+    "disease_id": "MONDO:0100238",
     "category": "Mendelian",
     "parents": [
       "Renal tubular transport disease",
@@ -140419,8 +140699,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Far-East Scarlet-Like Fever",
@@ -174493,6 +174773,7 @@ window.searchData = [
       "TTN"
     ],
     "treatments": [
+      "Cardiac Myosin Inhibitors",
       "Beta Blockers",
       "Calcium Channel Blockers",
       "Septal Myectomy",
@@ -174513,9 +174794,9 @@ window.searchData = [
     "num_phenotypes": 10,
     "num_pathophysiology": 6,
     "num_genes": 28,
-    "num_treatments": 8,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "1"
+    "num_treatments": 9,
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Hypertrophic Cardiomyopathy 1",
@@ -191133,12 +191414,14 @@ window.searchData = [
       "X-Linked Ichthyosis",
       "Autosomal Recessive Congenital Ichthyosis",
       "Keratinopathic Ichthyosis",
-      "Netherton Syndrome"
+      "Netherton Syndrome",
+      "Ichthyosis With Erythrokeratoderma"
     ],
     "description": "Inherited ichthyosis is a heterogeneous group of Mendelian disorders of cornification affecting most or all of the integument. The shared clinical surface is abnormal epidermal scaling and/or hyperkeratosis, but the underlying causes span defects in keratinocyte differentiation, cornified envelope formation, epidermal lipid handling, protease control, and skin barrier maintenance.",
     "pathophysiology": [
       "Disrupted Keratinocyte Differentiation and Cornification",
       "Epidermal Lipid Metabolism Defect",
+      "Reduced Kallikrein-11 Proteolysis and Delayed Desquamation",
       "Stratum Corneum Barrier Impairment",
       "Skin Microbiome Dysbiosis",
       "Th17/JAK-STAT Inflammatory Activation"
@@ -191157,6 +191440,8 @@ window.searchData = [
       "lipid transport",
       "ceramide biosynthetic process",
       "establishment of skin barrier",
+      "corneocyte desquamation",
+      "proteolysis",
       "inflammatory response",
       "T-helper 17 type immune response",
       "JAK-STAT signaling pathway"
@@ -191205,7 +191490,8 @@ window.searchData = [
       "NIPAL4",
       "KRT1",
       "KRT10",
-      "KRT2"
+      "KRT2",
+      "KLK11"
     ],
     "treatments": [
       "Topical emollients and keratolytic/supportive therapy",
@@ -191218,10 +191504,10 @@ window.searchData = [
     "source_file": "Inherited_Ichthyosis.yaml",
     "page_url": "../pages/disorders/Inherited_Ichthyosis.html",
     "num_phenotypes": 9,
-    "num_pathophysiology": 5,
-    "num_genes": 11,
+    "num_pathophysiology": 6,
+    "num_genes": 12,
     "num_treatments": 4,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "5"
   },
   {
@@ -224582,6 +224868,7 @@ window.searchData = [
     "pathophysiology": [
       "Mediator Complex Disruption",
       "CDK8 Kinase Module Dysfunction",
+      "MED12-COMPASS H3K4 Methylation Failure",
       "Neurodevelopmental Transcriptional Dysregulation",
       "Cortical Neuron Migration and Projection Defects",
       "MED13 Ubiquitination Regulatory Cluster Variants",
@@ -224604,6 +224891,7 @@ window.searchData = [
       "Regulation of gene expression",
       "Wnt signaling pathway",
       "Notch signaling pathway",
+      "epigenetic regulation of gene expression",
       "Neuron migration",
       "Neuron projection development",
       "Dendrite development",
@@ -224712,11 +225000,11 @@ window.searchData = [
     "source_file": "Mediator_Complex_Neurodevelopmental_Disorder.yaml",
     "page_url": "../pages/disorders/Mediator_Complex_Neurodevelopmental_Disorder.html",
     "num_phenotypes": 25,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 13,
     "num_treatments": 0,
-    "causal_graph_edges": "49",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "52",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Medullary Sponge Kidney",
@@ -321368,6 +321656,7 @@ window.searchData = [
       "Impaired Folate-Dependent One-Carbon Metabolism",
       "Planar Cell Polarity Pathway Disruption",
       "Maternal Obesity-Associated Neurulation Risk",
+      "Failed Dorsolateral Hinge Point Formation",
       "Failed Posterior Neuropore Closure",
       "Open Neural Placode Exposure and Secondary Injury",
       "Skin-Covered Meningeal Herniation",
@@ -321381,6 +321670,8 @@ window.searchData = [
       "one-carbon metabolic process",
       "Wnt/planar cell polarity signaling pathway",
       "convergent extension involved in neural plate elongation",
+      "neural fold hinge point formation",
+      "dorsal BMP antagonism in the neural folds",
       "neural tube closure",
       "cell death (necrosis)"
     ],
@@ -321450,10 +321741,10 @@ window.searchData = [
     "source_file": "Spina_Bifida_Cystica.yaml",
     "page_url": "../pages/disorders/Spina_Bifida_Cystica.html",
     "num_phenotypes": 11,
-    "num_pathophysiology": 8,
+    "num_pathophysiology": 9,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "5"
   },
   {
@@ -359716,17 +360007,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3334,
-  "total_subtypes": 4636,
-  "total_disorders_and_subtypes": 7970,
-  "total_unique_evidence_sources": 50089,
-  "total_unique_publications": 46708,
+  "total_disorder_pages": 3335,
+  "total_subtypes": 4650,
+  "total_disorders_and_subtypes": 7985,
+  "total_unique_evidence_sources": 50161,
+  "total_unique_publications": 46764,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3330,
-  "total_unique_pathological_events": 22004,
+  "total_pathographs": 3331,
+  "total_unique_pathological_events": 22039,
   "total_modules": 191,
-  "total_research_reports": 3451,
+  "total_research_reports": 3452,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
