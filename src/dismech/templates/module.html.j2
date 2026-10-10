@@ -338,6 +338,45 @@
             letter-spacing: 0.02em;
         }
 
+        /* Qualifiers drawn INSIDE the pill of the term they qualify (#13550).
+           As separate sibling pills they wrapped onto their own line in the
+           narrow single-column cards, so a reader could not tell which process
+           an INCREASED belonged to. Direction gets its own colour: up red,
+           down blue, any other modifier violet; non-direction qualifiers
+           (laterality, course, onset...) are neutral. */
+        .tag-qual {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 5px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            vertical-align: baseline;
+            background: #f3e8ff;
+            color: #6b21a8;
+        }
+
+        .tag-qual-up {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .tag-qual-down {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-qual-meta {
+            background: rgba(255, 255, 255, 0.6);
+            color: #475569;
+        }
+
         .curie-chip,
         .linkout {
             display: inline-flex;
@@ -1366,20 +1405,46 @@
 </head>
 <body>
     {% include '_disclaimer.html.j2' %}
-    {% macro render_modifier(modifier) -%}
+    {# GAIN_OF_FUNCTION/LOSS_OF_FUNCTION use double arrows so they do not read as
+       interchangeable with the quantitative INCREASED/DECREASED. #}
+    {% set modifier_icons = {
+        'INCREASED': '↑',
+        'DECREASED': '↓',
+        'ABNORMAL': '⚠',
+        'DYSREGULATED': '↕',
+        'ABSENT': '∅',
+        'GAIN_OF_FUNCTION': '⇑',
+        'LOSS_OF_FUNCTION': '⇓'
+    } %}
+    {# Colour class for a modifier drawn inside its pill (see .tag-qual). #}
+    {% set modifier_directions = {
+        'INCREASED': 'up',
+        'GAIN_OF_FUNCTION': 'up',
+        'DECREASED': 'down',
+        'LOSS_OF_FUNCTION': 'down',
+        'ABSENT': 'down'
+    } %}
+
+    {% macro render_modifier(modifier, inline=false) -%}
     {% if modifier %}
-    <span class="tag tag-modifier">{{ modifier | replace('_', ' ') }}</span>
+    {% if inline %}
+    <span class="tag-qual{% if modifier_directions.get(modifier) %} tag-qual-{{ modifier_directions.get(modifier) }}{% endif %}">{{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}</span>
+    {% else %}
+    <span class="tag tag-modifier">
+        {{ modifier_icons.get(modifier, '') }} {{ modifier | replace('_', ' ') }}
+    </span>
+    {% endif %}
     {% endif %}
     {%- endmacro %}
 
-    {% macro render_onset_badge(onset) -%}
+    {% macro render_onset_badge(onset, inline=false) -%}
     {% if onset %}
     {% set onset_category = onset.get('onset_category') %}
     {% set onset_mean = onset.get('mean_age_years') %}
     {% set onset_min = onset.get('min_age_years') %}
     {% set onset_max = onset.get('max_age_years') %}
     {% if onset_category or onset_mean is not none or onset_min is not none or onset_max is not none %}
-    <span class="tag tag-modifier">
+    <span class="{{ 'tag-qual tag-qual-meta' if inline else 'tag tag-modifier' }}">
         Onset:
         {%- if onset_category %} {{ onset_category | replace('_', ' ') }}{% endif -%}
         {%- if onset_mean is not none and onset_min is not none and onset_max is not none -%}
@@ -1398,26 +1463,27 @@
     {% endif %}
     {%- endmacro %}
 
-    {% macro render_descriptor_qualifiers(descriptor) -%}
+    {% macro render_descriptor_qualifiers(descriptor, inline=false) -%}
     {% if descriptor %}
-    {{ render_modifier(descriptor.modifier) }}
+    {% set qual_cls = 'tag-qual tag-qual-meta' if inline else 'tag tag-modifier' %}
+    {{ render_modifier(descriptor.modifier, inline) }}
     {% if descriptor.laterality %}
-    <span class="tag tag-modifier">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Laterality: {{ descriptor.laterality | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.spatial_extent %}
-    <span class="tag tag-modifier">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Extent: {{ descriptor.spatial_extent | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.temporality %}
-    <span class="tag tag-modifier">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Temporal: {{ descriptor.temporality | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.clinical_course %}
-    <span class="tag tag-modifier">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Course: {{ descriptor.clinical_course | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.severity %}
-    <span class="tag tag-modifier">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
+    <span class="{{ qual_cls }}">Severity: {{ descriptor.severity | replace('_', ' ') }}</span>
     {% endif %}
     {% if descriptor.onset %}
-    {{ render_onset_badge(descriptor.onset) }}
+    {{ render_onset_badge(descriptor.onset, inline) }}
     {% endif %}
     {% endif %}
     {%- endmacro %}
@@ -1557,6 +1623,7 @@
                 <a href="index.html" class="active">Modules</a>
                 <a href="../../pages/comorbidities/">Trajectories</a>
                 <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
                 <a href="../../pages/research/index.html">Research</a>
                 <a href="../../elements/">Schema</a>
                 <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
@@ -1625,9 +1692,9 @@
                         {% if cell.id %}
                         {{ render_curie_link(cell.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(cell, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(cell) }}
                     {% endfor %}
                 </div>
                 {% else %}
@@ -1651,9 +1718,9 @@
                         {% if process.id %}
                         {{ render_curie_link(process.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(process, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(process) }}
                     {% endfor %}
                 </div>
                 {% else %}
@@ -1911,9 +1978,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(ct.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(ct, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(ct) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -1928,9 +1995,9 @@
                         {% if has_chip %}
                         {{ render_curie_link(bp.term.id, describedby=tip_id) }}
                         {% endif %}
+                        {{ render_descriptor_qualifiers(bp, inline=true) }}
                         {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
                     </span>
-                    {{ render_descriptor_qualifiers(bp) }}
                     {% endfor %}
                 </div>
                 {% endif %}
@@ -2087,6 +2154,7 @@
             <p style="margin-top: 8px;">
                 <a href="{{ source_file }}" target="_blank">View source on GitHub</a>
             </p>
+            {% include "_loinc_notice.html.j2" %}
             {% include "_disclaimer_footer.html.j2" %}
         </footer>
     </div>

@@ -74,7 +74,6 @@ kb/disorders/Foo_Bar.yaml:
 ```yaml
 name: Foo Bar
 creation_date: "2025-06-12T20:16:27Z"
-updated_date: "2025-06-12T20:16:27Z"
 category: Complex
 disease_term:
   term:
@@ -99,8 +98,11 @@ treatments:
 datasets:
 ```
 
-`creation_date` and `updated_date` must be ISO 8601/RFC 3339 datetime strings.
-When editing an existing file, preserve `creation_date` and bump `updated_date`.
+`creation_date` must be an ISO 8601/RFC 3339 datetime string. When editing an
+existing file, preserve `creation_date`. Do not add `updated_date`: the field is
+deprecated, git history is the authoritative change log, and entries that still
+carry it may keep it until a bulk cleanup (see CLAUDE.md and the schema's
+`updated_date` description).
 
 The objects must follow the LinkML schema in src/dismech/schema.
 
