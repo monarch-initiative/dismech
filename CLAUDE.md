@@ -3459,6 +3459,8 @@ PHQ-9 with its severity cut-offs. Three slots carry it:
 ```yaml
 diagnosis:
 - name: Cognitive screening            # diagnosis_term (NCIT procedure) omitted here
+  notes: >-                           # MoCA is a third-party instrument: its LOINC notice, verbatim
+    Copyright © Tina Brosseau for Center for Diagnosis & Research on Alzheimer's disease (CEDRA). Used with permission.
   measurements:
   - preferred_term: MoCA
     term:
@@ -3471,7 +3473,9 @@ diagnosis:
     - {name: Cognitive impairment, upper_bound: 26, abnormal_flag: LOW}
 ```
 
-Note the two codes. The panel identifies the test; the total-score code
+The `notes` line is not optional: both MoCA codes carry a third-party
+copyright notice in LOINC (see *Licensing* below), and the test fails without
+it. Note the two codes. The panel identifies the test; the total-score code
 carries the threshold, because a numeric cut-off on a panel is a category
 error — the panel names the instrument, the score code names the number. Most
 instruments in LOINC have both (MMSE `72107-6` / `72106-8`, GDS `48542-5` /

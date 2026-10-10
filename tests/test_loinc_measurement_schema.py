@@ -306,10 +306,12 @@ def test_copyright_extract_is_internally_consistent():
 def test_third_party_loinc_codes_carry_their_owner_notice():
     """A LOINC code with an EXTERNAL_COPYRIGHT_NOTICE carries that notice verbatim.
 
-    The notice must appear somewhere in the same top-level item as the code (the
-    diagnosis row, biochemical marker, ...), in a ``notes`` or ``description``
-    field -- whitespace-normalised, so a folded scalar is fine. Applies to any
-    LOINC CURIE in the item, bound or named in prose.
+    The notice must appear verbatim (whitespace-normalised, so a folded scalar is
+    fine) in some text field of the same top-level item as the code -- the
+    diagnosis row, biochemical marker, ... CLAUDE.md asks for ``notes`` or
+    ``description``; the test accepts any field of the item, so a notice placed
+    on a nested reference range also counts. Applies to any LOINC CURIE in the
+    item, bound or named in prose.
     """
     notices = _external_notices()
     problems: list[str] = []
