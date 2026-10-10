@@ -6,7 +6,7 @@ start_time: '2026-09-25T18:48:52.723874'
 end_time: '2026-09-25T18:58:23.018354'
 duration_seconds: 570.29
 template_file: templates/disease_coverage_gap_research.md
-template_sha: "10ed156e354b9080637624e4e1053f08c24ef096"
+template_sha: 10ed156e354b9080637624e4e1053f08c24ef096
 template_variables:
   disease_name: Celiac Disease
   mondo_id: MONDO:0005130
@@ -45,7 +45,7 @@ reference_validation:
   unverifiable: 0
   confabulation_rate: 0.0
   relevance_assessed: 15
-  on_topic: 1
+  on_topic: 2
   validator_version: 0.3.0rc1
 term_validation:
   total_terms: 31
@@ -565,7 +565,7 @@ Checked with `linkml-reference-validator` 0.3.0rc1.
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
 | References weighed for topical relevance | 15 |
-| On topic | 1 |
+| On topic | 2 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.

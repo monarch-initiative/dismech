@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Far-East Scarlet-Like Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Far-East Scarlet-Like Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Far-East Scarlet-Like Fever</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-09-28</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0041536" target="_blank" rel="noopener noreferrer">MONDO:0041536</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">45 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> FESLF is a severe systemic inflammatory disease caused by <em>Yersinia pseudotuberculosis</em>. It represents the special "clinical-epidemic" manifestation of pseudotuberculosis that occurs sporadically and in outbreaks in Russia and Japan, in contrast to the milder self-limiting gastroenteritis seen in Europe (<a href="https://pubmed.ncbi.nlm.nih.gov/26819960/">PMID: 26819960</a>). A case series of 12 culture-confirmed children established the multisystem phenotype and noted that the illness "resembled those of Izumi fever, an illness that occurs epidemically in Japan" (<a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">PMID: 6344044</a>).</p>
+<p><strong>Key identifiers.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0041536" target="_blank" rel="noopener noreferrer">MONDO:0041536</a></td>
+</tr>
+<tr>
+<td>Causative organism (NCBI Taxonomy)</td>
+<td><em>Yersinia pseudotuberculosis</em>, txid633</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Yersinia pseudotuberculosis Infections (D015008)</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A28.2 (Extraintestinal yersiniosis) / A04.8</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (non-genetic, infectious disease)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Not a listed rare Mendelian disease</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms / alternative names.</strong> Far East scarlet-like fever; Far Eastern scarlet-like fever; Izumi fever (Japan); Far-Eastern scarlatiniform fever; a clinical-epidemic form of pseudotuberculosis / extraintestinal yersiniosis. The relation to Izumi fever and Kawasaki disease is explicitly established in the literature (<a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">PMID: 6344044</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39780644/">PMID: 39780644</a>).</p>
+<p><strong>Source of information.</strong> The knowledge base is derived from <strong>aggregated disease-level resources</strong> — case series, outbreak investigations, genomic/phylogenetic studies, and mechanistic in vitro/animal experiments — rather than individual EHR-derived patient records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> FESLF is caused by <strong>infection</strong> with <em>Y. pseudotuberculosis</em>, specifically Far-Eastern "Asian clade" strains carrying the superantigen gene ypmA and (in clinical-epidemic strains) the pVM82 plasmid (<a href="https://pubmed.ncbi.nlm.nih.gov/26819960/">PMID: 26819960</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/30695393/">PMID: 30695393</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39780644/">PMID: 39780644</a>). The disease is fundamentally toxin-mediated: the YPM superantigen drives the systemic manifestations.</p>
+<p><strong>Environmental risk factors.</strong> Transmission is foodborne/waterborne; documented vehicles include contaminated grated carrots (<a href="https://pubmed.ncbi.nlm.nih.gov/23852698/">PMID: 23852698</a>) and other fresh produce and water. The organism is psychrotrophic (grows at refrigeration temperatures), enabling amplification in stored vegetables. Age is a risk modifier — the underlying infection disproportionately affects children, and Yersinia-associated KD occurs at older onset age (3.05 ± 2.20 y vs 2.31 ± 2.05 y; p = 0.03) (<a href="https://pubmed.ncbi.nlm.nih.gov/17129979/">PMID: 17129979</a>). Immunocompromise and iron overload predispose to invasive/septicemic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42448289/">PMID: 42448289</a>).</p>
+<p><strong>Genetic (host) risk factors.</strong> Host genetics do not cause FESLF but modify post-infectious complications: <strong>HLA-B27</strong> strongly predisposes to reactive arthritis after <em>Y. pseudotuberculosis</em> infection (<a href="https://pubmed.ncbi.nlm.nih.gov/23852698/">PMID: 23852698</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12922960/">PMID: 12922960</a>). The TCR Vβ repertoire of the host (Vβ3/9/13.1/13.2) determines which T cells respond to YPM. NOD2 and ATG16L1 autophagy polymorphisms have been implicated in susceptibility to Yersinia mucosal disease in the IBD context (<a href="https://pubmed.ncbi.nlm.nih.gov/42661478/">PMID: 42661478</a>).</p>
+<p><strong>Protective factors.</strong> No germline protective alleles are established for FESLF itself. Antibiotic therapy and prior immunity (anti-YPM antibodies) modulate course. Food-hygiene behaviors are the principal protective/preventive measures.</p>
+<p><strong>Gene–environment interactions.</strong> The defining interaction is between the bacterial superantigen (environmental/infectious agent) and the host MHC-II/TCR-Vβ genotype: the same toxin produces variable illness depending on host HLA-DR and Vβ repertoire. Separately, HLA-B27 × Yersinia infection markedly raises reactive-arthritis risk — a classic gene–environment interaction.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>The core phenotype was quantified in a case series of 12 children with culture-confirmed <em>Y. pseudotuberculosis</em> (stool culture plus ≥4-fold agglutinating-antibody rise); clinical findings present in ≥50% of patients are listed below (<a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">PMID: 6344044</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Frequency (≥50% cohort)</th>
+<th>Suggested HPO term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+</tr>
+<tr>
+<td>Scarlatiniform rash</td>
+<td>Skin sign</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a> (Skin rash)</td>
+</tr>
+<tr>
+<td>Diarrhea</td>
+<td>Symptom</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a></td>
+</tr>
+<tr>
+<td>Desquamation</td>
+<td>Skin sign</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0007556" target="_blank" rel="noopener noreferrer">HP:0007556</a> (Palmoplantar desquamation)</td>
+</tr>
+<tr>
+<td>Strawberry tongue</td>
+<td>Sign</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000206" target="_blank" rel="noopener noreferrer">HP:0000206</a> (Glossitis, related)</td>
+</tr>
+<tr>
+<td>Vomiting</td>
+<td>Symptom</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002013" target="_blank" rel="noopener noreferrer">HP:0002013</a></td>
+</tr>
+<tr>
+<td>Red, cracked lips</td>
+<td>Sign</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000202" target="_blank" rel="noopener noreferrer">HP:0000202</a> (Oral cavity abnormality)</td>
+</tr>
+<tr>
+<td>Abdominal pain</td>
+<td>Symptom</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" rel="noopener noreferrer">HP:0002027</a></td>
+</tr>
+<tr>
+<td>Arthralgias</td>
+<td>Symptom</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" rel="noopener noreferrer">HP:0002829</a></td>
+</tr>
+<tr>
+<td>Hepatomegaly</td>
+<td>Sign</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a></td>
+</tr>
+<tr>
+<td>Conjunctivitis</td>
+<td>Sign</td>
+<td>≥50%</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" rel="noopener noreferrer">HP:0000509</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Direct quote: <em>"Clinical findings in 50% or more of patients were fever, rash, diarrhea, desquamation, strawberry tongue, vomiting, red and cracked lips, abdominal pain, arthralgias, hepatomegaly and conjunctivitis"</em> (<a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">PMID: 6344044</a>).</p>
+<p>Additional phenotypes documented in adults/severe cases: membranous fingertip/interdigital desquamation (<a href="https://pubmed.ncbi.nlm.nih.gov/42778384/">PMID: 42778384</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18411766/">PMID: 18411766</a>), hepatic dysfunction and elevated inflammatory markers, erythema nodosum (42% of children in one carrot-borne outbreak), and reactive arthritis. Laboratory abnormalities include leukocytosis, elevated CRP/ferritin, and in severe cases thrombocytopenia with DIC (<a href="https://pubmed.ncbi.nlm.nih.gov/16366361/">PMID: 16366361</a>).</p>
+<p><strong>Onset/severity/progression.</strong> Onset is acute (childhood-predominant). Severity ranges mild to severe; most cases are self-limited over days to weeks, but a subset progresses to systemic toxicity, coronary involvement (KD-like), DIC, or septicemia. Reactive arthritis can become chronic (&gt;6 months) and rarely fatal (secondary amyloidosis).</p>
+<p><strong>Quality-of-life impact.</strong> Acute illness impairs feeding, activity, and school attendance. Chronic reactive arthritis and ankylosing spondylitis produce sustained functional disability; fatal amyloidosis with uremia has been reported in long-term follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/7554560/">PMID: 7554560</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>FESLF is not a human genetic disease — there are no causal human genes, pathogenic germline variants, or chromosomal abnormalities.</strong> The relevant "genetics" are those of the pathogen and of host susceptibility loci.</p>
+<p><strong>Pathogen virulence genes.</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Determinant</th>
+<th>Function</th>
+<th>Association with FESLF</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>ypmA</strong> (encodes YPMa)</td>
+<td>Superantigen mitogen</td>
+<td>Present in 96.2% of Far-Eastern strains; hallmark of systemic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/17163133/">PMID: 17163133</a>)</td>
+</tr>
+<tr>
+<td><strong>ypmB, ypmC</strong></td>
+<td>Superantigen variants</td>
+<td>ypmB Far-East-restricted cluster B; ypmC rare (<a href="https://pubmed.ncbi.nlm.nih.gov/21131531/">PMID: 21131531</a>)</td>
+</tr>
+<tr>
+<td><strong>pVM82 (82-MDa) plasmid</strong></td>
+<td>Uncharacterized virulence</td>
+<td>Present <em>only</em> in clinical-epidemic FESLF strains (<a href="https://pubmed.ncbi.nlm.nih.gov/30695393/">PMID: 30695393</a>)</td>
+</tr>
+<tr>
+<td><strong>pYV virulence plasmid (virF)</strong></td>
+<td>Type III secretion system / Yops</td>
+<td>Universal in pathogenic strains (<a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">PMID: 18242014</a>)</td>
+</tr>
+<tr>
+<td><strong>inv</strong> (invasin)</td>
+<td>β1-integrin adhesion, M-cell invasion</td>
+<td>Universal; mediates epithelial crossing (<a href="https://pubmed.ncbi.nlm.nih.gov/25576025/">PMID: 25576025</a>)</td>
+</tr>
+<tr>
+<td><strong>HPI / irp2</strong></td>
+<td>High-pathogenicity island (iron uptake)</td>
+<td>Absent in dominant FESLF genogroup (<a href="https://pubmed.ncbi.nlm.nih.gov/17163133/">PMID: 17163133</a>)</td>
+</tr>
+<tr>
+<td><strong>pil</strong> (type IV pilus)</td>
+<td>Adhesion</td>
+<td>Co-acquired with ypm horizontally (<a href="https://pubmed.ncbi.nlm.nih.gov/15784605/">PMID: 15784605</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The dominant systemic-infection genogroup is <strong>pYV⁺ / ypmA⁺ / HPI⁻</strong> (95.8% of Siberian/Far-Eastern strains) (<a href="https://pubmed.ncbi.nlm.nih.gov/17163133/">PMID: 17163133</a>). The ypm and pil genes were laterally (horizontally) acquired and are significantly co-associated (<a href="https://pubmed.ncbi.nlm.nih.gov/15784605/">PMID: 15784605</a>).</p>
+<p><strong>Host susceptibility loci.</strong> HLA-B27 (reactive arthritis modifier); HLA-DR (YPM presentation); TCR Vβ genes BV3S1, BV9, BV13 (target of YPM); C4B copy number (modifies Yersinia-microbiota interaction in pediatric IBD) (<a href="https://pubmed.ncbi.nlm.nih.gov/28832994/">PMID: 28832994</a>).</p>
+<p><strong>Epigenetics.</strong> No disease-specific human epigenetic signature is established for FESLF. Superantigen-driven T-cell activation induces transcriptional/epigenetic reprogramming toward effector/memory phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/11937534/">PMID: 11937534</a>), but this is not disease-defining.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<p><strong>Infectious agent.</strong> <em>Yersinia pseudotuberculosis</em> (family Yersiniaceae; NCBI Taxonomy txid633), a Gram-negative, psychrotrophic, facultatively anaerobic coccobacillus. Serotypes O:1 (incl. Ib) and O:3 are the principal causes of documented outbreaks and post-infectious complications; serotypes 4b and 1b predominate in fatal Japanese monkey outbreaks (<a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">PMID: 18242014</a>).</p>
+<p><strong>Environmental factors.</strong> The organism is widespread in the terrestrial environment and can persist in soil and water, in wildlife reservoirs (rodents, wild boars, birds), and even the marine habitat (<a href="https://pubmed.ncbi.nlm.nih.gov/42431144/">PMID: 42431144</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/29980552/">PMID: 29980552</a>). Its cold tolerance allows growth in refrigerated foods.</p>
+<p><strong>Lifestyle factors.</strong> Consumption of raw or improperly washed vegetables (carrots, lettuce) and untreated water; contact with animal reservoirs. Outbreaks are typically food/water-associated. The dominant environmental "cause" is ingestion of contaminated food, then M-cell invasion in the terminal ileum.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>Ingestion</strong> of <em>Y. pseudotuberculosis</em> (Asian-clade, ypmA⁺, pVM82⁺) in contaminated food/water → <strong>leads to</strong> delivery of viable bacteria to the terminal ileum.</li>
+<li>Bacterial <strong>invasin binds host β1-integrins on M cells</strong> of Peyer's patches → <strong>results in</strong> translocation across the intestinal epithelium (<a href="https://pubmed.ncbi.nlm.nih.gov/25576025/">PMID: 25576025</a>).</li>
+<li>Bacteria reach the <strong>mesenteric lymph nodes, liver, and spleen</strong>; the type III secretion system (pYV/Yops) is selectively translocated into <strong>professional phagocytes</strong> (neutrophils, macrophages, dendritic cells), disarming innate clearance → <strong>leads to</strong> local persistence and <strong>granulomatous terminal ileitis / mesenteric lymphadenitis</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/20148898/">PMID: 20148898</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/34628159/">PMID: 34628159</a>).</li>
+<li>The bacterium <strong>secretes/expresses the superantigen YPMa</strong> → which <strong>binds MHC class II (HLA-DR) on antigen-presenting cells</strong> outside the conventional peptide groove (<a href="https://pubmed.ncbi.nlm.nih.gov/10406939/">PMID: 10406939</a>).</li>
+<li>The MHC-II–YPM complex <strong>cross-links T-cell receptors bearing Vβ3, 9, 13.1, 13.2</strong> → <strong>results in</strong> massive polyclonal (Vβ-restricted) T-cell activation (<a href="https://pubmed.ncbi.nlm.nih.gov/9287138/">PMID: 9287138</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17369701/">PMID: 17369701</a>).</li>
+<li>Activated Vβ⁺ T cells <strong>migrate from blood to liver within 1 h</strong> and <strong>release a cytokine storm</strong> (IFN-γ by 4 h, plus TNF-α, IL-1, IL-6, IFN-α) → <strong>leads to</strong> systemic inflammation, hepatic injury, and toxic shock (<a href="https://pubmed.ncbi.nlm.nih.gov/15003813/">PMID: 15003813</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12449699/">PMID: 12449699</a>).</li>
+<li>Systemic cytokine excess and vascular inflammation <strong>produce the clinical syndrome</strong>: fever, scarlatiniform rash, desquamation, strawberry tongue, conjunctivitis, hepatomegaly → the FESLF/Kawasaki-like phenotype.</li>
+<li><strong>Branch A (severity):</strong> the <em>intensity</em> of TCR-Vβ binding scales the magnitude of T-cell overstimulation, cytotoxicity, and cytokine output → <strong>determines</strong> disease severity (<a href="https://pubmed.ncbi.nlm.nih.gov/10087177/">PMID: 10087177</a>).</li>
+<li><strong>Branch B (cardiac):</strong> in a subset, superantigen-driven vasculitis → <strong>coronary artery dilation/aneurysm</strong> (Kawasaki-disease phenotype), with higher coronary-lesion rates and IVIG resistance in Yersinia-associated KD (<a href="https://pubmed.ncbi.nlm.nih.gov/17129979/">PMID: 17129979</a>).</li>
+<li><strong>Branch C (post-infectious autoimmunity):</strong> in HLA-B27⁺ hosts, molecular/immune cross-reactivity → <strong>reactive arthritis, ankylosing spondylitis, erythema nodosum</strong>, rarely secondary amyloidosis (<a href="https://pubmed.ncbi.nlm.nih.gov/23852698/">PMID: 23852698</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/7554560/">PMID: 7554560</a>).</li>
+</ol>
+<h3>Detail by category</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> TCR/CD3 → ZAP-70 → PLCγ/PKC/NF-κB and Ras-MAPK signaling driving IL-2/IFN-γ transcription (superantigen-driven); β1-integrin → PI3K signaling in invasin-mediated neutrophil activation and NET formation (<a href="https://pubmed.ncbi.nlm.nih.gov/25576025/">PMID: 25576025</a>); RhoG/Rac1 GTPase modulation by invasin/Yops during invasion (<a href="https://pubmed.ncbi.nlm.nih.gov/19208761/">PMID: 19208761</a>).</li>
+<li><strong>Cellular processes:</strong> massive T-cell proliferation and later anergy/deletion; macrophage/DC activation; neutrophil extracellular trap (NET) release; inflammasome activation and pyroptosis in Yersinia mucosal disease (<a href="https://pubmed.ncbi.nlm.nih.gov/42661478/">PMID: 42661478</a>); granuloma formation.</li>
+<li><strong>Protein dysfunction (toxin structure):</strong> YPMa is a ~150-aa protein adopting a <strong>jelly-roll fold</strong> resembling viral capsid/TNF-superfamily proteins, with no sequence homology to other superantigens; crystallized in space group C2, 1.8 Å resolution; an internal disulfide (S–S) bond is essential for activity (<a href="https://pubmed.ncbi.nlm.nih.gov/12832802/">PMID: 12832802</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17369701/">PMID: 17369701</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10406939/">PMID: 10406939</a>).</li>
+<li><strong>Immune system involvement:</strong> superantigen-mediated polyclonal T-cell activation, IFN-γ–dominated cytokine storm; T-cell-dependent toxicity (toxic shock in BALB/c but <strong>not</strong> T-cell-deficient SCID mice) (<a href="https://pubmed.ncbi.nlm.nih.gov/15003813/">PMID: 15003813</a>).</li>
+<li><strong>Tissue damage mechanisms:</strong> IFN-γ/TNF-α–mediated hepatocellular injury; immune-complex and vasculitic damage to coronary vessels; granulomatous necrosis in ileum/lymph nodes.</li>
+<li><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" rel="noopener noreferrer">GO:0042110</a> (T cell activation), <a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" rel="noopener noreferrer">GO:0032609</a> (interferon-gamma production), <a href="http://purl.obolibrary.org/obo/GO_0050852" target="_blank" rel="noopener noreferrer">GO:0050852</a> (T cell receptor signaling pathway), <a href="http://purl.obolibrary.org/obo/GO_0006955" target="_blank" rel="noopener noreferrer">GO:0006955</a> (immune response), <a href="http://purl.obolibrary.org/obo/GO_0002250" target="_blank" rel="noopener noreferrer">GO:0002250</a> (adaptive immune response), <a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" rel="noopener noreferrer">GO:0001816</a> (cytokine production).</li>
+<li><strong>Suggested CL terms:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000624" target="_blank" rel="noopener noreferrer">CL:0000624</a> (CD4⁺ T cell), <a href="http://purl.obolibrary.org/obo/CL_0000625" target="_blank" rel="noopener noreferrer">CL:0000625</a> (CD8⁺ T cell), <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a> (neutrophil), <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> (macrophage), <a href="http://purl.obolibrary.org/obo/CL_0000451" target="_blank" rel="noopener noreferrer">CL:0000451</a> (dendritic cell), <a href="http://purl.obolibrary.org/obo/CL_0000794" target="_blank" rel="noopener noreferrer">CL:0000794</a> (CD8⁺ cytotoxic T cell).</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<p><strong>Organ level.</strong>
+- <strong>Primary:</strong> terminal ileum (<a href="http://purl.obolibrary.org/obo/UBERON_0002116" target="_blank" rel="noopener noreferrer">UBERON:0002116</a>), mesenteric lymph nodes (<a href="http://purl.obolibrary.org/obo/UBERON_0002509" target="_blank" rel="noopener noreferrer">UBERON:0002509</a>), liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>).
+- <strong>Secondary/systemic:</strong> skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>), oral mucosa/tongue (<a href="http://purl.obolibrary.org/obo/UBERON_0001723" target="_blank" rel="noopener noreferrer">UBERON:0001723</a>), conjunctiva (<a href="http://purl.obolibrary.org/obo/UBERON_0001811" target="_blank" rel="noopener noreferrer">UBERON:0001811</a>), coronary arteries (<a href="http://purl.obolibrary.org/obo/UBERON_0001621" target="_blank" rel="noopener noreferrer">UBERON:0001621</a>) in KD-like cases, joints/synovium (<a href="http://purl.obolibrary.org/obo/UBERON_0002217" target="_blank" rel="noopener noreferrer">UBERON:0002217</a>) in reactive arthritis, spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), pancreas (<a href="http://purl.obolibrary.org/obo/UBERON_0001264" target="_blank" rel="noopener noreferrer">UBERON:0001264</a>; Yersinia pancreatitis, <a href="https://pubmed.ncbi.nlm.nih.gov/22416431/">PMID: 22416431</a>).
+- <strong>Body systems:</strong> digestive, lymphatic/immune, integumentary, cardiovascular, musculoskeletal, hepatobiliary.</p>
+<p><strong>Tissue/cell level.</strong> Intestinal epithelium (M cells), lymphoid tissue (Peyer's patches, <a href="http://purl.obolibrary.org/obo/UBERON_0001211" target="_blank" rel="noopener noreferrer">UBERON:0001211</a>), vascular endothelium (coronary artery endothelial cells), synovium. Cell populations: CD4⁺/CD8⁺ T cells (Vβ3/9/13⁺), professional phagocytes, epithelioid histiocytes forming granulomas with giant cells.</p>
+<p><strong>Subcellular level.</strong> T-cell plasma membrane (TCR–MHC-II synapse); cytokine secretory machinery (ER/Golgi). Suggested GO cellular-component terms: <a href="http://purl.obolibrary.org/obo/GO_0009897" target="_blank" rel="noopener noreferrer">GO:0009897</a> (external side of plasma membrane), <a href="http://purl.obolibrary.org/obo/GO_0042101" target="_blank" rel="noopener noreferrer">GO:0042101</a> (T cell receptor complex), <a href="http://purl.obolibrary.org/obo/GO_0042613" target="_blank" rel="noopener noreferrer">GO:0042613</a> (MHC class II protein complex).</p>
+<p><strong>Localization/lateralization.</strong> Terminal ileitis is typically right-lower-quadrant, mimicking appendicitis; coronary lesions may be bilateral; reactive arthritis is often asymmetric oligoarticular (lower limbs) but can be polyarticular (<a href="https://pubmed.ncbi.nlm.nih.gov/12922960/">PMID: 12922960</a>).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<p><strong>Onset.</strong> Acute, pediatric-predominant; incubation typically a few days to ~2 weeks after ingestion. In the case series the illness was acute and multisystem (<a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">PMID: 6344044</a>).</p>
+<p><strong>Progression and course.</strong> Most acute illness is <strong>self-limited</strong> over 1–3 weeks. A minority progress to systemic toxicity (toxic-shock-like), DIC (<a href="https://pubmed.ncbi.nlm.nih.gov/16366361/">PMID: 16366361</a>), coronary involvement, or septicemia (higher risk in immunocompromised/iron-overloaded hosts, <a href="https://pubmed.ncbi.nlm.nih.gov/42448289/">PMID: 42448289</a>). Post-infectious reactive arthritis appears days to weeks after the acute phase and may persist &gt;6 months in a substantial fraction; a 10-year follow-up found chronic joint symptoms in 9/16 patients including ankylosing spondylitis and fatal secondary amyloidosis (<a href="https://pubmed.ncbi.nlm.nih.gov/7554560/">PMID: 7554560</a>).</p>
+<p><strong>Patterns.</strong> Acute phase resolves spontaneously or with antibiotics; complications may be relapsing (reactive arthritis reactivation) or progressive (spondyloarthropathy/amyloidosis). The critical intervention window for KD-like cases is the first ~10 days (IVIG to prevent coronary aneurysm).</p>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<p><strong>Inheritance.</strong> None — FESLF is infectious, not heritable. No Mendelian inheritance pattern, penetrance, expressivity, anticipation, mosaicism, founder effect, consanguinity, or carrier frequency applies to the disease itself. (Host modifiers such as HLA-B27 follow their own inheritance but only affect complication risk.)</p>
+<p><strong>Epidemiology and geography.</strong> FESLF is <strong>geographically restricted</strong> to the Russian Far East, Siberia, and Japan, occurring sporadically and in outbreaks (<a href="https://pubmed.ncbi.nlm.nih.gov/26819960/">PMID: 26819960</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/32498317/">PMID: 32498317</a>). This restriction tracks the geographic distribution of ypmA⁺ Asian-clade strains: ypmA detected in <strong>96.2%</strong> of 212 Siberian/Far-Eastern strains (<a href="https://pubmed.ncbi.nlm.nih.gov/17163133/">PMID: 17163133</a>) and <strong>88.9%</strong> of fatal Japanese monkey-outbreak strains (<a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">PMID: 18242014</a>). By contrast, European <em>Y. pseudotuberculosis</em> infection is sporadic self-limiting gastroenteritis (<a href="https://pubmed.ncbi.nlm.nih.gov/26819960/">PMID: 26819960</a>). General yersiniosis incidence in non-endemic regions is low (e.g., ~0.16/100,000/yr in a multistate US study; <em>Y. pseudotuberculosis</em> is a small minority of cases) (<a href="https://pubmed.ncbi.nlm.nih.gov/25931631/">PMID: 25931631</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26233079/">PMID: 26233079</a>).</p>
+<p><strong>Demographics.</strong> Children are predominantly affected; Yersinia-associated KD onset is older than Yersinia-negative KD (3.05 vs 2.31 y; p = 0.03) (<a href="https://pubmed.ncbi.nlm.nih.gov/17129979/">PMID: 17129979</a>). Sex ratio is not strongly skewed for the acute disease; HLA-B27-associated reactive arthritis affects both sexes.</p>
+<p><strong>Population structure of the pathogen.</strong> MLST reveals a worldwide <strong>cluster A</strong> (ypmA, pYV) and a Far-East-restricted <strong>cluster B</strong> (ypmB); the ypm superantigen genes are distributed across the phylogeny with ypmA in cluster A and ypmB in cluster B (<a href="https://pubmed.ncbi.nlm.nih.gov/21131531/">PMID: 21131531</a>). FESLF strains belong to the <strong>Asian clade</strong> and are KD-related (<a href="https://pubmed.ncbi.nlm.nih.gov/39780644/">PMID: 39780644</a>).</p>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Microbiology.</strong> Stool culture and/or blood culture for <em>Y. pseudotuberculosis</em> (cold enrichment improves yield); serotyping (O:1, O:3, 4b). Blood culture positivity in septicemic cases (<a href="https://pubmed.ncbi.nlm.nih.gov/18411766/">PMID: 18411766</a>).</p>
+<p><strong>Serology.</strong> ≥4-fold rise in agglutinating antibody titers is diagnostic (<a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">PMID: 6344044</a>); tube agglutination titers (e.g., ≥1:160 against serotype 4b) support diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/18411766/">PMID: 18411766</a>). <strong>Anti-YPM (anti-mitogen) antibody titers</strong> rise between days 7–18 and confirm infection when cultures are negative (<a href="https://pubmed.ncbi.nlm.nih.gov/34108299/">PMID: 34108299</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16366361/">PMID: 16366361</a>). Serology is described as the most informative laboratory approach (<a href="https://pubmed.ncbi.nlm.nih.gov/22416431/">PMID: 22416431</a>).</p>
+<p><strong>Molecular.</strong> PCR for virulence genes — ypm (ypmA/B/C), virF, inv, irp2 — enables genotype-based confirmation and epidemiologic typing (<a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">PMID: 18242014</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22416431/">PMID: 22416431</a>).</p>
+<p><strong>Laboratory abnormalities.</strong> Leukocytosis, elevated CRP/ferritin, transaminase elevation (hepatic involvement), thrombocytopenia and prolonged PT/PTT with elevated FDP in DIC (<a href="https://pubmed.ncbi.nlm.nih.gov/16366361/">PMID: 16366361</a>).</p>
+<p><strong>Imaging/histopathology.</strong> Ultrasound/CT show mesenteric lymphadenopathy and terminal ileitis; echocardiography detects coronary dilation/aneurysm in KD-like cases. <strong>Biopsy</strong> shows epithelioid granulomas with reticular microabscesses/stellate necrosis and giant cells, mimicking Crohn's disease (<a href="https://pubmed.ncbi.nlm.nih.gov/22228001/">PMID: 22228001</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/18368812/">PMID: 18368812</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/26385573/">PMID: 26385573</a>).</p>
+<p><strong>Clinical criteria / differential diagnosis.</strong> When patients meet Kawasaki-disease criteria (fever ≥5 days plus ≥4 of: rash, conjunctivitis, oral changes, extremity changes, cervical lymphadenopathy), <em>Y. pseudotuberculosis</em> should be excluded (<a href="https://pubmed.ncbi.nlm.nih.gov/39697956/">PMID: 39697956</a>). Differentials: scarlet fever (Group A <em>Streptococcus</em>), Kawasaki disease, appendicitis, Crohn's disease, mesenteric adenitis of other cause, other yersiniosis. Genetic testing is <strong>not applicable</strong> (no germline cause).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<p><strong>Survival/mortality.</strong> The acute disease is usually self-limited with low mortality when treated. Severe outcomes include septicemia with multi-organ dysfunction (fatal cases reported, especially in immunocompromised/iron-overload hosts, <a href="https://pubmed.ncbi.nlm.nih.gov/42448289/">PMID: 42448289</a>) and DIC (<a href="https://pubmed.ncbi.nlm.nih.gov/16366361/">PMID: 16366361</a>). Long-term fatal outcomes are rare and usually via reactive-arthritis complications (secondary amyloidosis → uremia) (<a href="https://pubmed.ncbi.nlm.nih.gov/7554560/">PMID: 7554560</a>).</p>
+<p><strong>Morbidity/complications.</strong> Coronary artery lesions (KD phenotype): significantly more frequent in Yersinia-positive KD (22/42, 52.4%) than Yersinia-negative KD (105/330, 31.8%; p = 0.001), with greater need for additional IVIG (36.1% vs 16.0%; p = 0.004) (<a href="https://pubmed.ncbi.nlm.nih.gov/17129979/">PMID: 17129979</a>). Post-infectious reactive arthritis in 12–22% of adults, HLA-B27-associated, sometimes chronic/polyarticular (<a href="https://pubmed.ncbi.nlm.nih.gov/23852698/">PMID: 23852698</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12922960/">PMID: 12922960</a>); erythema nodosum (42% of children in one outbreak); rarely ankylosing spondylitis and amyloidosis.</p>
+<p><strong>Prognostic factors.</strong> Presence of ypmA⁺ Far-Eastern strain and pVM82 plasmid (severity); host HLA-B27 (reactive-arthritis risk); older age and Yersinia positivity (coronary-lesion risk and IVIG resistance in KD); immunocompromise/iron overload (septicemia risk). Anti-YPM antibody serology serves as a diagnostic/prognostic biomarker.</p>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (antibiotics).</strong> <em>Y. pseudotuberculosis</em> is generally susceptible to third-generation cephalosporins (cefotaxime, ceftriaxone), fluoroquinolones, aminoglycosides, tetracyclines, and trimethoprim-sulfamethoxazole; carbapenems (imipenem) used in severe/septicemic disease (<a href="https://pubmed.ncbi.nlm.nih.gov/18411766/">PMID: 18411766</a>). Refractory KD-presenting cases have responded to cefotaxime after immunosuppressive therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/39697956/">PMID: 39697956</a>). Suggested NCIT: C264 (Cephalosporin), C540 (Ciprofloxacin), C61796 (Cefotaxime).</p>
+<p><strong>Kawasaki-disease-presenting cases.</strong> Intravenous immunoglobulin (IVIG) plus aspirin to reduce coronary complications; note higher IVIG-resistance in Yersinia-associated KD, sometimes requiring additional IVIG or immunosuppression (<a href="https://pubmed.ncbi.nlm.nih.gov/17129979/">PMID: 17129979</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/39697956/">PMID: 39697956</a>). NCIT: C488 (Immunoglobulin therapy), C287 (Aspirin).</p>
+<p><strong>Reactive arthritis.</strong> NSAIDs, and in chronic/severe spondyloarthropathy, DMARDs; supportive rheumatologic care.</p>
+<p><strong>Supportive care.</strong> Fluid/electrolyte management for diarrhea/vomiting; DIC management; hepatic monitoring.</p>
+<p><strong>Advanced/experimental therapeutics.</strong> A conceptual therapeutic avenue arises from mutagenesis work: engineered YPM point mutants with reduced TCR-Vβ binding lose overstimulatory/cytotoxic activity and could serve as immunotherapeutic/vaccine antigens (<a href="https://pubmed.ncbi.nlm.nih.gov/10087177/">PMID: 10087177</a>). Anti-IFN-γ and anti-YPM antibodies prevented liver injury and death in mice — a proof-of-concept for toxin/cytokine-neutralizing therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/15003813/">PMID: 15003813</a>). No approved gene, cell, or RNA therapy exists or is applicable.</p>
+<p><strong>Pharmacogenomics.</strong> Not established for FESLF.</p>
+<hr />
+<h2>13. Prevention</h2>
+<p><strong>Primary prevention.</strong> Food and water hygiene: thorough washing of raw vegetables (carrots, leafy greens), safe water, cold-chain awareness (organism grows at refrigeration temperatures). Outbreak control through tracing contaminated produce (<a href="https://pubmed.ncbi.nlm.nih.gov/23852698/">PMID: 23852698</a>).</p>
+<p><strong>Immunization.</strong> No licensed human vaccine against <em>Y. pseudotuberculosis</em>/FESLF. An attenuated <em>Y. pseudotuberculosis</em> strain (lacking HPI, ypm, pil; retaining pYV) has been used experimentally as an oral live vaccine against plague, protecting 75–88% of mice — illustrating vaccine-platform potential but not a FESLF vaccine (<a href="https://pubmed.ncbi.nlm.nih.gov/18505804/">PMID: 18505804</a>).</p>
+<p><strong>Secondary/tertiary prevention.</strong> Early antibiotic treatment; early echocardiography and IVIG in KD-presenting cases to prevent coronary aneurysm; monitoring/treatment of reactive arthritis to prevent chronic sequelae.</p>
+<p><strong>Public health.</strong> Surveillance of foodborne yersiniosis; produce-supply monitoring; reservoir awareness (rodents, wild boars, birds). Vector control is not relevant (foodborne, not vector-borne).</p>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<p><strong>Taxonomy of causative agent.</strong> <em>Yersinia pseudotuberculosis</em> (NCBI:txid633).</p>
+<p><strong>Natural disease in animals.</strong> Pseudotuberculosis is a common cause of mortality in captive exotic birds and mammals; per OIE WAHIS-Wild it is the 8th most frequently reported disease/infection in wildlife worldwide and 5th in wild mammals (<a href="https://pubmed.ncbi.nlm.nih.gov/42431144/">PMID: 42431144</a>). Fatal outbreaks in <strong>breeding monkeys</strong> in Japanese zoos (28 deaths, 8 species; 88.9% ypmA⁺) directly parallel human FESLF and implicate YPM in high mortality (<a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">PMID: 18242014</a>). Documented in wild boars (<a href="https://pubmed.ncbi.nlm.nih.gov/29980552/">PMID: 29980552</a>) and, newly, free-ranging marine odontocetes (<a href="https://pubmed.ncbi.nlm.nih.gov/42431144/">PMID: 42431144</a>).</p>
+<p><strong>Zoonotic potential / reservoirs.</strong> Rodents, birds, and other mammals serve as reservoirs; transmission to humans is principally by ingestion of contaminated food or water. Cross-species susceptibility is broad.</p>
+<p><strong>Comparative biology.</strong> The superantigen mechanism is conserved: ypmA⁺ strains cause severe/fatal systemic disease across primates and humans, supporting evolutionary conservation of the YPM–MHC-II/TCR-Vβ axis.</p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p><strong>Mouse models.</strong> BALB/c mice develop YPM-induced toxic shock; <strong>T-cell-deficient SCID mice do not</strong>, establishing T-cell dependence (<a href="https://pubmed.ncbi.nlm.nih.gov/15003813/">PMID: 15003813</a>). Mini-osmotic-pump delivery of YPM produces protracted Vβ3⁺CD4⁺ T-cell expansion and immunological memory, modeling chronic superantigen exposure (<a href="https://pubmed.ncbi.nlm.nih.gov/11937534/">PMID: 11937534</a>). A murine coronary-arteritis (KD) model is induced by oral microbe-associated molecular patterns, linking Yersinia biofilm MAMPs to KD-like vasculitis (<a href="https://pubmed.ncbi.nlm.nih.gov/25411968/">PMID: 25411968</a>).</p>
+<p><strong>Rat models.</strong> <strong>HLA-B27 transgenic rats</strong> mount a CD8⁺ CTL response to <em>Y. pseudotuberculosis</em>; HLA-B27 exerts a negative effect on this response, modeling impaired defense and the HLA-B27–reactive-arthritis link (<a href="https://pubmed.ncbi.nlm.nih.gov/10417137/">PMID: 10417137</a>). LEW rat BV8S2⁺ T cells respond to YPM, used to map TCR CDR/HV4 contributions to superantigen recognition (<a href="https://pubmed.ncbi.nlm.nih.gov/15096488/">PMID: 15096488</a>).</p>
+<p><strong>Non-human primates.</strong> Naturally infected breeding monkeys constitute a spontaneous high-fidelity model of fatal systemic ypmA⁺ disease (<a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">PMID: 18242014</a>).</p>
+<p><strong>In vitro / structural.</strong> Human whole-blood cytokine assays (YPM elicits maximal IL-1/IL-6/IFN-α/TNF-α, <a href="https://pubmed.ncbi.nlm.nih.gov/12449699/">PMID: 12449699</a>); recombinant YPM mutagenesis systems for structure–function (<a href="https://pubmed.ncbi.nlm.nih.gov/10406939/">PMID: 10406939</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/10087177/">PMID: 10087177</a>); X-ray crystallography/NMR of YPMa (<a href="https://pubmed.ncbi.nlm.nih.gov/12832802/">PMID: 12832802</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17369701/">PMID: 17369701</a>).</p>
+<p><strong>Recapitulation/limitations.</strong> Mouse models capture superantigen-driven T-cell activation and toxic shock but incompletely reproduce the full mucosal→systemic human sequence; the HLA-B27 rat captures the reactive-arthritis modifier but not the acute scarlatiniform phenotype.</p>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code> CONTAMINATED FOOD/WATER (ypmA+, pVM82+, pYV+ Asian-clade Y. pseudotuberculosis)
+│  ingestion
+▼
+ TERMINAL ILEUM ── invasin·β1-integrin ──► M-cell translocation (Peyer's patches)
+│
+▼
+ MESENTERIC LYMPH NODES / LIVER / SPLEEN
+│  T3SS(Yops)→phagocytes: immune evasion + granulomatous ileitis/adenitis
+│  (Crohn's-mimicking target lesion)
+▼
+ YPMa SUPERANTIGEN ── binds HLA-DR (MHC-II) + TCR Vβ3/9/13.1/13.2 ──►
+│  polyclonal, Vβ-restricted T-cell activation
+▼
+ CYTOKINE STORM (IFN-γ @4h, TNF-α, IL-1, IL-6, IFN-α)   ── T-cell-dependent
+│                                                  (absent in SCID mice)
+├──────────────► SYSTEMIC ILLNESS: fever, scarlatiniform rash,
+│                desquamation, strawberry tongue, conjunctivitis,
+│                hepatomegaly  =  FESLF / Izumi fever
+│
+├── Branch A (dose/affinity): TCR-Vβ binding intensity → SEVERITY
+│
+├── Branch B: coronary vasculitis → KD phenotype (↑coronary lesions,
+│              IVIG resistance)
+│
+└── Branch C (HLA-B27+ host): post-infectious reactive arthritis,
+               ankylosing spondylitis, erythema nodosum, amyloidosis
+</code></pre>
+<p>The unifying interpretation is that FESLF is fundamentally a <strong>superantigen toxicosis superimposed on an enteric invasive infection</strong>. What distinguishes the Far-Eastern severe disease from European mild yersiniosis is not the route or the organism per se but the horizontally acquired <strong>ypmA</strong> superantigen (plus the enigmatic <strong>pVM82</strong> plasmid). Severity is a graded function of TCR-Vβ engagement, and the host HLA background (HLA-DR for presentation, HLA-B27 for post-infectious autoimmunity) shapes both acute magnitude and chronic sequelae. This model explains the disease's geographic restriction, its overlap with scarlet fever and Kawasaki disease, and the rationale for both antibiotic (source control) and immunomodulatory (IVIG/anti-cytokine) treatment.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/6344044/">6344044</a></td>
+<td>Defines the multisystem scarlet-fever/KD-like phenotype; links to Izumi fever (12-child series)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39780644/">39780644</a></td>
+<td>FESLF strains = Asian clade, KD-related (genomics)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26819960/">26819960</a></td>
+<td>Review: FESLF definition, Russia/Japan geography, YPMa role</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30695393/">30695393</a></td>
+<td>pVM82 plasmid unique to FESLF clinical-epidemic strains</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17163133/">17163133</a></td>
+<td>ypmA in 96.2% of Far-Eastern strains; pYV⁺/ypmA⁺/HPI⁻ systemic genogroup</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18242014/">18242014</a></td>
+<td>88.9% ypmA⁺ in fatal Japanese monkey outbreaks</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15784605/">15784605</a></td>
+<td>Horizontal acquisition/linkage of ypm and pil</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/21131531/">21131531</a></td>
+<td>Population structure: cluster A (ypmA) worldwide, cluster B (ypmB) Far-East</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/15003813/">15003813</a></td>
+<td>T-cell-dependent YPM toxicity; Vβ8⁺ migration to liver; IFN-γ surge; antibody protection</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12449699/">12449699</a></td>
+<td>YPM = maximal cytokine inducer among Yersinia stimuli</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12832802/">12832802</a></td>
+<td>YPM crystallization; no homology to other superantigens</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17369701/">17369701</a></td>
+<td>Jelly-roll fold of YPMa; YPMa/b/c family</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10406939/">10406939</a></td>
+<td>YPM competes with SEE for HLA-DR; MHC-II/TCR mapping; essential S–S bond</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/9287138/">9287138</a></td>
+<td>YPMb shares Vβ3/9/13.1/13.2 specificity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10087177/">10087177</a></td>
+<td>TCR-Vβ binding intensity determines pathogenic severity</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17129979/">17129979</a></td>
+<td>Yersinia-KD: ↑coronary lesions (52.4% vs 31.8%, p=0.001), IVIG resistance</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34108299/">34108299</a></td>
+<td>Anti-YPM antibody serology confirms infection; intussusception + incomplete KD</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/16366361/">16366361</a></td>
+<td>KD-criteria case with DIC; anti-YPM serology</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39697956/">39697956</a></td>
+<td>Refractory KD with Y. pseudotuberculosis treated with cefotaxime</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10592892/">10592892</a></td>
+<td>Superantigen hypothesis for KD pathogenesis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/23852698/">23852698</a></td>
+<td>O:1 carrot outbreak: ReA 22% adults, 67% HLA-B27⁺, EN 42% children</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/12922960/">12922960</a></td>
+<td>O:3 outbreak: severe polyarticular ReA, HLA-B27⁺</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/7554560/">7554560</a></td>
+<td>10-yr follow-up: chronic arthritis, ankylosing spondylitis, fatal amyloidosis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/34628159/">34628159</a></td>
+<td>Meta-analysis: Yersinia 65% terminal ileitis, 51% mesenteric adenitis</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/22228001/">22228001</a></td>
+<td>Terminal ileitis mimicking Crohn's in childhood</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18368812/">18368812</a></td>
+<td>Granulomatous Yersinia pathology resembling Crohn's</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26385573/">26385573</a></td>
+<td>Histopathologic IBD mimics incl. Yersinia</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25576025/">25576025</a></td>
+<td>Invasin·β1-integrin → NETs (innate arm)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/20148898/">20148898</a></td>
+<td>T3SS Yop translocation selectively to phagocytes</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/18505804/">18505804</a></td>
+<td>Attenuated Y. pseudotuberculosis oral vaccine concept</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/10417137/">10417137</a></td>
+<td>HLA-B27 transgenic rat CTL model</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42448289/">42448289</a></td>
+<td>Fatal septicemia in immunocompromised/iron-overload host</td>
+</tr>
+</tbody>
+</table></div></details>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>No dedicated primary data were analyzed</strong> — this is a literature synthesis. Some key sources are non-English (Russian/Japanese) with abstracts unavailable, limiting extraction of quantitative detail (e.g., precise FESLF incidence/prevalence per 100,000, which remains unquantified in the accessible literature).</li>
+<li><strong>pVM82 plasmid biology is understudied</strong> — it is a molecular marker of FESLF strains, but its gene content and mechanistic contribution to severity are essentially uncharacterized (<a href="https://pubmed.ncbi.nlm.nih.gov/30695393/">PMID: 30695393</a>).</li>
+<li><strong>Direct in vivo demonstration that YPMa alone reproduces the full FESLF rash/desquamation phenotype is lacking</strong> — most mechanistic data derive from toxic-shock and cytokine models rather than the complete syndrome.</li>
+<li><strong>Causality vs. association in Kawasaki disease</strong> — the Yersinia–KD link is strong epidemiologically and serologically, but whether <em>Y. pseudotuberculosis</em> is a cause of a KD subset or a mimicker remains debated.</li>
+<li><strong>Epidemiologic underreporting</strong> — yersiniosis is under-diagnosed and under-serotyped even in surveillance systems (<a href="https://pubmed.ncbi.nlm.nih.gov/26233079/">PMID: 26233079</a>), so true FESLF burden in endemic regions is uncertain.</li>
+<li><strong>No modern randomized treatment trials</strong> — antibiotic and IVIG recommendations rest on case series and analogy to KD, not RCTs.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Sequence and functionally annotate the pVM82 plasmid</strong> across FESLF vs non-FESLF strains (comparative genomics + isogenic cured-plasmid virulence assays) to test whether pVM82 independently contributes to severity beyond ypmA.</li>
+<li><strong>Isogenic ΔypmA vs ypmA⁺ challenge</strong> in a humanized-HLA-DR/Vβ mouse or primate model to formally establish YPMa's necessity/sufficiency for the FESLF phenotype.</li>
+<li><strong>Prospective serologic cohort</strong> of KD patients in endemic vs non-endemic regions using standardized anti-YPM assays to quantify the attributable fraction of Yersinia-associated KD and its coronary-outcome risk.</li>
+<li><strong>Structure-guided anti-YPM therapeutics</strong>: develop neutralizing monoclonal antibodies or engineered Vβ-decoy proteins based on the jelly-roll fold and the demonstrated protection by anti-YPM/anti-IFN-γ antibodies (<a href="https://pubmed.ncbi.nlm.nih.gov/15003813/">PMID: 15003813</a>).</li>
+<li><strong>HLA-B27 stratified natural-history study</strong> to define reactive-arthritis and amyloidosis risk after <em>Y. pseudotuberculosis</em> infection and guide surveillance.</li>
+<li><strong>Regional epidemiologic quantification</strong> in the Russian Far East/Japan to populate incidence/prevalence fields (currently unfilled) and map ypmA/pVM82 genotype distribution to case severity.</li>
+<li><strong>Update ontology mappings</strong> for the knowledge base: confirm <a href="http://purl.obolibrary.org/obo/MONDO_0041536" target="_blank" rel="noopener noreferrer">MONDO:0041536</a> cross-references to MeSH/ICD, and attach the HPO, GO, CL, UBERON, and NCIT terms proposed in Sections 3–12.</li>
+</ol>
+<hr />
+<p><em>Report compiled from 65 reviewed papers and 8 confirmed findings over a 5-iteration autonomous investigation. Evidence types: human clinical (case series, outbreaks, cohorts), model organism (mouse, rat, primate), in vitro (cytokine assays, mutagenesis), and structural/computational (X-ray crystallography, NMR, genomics).</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Far_East_Scarlet_Like_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Far_East_Scarlet_Like_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>46</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>46</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>8</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0041536</code> (3 mentions) - the report calls it "MONDO"; MONDO calls it <strong>Far-East scarlet-like fever</strong></li>
+<li><code>HP:0000202</code> (1 mention) - the report calls it "Oral cavity abnormality"; HP calls it <strong>Orofacial cleft</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0007556</code> (1 mention) - the report calls it "Palmoplantar desquamation"; HP calls it <strong>Plantar hyperkeratosis</strong></li>
+<li><code>HP:0000206</code> (1 mention) - the report calls it "Glossitis, related"; HP calls it <strong>Glossitis</strong></li>
+<li><code>GO:0032609</code> (1 mention) - the report calls it "interferon-gamma production"; GO calls it <strong>type II interferon production</strong>, and lists "interferon-gamma production" among its other names</li>
+<li><code>CL:0000624</code> (1 mention) - the report calls it "CD4⁺ T cell"; CL calls it <strong>CD4-positive, alpha-beta T cell</strong></li>
+<li><code>CL:0000625</code> (1 mention) - the report calls it "CD8⁺ T cell"; CL calls it <strong>CD8-positive, alpha-beta T cell</strong></li>
+<li><code>CL:0000794</code> (1 mention) - the report calls it "CD8⁺ cytotoxic T cell"; CL calls it <strong>CD8-positive, alpha-beta cytotoxic T cell</strong>, and lists "cytotoxic T cell" among its other names</li>
+<li><code>UBERON:0002116</code> (1 mention) - the report calls it "Primary:<strong> terminal ileum"; UBERON calls it </strong>ileum**, and lists "intestinum ileum" among its other names</li>
+<li><code>UBERON:0002097</code> (1 mention) - the report calls it "Secondary/systemic:<strong> skin"; UBERON calls it </strong>skin of body**, and lists "entire skin" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Far_Eastern_Spotted_Fever-openscientist.html">← Far Eastern Spotted Fever (OpenScientist)</a>
+                
+                
+                <a href="Farber_Disease-fallback.html">Farber Disease (Fallback) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Far-East_Scarlet-Like_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Far_East_Scarlet_Like_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -204,6 +204,15 @@ def rebuild_cmd(
     progress_every: int = typer.Option(
         500, "--progress-every", help="Log every N entries"
     ),
+    csv: Path | None = typer.Option(
+        None,
+        "--csv",
+        help=(
+            "ClinGen gene validity only: read this export instead of "
+            "data/clingen/gene_validity.csv (or the committed fallback). The "
+            "cache file is stamped with this file's own date and sha256."
+        ),
+    ),
 ) -> None:
     """Regenerate cache files for a source from current bulk data."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
@@ -211,6 +220,10 @@ def rebuild_cmd(
     src = _get_source(source)
     if isinstance(src, (ClinGenSource, ClinGenDosageSource)):
         src.include_report_text = include_report_text
+    if csv is not None:
+        if not isinstance(src, ClinGenSource):
+            raise typer.BadParameter("--csv is only supported for the clingen source")
+        src.csv_path = csv
     cache_dir.mkdir(parents=True, exist_ok=True)
     if id_:
         targets = list(id_)
@@ -218,16 +231,29 @@ def rebuild_cmd(
         targets = list(src.identifiers())
     typer.echo(f"rebuilding {len(targets)} {source} entries → {cache_dir}")
     written = 0
+    skipped: list[str] = []
     for ident in targets:
         try:
             src.write_cache_file(ident, cache_dir)
         except KeyError as exc:
             typer.echo(f"  skipped {ident}: {exc}", err=True)
+            skipped.append(ident)
             continue
         written += 1
         if written % progress_every == 0:
             typer.echo(f"  ... {written}/{len(targets)}")
     typer.echo(f"wrote {written} cache files")
+    if id_ and skipped:
+        # An explicitly requested id that is not in the export is a failure,
+        # not a quiet skip: `just fetch-reference` routes here, agents read its
+        # exit code, and a typo or a withdrawn assertion must not look like
+        # success (review on #13766). The ids that did resolve are written.
+        typer.echo(
+            f"{len(skipped)} of {len(targets)} requested id(s) not found in the "
+            f"{source} export: " + ", ".join(skipped),
+            err=True,
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command("list")

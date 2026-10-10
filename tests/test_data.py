@@ -31,6 +31,7 @@ from dismech.entity_refs import (
     iter_entity_refs,
     parse_entity_ref,
 )
+from dismech.model_links import iter_model_links
 from dismech.yaml_io import safe_load
 
 # Paths
@@ -73,8 +74,6 @@ MODEL_BEARING_FILES = DISORDER_FILES + MODULE_FILES
 # `would_refute`, perturbation/readout `target`) are resolved as foreign keys.
 # Same three trees as `conforms_to`: groupings use a different grammar.
 ENTITY_REF_FILES = DISORDER_FILES + MODULE_FILES + COMORBIDITY_FILES
-# Model sections whose entries may carry `modeled_mechanisms` links.
-MODEL_SECTIONS = ("experimental_models", "animal_models", "computational_models")
 SYNTHESIS_FILES = glob.glob(str(RESEARCH_DIR / "*-research-synthesis.yaml"))
 HYPOTHESIS_ASSESSMENT_FILES = glob.glob(
     str(HYPOTHESES_DIR / "*" / "*" / "assessments" / "*-assessment-by-*.yaml")
@@ -316,9 +315,9 @@ def check_valid_module_files(filepath, validator, data=None):
     A schema tightening invalidates a module exactly as it invalidates a
     disorder entry, but the whole-KB conformance sweep covered disorders,
     comorbidities and groupings and left ``kb/modules/`` out (dismech#8320).
-    ``just validate-modules`` catches this locally and is in ``just qc``, but
-    CI only ever runs it over *changed* files — which is the blind spot #8320
-    was filed about.
+    ``just validate-modules`` catches this locally and is in ``just qc``, and
+    CI runs ``just validate-module-batch`` over the module files a PR changes;
+    this sweep covers the modules a schema change touches without editing them.
     """
     data = _document(filepath, data)
 
@@ -860,10 +859,25 @@ def check_subtype_foreign_keys(filepath, data=None):
     data = _document(filepath, data)
 
     valid_subtypes = {s["name"] for s in data.get("has_subtypes", [])}
+
+    # Genetic.gene_disease_validity[].subtype (#10179). Checked before the
+    # early return below: a validity assertion naming a subtype on an entry
+    # that declares none is a dangling reference, not a skip.
+    errors = []
+    for i, gene in enumerate(data.get("genetic", []) or []):
+        for j, assertion in enumerate(gene.get("gene_disease_validity", []) or []):
+            val = assertion.get("subtype")
+            if val and val not in valid_subtypes:
+                errors.append(
+                    f"genetic[{i}].gene_disease_validity[{j}].subtype={val!r}"
+                )
     if not valid_subtypes:
+        assert not errors, (
+            f"Subtype FK mismatches in {Path(filepath).name}: no has_subtypes "
+            f"declared. Bad refs: {errors}"
+        )
         return
 
-    errors = []
     # Sections with a top-level subtype field
     for section in (
         "phenotypes",
@@ -1088,6 +1102,75 @@ def test_phenotype_multivalued_subtypes_fk_catches_bad_refs(tmp_path):
         check_subtype_foreign_keys(str(fake_path))
 
 
+def test_gene_disease_validity_subtype_fk_catches_bad_refs(tmp_path):
+    """A validity assertion's subtype must name a declared subtype (#10179)."""
+    disease = {
+        "name": "Bad Validity Subtype",
+        "has_subtypes": [{"name": "Menkes"}],
+        "genetic": [
+            {
+                "name": "ATP7A",
+                "gene_disease_validity": [
+                    {
+                        "validity_classification": "MODERATE",
+                        "classified_by": "CLINGEN",
+                        "subtype": "Distal SMA (not declared)",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "BadValiditySubtype.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    with pytest.raises(AssertionError, match="Distal SMA"):
+        check_subtype_foreign_keys(str(fake_path))
+
+
+def test_gene_disease_validity_subtype_fk_without_declared_subtypes(tmp_path):
+    """No has_subtypes at all is not a reason to skip the check."""
+    disease = {
+        "name": "No Subtypes",
+        "genetic": [
+            {
+                "name": "ATP7A",
+                "gene_disease_validity": [
+                    {
+                        "validity_classification": "MODERATE",
+                        "classified_by": "CLINGEN",
+                        "subtype": "Menkes",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "NoSubtypes.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    with pytest.raises(AssertionError, match="Menkes"):
+        check_subtype_foreign_keys(str(fake_path))
+
+
+def test_gene_disease_validity_subtype_fk_accepts_declared_subtype(tmp_path):
+    disease = {
+        "name": "Good Validity Subtype",
+        "has_subtypes": [{"name": "Menkes"}],
+        "genetic": [
+            {
+                "name": "ATP7A",
+                "gene_disease_validity": [
+                    {
+                        "validity_classification": "DEFINITIVE",
+                        "classified_by": "CLINGEN",
+                        "subtype": "Menkes",
+                    }
+                ],
+            }
+        ],
+    }
+    fake_path = tmp_path / "GoodValiditySubtype.yaml"
+    fake_path.write_text(yaml.safe_dump(disease, sort_keys=False))
+    check_subtype_foreign_keys(str(fake_path))
+
+
 def check_experimental_model_mechanism_targets(filepath, data=None):
     """Experimental model links should reference declared pathophysiology nodes."""
     data = _document(filepath, data)
@@ -1234,14 +1317,27 @@ def check_linked_animal_model_labels_are_unique(filepath, data=None):
 
 
 def _iter_mechanism_links(data):
-    """Yield (section, model_index, link_index, model, link) across model sections."""
-    for section in MODEL_SECTIONS:
-        for i, model in enumerate(data.get(section, []) or []):
-            if not isinstance(model, dict):
-                continue
-            for j, link in enumerate(model.get("modeled_mechanisms", []) or []):
-                if isinstance(link, dict):
-                    yield section, i, j, model, link
+    """Yield (path_prefix, model_index, link_index, model, link) for every model link.
+
+    Delegates to `dismech.model_links.iter_model_links`, which also reaches the
+    `model_systems` of a proposed experiment. Those were skipped while this
+    walked only `MODEL_SECTIONS`, so every check below -- divergence typing,
+    scale agreement, readout targets, caveat requirements -- had no opinion on a
+    link declared inside a `KNOWLEDGE_GAP` proposal (dismech#13375).
+
+    The first element was the bare section name and is now the dotted path to
+    the list holding the model, so the callers' existing
+    `f"{section}[{i}].modeled_mechanisms[{j}]"` formatting yields a correct deep
+    location without changing.
+    """
+    for site in iter_model_links(data):
+        yield (
+            site.path_prefix,
+            site.model_index,
+            site.link_index,
+            site.model,
+            site.link,
+        )
 
 
 def check_model_readout_targets_match_link(filepath, data=None):
@@ -2415,12 +2511,22 @@ def test_disorder_file(filepath, validator):
 @pytest.mark.kb_data
 @pytest.mark.parametrize("filepath", MODULE_FILES, ids=_file_id)
 def test_module_file(filepath, validator):
-    """Schema conformance plus model-link and conforms_to checks for one module."""
+    """Schema conformance plus every structural check a disorder entry gets.
+
+    A module is a ``Disease`` document, so nothing in ``DISORDER_CHECKS`` is
+    specific to disorders: required fields, reference prefixes, subtype and
+    mechanism-target foreign keys, and dataset accession shape all apply.
+    """
     data = _document(filepath)
     failures = _failures(
         filepath,
         data,
-        (check_valid_module_files, *MODEL_BEARING_CHECKS, *CONFORMS_TO_CHECKS),
+        (
+            check_valid_module_files,
+            *DISORDER_CHECKS,
+            *MODEL_BEARING_CHECKS,
+            *CONFORMS_TO_CHECKS,
+        ),
         validator=validator,
     )
     _assert_all_passed(filepath, failures)

@@ -11,30 +11,30 @@ content_type: url
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-    
+
     <head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
         <!-- AppResources meta begin -->
         <meta name="paf-app-resources" content="" />
                  <script type="text/javascript">var ncbi_startTime = new Date();</script>
-            
+
         <!-- AppResources meta end -->
-        
+
         <!-- TemplateResources meta begin -->
         <meta name="paf_template" content="" />
 
         <!-- TemplateResources meta end -->
-        
+
         <!-- Logger begin -->
         <meta name="ncbi_db" content="books" /><meta name="ncbi_pdid" content="book-part" /><meta name="ncbi_acc" content="NBK1441" /><meta name="ncbi_domain" content="gene" /><meta name="ncbi_report" content="record" /><meta name="ncbi_type" content="fulltext" /><meta name="ncbi_objectid" content="" /><meta name="ncbi_pcid" content="/NBK1441/" /><meta name="ncbi_pagename" content="Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome - GeneReviews® - NCBI Bookshelf" /><meta name="ncbi_bookparttype" content="chapter" /><meta name="ncbi_app" content="bookshelf" />
         <!-- Logger end -->
-        
+
         <title>Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome - GeneReviews® - NCBI Bookshelf</title>
-        
+
         <!-- AppResources external_resources begin -->
         <link rel="stylesheet" href="/core/jig/1.15.2/css/jig.min.css" /><script type="text/javascript" src="/core/jig/1.15.2/js/jig.min.js"></script>
 
         <!-- AppResources external_resources end -->
-        
+
         <!-- Page meta begin -->
         <meta name="robots" content="INDEX,FOLLOW,NOARCHIVE" /><meta name="citation_inbook_title" content="GeneReviews® [Internet]" /><meta name="citation_title" content="Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome" /><meta name="citation_publisher" content="University of Washington, Seattle" /><meta name="citation_date" content="2026/06/23" /><meta name="citation_author" content="Charlotte Matton" /><meta name="citation_author" content="Arnaud Thomaes" /><meta name="citation_author" content="Martine Cools" /><meta name="citation_author" content="Hannah Verdin" /><meta name="citation_author" content="Elfride De Baere" /><meta name="citation_pmid" content="20301614" /><meta name="citation_fulltext_html_url" content="https://www.ncbi.nlm.nih.gov/books/NBK1441/" /><meta name="citation_keywords" content="Blepharophimosis Syndrome" /><meta name="citation_keywords" content="BPES" /><meta name="citation_keywords" content="BPES" /><meta name="citation_keywords" content="Blepharophimosis Syndrome" /><meta name="citation_keywords" content="Forkhead box protein L2" /><meta name="citation_keywords" content="FOXL2" /><meta name="citation_keywords" content="Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome" /><link rel="schema.DC" href="http://purl.org/DC/elements/1.0/" /><meta name="DC.Title" content="Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome" /><meta name="DC.Type" content="Text" /><meta name="DC.Publisher" content="University of Washington, Seattle" /><meta name="DC.Contributor" content="Charlotte Matton" /><meta name="DC.Contributor" content="Arnaud Thomaes" /><meta name="DC.Contributor" content="Martine Cools" /><meta name="DC.Contributor" content="Hannah Verdin" /><meta name="DC.Contributor" content="Elfride De Baere" /><meta name="DC.Date" content="2026/06/23" /><meta name="DC.Identifier" content="https://www.ncbi.nlm.nih.gov/books/NBK1441/" /><meta name="description" content="Blepharophimosis, ptosis, and epicanthus inversus syndrome (BPES) is an eyelid malformation present at birth in all individuals involving, respectively, narrowing of the horizontal aperture of the eyelids, drooping of the upper eyelid, a skin fold arising from the lower eyelid and running inward and upward, and lateral displacement of the medial canthi. Other ocular findings that occur at increased rates compared to those in the general population include strabismus, refractive errors, and amblyopia. The second finding is age-related primary ovarian insufficiency (POI) in affected females characterized by reduced penetrance as well as interfamilial and intrafamilial variability. A minority of affected women experience primary amenorrhea (i.e., the absence of menarche by age 15 years due to ovarian dysfunction). Menarche is usually normal, followed by oligomenorrhea and secondary amenorrhea for at least four months. Secondary sexual characteristics are usually normal." /><meta name="og:title" content="Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome" /><meta name="og:type" content="book" /><meta name="og:description" content="Blepharophimosis, ptosis, and epicanthus inversus syndrome (BPES) is an eyelid malformation present at birth in all individuals involving, respectively, narrowing of the horizontal aperture of the eyelids, drooping of the upper eyelid, a skin fold arising from the lower eyelid and running inward and upward, and lateral displacement of the medial canthi. Other ocular findings that occur at increased rates compared to those in the general population include strabismus, refractive errors, and amblyopia. The second finding is age-related primary ovarian insufficiency (POI) in affected females characterized by reduced penetrance as well as interfamilial and intrafamilial variability. A minority of affected women experience primary amenorrhea (i.e., the absence of menarche by age 15 years due to ovarian dysfunction). Menarche is usually normal, followed by oligomenorrhea and secondary amenorrhea for at least four months. Secondary sexual characteristics are usually normal." /><meta name="og:url" content="https://www.ncbi.nlm.nih.gov/books/NBK1441/" /><meta name="og:site_name" content="NCBI Bookshelf" /><meta name="og:image" content="https://www.ncbi.nlm.nih.gov/corehtml/pmc/pmcgifs/bookshelf/thumbs/th-gene-lrg.png" /><meta name="twitter:card" content="summary" /><meta name="twitter:site" content="@ncbibooks" /><meta name="bk-non-canon-loc" content="/books/n/gene/bpes/" /><link rel="canonical" href="https://www.ncbi.nlm.nih.gov/books/NBK1441/" /><link rel="stylesheet" href="/corehtml/pmc/css/figpopup.css" type="text/css" media="screen" /><link rel="stylesheet" href="/corehtml/pmc/css/bookshelf/2.26/css/books.min.css" type="text/css" /><link rel="stylesheet" href="/corehtml/pmc/css/bookshelf/2.26/css/books_print.min.css" type="text/css" media="print" /><style type="text/css">p a.figpopup{display:inline !important} .bk_tt {font-family: monospace}  .first-line-outdent .bk_ref {display: inline}  .body-content h2, .body-content .h2  {border-bottom: 1px solid #97B0C8} .body-content h2.inline {border-bottom: none} a.page-toc-label , .jig-ncbismoothscroll a {text-decoration:none;border:0 !important} .temp-labeled-list  .graphic {display:inline-block !important} .temp-labeled-list  img{width:100%}</style><script type="text/javascript" src="/corehtml/pmc/js/jquery.hoverIntent.min.js"> </script><script type="text/javascript" src="/corehtml/pmc/js/common.min.js?_=3.18"> </script><script type="text/javascript" src="/corehtml/pmc/js/large-obj-scrollbars.min.js"> </script><script type="text/javascript">window.name="mainwindow";</script><script type="text/javascript" src="/corehtml/pmc/js/bookshelf/2.26/book-toc.min.js"> </script><script type="text/javascript" src="/corehtml/pmc/js/bookshelf/2.26/books.min.js"> </script><script type="text/javascript">if (typeof (jQuery) != 'undefined') { (function ($) { $(function () { var min = Math.ceil(1); var max = Math.floor(100000); var randomNum = Math.floor(Math.random() * (max - min)) + min; var surveyUrl = "/projects/Gene/portal/surveys/seqdbui-survey.js?rando=" + randomNum.toString(); $.getScript(surveyUrl, function () { try { ncbi.seqDbUISurvey.init(); } catch (err) { console.info(err); } }).fail(function (jqxhr, settings, exception) { console.info('Cannot load survey script', jqxhr); });; }); })(jQuery); };</script><meta name="book-collection" content="NONE" />
 
@@ -49,7 +49,7 @@ content_type: url
                     <noscript>
 	<p class="nojs">
 	<strong>Warning:</strong>
-	The NCBI web site requires JavaScript to function. 
+	The NCBI web site requires JavaScript to function.
 	<a href="/guide/browsers/#enablejs" title="Learn how to enable JavaScript" target="_blank">more...</a>
 	</p>
 	</noscript>
@@ -100,16 +100,16 @@ content_type: url
 	</section>
 	<div class="usa-overlay"></div>
 	<header class="ncbi-header" role="banner" data-section="Header">
-		
+
 		<div class="usa-grid">
 			<div class="usa-width-one-whole">
-				
+
 				<div class="ncbi-header__logo">
 					<a href="/" class="logo" aria-label="NCBI Logo" data-ga-action="click_image" data-ga-label="NIH NLM Logo">
 						<img src="https://www.ncbi.nlm.nih.gov/coreutils/nwds/img/logos/AgencyLogo.svg" alt="NIH NLM Logo" />
 					</a>
 				</div>
-				
+
 				<div class="ncbi-header__account">
 					<a id="account_login" href="https://account.ncbi.nlm.nih.gov" class="usa-button header-button" style="display:none" data-ga-action="open_menu" data-ga-label="account_menu">Log in</a>
 					<button id="account_info" class="header-button" style="display:none" aria-controls="account_popup" type="button">
@@ -125,7 +125,7 @@ content_type: url
 						<span class="sr-only">Show account info</span>
 					</button>
 				</div>
-				
+
 				<div class="ncbi-popup-anchor">
 					<div class="ncbi-popup account-popup" id="account_popup" aria-hidden="true">
 						<div class="ncbi-popup-head">
@@ -152,7 +152,7 @@ content_type: url
 						</div>
 					</div>
 				</div>
-				
+
 			</div>
 		</div>
 	</header>
@@ -165,7 +165,7 @@ content_type: url
 	</div>
 	<section data-section="Alerts">
 		<div class="ncbi-alerts-placeholder"></div>
-	</section>    
+	</section>
 </div>
                             <div class="header">
     <div class="res_logo"><h1 class="res_name"><a href="/books/" title="Bookshelf home">Bookshelf</a></h1><h2 class="res_tagline"></h2></div>
@@ -180,33 +180,33 @@ content_type: url
                     </li></ul></div>
 </div>
 
-                            
-                            
+
+
                         <!--<component id="Page" label="headcontent"/>-->
-                            
+
                         </div>
                         <div class="content">
                             <!-- site messages -->
                             <!-- Custom content 1 -->
 <div class="col1">
-    
+
 </div>
 
 <div class="container">
     <div id="maincontent" class="content eight_col col">
         <!-- Custom content in the left column above book nav -->
         <div class="col2">
-            
+
         </div>
-        
+
         <!-- Book content -->
-        
+
 
         <!-- Custom content between navigation and content -->
         <div class="col3">
-            
+
         </div>
-        
+
         <div class="document">
             <div class="pre-content"><div><div class="bk_prnt"><p class="small">NCBI Bookshelf. A service of the National Library of Medicine, National Institutes of Health.</p><p>Adam MP, Bick S, Mirzaa GM, et al., editors. GeneReviews® [Internet]. Seattle (WA): University of Washington, Seattle; 1993-2026. </p></div><div class="iconblock clearfix whole_rhythm no_top_margin bk_noprnt"><a class="img_link icnblk_img" title="All GeneReviews" href="/books/n/gene/"><img class="source-thumb" src="/corehtml/pmc/pmcgifs/bookshelf/thumbs/th-gene-lrg.png" alt="Cover of GeneReviews®" height="100px" width="80px" /></a><div class="icnblk_cntnt eight_col"><h2>GeneReviews<sup>®</sup> [Internet].</h2><a data-jig="ncbitoggler" href="#__NBK1441_dtls__">Show details</a><div style="display:none" class="ui-widget" id="__NBK1441_dtls__"><div>Adam MP, Bick S, Mirzaa GM, et al., editors.</div><div>Seattle (WA): <a href="http://www.washington.edu" ref="pagearea=page-banner&amp;targetsite=external&amp;targetcat=link&amp;targettype=publisher">University of Washington, Seattle</a>; 1993-2026.</div></div><div class="half_rhythm"><ul class="inline_list"><li style="margin-right:1em"><a class="bk_cntns" href="/books/n/gene/">GeneReviews by Title</a></li></ul></div><div class="bk_noprnt"><form method="get" action="/books/n/gene/" id="bk_srch"><div class="bk_search"><label for="bk_term" class="offscreen_noflow">Search term</label><input type="text" title="Search GeneReviews" id="bk_term" name="term" value="" data-jig="ncbiclearbutton" /> <input type="submit" class="jig-ncbibutton" value="Search GeneReviews" submit="false" style="padding: 0.1em 0.4em;" /></div></form><div><ul class="inline_list"><li><a href="/books/n/gene/advanced/">GeneReviews Advanced Search</a></li><li style="margin-left:.5em"><a href="/books/n/gene/helpadvsearch/">Help</a></li></ul></div></div></div><div class="icnblk_cntnt two_col"><div class="pagination bk_noprnt"></div></div></div></div></div>
             <div class="main-content lit-style" itemscope="itemscope" itemtype="http://schema.org/CreativeWork"><div class="meta-content fm-sec"><h1 id="_NBK1441_"><span class="title" itemprop="name">Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome</span></h1><div itemprop="alternativeHeadline" class="subtitle whole_rhythm">Synonyms: Blepharophimosis Syndrome, BPES</div><p class="contrib-group"><span itemprop="author">Charlotte Matton</span>, MSc, <span itemprop="author">Arnaud Thomaes</span>, BSc, <span itemprop="author">Martine Cools</span>, MD, PhD, <span itemprop="author">Hannah Verdin</span>, MSc, PhD, and <span itemprop="author">Elfride De Baere</span>, MD, PhD.</p><a data-jig="ncbitoggler" href="#__NBK1441_ai__" style="border:0;text-decoration:none">Author Information and Affiliations</a><div style="display:none" class="ui-widget" id="__NBK1441_ai__"><div class="contrib half_rhythm"><span itemprop="author">Charlotte Matton</span>, MSc<div class="affiliation small">Department of Biomolecular Medicine<br />Ghent University<br />Ghent, Belgium<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="eb.tnegu@nottam.ettolrahc" class="oemail">eb.tnegu@nottam.ettolrahc</a></div></div></div><div class="contrib half_rhythm"><span itemprop="author">Arnaud Thomaes</span>, BSc<div class="affiliation small">Department of Biomolecular Medicine<br />Ghent University<br />Ghent, Belgium<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="eb.tnegu@seamoht.duanra" class="oemail">eb.tnegu@seamoht.duanra</a></div></div></div><div class="contrib half_rhythm"><span itemprop="author">Martine Cools</span>, MD, PhD<div class="affiliation small">Department of Pediatric Endocrinology, Ghent University Hospital;<br />Department of Internal Medicine and Pediatrics<br />Ghent University<br />Ghent, Belgium<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="eb.tnegu@slooc.enitram" class="oemail">eb.tnegu@slooc.enitram</a></div></div></div><div class="contrib half_rhythm"><span itemprop="author">Hannah Verdin</span>, MSc, PhD<div class="affiliation small">Center for Medical Genetics<br />Ghent University Hospital<br />Ghent, Belgium<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="eb.tnegu@nidrev.hannah" class="oemail">eb.tnegu@nidrev.hannah</a></div></div></div><div class="contrib half_rhythm"><span itemprop="author">Elfride De Baere</span>, MD, PhD<div class="affiliation small">Department of Biomolecular Medicine<br />Ghent University<br />Ghent, Belgium</div><div class="affiliation small">Center for Medical Genetics<br />Ghent University Hospital<br />Ghent, Belgium<div><span class="email-label">Email: </span><a href="mailto:dev@null" data-email="eb.tnegu@ereabed.edirfle" class="oemail">eb.tnegu@ereabed.edirfle</a></div></div></div></div><p class="small">Initial Posting: <span itemprop="datePublished">July 8, 2004</span>; Last Update: <span itemprop="dateModified">June 23, 2026</span>.</p><p><em>Estimated reading time: 25 minutes</em></p></div><div class="jig-ncbiinpagenav body-content whole_rhythm" data-jigconfig="allHeadingLevels: ['h2'],smoothScroll: false" itemprop="text"><div id="bpes.Summary" itemprop="description"><h2 id="_bpes_Summary_">Summary</h2><div><h4 class="inline">Clinical characteristics.</h4><p>Blepharophimosis, ptosis, and epicanthus inversus syndrome (BPES) is an eyelid malformation present at birth in all individuals involving, respectively, narrowing of the horizontal aperture of the eyelids, drooping of the upper eyelid, a skin fold arising from the lower eyelid and running inward and upward, and lateral displacement of the medial canthi. Other ocular findings that occur at increased rates compared to those in the general population include strabismus, refractive errors, and amblyopia. The second finding is age-related primary ovarian insufficiency (POI) in affected females characterized by reduced <a class="def" href="/books/n/gene/glossary/def-item/penetrance/">penetrance</a> as well as interfamilial and <a class="def" href="/books/n/gene/glossary/def-item/intrafamilial-variability/">intrafamilial variability</a>. A minority of affected women experience primary amenorrhea (i.e., the absence of menarche by age 15 years due to ovarian dysfunction). Menarche is usually normal, followed by oligomenorrhea and secondary amenorrhea for at least four months. Secondary sexual characteristics are usually normal.</p></div><div><h4 class="inline">Diagnosis/testing.</h4><p>The diagnosis of BPES is established in a <a class="def" href="/books/n/gene/glossary/def-item/proband/">proband</a> with suggestive findings and a <a class="def" href="/books/n/gene/glossary/def-item/heterozygous/">heterozygous</a> <a class="def" href="/books/n/gene/glossary/def-item/pathogenic-variant/">pathogenic variant</a> in <i>FOXL2</i> or its regulatory <a class="def" href="/books/n/gene/glossary/def-item/domain/">domain</a> identified by <a class="def" href="/books/n/gene/glossary/def-item/molecular-genetic-testing/">molecular genetic testing</a>.</p></div><div><h4 class="inline">Management.</h4><p><i>Treatment of manifestations:</i> Multidisciplinary care by specialists in pediatric ophthalmology (to correct refractive errors and manage strabismus), oculoplastic surgery (to correct eyelid malformations), pediatric or adult endocrinology (to diagnose and manage POI), and reproductive endocrinology, gynecology, and/or psychology (to discuss options for parenthood and provide emotional support as needed).</p><p><i>Surveillance:</i> Individualized follow up with the treating ophthalmologist, treating oculoplastic surgeon, and treating endocrinologist and gynecologist is recommended.</p><p><i>Agents/circumstances to avoid:</i> Delaying ophthalmologic evaluation and/or surgical correction can lead to severe amblyopia and permanent vision loss if not treated in childhood. Before surgery, eye rubbing should be minimized to avoid damaging the cornea. Because of the risk of POI, endocrinologic and gynecologic follow up without evaluation of ovarian reserve may reduce reproductive options.</p><p><i>Evaluation of relatives at risk:</i> Evaluate older and younger at-risk relatives of an affected individual in order to identify as early as possible those who would benefit from ophthalmic surveillance and, in female relatives, endocrinologic surveillance to monitor ovarian function.</p></div><div><h4 class="inline">Genetic counseling.</h4><p>BPES is inherited in an <a class="def" href="/books/n/gene/glossary/def-item/autosomal-dominant/">autosomal dominant</a> manner. More than half of individuals diagnosed with BPES have an affected parent. Some individuals have the disorder as the result of a <a class="def" href="/books/n/gene/glossary/def-item/de-novo/"><i>de novo</i></a> genetic alteration. Each child of an individual with BPES has a 50% chance of inheriting the causative genetic alteration. Females with BPES should be informed regarding the risk of POI and the importance of endocrinologic surveillance to monitor ovarian function. Once the BPES-causing genetic alteration has been identified in an affected family member, prenatal and <a class="def" href="/books/n/gene/glossary/def-item/preimplantation-genetic-testing/">preimplantation genetic testing</a> are possible.</p></div></div><div id="bpes.Diagnosis"><h2 id="_bpes_Diagnosis_">Diagnosis</h2><p>No consensus clinical diagnostic criteria for blepharophimosis, ptosis, and epicanthus inversus syndrome (BPES) have been published.</p><div id="bpes.Suggestive_Findings"><h3>Suggestive Findings</h3><p>BPES <b>should be suspected</b> in individuals with the following clinical findings and family history.</p><p>
@@ -758,20 +758,20 @@ Am J Hum Genet.
 1983;35:1020&#x02013;7.
  [<a href="/pmc/articles/PMC1685801/" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pmc">PMC free article<span class="bk_prnt">: PMC1685801</span></a>] [<a href="https://pubmed.ncbi.nlm.nih.gov/6613996" ref="pagearea=cite-ref&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">PubMed<span class="bk_prnt">: 6613996</span></a>]</div></li></ul></div></div><div id="bk_toc_contnr"></div></div></div>
             <div class="post-content"><div><div class="half_rhythm"><a href="/books/about/copyright/">Copyright</a> © 1993-2026, University of Washington, Seattle. GeneReviews is a registered trademark of the University of Washington, Seattle. All rights reserved. Test.<p class="small">GeneReviews® chapters are owned by the University of Washington. Permission is hereby granted to reproduce, distribute, and translate copies of content materials for noncommercial research purposes only, provided that (i) credit for source (<a href="https://www.genereviews.org/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">https://www.genereviews.org</a>) and copyright (© 1993-2026 University of Washington) are included with each copy; (ii) a link to the original material is provided whenever the material is published elsewhere on the Web; and (iii) reproducers, distributors, and/or translators comply with the <a href="https://www.ncbi.nlm.nih.gov/books/n/gene/GRcopyright_permiss/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">GeneReviews® Copyright Notice and Usage Disclaimer</a>. No further modifications are allowed. For clarity, excerpts of GeneReviews chapters for use in lab reports and clinic notes are a permitted use.</p><p class="small">For more information, see the <a href="https://www.ncbi.nlm.nih.gov/books/n/gene/GRcopyright_permiss/" ref="pagearea=meta&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">GeneReviews® Copyright Notice and Usage Disclaimer</a>.</p><p class="small">For questions regarding permissions or whether a specified use is allowed, contact: addmast@wu.edu</p></div><div class="small"><span class="label">Bookshelf ID: NBK1441</span><span class="label">PMID: <a href="https://pubmed.ncbi.nlm.nih.gov/20301614" title="PubMed record of this page" ref="pagearea=meta&amp;targetsite=entrez&amp;targetcat=link&amp;targettype=pubmed">20301614</a></span></div><div style="margin-top:2em" class="bk_noprnt"><a class="bk_cntns" href="/books/n/gene/">GeneReviews by Title</a><div class="pagination bk_noprnt"></div></div></div></div>
-            
+
         </div>
 
         <!-- Custom content below content -->
         <div class="col4">
-            
+
         </div>
-        
-        
+
+
         <!-- Book content -->
-        
+
         <!-- Custom contetnt below bottom nav -->
         <div class="col5">
-            
+
         </div>
     </div>
 
@@ -782,20 +782,20 @@ Am J Hum Genet.
 
         </div>
         <div xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Views</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="PDF_download" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="/books/NBK1441/?report=reader">PubReader</a></li><li><a href="/books/NBK1441/?report=printable">Print View</a></li><li><a data-jig="ncbidialog" href="#_ncbi_dlg_citbx_NBK1441" data-jigconfig="width:400,modal:true">Cite this Page</a><div id="_ncbi_dlg_citbx_NBK1441" style="display:none" title="Cite this Page"><div class="bk_tt">Matton C, Thomaes A, Cools M, et al. Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome. 2004 Jul 8 [Updated 2026 Jun 23]. In: Adam MP, Bick S, Mirzaa GM, et al., editors. GeneReviews® [Internet]. Seattle (WA): University of Washington, Seattle; 1993-2026. <span class="bk_cite_avail"></span></div></div></li><li><a href="/books/NBK1441/pdf/Bookshelf_NBK1441.pdf">PDF version of this page</a> (475K)</li><li><a href="#" class="toggle-glossary-link" title="Enable/disable links to the glossary">Disable Glossary Links</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>In this GeneReview</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="page-toc" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="#bpes.Summary" ref="log$=inpage&amp;link_id=inpage">Summary</a></li><li><a href="#bpes.Diagnosis" ref="log$=inpage&amp;link_id=inpage">Diagnosis</a></li><li><a href="#bpes.Clinical_Characteristics" ref="log$=inpage&amp;link_id=inpage">Clinical Characteristics</a></li><li><a href="#bpes.Genetically_Related_Allelic_Disorde" ref="log$=inpage&amp;link_id=inpage">Genetically Related (Allelic) Disorders</a></li><li><a href="#bpes.Differential_Diagnosis" ref="log$=inpage&amp;link_id=inpage">Differential Diagnosis</a></li><li><a href="#bpes.Management" ref="log$=inpage&amp;link_id=inpage">Management</a></li><li><a href="#bpes.Genetic_Counseling" ref="log$=inpage&amp;link_id=inpage">Genetic Counseling</a></li><li><a href="#bpes.Resources" ref="log$=inpage&amp;link_id=inpage">Resources</a></li><li><a href="#bpes.Molecular_Genetics" ref="log$=inpage&amp;link_id=inpage">Molecular Genetics</a></li><li><a href="#bpes.Chapter_Notes" ref="log$=inpage&amp;link_id=inpage">Chapter Notes</a></li><li><a href="#bpes.References" ref="log$=inpage&amp;link_id=inpage">References</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Bulk Download</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="source-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="https://ftp.ncbi.nlm.nih.gov/pub/litarch/ca/84/" ref="pagearea=source-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri">Bulk download GeneReviews data from FTP</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>GeneReviews Links</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="source-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="/books/n/gene/advanced/"><i>GeneReviews</i> Advanced Search</a></li><li><a href="/books/n/gene/glossary/"><i>GeneReviews</i> Glossary</a></li><li><a href="/books/n/gene/resource_mats/">Resource Materials</a></li><li><a href="/books/n/gene/updates/">New in <i>GeneReviews</i></a></li><li><a href="/books/n/gene/authors/">Author List</a></li><li><a href="/books/n/gene/prospective_authors/">For Current/Prospective Authors</a></li><li><a href="/books/n/gene/GRpersonnel/"><i>GeneReviews</i> Personnel</a></li><li><a href="/books/n/gene/howto_linkin/">Download/Link to <i>GeneReviews</i></a></li><li><a href="/books/n/gene/contact_us/">Contact Us</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Tests in GTR by Gene</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="document-links" id="Shutter"></a></div><div class="portlet_content"><ul xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="simple-list"><li><a href="https://www.ncbi.nlm.nih.gov/gtr/tests/?term=668[geneid]" ref="pagearea=document-links&amp;targetsite=external&amp;targetcat=link&amp;targettype=uri&amp;link_id=tests_in_gtr_by_gene">FOXL2</a></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Related information</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="discovery_db_links" id="Shutter"></a></div><div class="portlet_content"><ul><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=medgen&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_medgen&amp;IdsFromResult=1470484" ref="log$=recordlinks">MedGen</a><div class="brieflinkpop offscreen_noflow">Related information in MedGen</div></li><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=omim&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_omim&amp;IdsFromResult=1470484" ref="log$=recordlinks">OMIM</a><div class="brieflinkpop offscreen_noflow">Related OMIM records</div></li><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=pmc&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_pmc_refs&amp;IdsFromResult=1470484" ref="log$=recordlinks">PMC</a><div class="brieflinkpop offscreen_noflow">PubMed Central citations</div></li><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=pubmed&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_pubmed_refs&amp;IdsFromResult=1470484" ref="log$=recordlinks">PubMed</a><div class="brieflinkpop offscreen_noflow">Links to PubMed</div></li><li class="brieflinkpopper"><a class="brieflinkpopperctrl" href="/books/?Db=gene&amp;DbFrom=books&amp;Cmd=Link&amp;LinkName=books_gene&amp;IdsFromResult=1470484" ref="log$=recordlinks">Gene</a><div class="brieflinkpop offscreen_noflow">Locus Links</div></li></ul></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Similar articles in PubMed</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="PBooksDiscovery_RA" id="Shutter"></a></div><div class="portlet_content"><ul><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/20301575" ref="ordinalpos=1&amp;linkpos=1&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Fanconi Anemia.</a><span class="source">[GeneReviews(®). 1993]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> Fanconi Anemia.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Mehta PA, Ebens CL. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">GeneReviews(®). 1993</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/20301534" ref="ordinalpos=1&amp;linkpos=2&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> PAX6 Aniridia Syndrome.</a><span class="source">[GeneReviews(®). 1993]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> PAX6 Aniridia Syndrome.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Kit V, Oluonye N, Moosajee M. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">GeneReviews(®). 1993</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/20301472" ref="ordinalpos=1&amp;linkpos=3&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> COL1A1- and COL1A2-Related Osteogenesis Imperfecta.</a><span class="source">[GeneReviews(®). 1993]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> COL1A1- and COL1A2-Related Osteogenesis Imperfecta.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Rodriguez Celin M, Steiner RD, Basel D. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">GeneReviews(®). 1993</em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/21934608" ref="ordinalpos=1&amp;linkpos=4&amp;log$=relatedarticles&amp;logdbfrom=pubmed">Blepharophimosis-ptosis-epicanthus inversus syndrome plus: deletion 3q22.3q23 in a patient with characteristic facial features and with genital anomalies, spastic diplegia, and speech delay.</a><span class="source">[Clin Dysmorphol. 2012]</span><div class="brieflinkpop offscreen_noflow">Blepharophimosis-ptosis-epicanthus inversus syndrome plus: deletion 3q22.3q23 in a patient with characteristic facial features and with genital anomalies, spastic diplegia, and speech delay.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Zahanova S, Meaney B, Łabieniec B, Verdin H, De Baere E, Nowaczyk MJM. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">Clin Dysmorphol. 2012 Jan; 21(1):48-52. </em></div></div></li><li class="brieflinkpopper two_line"><a class="brieflinkpopperctrl" href="/pubmed/21595125" ref="ordinalpos=1&amp;linkpos=5&amp;log$=relatedreviews&amp;logdbfrom=pubmed"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> AFG3L2-Related Neurologic Disorders.</a><span class="source">[GeneReviews(®). 1993]</span><div class="brieflinkpop offscreen_noflow"><span xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="invert">Review</span> AFG3L2-Related Neurologic Disorders.<div class="brieflinkpopdesc"><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="author">Coarelli G, Mouraux C. </em><em xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" class="cit">GeneReviews(®). 1993</em></div></div></li></ul><a class="seemore" href="/sites/entrez?db=pubmed&amp;cmd=link&amp;linkname=pubmed_pubmed_reviews&amp;uid=20301614" ref="ordinalpos=1&amp;log$=relatedreviews_seeall&amp;logdbfrom=pubmed">See reviews...</a><a class="seemore" href="/sites/entrez?db=pubmed&amp;cmd=link&amp;linkname=pubmed_pubmed&amp;uid=20301614" ref="ordinalpos=1&amp;log$=relatedarticles_seeall&amp;logdbfrom=pubmed">See all...</a></div></div><div class="portlet"><div class="portlet_head"><div class="portlet_title"><h3><span>Recent Activity</span></h3></div><a name="Shutter" sid="1" href="#" class="portlet_shutter" title="Show/hide content" remembercollapsed="true" pgsec_name="recent_activity" id="Shutter"></a></div><div class="portlet_content"><div xmlns:np="http://ncbi.gov/portal/XSLT/namespace" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" id="HTDisplay" class=""><div class="action"><a href="javascript:historyDisplayState('ClearHT')">Clear</a><a href="javascript:historyDisplayState('HTOff')" class="HTOn">Turn Off</a><a href="javascript:historyDisplayState('HTOn')" class="HTOff">Turn On</a></div><ul id="activity"><li class="ra_rcd ralinkpopper two_line"><a class="htb ralinkpopperctrl" ref="log$=activity&amp;linkpos=1" href="/portal/utils/pageresolver.fcgi?recordid=6a6d97688a500154faa92207">Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome - GeneReviews®</a><div class="ralinkpop offscreen_noflow">Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome - GeneReviews®<div class="brieflinkpopdesc"></div></div><div class="tertiary"></div></li></ul><p class="HTOn">Your browsing activity is empty.</p><p class="HTOff">Activity recording is turned off.</p><p id="turnOn" class="HTOff"><a href="javascript:historyDisplayState('HTOn')">Turn recording back on</a></p><a class="seemore" href="/sites/myncbi/recentactivity">See more...</a></div></div></div>
-        
+
         <!-- Custom content below discovery portlets -->
         <div class="col7">
-            
+
         </div>
     </div>
 </div>
 
 <!-- Custom content after all -->
 <div class="col8">
-    
+
 </div>
 <div class="col9">
-    
+
 </div>
 
 <script type="text/javascript" src="/corehtml/pmc/js/jquery.scrollTo-1.4.2.js"></script>
@@ -817,11 +817,11 @@ Am J Hum Genet.
 </script>
                         </div>
                         <div class="bottom">
-                            
+
                             <div id="NCBIFooter_dynamic">
     <!--<component id="Breadcrumbs" label="breadcrumbs"/>
     <component id="Breadcrumbs" label="helpdesk"/>-->
-    
+
 </div>
 
                             <div class="footer" id="footer">
@@ -858,7 +858,7 @@ Am J Hum Genet.
 							.cls-12 {
 							fill: #737373;
 							}
-							
+
 							.cls-11 {
 							fill-rule: evenodd;
 							}
@@ -890,7 +890,7 @@ Am J Hum Genet.
 			</div>
 		</div>
 	</section>
-	
+
 	<section class="container-fluid bg-primary">
 		<div class="container pt-5">
 			<div class="row mt-3">
@@ -1002,7 +1002,7 @@ Am J Hum Genet.
 			</div>
 		</div>
 	</section>
-	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>    
+	<script type="text/javascript" src="/portal/portal3rc.fcgi/rlib/js/InstrumentOmnitureBaseJS/InstrumentNCBIConfigJS/InstrumentNCBIBaseJS/InstrumentPageStarterJS.js?v=1"> </script>
 	<script type="text/javascript" src="/portal/portal3rc.fcgi/static/js/hfjs2.js"> </script>
 </div>
                         </div>
@@ -1015,17 +1015,17 @@ Am J Hum Genet.
         <!-- /.grid -->
 
         <span class="PAFAppResources"></span>
-        
+
         <!-- BESelector tab -->
-        
-        
-        
+
+
+
         <noscript><img alt="statistics" src="/stat?jsdisabled=true&amp;ncbi_db=books&amp;ncbi_pdid=book-part&amp;ncbi_acc=NBK1441&amp;ncbi_domain=gene&amp;ncbi_report=record&amp;ncbi_type=fulltext&amp;ncbi_objectid=&amp;ncbi_pcid=/NBK1441/&amp;ncbi_pagename=Blepharophimosis, Ptosis, and Epicanthus Inversus Syndrome - GeneReviews® - NCBI Bookshelf&amp;ncbi_bookparttype=chapter&amp;ncbi_app=bookshelf" /></noscript>
-        
-        
+
+
         <!-- usually for JS scripts at page bottom -->
         <!--<component id="PageFixtures" label="styles"></component>-->
-    
+
 
 <!-- CE8DCA22A6D97681_0063SID /projects/books/PBooks@9.11 portal106 v4.1.r705435 Wed, Jan 07 2026 01:27:30 -->
 <span id="portal-csrf-token" style="display:none" data-token="CE8DCA22A6D97681_0063SID"></span>

@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Japanese Spotted Fever · OpenScientist · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        nav {
+            position: sticky;
+            top: 0;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--gray-200);
+            z-index: 100;
+            padding: 0.75rem 1.5rem;
+        }
+
+        .nav-inner {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+
+        .nav-logo {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: var(--teal);
+            letter-spacing: -0.02em;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.2rem;
+            align-items: center;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            color: var(--gray-600);
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        .gh-icon {
+            width: 18px;
+            height: 18px;
+            vertical-align: middle;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            nav {
+                padding: 0.7rem 1rem;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <nav>
+        <div class="nav-inner">
+            <a href="../../" class="nav-logo">dismech</a>
+            <div class="nav-links">
+                <a href="../../app/index.html">Browse</a>
+                <a href="../../app/embeddings/index.html">Embeddings</a>
+                <a href="../../details/">Docs</a>
+                <a href="../../pages/modules/index.html">Modules</a>
+                <a href="../../pages/comorbidities/">Trajectories</a>
+                <a href="../../pages/classifications/">Classifications</a>
+                <a href="../../pages/genes/">Genes</a>
+                <a href="index.html" class="active">Research</a>
+                <a href="../../elements/">Schema</a>
+                <a href="https://github.com/monarch-initiative/dismech" aria-label="GitHub">
+                    <svg class="gh-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Japanese Spotted Fever</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Japanese Spotted Fever</h1>
+                
+                <p class="report-subtitle">Japanese Spotted Fever (MONDO:0000233): A Comprehensive Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-09-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-openscientist">OpenScientist</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0000233" target="_blank" rel="noopener noreferrer">MONDO:0000233</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: openscientist-autonomous</span>
+                    
+                    
+                    <span class="meta-chip">34 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) 1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 &#10;Resolve with: git log --find-object=1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>1e7ea4ee817a</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Japanese Spotted Fever (<a href="http://purl.obolibrary.org/obo/MONDO_0000233" target="_blank" rel="noopener noreferrer">MONDO:0000233</a>): A Comprehensive Disease Characteristics Report</h1>
+<h2>Summary</h2>
+<p><strong>Japanese Spotted Fever (JSF)</strong> is an acute, tick-borne rickettsiosis caused by <em>Rickettsia japonica</em>, an obligate intracellular Gram-negative alpha-proteobacterium of the spotted fever group (SFG). First clinically described by Mahara in 1984, JSF is endemic to Japan, where it is now the <strong>second most common acari-borne disease</strong> after scrub typhus (32.9% of 18,295 cases in national surveillance 1999–2025). Its incidence is rising and its geographic range is expanding both eastward and northward across the Japanese archipelago. The disease is a classic <strong>zoonosis</strong>: humans are incidental dead-end hosts infected when bitten by <em>Haemaphysalis</em> and related ixodid ticks that maintain the pathogen enzootically with wild boars, deer, and rodents as amplifying blood-meal hosts.</p>
+<p>Clinically, JSF presents with a <strong>triad of fever, rash, and inoculation eschar (tache noire)</strong>. The rash characteristically involves the palms and soles and may become petechial/purpuric — a feature that helps distinguish it from scrub typhus. The core pathophysiology is a <strong>disseminated small-vessel vasculitis</strong>: <em>R. japonica</em> infects and replicates within vascular endothelial cells, triggering a hypercytokinemic ("cytokine storm") inflammatory response that can escalate to disseminated intravascular coagulation (DIC), purpura fulminans, and multi-organ failure. Because JSF is an <strong>acquired infectious disease, host genetic causation and Mendelian inheritance are Not Applicable</strong>; there are no causal genes, pathogenic variants, or heritable risk loci.</p>
+<p>The single most important prognostic lever is <strong>early tetracycline therapy</strong> (minocycline or doxycycline). Overall case-fatality is low (~1%) with prompt treatment but climbs to <strong>14–16% in severe or delayed-treatment cohorts</strong>. Independent risk factors for severe disease are advanced age (≥75 years), male sex, and treatment delay (≥4 days from onset). Adjunctive fluoroquinolones are used for fulminant cases but show <strong>no nationwide mortality benefit</strong> over tetracyclines alone. No vaccine exists; prevention rests entirely on tick-bite avoidance (permethrin-treated clothing, DEET, tick checks).</p>
+<hr />
+<h2>Key Findings</h2>
+<h3>1. Disease Information</h3>
+<p>Japanese Spotted Fever (synonyms: <strong>Oriental Spotted Fever</strong>) is an acute infectious tick-borne rickettsiosis. Key identifiers:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Identifier system</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mondo</td>
+<td><strong><a href="http://purl.obolibrary.org/obo/MONDO_0000233" target="_blank" rel="noopener noreferrer">MONDO:0000233</a></strong></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td><strong>A77.8</strong> (other spotted fevers) / A77.9</td>
+</tr>
+<tr>
+<td>NCBI Taxon (pathogen)</td>
+<td><strong>txid35790</strong> (<em>Rickettsia japonica</em>)</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>Not applicable (acquired infection, not Mendelian)</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>Not a distinct Mendelian rare-disease entry</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>Indexed under spotted fever / Rickettsia infections</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Information is derived overwhelmingly from <strong>aggregated disease-level resources</strong> — surveillance cohorts, multicenter case series, and autopsy reports — rather than individual EHR records. The disease was first clinically described in Japan in 1984 (Mahara). <em>(Finding F010)</em></p>
+<h3>2. Etiology</h3>
+<p><strong>Primary cause — infectious.</strong> JSF is caused by <em>Rickettsia japonica</em>, a spotted fever group rickettsia. In a molecular survey of 4,549 questing ticks (747 pools) in Ibaraki Prefecture, 38.7% of pools were <em>Rickettsia</em>-positive, and <em>R. japonica</em> was detected <strong>only in <em>Haemaphysalis hystricis</em></strong>; nineteen nearby wild boars were heavily infested with this tick, implicating them as key blood-meal hosts/dispersers (<a href="https://pubmed.ncbi.nlm.nih.gov/42697132/">PMID: 42697132</a>). Other Japanese ticks carrying SFG rickettsiae include <em>Amblyomma testudinarium</em>, <em>Haemaphysalis flava</em>, and <em>Ixodes</em> spp. (<a href="https://pubmed.ncbi.nlm.nih.gov/41720337/">PMID: 41720337</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40601071/">PMID: 40601071</a>). <em>(Finding F001)</em></p>
+<blockquote>
+<p><em>"Among these positive samples, R. japonica was detected only in Haemaphysalis hystricis. Nineteen wild boars captured near the tick sampling sites exhibited heavy infestations with H. hystricis, suggesting that wild boars are important blood-meal hosts for this tick species"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42697132/">PMID: 42697132</a></p>
+</blockquote>
+<p><strong>Risk factors.</strong>
+- <em>Genetic:</em> <strong>None identified.</strong> JSF has no known causal variants, susceptibility loci, or modifier genes — consistent with an acquired infection.
+- <em>Environmental / host:</em> Advanced age (≥75), male sex, rural/outdoor occupational exposure (farming, forestry, citrus cultivation), and seasonal activity April–October coinciding with tick questing. Treatment delay is the dominant modifiable determinant of severity. <em>(Findings F003, F011)</em></p>
+<p><strong>Protective factors.</strong> No genetic protective alleles are known. Environmental protection is behavioral: avoiding tick bites and, critically, <strong>early empirical tetracycline</strong> on clinical suspicion. Gene–environment interactions are Not Applicable given the absence of a host-genetic component.</p>
+<h3>3. Phenotypes</h3>
+<p>The hallmark is the <strong>clinical triad</strong>: fever, rash, and eschar. Frequencies from Japanese surveillance cohorts:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype (suggested HPO)</th>
+<th>Frequency</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever (<a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a>)</td>
+<td>87–100%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">PMID: 35545515</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39477520/">PMID: 39477520</a></td>
+</tr>
+<tr>
+<td>Systemic erythema / rash (<a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" rel="noopener noreferrer">HP:0000988</a>)</td>
+<td>48–100%</td>
+<td>Same</td>
+</tr>
+<tr>
+<td>Eschar / tache noire (<a href="http://purl.obolibrary.org/obo/HP_0200041" target="_blank" rel="noopener noreferrer">HP:0200041</a> skin ulcer)</td>
+<td>79.4%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39477520/">PMID: 39477520</a></td>
+</tr>
+<tr>
+<td>Tick-bite history</td>
+<td>73.6%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">PMID: 35545515</a></td>
+</tr>
+<tr>
+<td>Liver dysfunction (<a href="http://purl.obolibrary.org/obo/HP_0001410" target="_blank" rel="noopener noreferrer">HP:0001410</a>)</td>
+<td>~69%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">PMID: 35545515</a></td>
+</tr>
+<tr>
+<td>Purpura / palmar-plantar rash (<a href="http://purl.obolibrary.org/obo/HP_0000979" target="_blank" rel="noopener noreferrer">HP:0000979</a>)</td>
+<td>Characteristic</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30124190/">PMID: 30124190</a></td>
+</tr>
+<tr>
+<td>DIC (<a href="http://purl.obolibrary.org/obo/HP_0005521" target="_blank" rel="noopener noreferrer">HP:0005521</a>)</td>
+<td>14.3% (overall); ~100% in severe ICU series</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">PMID: 35545515</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/36386421/">PMID: 36386421</a></td>
+</tr>
+<tr>
+<td>Neurological symptoms (<a href="http://purl.obolibrary.org/obo/HP_0000707" target="_blank" rel="noopener noreferrer">HP:0000707</a>)</td>
+<td>11.0%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">PMID: 35545515</a></td>
+</tr>
+<tr>
+<td>Hyponatremia (<a href="http://purl.obolibrary.org/obo/HP_0002902" target="_blank" rel="noopener noreferrer">HP:0002902</a>)</td>
+<td>Characteristic</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30124190/">PMID: 30124190</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<blockquote>
+<p><em>"Clinical findings more frequently observed in JSF than in ST patients were purpura, palmar/plantar rash, hyponatremia, organ damage, and delayed defervescence after treatment"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/30124190/">PMID: 30124190</a></p>
+</blockquote>
+<p><strong>Characteristics:</strong> onset is <strong>acute and adult/geriatric-skewed</strong> (median ages in the 70s in Japanese cohorts); severity ranges from mild self-limited to fulminant; progression is monophasic but can escalate rapidly over days without treatment. Quality-of-life impact in survivors is generally full recovery, though residual hyperpigmentation and prolonged neurocognitive deficits (see MERS below) can occur. <em>(Findings F002, F011)</em></p>
+<h3>4. Genetic / Molecular Information</h3>
+<p><strong>Not Applicable for host genetics.</strong> JSF is an acquired bacterial infection with <strong>no causal human genes, no pathogenic germline/somatic variants, no modifier genes, no disease-specific epigenetic signatures, and no chromosomal abnormalities.</strong></p>
+<p>The relevant molecular biology is that of the <strong>pathogen</strong>. The complete genome of <em>R. japonica</em> strain YH has been sequenced (~1.28 Mb circular chromosome, low G+C ~37%) and characterized comparatively against other SFG rickettsiae (<a href="https://pubmed.ncbi.nlm.nih.gov/31866968/">PMID: 31866968</a>). As an obligate intracellular organism, <em>R. japonica</em> invades and replicates free in the host endothelial cytosol; virulence involves <strong>actin-based motility</strong> and outer-membrane proteins (<strong>rOmpA/rOmpB, sca family</strong>) shared across SFG rickettsiae. <em>(Finding F010)</em></p>
+<h3>5. Environmental Information</h3>
+<ul>
+<li><strong>Environmental factors:</strong> rural/wooded/agricultural exposure where questing ticks are present; seasonality April–October.</li>
+<li><strong>Lifestyle factors:</strong> outdoor occupations (farming, forestry) and recreation increase tick contact.</li>
+<li><strong>Infectious agent:</strong> <strong><em>Rickettsia japonica</em></strong> (NCBI:txid35790), SFG, family Rickettsiaceae. Transmitted by <em>Haemaphysalis hystricis</em>, <em>H. flava</em>, <em>H. longicornis</em>, <em>Amblyomma testudinarium</em>, and <em>Ixodes</em> spp. <em>(Findings F001, F010, F012)</em></li>
+</ul>
+<h3>6. Mechanism / Pathophysiology</h3>
+<p><strong>Ordered causal chain (initiating lesion → clinical manifestation):</strong></p>
+<ol>
+<li>Infected tick bite <strong>inoculates</strong> <em>R. japonica</em> into the dermis → local endothelial infection <strong>produces</strong> the eschar (tache noire) at the bite site.</li>
+<li><em>R. japonica</em> <strong>invades</strong> vascular endothelial cells and replicates in the cytosol (actin-based motility) → <strong>causes</strong> cell-to-cell spread and endothelial injury.</li>
+<li>Endothelial infection <strong>triggers</strong> a local and systemic inflammatory/immune response → <strong>results in</strong> small-vessel <strong>vasculitis</strong> (lymphohistiocytic capillaritis/venulitis progressing to leukocytoclastic vasculitis; inferred from analogous RMSF histology).</li>
+<li>Vasculitis + endothelial damage <strong>drives</strong> hypercytokinemia (elevated M-CSF, IL-1β, IL-10, IFN-γ, TNF-α) → <strong>causes</strong> the "cytokine storm."</li>
+<li>Cytokine storm + endothelial injury <strong>increases</strong> vascular permeability and activates coagulation → <strong>leads to</strong> the maculopapular/petechial rash, hyponatremia, and (in severe cases) <strong>DIC</strong>.</li>
+<li>DIC + microvascular thrombosis/hemorrhage <strong>produce</strong> multi-organ injury — hepatitis, acute renal failure (glomerular microhemorrhage), interstitial pneumonitis, CNS involvement, purpura fulminans → <strong>culminating in</strong> multi-organ failure and, if untreated/delayed, death.</li>
+</ol>
+<p><strong>Branch:</strong> With early tetracycline (step 2 interrupted), rapid defervescence (24–48 h) and full recovery follow. Without it, the chain proceeds to steps 5–6.</p>
+<p>Autopsy of fatal JSF confirmed vasculitis with neutrophilic dermal, pulmonary-interstitial, and glomerular infiltrates plus microhemorrhage and multi-organ failure (<a href="https://pubmed.ncbi.nlm.nih.gov/38043152/">PMID: 38043152</a>). The hypercytokinemia driver is demonstrated by a fulminant shock case in which elevated cytokines fell rapidly after minocycline + methylprednisolone (<a href="https://pubmed.ncbi.nlm.nih.gov/11376087/">PMID: 11376087</a>). <em>(Finding F005)</em></p>
+<blockquote>
+<p><em>"Elevated levels of cytokines (macrophage colony-stimulating factor, interleukin 1 beta, interleukin 10, and gamma interferon) decreased rapidly after a combination treatment using an antibiotic (minocycline hydrochloride [MINO]) and methylprednisolone"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/11376087/">PMID: 11376087</a></p>
+</blockquote>
+<p><strong>Suggested ontology terms:</strong> biological processes — inflammatory response (<strong><a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" rel="noopener noreferrer">GO:0006954</a></strong>), cytokine production (<strong><a href="http://purl.obolibrary.org/obo/GO_0001816" target="_blank" rel="noopener noreferrer">GO:0001816</a></strong>), blood coagulation (<strong><a href="http://purl.obolibrary.org/obo/GO_0007596" target="_blank" rel="noopener noreferrer">GO:0007596</a></strong>); cell type — <strong>vascular endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>)</strong>; chemical entities — TNF-α, IL-1β, IL-10, IFN-γ (CHEBI cytokine class).</p>
+<h3>7. Anatomical Structures Affected</h3>
+<p>JSF is a <strong>systemic small-vessel disease</strong> with multi-organ involvement:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>Structures (suggested UBERON/CL)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Skin (primary)</td>
+<td>Rash, eschar, purpura, palmar/plantar involvement; <strong>skin (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>)</strong>; purpura fulminans → gangrene/amputation in ~33% of critical cases</td>
+</tr>
+<tr>
+<td>Liver</td>
+<td>Dysfunction ~69% (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a></strong>)</td>
+</tr>
+<tr>
+<td>Kidney</td>
+<td>Acute renal failure, glomerular microhemorrhage (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a></strong>)</td>
+</tr>
+<tr>
+<td>Lung</td>
+<td>Interstitial pneumonitis, pleural effusion (91% in severe series) (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a></strong>)</td>
+</tr>
+<tr>
+<td>CNS</td>
+<td>Meningitis/encephalitis, altered consciousness; reversible splenial lesion (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a></strong>)</td>
+</tr>
+<tr>
+<td>Blood/hematologic</td>
+<td>Thrombocytopenia, leukopenia, DIC (<strong><a href="http://purl.obolibrary.org/obo/UBERON_0000178" target="_blank" rel="noopener noreferrer">UBERON:0000178</a></strong>)</td>
+</tr>
+<tr>
+<td>Vasculature (core target)</td>
+<td>Small-vessel endothelium; <strong>blood vessel (<a href="http://purl.obolibrary.org/obo/UBERON_0001981" target="_blank" rel="noopener noreferrer">UBERON:0001981</a>)</strong>, <strong>endothelial cell (<a href="http://purl.obolibrary.org/obo/CL_0000115" target="_blank" rel="noopener noreferrer">CL:0000115</a>)</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p>Involvement is generally <strong>bilateral/systemic</strong> rather than lateralized. In SFG rickettsioses broadly, CNS disease features microglial expansion and macrophage infiltration with perivascular T-cell infiltration (<a href="https://pubmed.ncbi.nlm.nih.gov/33091013/">PMID: 33091013</a>). <em>(Findings F005, F009)</em></p>
+<blockquote>
+<p><em>"33.3% of whom developed purpura fulminans requiring amputation or skin graft, and 16.6% died two days after admission"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/36386421/">PMID: 36386421</a></p>
+</blockquote>
+<h3>8. Temporal Development</h3>
+<ul>
+<li><strong>Onset:</strong> acute, typically <strong>2–8 days after tick bite</strong> (incubation ~2–8 days); patients often note symptoms 1–2 days after the bite in some series (<a href="https://pubmed.ncbi.nlm.nih.gov/36386421/">PMID: 36386421</a>).</li>
+<li><strong>Age:</strong> adult/geriatric-skewed (medians in the 70s).</li>
+<li><strong>Course:</strong> acute and <strong>monophasic</strong>. With early tetracycline, defervescence occurs within 24–48 h and recovery is usually complete. Without prompt treatment, the disease can progress to DIC and multi-organ failure within days; fatal cases may die ~2–3 days after admission (<a href="https://pubmed.ncbi.nlm.nih.gov/18411764/">PMID: 18411764</a>).</li>
+<li><strong>Seasonality:</strong> April–October, coinciding with tick activity (<a href="https://pubmed.ncbi.nlm.nih.gov/30124190/">PMID: 30124190</a>).</li>
+<li><strong>Sequelae:</strong> residual hyperpigmentation; prolonged neurocognitive deficits in MERS-type encephalopathy (<a href="https://pubmed.ncbi.nlm.nih.gov/35945027/">PMID: 35945027</a>).</li>
+</ul>
+<p><strong>Critical intervention window:</strong> the first ~3–4 days from onset — beyond this, severity risk rises sharply. <em>(Finding F011)</em></p>
+<h3>9. Inheritance and Population</h3>
+<p><strong>Inheritance: Not Applicable</strong> (acquired infection — no inheritance pattern, penetrance, expressivity, anticipation, founder effects, consanguinity, or carrier frequency).</p>
+<p><strong>Epidemiology.</strong> JSF is the <strong>second most common acari-borne disease in Japan</strong>. National surveillance 1999–2025 recorded 18,295 acari-borne cases; JSF accounted for <strong>32.9%</strong> (scrub typhus 56.6%, SFTS 6.7%) (<a href="https://pubmed.ncbi.nlm.nih.gov/42518741/">PMID: 42518741</a>). Incidence is rising: in Shimane Prefecture (2000–2022, 301 cases), a gradual significant increase (prevalence rate ratio 1.03/yr, 95% CI 1.01–1.05) was followed by rapid acceleration since 2020 (1.57, 95% CI 1.39–1.78) (<a href="https://pubmed.ncbi.nlm.nih.gov/38574815/">PMID: 38574815</a>). The endemic zone, historically western Japan, is expanding eastward (Ibaraki now endemic) and into northern Japan. <em>(Finding F004)</em></p>
+<blockquote>
+<p><em>"scrub typhus (56.6%), Japanese spotted fever (32.9%) and severe fever with thrombocytopenia syndrome (6.7%) together accounted for more than 95% of all cases"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42518741/">PMID: 42518741</a></p>
+</blockquote>
+<p><strong>Demographics.</strong> Predominantly older adults; male sex is over-represented among severe cases. Geographic distribution centers on Japan, with related <em>R. japonica</em>/near-relative detections reported in China and Southeast Asia. <em>(Findings F003, F004)</em></p>
+<h3>10. Diagnostics</h3>
+<p>Diagnosis combines <strong>clinical triad recognition</strong> with laboratory confirmation:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Modality</th>
+<th>Detail</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PCR (17-kDa antigen gene)</td>
+<td>Eschar and blood samples; confirms <em>R. japonica</em></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38043152/">PMID: 38043152</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41720337/">PMID: 41720337</a></td>
+</tr>
+<tr>
+<td>Indirect immunofluorescence (IFA)</td>
+<td>Paired sera ≥4-fold IgG rise = serological reference; negative early</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31587667/">PMID: 31587667</a></td>
+</tr>
+<tr>
+<td>qPCR + IFA in tandem</td>
+<td>Recommended combined strategy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31587667/">PMID: 31587667</a></td>
+</tr>
+<tr>
+<td>Metagenomic NGS (mNGS)</td>
+<td>Diagnoses atypical/eschar-negative and non-endemic cases</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40922296/">PMID: 40922296</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40082238/">PMID: 40082238</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/39383151/">PMID: 39383151</a></td>
+</tr>
+<tr>
+<td>Weil-Felix</td>
+<td>Insensitive/nonspecific; often negative — not recommended</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39383151/">PMID: 39383151</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Common laboratory abnormalities:</strong> elevated transaminases/liver dysfunction (~69%), thrombocytopenia, leukopenia/neutropenia, hyponatremia, elevated CRP. <em>(Finding F007)</em></p>
+<blockquote>
+<p><em>"Metagenomic sequencing (MetaCAP) technology enabled a definitive diagnosis by identifying Rickettsia japonica-specific DNA sequences in the patient's blood"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/40922296/">PMID: 40922296</a></p>
+</blockquote>
+<p><strong>Differential diagnosis</strong> is critical because treatment differs. A five-hospital Nagasaki study (23 SFTS, 38 JSF) found <strong>leukopenia (WBC &lt;4000/µL) and altered mental status</strong> best separated SFTS from JSF (AUC 1.000, 100% sensitivity/specificity); JSF characteristically has rash, preserved consciousness, and higher WBC/CRP (<a href="https://pubmed.ncbi.nlm.nih.gov/36016429/">PMID: 36016429</a>). JSF differs from scrub typhus by seasonality, palmar/plantar rash, purpura, and delayed defervescence (<a href="https://pubmed.ncbi.nlm.nih.gov/30124190/">PMID: 30124190</a>). Rare mimics include SLE (<a href="https://pubmed.ncbi.nlm.nih.gov/41731438/">PMID: 41731438</a>) and SFTSV co-infection (<a href="https://pubmed.ncbi.nlm.nih.gov/34407756/">PMID: 34407756</a>). <em>(Finding F014)</em></p>
+<blockquote>
+<p><em>"Decision tree analysis revealed leukopenia (white blood cell [WBC] &lt; 4000/μL) and altered mental status as the best differentiating factors (AUC 1.000) with 100% sensitivity and 100% specificity"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/36016429/">PMID: 36016429</a></p>
+</blockquote>
+<p><strong>Genetic testing / omics screening / newborn screening:</strong> Not Applicable (no host-genetic component).</p>
+<h3>11. Outcome / Prognosis</h3>
+<p>Overall case-fatality is <strong>low with early treatment</strong> but rises steeply with severity:</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Cohort</th>
+<th>Severe outcome</th>
+<th>Mortality</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ehime surveillance (n=91)</td>
+<td>—</td>
+<td><strong>1.1%</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">PMID: 35545515</a></td>
+</tr>
+<tr>
+<td>Nagasaki multicenter (n=65)</td>
+<td>33.3%</td>
+<td>~1.5% (1/65)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39477520/">PMID: 39477520</a></td>
+</tr>
+<tr>
+<td>Eastern Hiroshima (n=42)</td>
+<td>31.0%</td>
+<td><strong>14.3%</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42576956/">PMID: 42576956</a></td>
+</tr>
+<tr>
+<td>Yichang, China ICU series</td>
+<td>100% DIC</td>
+<td><strong>16.6%</strong></td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36386421/">PMID: 36386421</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Prognostic factors:</strong> age ≥75, male sex, treatment delay ≥4 days, DIC, altered mental status, hypotension, hypoxia. A nationwide Diagnosis Procedure Combination inpatient study (n=1,060, 2010–2021) found that <strong>adding a fluoroquinolone to tetracycline on admission produced no significant difference</strong> in in-hospital mortality, complications, cost, or length of stay after inverse-probability weighting (<a href="https://pubmed.ncbi.nlm.nih.gov/35987471/">PMID: 35987471</a>). <em>(Findings F003, F013)</em></p>
+<blockquote>
+<p><em>"Inverse probability of treatment weighting showed no statistically significant differences between the groups in in-hospital mortality... This study did not show any significantly improved effectiveness using FQ antimicrobials in combination with TCs for treating JSF"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/35987471/">PMID: 35987471</a></p>
+</blockquote>
+<p>Recovery potential is excellent with prompt treatment; complications (DIC, purpura fulminans → amputation, renal failure, MERS-type encephalopathy) drive morbidity in the severe minority.</p>
+<h3>12. Treatment</h3>
+<p><strong>First-line: tetracyclines</strong> (minocycline or doxycycline) — NCIT clinical-intervention terms: Minocycline (NCIT:C61829), Doxycycline (NCIT:C513), Tetracycline (NCIT:C859). Fever typically resolves rapidly (e.g., within 36 h) after IV minocycline + levofloxacin (<a href="https://pubmed.ncbi.nlm.nih.gov/26630793/">PMID: 26630793</a>); doxycycline achieves rapid resolution in typical cases (<a href="https://pubmed.ncbi.nlm.nih.gov/40922296/">PMID: 40922296</a>).</p>
+<p><strong>Severe/fulminant disease:</strong>
+- <strong>Tetracycline + new quinolone</strong> (ciprofloxacin, tosufloxacin, levofloxacin) is recommended for fulminant JSF where minocycline alone is insufficient (<a href="https://pubmed.ncbi.nlm.nih.gov/26630793/">PMID: 26630793</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/11376087/">PMID: 11376087</a>). Note the nationwide caveat that adjunctive fluoroquinolone shows no mortality benefit (<a href="https://pubmed.ncbi.nlm.nih.gov/35987471/">PMID: 35987471</a>).
+- <strong>Corticosteroids</strong> (methylprednisolone) suppress the cytokine storm in severe cases (<a href="https://pubmed.ncbi.nlm.nih.gov/39328670/">PMID: 39328670</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/11376087/">PMID: 11376087</a>).
+- <strong>Supportive care</strong> for DIC/multi-organ failure (hemodialysis, mechanical ventilation, anticoagulation management).</p>
+<blockquote>
+<p><em>"In the treatment of fulminant JSF (body temperature &gt; 39 degrees C) the prompt administration of a combination of tetracycline and new quinolone has been recommended"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/26630793/">PMID: 26630793</a></p>
+</blockquote>
+<p><strong>Mechanistic rationale for combination:</strong> in vitro, minocycline + ciprofloxacin synergistically inhibit TNF-α and chemokine production in LPS-stimulated THP-1 monocytes — an anti-inflammatory effect beyond antimicrobial action (<a href="https://pubmed.ncbi.nlm.nih.gov/41341009/">PMID: 41341009</a>).</p>
+<blockquote>
+<p><em>"Combination therapy with MINO and CPFX enhanced the inhibitory effects on inflammatory cytokine and chemokine production"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/41341009/">PMID: 41341009</a></p>
+</blockquote>
+<p><strong>Pharmacogenomics, gene/cell/RNA/targeted/immuno-therapies:</strong> Not Applicable. <em>(Findings F006, F013)</em></p>
+<h3>13. Prevention</h3>
+<ul>
+<li><strong>Primary prevention (behavioral):</strong> avoid tick bites — permethrin-treated clothing, DEET and other repellents, protective clothing, and prompt tick checks/removal. Against the vector <em>Haemaphysalis longicornis</em>, formulated repellents gave <strong>93–97% repellency</strong> and permethrin-treated garments dislodged <strong>96% of nymphs within 3 min</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/32073128/">PMID: 32073128</a>). General tick-borne disease prevention endorses DEET/permethrin and prompt tick removal (<a href="https://pubmed.ncbi.nlm.nih.gov/38478946/">PMID: 38478946</a>).</li>
+<li><strong>Secondary prevention:</strong> early empirical tetracycline on clinical suspicion is the key measure — the disease's decisive intervention. Doxycycline <strong>prophylaxis is not standard</strong> for JSF (<a href="https://pubmed.ncbi.nlm.nih.gov/25527099/">PMID: 25527099</a>), though prophylactic antibiotics after tick bite are commonly prescribed in Japanese practice (88.6% in one cohort); <em>R. tamurae</em>-positive bites remained asymptomatic without antibiotics (<a href="https://pubmed.ncbi.nlm.nih.gov/41720337/">PMID: 41720337</a>).</li>
+<li><strong>Immunization: No vaccine exists.</strong></li>
+<li><strong>Genetic screening/counseling:</strong> Not Applicable. <em>(Finding F008)</em></li>
+</ul>
+<blockquote>
+<p><em>"all tested product formulations were highly effective with estimated repellencies ranging from 93 to 97%... 96% of introduced ticks dislodging"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/32073128/">PMID: 32073128</a></p>
+</blockquote>
+<h3>14. Other Species / Natural Disease</h3>
+<p>JSF is maintained in an <strong>enzootic tick–mammal cycle</strong>; humans are incidental dead-end hosts. Ticks (<em>Haemaphysalis hystricis</em>, <em>H. flava</em>, <em>H. longicornis</em>, <em>Amblyomma testudinarium</em>, <em>Ixodes</em> spp.) serve as both vectors and reservoirs (transovarial maintenance is typical of SFG rickettsiae); <strong>wild boars (<em>Sus scrofa</em>, NCBI:txid9823)</strong> and rodents act as amplifying/blood-meal hosts (<a href="https://pubmed.ncbi.nlm.nih.gov/42697132/">PMID: 42697132</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/40601071/">PMID: 40601071</a>). No naturally occurring clinical JSF disease is well documented in companion animals, though dogs seroconvert to SFG rickettsiae and can serve as sentinels (<a href="https://pubmed.ncbi.nlm.nih.gov/28569177/">PMID: 28569177</a>). <strong>Zoonotic potential is central</strong> to the disease's ecology. <em>(Findings F001, F012)</em></p>
+<blockquote>
+<p><em>"wild boars are important blood-meal hosts for this tick species"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/42697132/">PMID: 42697132</a></p>
+</blockquote>
+<h3>15. Model Organisms</h3>
+<p>There is no dedicated genetic disease model (the disease is infectious, not Mendelian). Mechanistic understanding derives from:
+- <strong>In vitro:</strong> <em>R. japonica</em> is propagated in <strong>Vero cells</strong> and related cell lines, as for other SFG rickettsiae (<a href="https://pubmed.ncbi.nlm.nih.gov/30529423/">PMID: 30529423</a>); THP-1 monocytic cells are used for cytokine/anti-inflammatory drug studies (<a href="https://pubmed.ncbi.nlm.nih.gov/41341009/">PMID: 41341009</a>).
+- <strong>Murine models of related rickettsioses</strong> (scrub typhus/SFR) reveal cerebral T-cell infiltration, endothelial infection, and vascular damage underlying neuropathogenesis (<a href="https://pubmed.ncbi.nlm.nih.gov/33091013/">PMID: 33091013</a>).</p>
+<p><strong>Model limitations:</strong> most mechanistic inference is extrapolated from related rickettsioses (RMSF, scrub typhus) rather than <em>R. japonica</em>-specific in vivo models. <em>(Finding F012)</em></p>
+<blockquote>
+<p><em>"Animal models of scrub typhus have identified cerebral T-cell infiltration and vascular damage associated with endothelial infection and neuropathogenesis"</em> — <a href="https://pubmed.ncbi.nlm.nih.gov/33091013/">PMID: 33091013</a></p>
+</blockquote>
+<hr />
+<h2>Mechanistic Model / Interpretation</h2>
+<pre><code>   Infected Haemaphysalis tick bite
+      │ inoculates R. japonica
+      ▼
+   Local endothelial infection ──────────► ESCHAR (tache noire)
+      │ invades &amp; replicates (actin-based motility)
+      ▼
+   Systemic endothelial infection
+      │ triggers immune/inflammatory response
+      ▼
+   SMALL-VESSEL VASCULITIS ◄──── perivascular T-cell / neutrophil infiltrate
+      │ drives
+      ▼
+   HYPERCYTOKINEMIA (M-CSF, IL-1β, IL-10, IFN-γ, TNF-α)
+      │ ↑ vascular permeability + coagulation activation
+      ┌───────┴─────────────────────────────┐
+      ▼                                       ▼
+   RASH (palms/soles,          DISSEMINATED INTRAVASCULAR
+   petechiae, purpura),        COAGULATION (DIC)
+   hyponatremia                        │
+                       ▼
+       MULTI-ORGAN FAILURE
+     (liver, kidney, lung, CNS, skin/purpura fulminans)
+                       │
+                       ▼
+                    DEATH  (if untreated / delayed)
+
+   ┌──────────────────────────────────────────────────────┐
+   │ INTERVENTION: Early tetracycline halts step 2 →        │
+   │ rapid defervescence (24–48h) → full recovery.          │
+   │ Delay ≥4 d, age ≥75, male sex → severe branch.         │
+   └──────────────────────────────────────────────────────┘
+</code></pre>
+<p>The unifying theme is <strong>endothelium-centric vasculitis amplified by cytokine storm</strong>. Upstream events (endothelial infection, vasculitis) are demonstrated by autopsy and cytokine kinetics; downstream events (DIC, multi-organ failure) are the clinical endpoints. The therapeutic model is elegantly simple: because the entire cascade depends on ongoing intracellular bacterial replication, an antibiotic that penetrates cells (tetracycline) and is given <strong>early</strong> can abort the whole chain — which is exactly why treatment timing dominates prognosis.</p>
+<hr />
+<h2>Evidence Base</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Contribution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42697132/">42697132</a></td>
+<td>Identifies <em>H. hystricis</em> as vector and wild boar as blood-meal host; documents eastward endemic expansion</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30124190/">30124190</a></td>
+<td>Distinguishing features vs scrub typhus (palmar/plantar rash, purpura, hyponatremia, seasonality)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35545515/">35545515</a></td>
+<td>Phenotype frequencies and 1.1% mortality (n=91)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/39477520/">39477520</a></td>
+<td>Severe-disease risk factors: age ≥75, male sex, treatment delay ≥4 d</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42576956/">42576956</a></td>
+<td>Dose-response of minocycline delay; 14.3% mortality in endemic cohort</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/42518741/">42518741</a></td>
+<td>National surveillance — JSF = 32.9% of acari-borne disease</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38574815/">38574815</a></td>
+<td>Rising incidence, acceleration since 2020</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38043152/">38043152</a></td>
+<td>Autopsy evidence of vasculitis and multi-organ microvascular injury</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/11376087/">11376087</a></td>
+<td>Hypercytokinemia as driver of fulminant shock; steroid response</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/26630793/">26630793</a></td>
+<td>Tetracycline + new quinolone for fulminant JSF</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41341009/">41341009</a></td>
+<td>Anti-cytokine synergy of minocycline + ciprofloxacin (in vitro)</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31587667/">31587667</a></td>
+<td>qPCR + IFA tandem diagnostic strategy</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/40922296/">40922296</a></td>
+<td>mNGS diagnosing atypical, eschar-negative JSF</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/32073128/">32073128</a></td>
+<td>Efficacy of repellents/permethrin against vector tick</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36386421/">36386421</a></td>
+<td>Purpura fulminans, 100% DIC, 16.6% mortality in ICU series</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33091013/">33091013</a></td>
+<td>Cellular basis of CNS involvement in SFG rickettsioses</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/35987471/">35987471</a></td>
+<td>Nationwide DB: adjunctive fluoroquinolone gives no mortality benefit</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/36016429/">36016429</a></td>
+<td>Objective criteria differentiating JSF from SFTS</td>
+</tr>
+<tr>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31866968/">31866968</a></td>
+<td>Genomic characterization of <em>R. japonica</em></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Corroborating comparative literature</strong> (RMSF/Mediterranean spotted fever) supports the vasculitis mechanism (<a href="https://pubmed.ncbi.nlm.nih.gov/9449487/">PMID: 9449487</a>) and the caution that fluoroquinolones may worsen SFG rickettsiosis outcomes (<a href="https://pubmed.ncbi.nlm.nih.gov/21642652/">PMID: 21642652</a>), reinforcing the tetracycline-first strategy.</p>
+<hr />
+<h2>Limitations and Knowledge Gaps</h2>
+<ol>
+<li><strong>Extrapolated mechanism.</strong> Much of the detailed cellular/immune pathogenesis (CNS T-cell infiltration, endothelial neuropathogenesis) is inferred from murine models of <em>related</em> rickettsioses (scrub typhus, RMSF), not <em>R. japonica</em>-specific in vivo experiments.</li>
+<li><strong>No host-genetic dimension.</strong> Sections on genetics, inheritance, genetic testing, gene/cell therapy, and genetic counseling are Not Applicable — a complete and expected gap for an acquired infection, not a research deficiency.</li>
+<li><strong>Geographic bias.</strong> Nearly all clinical cohorts are Japanese (plus a Chinese ICU series); prognostic estimates and risk-factor odds ratios may not generalize to the expanding/emerging range.</li>
+<li><strong>Small severe-cohort sizes.</strong> Severe-disease mortality (14–16%) derives from modest single-center/ICU cohorts with wide confidence intervals.</li>
+<li><strong>Corticosteroid evidence is weak.</strong> Steroid use rests on case reports and mechanistic plausibility, not randomized trials.</li>
+<li><strong>Serology timing.</strong> IFA is insensitive early, and Weil-Felix is unreliable — creating a diagnostic window where clinical suspicion alone must drive treatment.</li>
+</ol>
+<hr />
+<h2>Proposed Follow-up Experiments / Actions</h2>
+<ol>
+<li><strong>Develop an <em>R. japonica</em>-specific animal model</strong> (immunocompetent and aged/comorbid mice) to test whether age-related endothelial/immune changes explain the geriatric severity skew.</li>
+<li><strong>Prospective multicenter RCT</strong> of adjunctive corticosteroids in severe JSF with DIC, given the strong mechanistic rationale but weak clinical evidence.</li>
+<li><strong>Biomarker study</strong> correlating admission cytokine profiles (M-CSF, IL-1β, IL-10, IFN-γ, TNF-α) and coagulation markers with progression to DIC, to build a validated severity-prediction score.</li>
+<li><strong>Deploy point-of-care mNGS/qPCR</strong> in expanding endemic areas (eastern/northern Japan) to close the early-diagnosis window and quantify true incidence.</li>
+<li><strong>One Health surveillance</strong> integrating tick, wild-boar, deer, and rodent sampling across the expanding range to map emerging endemic foci and inform targeted vector control.</li>
+<li><strong>Formal cost-effectiveness analysis</strong> of empirical early tetracycline vs confirmatory-test-then-treat strategies, given that treatment delay is the dominant modifiable driver of mortality.</li>
+</ol>
+<hr />
+<p><em>Report prepared from a 5-iteration autonomous investigation: 14 confirmed findings, 61 papers reviewed. Evidence source types span human clinical cohorts, autopsy pathology, in vitro pharmacology, and comparative model-organism studies of related rickettsioses.</em></p>
+<h2>Artifacts</h2>
+<ul>
+<li><a href="../../research/Japanese_Spotted_Fever-deep-research-openscientist_artifacts/final_report.html">OpenScientist final report</a></li>
+<li><a href="../../research/Japanese_Spotted_Fever-deep-research-openscientist_artifacts/final_report.pdf">OpenScientist final report</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.3.0rc3.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>34</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>17</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>All extracted references resolved successfully.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>23</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0000233</code> (2 mentions) - the report calls it "Mondo"; MONDO calls it <strong>Japanese spotted fever</strong></li>
+<li><code>HP:0000988</code> (1 mention) - the report calls it "Systemic erythema / rash"; HP calls it <strong>Skin rash</strong></li>
+<li><code>HP:0000979</code> (1 mention) - the report calls it "Purpura / palmar-plantar rash"; HP calls it <strong>Purpura</strong></li>
+<li><code>HP:0005521</code> (1 mention) - the report calls it "DIC"; HP calls it <strong>Disseminated intravascular coagulation</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000707</code> (1 mention) - the report calls it "Neurological symptoms"; HP calls it <strong>Abnormality of the nervous system</strong>, and lists "Neurological abnormality" among its other names</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Jackson-Weiss_Syndrome-perplexity.html">← Jackson-Weiss Syndrome (Perplexity)</a>
+                
+                
+                <a href="Jeavons_Syndrome-cyberian-codex.html">Jeavons Syndrome (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Japanese_Spotted_Fever.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Japanese_Spotted_Fever-deep-research-openscientist.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-openscientist" aria-current="page">OpenScientist</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

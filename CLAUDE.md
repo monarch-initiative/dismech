@@ -30,9 +30,14 @@ Claude Code skills are available in `.claude/skills/`:
   scope and alignment investigations, Boomer results, proxy merges, and source
   correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[evidence-claim-mismatch](.claude/skills/evidence-claim-mismatch/SKILL.md)**:
+  Use when reviewing an existing disease for mismatches between its claims and
+  supporting snippets, including issues from the evaluation queue.
 - **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
   Use when curating noncoding variant effects, including regulatory structural
   variants, expression changes, and target-gene relationships.
+- **somatic-mosaicism**: Use when encoding a post-zygotic origin, or deciding
+  whether `HP:0001442` applies.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
@@ -140,7 +145,8 @@ just --list
 
 ### Ontology Configuration (`conf/oak_config.yaml`)
 Maps ontology prefixes to OAK adapters for term validation:
-- HP, CL, PATO, CHEBI, ENVO, FOODON, GO, MONDO, UBERON, NCBITaxon, and NCIT
+- HP, CL, PATO, CHEBI, ENVO, FOODON, GO, MONDO, UBERON, NCBITaxon, HANCESTRO
+  (human populations and ancestry, design decisions §16), and NCIT
   (NCI Thesaurus, used for treatment/clinical-intervention and cancer concepts)
   → `ols:<name>` (EBI Ontology Lookup Service; avoids the large local builds —
   see issue #5160 and the note at the bottom of `conf/oak_config.yaml`, which
@@ -186,12 +192,33 @@ against 20.5 s / 522 MB with it, while the two-walk
 call in `main()`, never at import: pytest imports these scripts' `scan_repo`
 functions directly and runs several of them in one process, which is exactly
 the case the cache exists for. `default_off()` uses `setdefault`, so an
-explicit `DISMECH_KB_CACHE` still wins.
+explicit `DISMECH_KB_CACHE` still wins. A test that calls such a `main()` in-process
+needs no guard of its own: the autouse `preserve_kb_cache_environment` fixture in
+`tests/conftest.py` resets the variable around every test, so the `0` it writes
+cannot reach `tests/test_kb_cache.py` (issue #11942).
 
 ### HTML Rendering (`src/dismech/render.py`)
 - Jinja2 templates in `src/dismech/templates/`
 - Generates browsable HTML pages in `pages/disorders/`
 - Links ontology terms to external browsers (HPO JAX, MONDO Monarch, OLS, etc.)
+
+### Models Directory (`models/`)
+One folder per model, `models/<model_id>/`, with fixed file names:
+`config.yaml` + `model.xml` (+ `model.ant`, `extension.ant`) for a model
+`dismech-perturb` runs, or `spec.yaml` + `run.py` + `results.json` for a model
+authored in this repository with its own runner (the rosacea Boolean network,
+the neuronal-migration agent-based model). A folder holds exactly one of
+`config.yaml` or `spec.yaml`, and the folder name is the `model_id` the KB
+record points at. `src/dismech/model_registry.py` is the only place that
+resolves these paths; route a new consumer through it rather than globbing.
+`tests/test_model_registry.py` gates the layout, so a branch still adding a
+flat `models/<id>.config.yaml` fails with a message. `just
+check-authored-models` runs every `run.py --check`. Every folder gets a derived
+page, `pages/models/<model_id>.html` (`src/dismech/model_pages.py`, written by
+the page build), and an authored folder may add `run.js`, a browser port the
+page inlines so the model runs there. A `run.js` must reproduce `results.json`
+exactly, so a rule change goes into `run.py` first and then into `run.js`, and
+the parity test fails until they agree. See `models/README.md`.
 
 ### Scheduled-Workflow Cron Profiles (`.github/cron-profiles.yaml`)
 The cron cadence of the scheduled "agent" workflows (curation-scanner,
@@ -353,6 +380,33 @@ prioritised rare disease list, minus concepts the KB already covers. The MONDO
 prioritizer and `dashboard/priority.html` still exist as a *browsable pool* for
 finding new nominations, but they are no longer the answer to "what should I
 curate next". See [`docs/curation-stubs.md`](docs/curation-stubs.md).
+
+### Gene Pages (`kb/genes/` → `pages/genes/`)
+
+A gene page merges three layers; see [`docs/gene-pages.md`](docs/gene-pages.md).
+
+- **Ingest** (`kb/genes/ingest/*.tsv`): HGNC identity, the ai-gene-review
+  function summary (joined on UniProt), and ClinGen validity tiers. **Dropped and
+  reloaded, never hand-edited**: `just genes-ingest-refresh [--repin]` then
+  `just genes-ingest-build`, pinned by `data/hgnc/`, `data/ai-gene-review/` and
+  `data/clingen-genes/` (separate from the `data/clingen/` citation pin on
+  purpose). ai-gene-review content is AI-generated: show it, never cite it as KB
+  evidence. `just genes-clingen-gaps` lists entries ClinGen classifies a gene for
+  whose own record does not type it: leads, not defects.
+- **KB slice** (`dismech.genes.slice`): every structural HGNC descriptor in
+  `kb/`, computed at build time and never committed. `just gene-slice hgnc:<n>`.
+- **Curated summary** (`kb/genes/curated/hgnc_<n>.md`): agent-written Markdown
+  whose checkable statements are provedown spans calling
+  `dismech.genes.claims`. `just genes-verify` re-runs them; a summary that no
+  longer matches the KB is shown as stale on its page. A summary may only say
+  what the KB or ingest layer says; a missing fact goes into the disease entry,
+  not the summary. Headings and connecting prose count as claims: state a
+  variant origin only through `g.variant_origin()` / `g.disorders(rel, origin)`,
+  never as a section title. The verifier refuses to execute any code beyond
+  `from dismech.genes.claims import gene`, `g = gene("hgnc:<n>")`, and claims
+  shaped exactly `g.<GeneClaims method>(literals)` (optionally in `len()`), and
+  refuses raw HTML beyond provedown's markup. Lists use `data-compare="names"`,
+  semicolon-separated, because names contain commas.
 
 ### Curation Projects (`projects/*.md` → `pages/projects/`)
 - Thematic curation tracking files. A project may carry standardized YAML
@@ -701,6 +755,7 @@ pathophysiology:
 - **Organ-specific substitution**: Module nodes define generic cell types (e.g., `fibroblast`); conforming disorder nodes substitute organ-specific types (e.g., `hepatic stellate cell`)
 - **Consistency checking**: If a node declares `conforms_to`, it should include the expected biological processes and causal edges from the module
 - **Reference format**: `"module_name#Node Name"` — module name matches the filename in `kb/modules/` (without `.yaml`), node name matches a pathophysiology `name` in that module
+- **Validated exactly like a disorder**: `just validate-module-batch <files>` (what CI runs on changed modules) and `just validate-modules` (all modules, in `just qc`) apply the `validate-disorders` gate, including abstract-only `--no-full-text` snippet matching; the pytest sweep runs every disorder structural check on modules too. What is *not* checked is conformance content: `conforms_to` must resolve to a real module node, but nothing compares the conforming node's processes or edges against it
 
 **Creating a module?** Use the `create-module` skill — it covers the module
 schema shape, the trigger→consequence node chain, the treatment
@@ -1215,6 +1270,79 @@ a computed match. Worked examples: `Chronic_Myeloid_Leukemia`,
 `Pancreatic_Ductal_Adenocarcinoma`. See
 [`docs/cancer-cell-of-origin.md`](docs/cancer-cell-of-origin.md).
 
+### Infectious Disease Entry Granularity
+
+Infectious disease entries follow the **granularity ladder** ratified in design
+decisions §3e (`docs/explanation/design-decisions.md`), the infection
+counterpart of the cancer ladder in §3a — consult it before creating, splitting,
+or lumping any microbial entry. The short version:
+
+- **The default level is the named clinical entity**: the pathogen–syndrome pair
+  the field names, diagnoses and treats as a unit (cholera, Legionnaires'
+  disease, Pontiac fever). Neither the organism alone nor the organ syndrome
+  alone. Every node in the entry's pathophysiology must be true of every case
+  it covers; a node written vaguely enough to span two organisms with different
+  mechanisms means the entry belongs at the rung above.
+- **Above it**: a union of diseases the field names separately, or an organ
+  syndrome across unrelated organisms, is a `Grouping` (`Treponematoses` is the
+  model), and an abstraction like *infectious disease* is an `OUT_OF_SCOPE`
+  stub.
+- **Below it, the default is to lump.** An organism stratum (species, serovar,
+  serotype) earns a `has_subtypes` row only when it is **documented to differ**
+  from its siblings on one axis — presentation, diagnosis, first-line therapy,
+  prognosis, transmission/vector/reservoir, or geography — and the row's
+  `description` says what differs and its `evidence` cites it. A taxonomy
+  offering a name is not a reason. Pathotypes, biotypes, lineages, genotypes
+  and clades are carried structurally with `classification: pathotype` (etc.)
+  and the defining determinant in `description`; never bind ETEC to
+  `NCBITaxon:562`, the parent species.
+- **Promotion to a separate entry needs two axes** of the five (transmission
+  or vector; reservoir; tempo; organ systems; first-line therapy), a covering
+  `Grouping`, and a **pointer subtype** left on the parent carrying
+  `curated_in: <file stem>` — `Spotted_Fever_Rickettsiosis` → `RMSF` →
+  `curated_in: Rocky_Mountain_Spotted_Fever` is the worked example. A subtype
+  with `curated_in` is a pointer, not a disease; one that names a disease with
+  its own entry and lacks it is the defect.
+- **A phase is never an entry, and the entry must list its phases** in
+  `progression:`. A post-infectious immune sequela is its own entry. An
+  infection-attributed neoplasm follows §3a. A shared mechanism is a module.
+- **Every microbial entry declares** at least one NCBITaxon-bound
+  `infectious_agent` and at least one `transmission` route, plus
+  `agent_life_cycle` with `hosts`/`vectors` wherever a non-human reservoir or
+  arthropod vector exists. NCBITaxon is the only organism vocabulary; do not
+  add GTDB or assembly accessions.
+- **Where the taxon lives.** A disease-level subtype is a *clinical* stratum
+  (MONDO-bound where a named variant exists); an `InfectiousAgent.has_subtypes`
+  stratum is a *taxonomic* one (NCBITaxon-bound once PR #10353 lands). There
+  is deliberately **no `pathotype:` slot**.
+- **Record a deliberate lump** with a paragraph of the entry-level
+  `review_notes` beginning `Deliberately lumped.` followed by at least twenty
+  words on which strata were kept together and what was searched — the same
+  shape as the `Left deliberately uncited.` environmental waiver. The sentence
+  alone does not record anything.
+
+```bash
+just check-granularity                          # census + worklist (report-only, in `just qc`)
+just check-granularity --format list            # one line per finding
+just check-granularity --format tsv             # one row per entry, the computed columns
+just check-granularity kb/disorders/Cholera.yaml
+just check-granularity --strict                 # exit 1 on the deterministic classes
+just check-granularity --scope all              # DOUBLE_MODELLED / DUPLICATE_ANCHOR KB-wide
+```
+
+The **deterministic** classes (`MISSING_AGENT`, `UNBOUND_AGENT`,
+`MISSING_TRANSMISSION`, `ROOT_AS_ENTRY`, `DOUBLE_MODELLED`, `DUPLICATE_ANCHOR`,
+`PATHOTYPE_COLLAPSE`, `DANGLING_POINTER`) are defects with no judgement in
+them; the **advisory** ones (`TAXON_LUMP`, `UNBOUND_SUBTYPE`,
+`UNBOUND_AGENT_STRATUM`, `NO_PROGRESSION`, `MISSING_LIFECYCLE`,
+`POINTER_TERM_MISMATCH`) are questions for a curator and never gate — an undifferentiated lump is the ladder's default
+state, not a defect, so `TAXON_LUMP` means "no decision recorded" and clears on
+the waiver above. Neoplasms with a viral agent, Mendelian susceptibility
+disorders, post-infectious sequelae and mycotoxicoses are out of scope by the
+ladder's own rules and are counted, not assessed. Over-broad anchoring
+(`Travelers_Diarrhea` on *diarrheal disease*) needs a MONDO descendant count and
+stays a manual audit.
+
 ### Disease Groupings
 
 Groupings under `kb/groupings/` are explicit curated unions of existing diseases,
@@ -1233,8 +1361,39 @@ rg --files kb/groupings -g "*.yaml" | sort
 sed -n "1,120p" kb/groupings/Mucopolysaccharidoses.yaml
 just validate-grouping kb/groupings/Mucopolysaccharidoses.yaml
 just check-groupings kb/groupings/Mucopolysaccharidoses.yaml
+just validate-grouping-batch kb/groupings/Mucopolysaccharidoses.yaml   # what CI runs
 just grouping-nesting-audit          # declared tree + undeclared containments
+just grouping-mondo-consistency      # does each MONDO predicate survive its own members?
 ```
+
+Membership criteria are audited over the HP/GO closure committed in
+`cache/closure/`, so the audit is offline and deterministic. After adding an
+HP or GO criterion term, run `just build-grouping-closure-cache` and commit
+the cache; never hand-edit it. The cache is a snapshot of the ontology at the
+last build, so a member annotated with a term HPO or GO added *after* that
+build reads `NOT_SATISFIED` under `--strict` — the same false contradiction
+exact matching used to produce, now with a visible cause. Rebuild with
+`just build-grouping-closure-cache --refresh` after an ontology release before
+treating such a finding as a curation error. `--prune` is refused with explicit
+paths, because a subset cannot say what the other groupings still cite.
+
+**Check a MONDO mapping by walking members up, not the class down.** A grouping
+mapping a class with `skos:exactMatch` or `skos:narrowMatch` claims its members
+sit inside that class. Verifying that by expanding the class's descendant
+closure is the expensive direction — it scales with the ontology, and the
+configured `ols:mondo` adapter cannot do it at all. Inverted, it is cheap:
+resolve each member's own MONDO term to its ancestors and look the mapped class
+up in that set, one bounded walk per member, no 588 MB build. `broadMatch`,
+`closeMatch` and `relatedMatch` assert no subsumption, so members outside the
+class are expected there and are not reported.
+
+**A member outside the mapped class is a lead, not a defect.** It is either a
+genuine scope difference — the dismech concept is broader than the MONDO class,
+so the *predicate* is wrong — or MONDO classifying that disease by clinical
+presentation rather than mechanism, which is a candidate MONDO term request and
+not a membership error. Both occur in the current corpus, which is why the
+recipe is report-only and `--strict` gates on the predicate rather than on any
+individual member.
 
 **Nesting is declared, never inferred.** A grouping sits below another only
 when the parent lists it as a `member_type: GROUPING` member, and that is the
@@ -1400,11 +1559,35 @@ Rules for using it:
   existing links' caveats. A typed divergence now satisfies the caveat requirement on a
   `FAILS_TO_RECAPITULATE` or upward-extrapolating link wherever `limitations` did.
 
-Currently populated on computational models only. The taxonomy was chosen to extend to
-NAM and animal models unchanged — `BOUNDARY_OMISSION`, `PROXY_QUANTITY`,
-`CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH` all apply — and
-extending it would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and `INCOMPLETE_PHENOTYPE`,
-both already evidenced in the animal set.
+Populated on computational models, plus one non-computational system: the cell-free
+expression panel in `Prolidase_Deficiency`, which carries two `BOUNDARY_OMISSION`
+divergences on a model system declared inside a *proposed* experiment. The taxonomy was
+chosen to extend to NAM and animal models unchanged — `BOUNDARY_OMISSION`,
+`PROXY_QUANTITY`, `CALIBRATION_PROVENANCE`, `POPULATION_MISMATCH` and `SPECIES_MISMATCH`
+all apply — and that first case needed no new value, which is some evidence the choice
+was right. Extending it further would likely add `SUPRAPHYSIOLOGICAL_EXPRESSION` and
+`INCOMPLETE_PHENOTYPE`, both already evidenced in the animal set.
+
+**A model system inside a `proposed_experiments` entry takes the same link object**, so
+a proposal can state its own translational limits before anybody runs it. Such a link
+resolves its target anchor for rendering but is deliberately **not** back-linked onto
+the pathophysiology node's "models informing this mechanism" crosslink: a system that
+exists only inside a proposal has not informed anything, and listing it there would
+present a hypothetical as curated evidence.
+
+**A link has four homes, and `dismech.model_links.iter_model_links` is the single
+walk over them** — the three top-level model sections plus a proposed experiment's
+`model_systems` (and its `controls[].model_systems`). Route a new consumer through it
+rather than looping over the sections yourself. Both `tests/test_data.py` and
+`scripts/model_scale_audit.py` used to walk only the top-level three, so every check
+on this object — divergence typing, scale agreement, readout targets, the caveat
+requirements — silently had no opinion on a link inside a proposal, and
+`just model-scale-audit` would report `model->mechanism links: 0` for an entry that
+had one. Links across `Alveolar_Rhabdomyosarcoma`, `Ewing_Sarcoma` and
+`Prolidase_Deficiency` went unchecked that way until #13427 closed the gap; run the
+recipe for the current count rather than trusting one written here. They all passed,
+which is luck rather than process: an unreachable gate reports success, so "the check
+exits 0" says nothing until you have confirmed the check can see your data.
 
 ```yaml
 animal_models:
@@ -1620,6 +1803,103 @@ entries: `Alport_Syndrome`, `Usher_Syndrome_Type_2`,
 `Bardet-Biedl_Syndrome`, `Kallmann_Syndrome`. The
 `Digenic_and_Oligogenic_Disorders` grouping collects them as an auditable union
 (`grouping_basis: OTHER`, a `NECESSARY` `HAS_INHERITANCE` criterion).
+
+### Executable Protocols on a Proposed Experiment
+
+A `KNOWLEDGE_GAP` discussion's `proposed_experiments` say what *should* be
+measured. `Experiment.executable_protocols` says that a service exists which
+would measure it, and names the provider and their own identifier for it:
+
+```yaml
+    executable_protocols:
+    - name: Protein Expression and Thermal Shift Assay   # the provider's own name, verbatim
+      provider: Ginkgo Cloud Lab
+      venue_type: COMMERCIAL_CLOUD_LAB
+      protocol_id: protein-expression-and-thermal-shift-assay   # their catalogue handle
+      protocol_url: https://cloud.ginkgo.bio/protocols/protein-expression-and-thermal-shift-assay
+      description: Supplies the folding term — which allele is destabilised rather than dead.
+      measures:
+      - pathophysiology#PEPD Prolidase Catalytic Deficiency
+      inputs_required: Coding sequences carrying a Strep-II tag, as a DNA template plate
+      retrieved_date: '2026-10-01'
+```
+
+**It is a feasibility note, not a plan.** Recording a protocol does not
+propose, authorise, fund, or commit to running it, and it is not evidence about
+the disease — nothing in the block asserts a result. What it buys is that the
+cost of closing a gap is readable off the entry instead of being re-researched
+by whoever next asks.
+
+**`protocol_reference` is a different slot and both can coexist.** That one
+cites a *methods paper* describing how a technique works. An
+`ExecutableProtocol` is a service that can be ordered.
+
+Rules for filling it:
+
+- **`protocol_id` is copied, never composed.** It is the handle an order would
+  name — a catalogue slug, service code, or SKU — so a reworded or tidied value
+  is not an identifier. Same discipline as a CURIE: read it from the provider's
+  own listing in the step you write the line.
+- **`name` is the provider's name for the protocol, verbatim**, for the same
+  reason `datasets[].title` is the repository's own title. Your account of what
+  it would contribute goes in `description`.
+- **There is no price, turnaround, or throughput slot, and this is deliberate.**
+  Those are commercial terms that go out of date with no signal that they have,
+  and mirroring a provider's price list is not this knowledge base's job — cost
+  and scheduling are settled with the provider at the point of ordering. Do not
+  smuggle them into `notes` or `description` either: a figure in prose rots the
+  same way, and nothing can check it. `test_no_commercial_terms_are_carried`
+  gates the slots; the prose is on you.
+- **Record `retrieved_date` with `protocol_id` or `protocol_url`.** A provider's
+  catalogue changes without notice and without a version, so an undated
+  identifier cannot be aged — a reader has no way to tell a current handle from
+  one renamed two years ago. Gated by
+  `test_catalogue_facts_carry_a_retrieval_date`. Treat an old date as stale,
+  not as wrong.
+- **`provider` is free text; `venue_type` is the enum.** The set of
+  laboratories is open and changes without warning, so an enum of vendor names
+  would need a schema PR per new lab. The four-value `ExecutionVenueEnum` is the
+  durable question — orderable by anyone, or needs a local collaboration?
+- **`measures` is weaker than `would_support`.** It says the protocol returns a
+  measurement *on* that node. Whether any one result adjudicates the hypothesis
+  is what `would_support` / `would_refute` are for. It uses the same hash-anchor
+  grammar and is gated as a foreign key.
+- **Say what the protocol cannot see — as a typed divergence, not as prose.**
+  Without that caveat a convenient protocol reads as a complete answer. The
+  structured home for it already exists and needs no new slot: declare the
+  system in the experiment's `model_systems`, link it to the node with
+  `modeled_mechanisms`, and record the shortfall as `divergences` with a
+  `divergence_type` and a `materiality` (see *Linking Models into the
+  Pathograph*). A cell-free system that carries none of the cellular context a
+  mechanism needs is a `BOUNDARY_OMISSION`, usually `QUALIFYING` — the claim
+  holds, in a narrower form. Prefer that over a sentence in `notes`, which no
+  query can read and which states the shortfall without saying what *kind* it
+  is. `Prolidase_Deficiency` is the worked example, and the first use of the
+  taxonomy outside computational models — which is what it was designed for.
+
+**Not every gap has one, and that is the common case.** Most open gaps in the
+KB need patient cohorts, tissue, or longitudinal follow-up, none of which is a
+catalogue item. Leaving the block absent is the default; an entry gains it only
+where somebody actually checked a provider's listing. Do not add a protocol
+because a gap looks assayable.
+
+Worked example: `Prolidase_Deficiency` →
+`pd_allele_panel_abundance_stability_catalysis`, which decomposes the single
+clinical "residual prolidase activity" figure into abundance, folding, and
+catalysis across a patient allele panel using three protocols. That amount
+versus activity split is the axis deferred in design decisions §12; the
+experiment is recorded as a way to measure it, and settles nothing about the
+schema question. See [`projects/AUTONOMOUS_LABS.md`](projects/AUTONOMOUS_LABS.md)
+for the wider execution-layer project.
+
+### Somatic Mosaicism (Post-zygotic Disorders)
+
+A disorder whose causal variant arose after fertilization is encoded through its
+mode of inheritance, like a digenic one: an `inheritance` block bound to
+`HP:0001442` **Typified by somatic mosaicism** with its own evidence, plus
+`variant_origin: SOMATIC` on the causal gene. Use the `somatic-mosaicism` skill
+for the tiers, the cases that must not be bound (X-inactivation, parental
+mosaicism), and the `Somatic_Mosaic_Disorders` grouping.
 
 ### Hypothesis-Based Phenotype Algorithms
 
@@ -2207,6 +2487,74 @@ Beyond genes, the same shape applies to any descriptor where `preferred_term`
 names the entity and `term` binds it. Genes are the sharpest case because the
 label is usually an exact symbol.
 
+### Gene-Disease Validity Is Copied, Never Assigned (dismech#10179)
+
+`relationship_type` says what *kind* of gene-disease relationship is claimed
+(`CAUSATIVE`, `RISK_FACTOR`, ...). How *well established* it is goes in
+`Genetic.gene_disease_validity`, a list of `GeneDiseaseValidityAssertion`
+objects. Each records one external classification: the tier
+(`validity_classification`, the GenCC harmonised ladder from `DEFINITIVE` to
+`REFUTED`), **who assigned it** (`classified_by`, required), and the source's
+identifier for it (`external_id`).
+
+```yaml
+genetic:
+- name: HGD variants
+  gene_disease_validity:
+  - validity_classification: DEFINITIVE
+    classified_by: CLINGEN
+    external_id: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+    evidence:
+    - reference: CGGV:assertion_5186836d-d9c6-4829-a0c9-59548460d6f2-2020-06-29T174125.541Z
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: "HGD | HGNC:4892 | alkaptonuria | MONDO:0008753 | AR | Definitive"
+```
+
+Rules for filling it:
+
+- **Copy a tier from a source; never assign one.** There is no `DISMECH` or
+  `CURATOR` value for `classified_by`, on purpose. When no external body has
+  classified the pair (a gene surfaced by one cohort, IVNS1ABP at posterior
+  probability 0.33), leave the slot absent and say what the evidence is in
+  `Genetic.notes`. Absent means "not classified", which is not
+  `NO_KNOWN_DISEASE_RELATIONSHIP`.
+- **One assertion per source record.** ClinGen classifies each mode of
+  inheritance separately (JPH2 in dilated cardiomyopathy is Strong AR and
+  Limited AD), so a gene can carry several. Where an entry's subtypes are
+  separate ClinGen diseases, set `subtype` to the `has_subtypes[].name`.
+- **The assertion must be for this entry's disease.** A ClinGen record counts
+  only when its MONDO term is the entry's `disease_term`, a `has_subtypes`
+  term, or an `exactMatch` MONDO mapping. A broader ClinGen lumping (generic
+  hypertrophic cardiomyopathy cited from an ALPK3 entry) is a different pair.
+- **Orphanet submits everything to GenCC as `SUPPORTIVE`.** That is its whole
+  scale, not a weak rating.
+- **Record it on the claim ClinGen classified.** An entry can carry a
+  causative row and a susceptibility row for the same gene; a ClinGen
+  Definitive AR tier belongs on the causative one only. The audit attributes
+  an assertion to the record whose own evidence cites it.
+- **Quote the source row as evidence**, as with any structured-source citation.
+
+```bash
+just check-gene-validity                              # gate: recorded ClinGen tier vs its CGGV: record
+just list-gene-validity --format tsv --kind backfill  # the mechanical worklist
+just list-gene-validity kb/disorders/MyDisease.yaml
+```
+
+Only `conflict` fails: a recorded `CLINGEN` assertion whose cached `CGGV:`
+record carries a different tier or a different gene. The report classes are
+`unsourced` (a `CLINGEN` tier with no `CGGV:` identifier), `backfill` (a cited
+same-disease ClinGen assertion not yet recorded on the record that cites it),
+`other_disease` (ClinGen classified the gene only for a different MONDO
+disease: decide whether the entities are the same before copying), `unplaced`
+(an assertion cited outside `genetic[]` for a gene with several records, so the
+audit cannot tell which claim it describes),
+`overstated` (`relationship_type: CAUSATIVE`, which the schema defines as
+Definitive or Strong, on a gene ClinGen rates lower for this disease), and
+`uncached`. Only ClinGen is checked, because it is the one source cached per
+record. The audit never edits `kb/`; a bulk backfill would collide with every
+open curation PR.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
@@ -2239,6 +2587,44 @@ phenotype_term:
 
 Use these first-class slots for common post-composition. Reserve `qualifiers` for
 more complex predicate-value patterns that are not covered by dedicated slots.
+
+### Gene Classifications (`kb/gene_classifications/`)
+
+Transcriptions of external systems that classify **genes** (as opposed to
+diseases), validating against `GeneClassificationCollection`. Provenance sits
+once in the file header; rows carry an HGNC-bound gene plus a multivalued
+`values` list.
+
+```bash
+just fetch-nmd-gene-table          # regenerate the NMD gene table collection
+just validate-gene-classifications # validate every collection
+```
+
+**`values` is multivalued by design.** A gene appears once per clinically
+distinct allelic presentation — TTN is in six Gene Table groups (Udd distal
+myopathy, LGMDR10, centronuclear myopathy, HMERF, cardiomyopathy, and a
+motoneuron-disease presentation). That is a true fact about TTN, and putting it
+on the gene is exactly why this axis exists; it becomes unmodellable if forced
+onto a disease entry's `classifications`.
+
+Current collection: `nmd_gene_table.yaml` — 707 genes in the 17 groups of the
+[Gene Table of Neuromuscular Disorders](https://musclegenetable.fr/) (`GeneTableNMDGroupEnum`).
+Note this is a **gene catalogue**, not an expert nosology in the ISDS sense;
+there is no whole-domain nosology for neuromuscular disease. It is nuclear-genome
+and monogenic only, so mtDNA disease and acquired neuromuscular disease
+(myasthenia gravis, the inflammatory myopathies, Guillain-Barré) are simply
+absent rather than assigned to a catch-all.
+
+**Never hand-edit a collection** — regenerate with its script. Adding a new
+source means: a new enum module under `src/dismech/schema/classifications/`, a
+fetch script, and an entry in `SYSTEM_ENUMS` in
+`tests/test_gene_classifications.py` so its values are checked against that enum.
+
+Distinct from `gene_sets:`, which references flat, typically
+experimentally-derived sets (signatures, perturbation results) consumed as
+enrichment inputs. A gene classification is a curated, authoritative assertion
+about which genes cause disease in a domain. See
+[`docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md`](docs/superpowers/specs/2026-09-02-gene-classification-axis-design.md).
 
 ### Gain/Loss of Function: which slot?
 
@@ -2878,6 +3264,67 @@ states it as a possibility, and a hypothesized uptake route is not a targeting
 claim). `INORGANIC_NANOPARTICLE` has no worked example yet. See
 [`docs/delivery-systems.md`](docs/delivery-systems.md).
 
+### Treatment Effect Differs by Subgroup (`effect_modifiers`)
+
+When a source reports that a treatment works differently in one patient
+subgroup than another, record it as a `TreatmentEffectModifier` under the
+treatment's `effect_modifiers`, not only in its `description`:
+
+```yaml
+  effect_modifiers:
+  - effect_modifier_type: SEX            # AGE, SEX, REPRODUCTIVE_STATUS, BASELINE_SEVERITY,
+                                         # GENOTYPE, BIOMARKER, COMORBIDITY, ANCESTRY,
+                                         # CONCOMITANT_TREATMENT, OTHER
+    stratum: women over 65               # the subgroup, in the source's terms
+    comparator_stratum: men over 65
+    modified_outcome: knee extensor maximal torque
+    effect_in_stratum: SMALLER_EFFECT    # LARGER_EFFECT, SMALLER_EFFECT, NO_EFFECT,
+                                         # OPPOSITE_EFFECT, NO_DIFFERENCE
+    modification_analysis: CROSS_STRATUM_COMPARISON
+    interaction_tested: true
+    evidence:
+    - reference: PMID:27354538
+      ...
+```
+
+Rules for filling it:
+
+- **One entry per stratum, outcome and source.** A subgroup can show a larger
+  effect on one outcome and none on another; do not merge them.
+- **Record tested nulls.** `NO_DIFFERENCE` (compared, no difference) is a
+  finding, and it is what stops a reader assuming a subgroup effect. Use
+  `NO_EFFECT` when the stratum showed no benefit while the comparator did.
+- **Say how it was established.** `modification_analysis` runs from
+  `PRESPECIFIED_SUBGROUP` and `META_ANALYSIS_SUBGROUP` down to
+  `POST_HOC_SUBGROUP`, `CROSS_STRATUM_COMPARISON` (strata compared within one
+  study with no separate control) and `CROSS_STUDY_COMPARISON` (separate studies
+  in different populations; the weakest basis). Set `interaction_tested` only
+  when the source says whether a treatment-by-subgroup interaction test was run;
+  omit it otherwise.
+- **Never set `effect_in_stratum` from your own reading of two numbers.** The
+  source has to state the difference, or report a formal interaction. Two
+  overlapping confidence intervals read side by side are not a subgroup
+  finding.
+- **Conflicting studies get separate entries.** Do not average them into one.
+  Name the conflict in each entry's `description`, and consider a
+  `KNOWLEDGE_GAP` discussion attached to the treatment.
+- **Effect modification is not a mechanism.** If a mechanism explains the
+  difference (older muscle's blunted mTORC1 response to load explains the age
+  gradient), record it as a pathophysiology node and name that node in
+  `description`.
+- **Population first.** A subgroup result from a different population (a
+  sex-difference meta-analysis in 18-45-year-olds cited for a geriatric
+  disease) belongs in the treatment's `evidence`, with the caveat in its
+  `explanation`, not in `effect_modifiers`.
+
+`SEX` and `REPRODUCTIVE_STATUS` are separate on purpose, because menopausal
+status varies within one sex. Worked example: `Sarcopenia` → Progressive
+Resistance Exercise Training, which carries age, sex, menopausal-status and
+baseline-function modifiers. It also shows what stays out: SPRINTT reported a
+grip and lean-mass benefit in women and none in men, but from separate
+within-sex results with no interaction test and for a multicomponent programme,
+so that result sits in the treatment's `evidence`, not in `effect_modifiers`.
+
 ### Subtype Naming Conventions
 
 The `name` field on `Subtype` (in `has_subtypes`) serves as the **foreign key target** — other sections
@@ -2994,6 +3441,127 @@ phenotype-activation points); use reference ranges for measured lab analytes.
 
 The CKD-Mineral Bone Disorder entry is the worked example.
 
+### LOINC Codes: Which Measurement a Disease Is Diagnosed, Monitored or Staged By
+
+A LOINC code is the identity of a *measurement* — an analyte in a specimen, a
+panel, an instrument's total score — as distinct from the analyte entity
+(`biomarker_term`, NCIT) and from the abnormal state it reveals
+(`phenotype_term`, HP). It belongs on a disease entry when its component names
+**the disease, its agent, its gene, or a decision threshold the disease owns**:
+an HIV antibody assay, hexosaminidase A activity, a CFTR sequencing panel, the
+PHQ-9 with its severity cut-offs. Three slots carry it:
+
+| Claim | Slot |
+|---|---|
+| this test reads these observables | `diagnosis[].measurements` — the "thing" beside the NCIT `diagnosis_term` "action", as `therapeutic_agent` is to `treatment_term` |
+| this marker is quantified by this measurement | `biochemical[].loinc_term` — a code without having to invent a reference interval |
+| this disease owns a cut-off or grading on the measurement | `reference_ranges` on the `diagnosis` row (or on the marker), keyed on the same code via `loinc_term`, with the cut-offs as `interpretation_bands` |
+
+```yaml
+diagnosis:
+- name: Cognitive screening            # diagnosis_term (NCIT procedure) omitted here
+  notes: >-                           # MoCA is a third-party instrument: its LOINC notice, verbatim
+    Copyright © Tina Brosseau for Center for Diagnosis & Research on Alzheimer's disease (CEDRA). Used with permission.
+  measurements:
+  - preferred_term: MoCA
+    term:
+      id: LOINC:72133-2                 # the instrument (a LOINC panel) is the test's identity
+      label: Montreal Cognitive Assessment [MoCA]
+  reference_ranges:
+  - loinc_term: {id: LOINC:72172-0, label: Total score [MoCA]}   # the cut-off is on the score
+    interpretation_bands:
+    - {name: Normal, lower_bound: 26, abnormal_flag: NORMAL}
+    - {name: Cognitive impairment, upper_bound: 26, abnormal_flag: LOW}
+```
+
+The `notes` line is not optional: both MoCA codes carry a third-party
+copyright notice in LOINC (see *Licensing* below), and the test fails without
+it. Note the two codes. The panel identifies the test; the total-score code
+carries the threshold, because a numeric cut-off on a panel is a category
+error — the panel names the instrument, the score code names the number. Most
+instruments in LOINC have both (MMSE `72107-6` / `72106-8`, GDS `48542-5` /
+`48544-1`), and search returns the panel first.
+
+Rules that follow from what a LOINC code is:
+
+- **Bind the Part or the panel / total-score code for identity, never a
+  method- or specimen-specific code.** LOINC has dozens of codes for one assay
+  (PHQ-9 returns 56; HIV antibody more), differing by method, specimen and
+  reporting context. Binding one of those for a test's identity puts the same
+  test on different codes in different entries. Method-level codes belong only
+  inside a `definitions[]` phenotype algorithm that needs them.
+- **The label is LOINC's Long Common Name**, exactly as served — not the
+  colon-delimited Fully Specified Name and not a tidied synonym. The first
+  validated sweep found both forms in `kb/` (`Calcitriol [...]` for a code whose
+  name is `1,25-Dihydroxyvitamin D [...]`; `Erythrocyte [Sedimentation Rate] in
+  Blood` for `Erythrocyte sedimentation rate [Velocity] in Red Blood Cells`).
+  Same failure shape as *A Gene Binding Only Has To Be Self-Consistent*.
+- **A population reference interval is not disease content.** Serum calcium
+  8.5–10.5 is true of everyone. A disease owns its diagnostic cut-off and its
+  staging bands; carry the interval only where a band needs it as an anchor.
+- **The test→phenotype map ("potassium high → Hyperkalemia") is not curated
+  here.** It is a property of the test, has no paper to quote, and its
+  consumers are EHR pipelines and the KG. dismech's `ReferenceRangeBand.phenotype_term`
+  may cite it; it does not author it.
+- **`Diagnosis.markers` is superseded, not removed.** The free-text analyte
+  list stays valid; put new tests in `measurements`. Repacking the 129 existing
+  `markers` strings is a worklist (#10046), never an autofill.
+
+**Validation.** `LoincTerm` is a label-match enum with no hierarchy, the
+`GeneTerm` pattern, and the binding sits on the `loinc_term` slot itself, so the
+existing `{id, label}` shape is unchanged. The authority is the Monarch KG,
+which carries the full LOINC table (~108k `biolink:ClinicalMeasurement` nodes,
+labelled with the Long Common Name) through OAK's `monarch:` adapter. Two
+consequences while Phase 0 of `projects/LOINC_DIAGNOSTICS.md` is in flight:
+
+- Codes already in `cache/loinc/terms.csv` validate offline today, the
+  cache-first way every prefix does. `test_committed_loinc_labels_match_the_cache`
+  runs that check over the whole KB.
+- A **new** code is skipped by `just validate-terms` with an unknown-prefix
+  warning until `LOINC` is routed in `conf/oak_config.yaml`, which waits on an
+  oaklib release carrying INCATools/ontology-access-kit#920 (the shipped
+  adapter reads `symbol`, which only genes populate, so it returns no label for
+  anything else). **Until then, never type a LOINC label.** Run
+  `just loinc-seed-cache <file>` — it overlays the fixed adapter in an
+  ephemeral env and writes the validator's own rows — then
+  `just normalize-cache`, and commit `cache/loinc/terms.csv` with the entry.
+  `test_committed_loinc_labels_match_the_cache` fails on an uncached code, so
+  a label copied by hand from a web page turns the nightly sweep red even when
+  it is right. When the pin lands, the adapter string needs quoting in YAML:
+  `LOINC: "monarch:"`.
+- `loinc_term` and `measurements[].term` are `LoincCode`, a `Term` whose `id`
+  must match `^LOINC:(LP|LG)?[0-9]+-[0-9]$`. That is `linkml-validate`'s job,
+  not the term validator's: the binding resolves a CURIE through the adapter
+  for *its own* prefix, so without the pattern a real NCIT term with its
+  correct label would be accepted in a LOINC slot.
+- The API serves the last KG release; a code LOINC added recently is lag, not
+  absence. And a `mappings_list` term is a multi-ontology slot with no binding,
+  so a LOINC code there is still unchecked — four such codes were found by
+  hand in the first sweep, two with wrong labels.
+
+**Licensing.** LOINC is free to use under the LOINC terms of use, which carry
+two obligations this repository meets mechanically:
+
+- **The LOINC notice** ("This material contains content from LOINC®…") must be
+  on every document containing LOINC content, web pages included. It is in
+  `NOTICE`, in `cache/loinc/README.md`, and in the footer of every rendered
+  disorder or module page whose YAML carries a LOINC code
+  (`_loinc_notice.html.j2`). Nothing for a curator to do.
+- **Third-party instrument notices.** A LOINC code that identifies an
+  instrument someone else owns (PHQ-9, GAD-7, MoCA, MMSE, BDI-II, the Barthel
+  Index, NIHSS…) carries that owner's notice in LOINC's
+  `EXTERNAL_COPYRIGHT_NOTICE` field, and the notice must travel with the code.
+  The Monarch KG drops that field; `cache/loinc/external_copyright_codes.csv`
+  and `external_copyright_notices.csv` hold it, extracted by
+  `just loinc-copyright-notices` from the Tuva Project's LOINC table pinned in
+  `data/loinc/MANIFEST.yaml`. **When you bind such a code, copy its notice
+  verbatim into the `notes` (or `description`) of the same diagnosis row or
+  marker.** `test_third_party_loinc_codes_carry_their_owner_notice` fails
+  otherwise. Look a code up with
+  `rg "<CURIE>," cache/loinc/external_copyright_codes.csv`, then the notice id
+  in `external_copyright_notices.csv`. Bind the code and cite published
+  thresholds; never reproduce an instrument's items.
+
 ### Prevalence (disease occurrence)
 
 Model disease occurrence with the **structured** `Prevalence` slots, not the
@@ -3089,6 +3657,71 @@ genetic:
 Use `case_fraction_low`/`case_fraction_high` for ranges and `cohort_size` when the
 proband count is reported. `Bardet-Biedl_Syndrome` (BBS1/BBS10) is the worked example.
 
+### Population-Specific Variant Effects (`population_effects`)
+
+When a source reports that a variant behaves differently in one human population
+than another — a different classification or penetrance, milder or more severe
+disease, a different phenotype spectrum, or a very different frequency among
+patients — record it as a `VariantPopulationEffect` under that variant's
+`population_effects`, not in the variant `description` (design decisions §16,
+issue #13677):
+
+```yaml
+genetic:
+- name: MEFV
+  variants:
+  - name: M694V
+    population_effects:
+    - population: Japanese FMF patients (nationwide questionnaire survey and literature review)
+      ancestry_terms:
+      - preferred_term: Japanese
+        term:
+          id: HANCESTRO:0019
+          label: Japanese
+      ancestry_basis: NOT_STATED       # SELF_REPORTED, GENETICALLY_INFERRED, GEOGRAPHIC, NOT_STATED
+      comparator_stratum: Mediterranean patients with FMF
+      effect_differences:              # CLASSIFICATION, PENETRANCE, SEVERITY,
+      - ALLELE_FREQUENCY               # PHENOTYPE_SPECTRUM, ALLELE_FREQUENCY, NO_DIFFERENCE
+      cohort_size: 80
+      evidence:
+      - reference: PMID:19531756
+        ...
+```
+
+Rules for filling it:
+
+- **`population` is the source's own wording, and it is required.** It stays
+  even when a HANCESTRO term is bound, because it is the record of what the
+  study said. A population HANCESTRO lacks (Sephardic or Mizrahi Jewish, at the
+  time of writing) is recorded in `population` alone.
+- **Bind `ancestry_terms` only at the level the source supports.** "East Asian
+  patients" is `East Asian ancestry`, not a national term. Do not bind a
+  reference-panel term (`... (1KGP)`, `(HGDP)`, `(SGDP)`, all under
+  `HANCESTRO:0632` *reference population*) unless the data came from that panel:
+  "Japanese patients" is `HANCESTRO:0019` *Japanese*, not `HANCESTRO:0754`
+  *Japanese in Tokyo, Japan (1KGP)*. Look the CURIE up in OLS
+  (`ontology=hancestro`) in the step you write it, as with any term.
+- **`ancestry_basis` says how the source defined the group**, which a HANCESTRO
+  label cannot. Self-reported ethnicity is `SELF_REPORTED`, never
+  `GENETICALLY_INFERRED`. A cohort defined by the country or hospitals it was
+  recruited from, with no statement about ethnicity, is `GEOGRAPHIC`. When the
+  source just names the group, use `NOT_STATED`.
+- **Record only what the source states.** Do not set `effect_differences`,
+  `clinical_significance` or `penetrance` from your own comparison of two
+  cohorts or two allele frequencies. The source has to report the difference.
+  `clinical_significance` here is the source's call *for this population*; the
+  variant-level `clinical_significance` stays the overall call.
+- **Record tested nulls.** `NO_DIFFERENCE` (compared across populations, no
+  difference found) is a finding, and stops a reader assuming one.
+- **One record per population and source.** Two studies of the same population
+  are two records, even when they report the same difference.
+- **Treatment response is not a variant effect.** A drug working differently by
+  ancestry is a treatment `effect_modifiers` entry with
+  `effect_modifier_type: ANCESTRY`.
+
+`Prevalence.population` and `GeneCaseFraction.population` are still free text
+with no HANCESTRO binding.
+
 ### Clinical Trials
 
 Clinical trials can be added to disease entries with evidence validated against ClinicalTrials.gov:
@@ -3174,6 +3807,24 @@ cited paper. Worked examples: `Progressive_Supranuclear_Palsy` (ChiCTR),
 `ClinicalTrial` `slot_usage`, so the prose spellings fail `just validate`. Note the enum
 *descriptions* in the schema render as "Phase III - Efficacy confirmation…", which is what
 makes the free-text form look plausible; the permissible value is the upper-snake-case key.
+
+**Status/phase go stale — audit, don't assume.** `status:` and `phase:` are a
+snapshot taken at curation time. ClinicalTrials.gov is the one live-API source in
+the repo with no `*-refresh` recipe, and the cached trial records carry no
+retrieval timestamp, so drift is invisible offline. Before trusting or reusing a
+curated status, re-check it:
+
+```bash
+just clinicaltrials-status-audit                            # whole KB
+just clinicaltrials-status-audit kb/disorders/Asthma.yaml   # one file
+just clinicaltrials-status-audit --only-drift               # just the worklist
+```
+
+The audit reports; it never rewrites the KB, because a trial moving to
+`COMPLETED`/`TERMINATED` usually wants its `description`/`evidence` revisited too,
+and some drift is a curation-time error rather than staleness. Network-dependent
+and therefore advisory — not part of `just qc`. See
+[`docs/clinical-trial-status.md`](docs/clinical-trial-status.md).
 
 ### MorPhiC Cellular Phenotypes
 
@@ -3297,6 +3948,7 @@ just check-folded-hyphens
 just check-snippet-length
 just check-title-snippets
 just check-snippet-grading
+just check-retired-support-prose
 just check-environmental-evidence
 just check-duplicate-keys kb/disorders/MyDisease.yaml
 just check-entity-refs kb/disorders/MyDisease.yaml
@@ -3307,15 +3959,17 @@ just check-source-defect-claims  # report-only
 
 They catch folded-scalar word corruption, non-propositional short snippets,
 paper titles used as findings, one quoted sentence graded with two different
-`evidence_source` values in the same file, environmental claims without
+`evidence_source` values in the same file, prose arguing for a retired
+`supports` grade, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. Four of them carry a committed
+defective sources that the cache contradicts. Five of them carry a committed
 baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
-`check-title-snippets`, `check-snippet-grading` and `check-causal-targets`. Two
-further gates that are in `just qc` but not in the list above do too:
-`check-reference-titles` and `check-coarse-phenotypes`. Those six are the whole
-set, and it is checkable rather than remembered -- `tests/*_baseline.txt` and the
+`check-title-snippets`, `check-snippet-grading`, `check-retired-support-prose`
+and `check-causal-targets`. Three further gates that are in `just qc` but not
+in the list above do too: `check-reference-titles`, `check-coarse-phenotypes`
+and `check-gene-activity-grounding`. Those eight are the whole set, and it is
+checkable rather than remembered -- `tests/*_baseline.txt` and the
 `just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
 to admit a defect introduced by the current change.
 
@@ -3524,6 +4178,19 @@ is the answer to "can this be served without a download". They have in common
 that the ontology is incidental to what they are doing, and each already had a
 degradation path to take.
 
+**Inverting a closure question can remove the build dependency entirely, but
+only for the questions that are actually per-member.** `ols:mondo` raises
+`NotImplementedError` for `descendants` *and* `ancestors`, so the OAK wrapper
+looks like a dead end — but the OLS REST `hierarchicalAncestors` endpoint
+underneath serves ancestors fine, and "is this member under that class" only
+ever needed ancestors. That is what `just grouping-mondo-consistency` does.
+What it cannot do is replace `render`'s grouping coverage table or
+`scripts/grouping_mondo_gaps.py`: both enumerate MONDO descendants that have
+**no** dismech entry, and you cannot discover terms you do not hold by walking
+up from ones you do. That half is irreducibly a descendant query and still
+needs the local build. Before reaching for the build, ask which direction the
+question actually runs in.
+
 **Not everything that opens a build is a bug, so check before adding a guard.**
 `compare/mondo_export._materialize_default_mondo_db` opens `sqlite:obo:mondo` to
 download it on purpose — that is a CLI whose job is to export MONDO, and its own
@@ -3673,8 +4340,32 @@ errors.
 **When you narrow an enum, the values are only half the job.** #10003 migrated
 11,804 `PARTIAL` items to `SUPPORT` and left every `explanation` that argued for
 the retired grade in place, so ~3,600 evidence items still say "Marked PARTIAL
-because…" above a value the schema no longer has. Prose that names a retired
-value is not caught by any gate. Budget for it, or record it in a worklist the
+because…" above a value the schema no longer has. `check-enum-values` cannot
+see that prose, because an `explanation` is free text.
+
+`just check-retired-support-prose` now gates it as a ratchet (#12805): a
+whole-word `PARTIAL` or `WRONG_STATEMENT` in any string of a `kb/` entry
+(`kb/hypotheses/` excluded, since its own schema keeps a legal `PARTIAL`).
+The roughly 2,950 mentions on `main` when it landed are grandfathered against
+the base branch, so a PR fails only on a mention it adds, most often an
+explanation copied from another evidence item. A sentence that says the grade
+was "retired" or cites #7439 / #10003 / #10061 is exempt, because it records
+the retirement instead of arguing for the grade. Unlike the other ratchets, its
+baseline **only shrinks**: `just update-retired-support-prose-baseline` drops
+fixed entries and never adds one. `just list-retired-support-prose` is the
+worklist. Fixing an entry is a judgement, not a search-and-replace; the
+`PARTIAL` mapping table under *Evidence Items* applies. An inference step
+becomes `directness: INDIRECT` with the grade name dropped, and "supports one
+part, contradicts another" becomes two items.
+
+Two scope details. Text copied from a source (`snippet`, `reference_title`,
+`title`, `supporting_text`, read from the schema's exact-quote annotations) is
+not scanned, since a quoted "PARTIAL RESPONSE" cannot be reworded and the
+baseline could never admit it. And the baseline is keyed on the file path, so
+**renaming or moving an entry re-flags every mention it carries** as new, with
+no way to grandfather them again: fix that entry's prose in the renaming PR.
+
+For the next narrowing, budget for the prose, or record it in a worklist the
 way #10003 did.
 
 ## Structured-Database Reference Sources
@@ -3886,6 +4577,21 @@ just icees-list
 just icees-rebuild
 just icees-rebuild --id MONDO:0004979,MONDO:0005002
 ```
+
+**A rebuilt ClinGen file says which export it came from.** `clingen-rebuild`
+reads `data/clingen/gene_validity.csv` (gitignored) when present, else the
+export passed with `--csv PATH`, else the committed
+`cache/clingen/gene_validity.csv`, which is an older export and not a current
+one; the fallback is logged, and so is a file whose sha256 differs from the
+manifest pin. The cache file's `Source` line and its `source_snapshot` /
+`source_sha256` frontmatter are taken from the file actually parsed (its own
+`FILE CREATED:` header), never from the manifest: the pin can be newer than the
+file (fresh checkout, January export, August pin) or older (a drifted-pin
+`clingen-refresh` still leaves the newer download on disk, #10426), and before
+#13575 the stamp was wrong in both directions. `just fetch-reference CGGV:…`
+routes to this rebuild, as it does for `CGDS:`, `ORPHA:`, `ICEES:` and `NCIT:`
+ids, so the AGENTS.md instruction to regenerate any cache file with
+`fetch-reference` holds for structured prefixes too.
 
 `data/orphadata/*.xml` is gitignored; `data/orphadata/MANIFEST.yaml` is
 committed and pins the snapshot date + sha256 of each bulk file. To verify
@@ -4256,6 +4962,17 @@ Unlike assignment or a CHANGES_REQUESTED review, this hold leaves no label,
 review, or assignee: its only trace is a `SKIP` line in the run summary naming
 the strike count. Until #10988's tier 2 posts a comment on the PR, that summary
 and this paragraph are the only places it is recorded.
+
+**A fourth hold is also invisible, and lasts one sweep.** When a merge queue is
+active, a candidate that adds a `cache/<prefix>/*.csv` term-cache row already
+added by a PR enqueued earlier in the *same* sweep is skipped, because the two
+would conflict in the queue and the second would be ejected. Only multi-field
+rows (`curie,label,retrieved_at`) count — a bare-CURIE enum row is identical
+bytes in both PRs and merges cleanly. The hold is within-run and queue-mode
+only, clears itself on the next sweep, and is disabled by
+`--no-conflict-batching`. Like the ejection hold, its only trace is a `SKIP`
+line in the run summary, which names the PR holding the contended row;
+`just auto-merge-preview` reports it too.
 
 Immediately before each action, the controller re-reads every PR guard and pins
 the merge request to that verified head SHA. When a required merge queue is
