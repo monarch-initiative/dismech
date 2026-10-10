@@ -118135,6 +118135,89 @@ window.searchData = [
     "causal_graph_longest_path": "10"
   },
   {
+    "name": "Dilated Cardiomyopathy 1C",
+    "disease_id": "MONDO:0011094",
+    "category": "Mendelian",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Left Ventricular Noncompaction",
+      "Hypertrophic Cardiomyopathy"
+    ],
+    "creation_date": "2026-10-08T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CMD1C",
+      "LVNC3",
+      "CMH24"
+    ],
+    "description": "Dilated cardiomyopathy 1C (CMD1C) is the autosomal dominant cardiomyopathy attributed to heterozygous missense variants in LDB3, which encodes ZASP (Cypher), a PDZ-LIM scaffold protein of the sarcomeric Z-disc in cardiac and skeletal muscle. The MONDO concept (MONDO:0011094; OMIM 601493) spans three allelic presentations: dilated cardiomyopathy with or without left ventricular noncompaction (CMD1C), left ventricular noncompaction (LVNC3), and hypertrophic cardiomyopathy (CMH24). The founding screen found five LDB3 missense variants in six of 100 probands with left ventricular dysfunction. Later reports added a late-onset familial D626N allele and Z-disc variants in hypertrophic cardiomyopathy probands. Cell and biochemical studies show that disease alleles disarrange the cytoskeleton and change ZASP binding to protein kinase C and phosphoglucomutase 1. A transgenic mouse expressing the S196L allele develops conduction defects and later ventricular dysfunction. The evidence base is small: ClinGen classifies the autosomal dominant LDB3-CMD1C relationship as Limited, rates LDB3 as Disputed for hypertrophic cardiomyopathy, and one reported allele (D117N) failed to segregate with disease. Biallelic loss-of-function LDB3 disease (dilated cardiomyopathy 2L) and LDB3 myofibrillar myopathy (zaspopathy) are separate entities.",
+    "pathophysiology": [
+      "LDB3 Heterozygous Missense Variant",
+      "Altered ZASP Signalling-Partner Binding",
+      "Z-Disc Cytoskeletal Disorganization",
+      "Maladaptive Cardiomyocyte Stress Signalling",
+      "Disturbed Cardiomyocyte Ion Currents",
+      "Left Ventricular Dilation and Systolic Dysfunction"
+    ],
+    "cell_types": [
+      "Cardiomyocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000746"
+    ],
+    "biological_processes": [
+      "sarcomere organization",
+      "cardiomyocyte maturation",
+      "cardiac conduction",
+      "heart contraction"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Left ventricular noncompaction",
+      "Hypertrophic cardiomyopathy",
+      "Ventricular septal hypertrophy",
+      "Congestive heart failure",
+      "Ventricular arrhythmia",
+      "Sudden cardiac death"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0030682",
+      "HP:0001639",
+      "HP:0005144",
+      "HP:0001635",
+      "HP:0004308",
+      "HP:0001645"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LDB3"
+    ],
+    "treatments": [
+      "Guideline-directed heart failure pharmacotherapy",
+      "Implantable cardioverter-defibrillator",
+      "Heart transplantation",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1C.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1C.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1CC",
     "disease_id": "MONDO:0013147",
     "category": "Mendelian",
@@ -138219,6 +138302,112 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "10",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Familial Male-limited Precocious Puberty",
+    "disease_id": "MONDO:0008303",
+    "category": "Mendelian",
+    "parents": [
+      "Endocrine Disorder"
+    ],
+    "creation_date": "2026-10-06T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Familial male-limited precocious puberty (FMPP, testotoxicosis) is a rare form of gonadotropin-independent (peripheral) precocious puberty caused by heterozygous constitutively activating variants in LHCGR, the luteinizing hormone/choriogonadotropin receptor. The variant receptor signals through Gs/cAMP without ligand, so Leydig cells produce testosterone while LH and FSH remain at prepubertal or suppressed levels. Boys usually present between 1 and 4 years of age with virilization, rapid growth and advanced bone age; untreated, early epiphyseal fusion reduces adult height. Inheritance is autosomal dominant with expression limited to males, and de novo cases occur. Secondary central puberty commonly follows. Treatment combines an antiandrogen with an aromatase inhibitor (or a steroidogenesis inhibitor such as ketoconazole), with a GnRH agonist added once central puberty starts.",
+    "pathophysiology": [
+      "Constitutive LHCGR Activation",
+      "Ligand-Independent Leydig Cell cAMP Signaling",
+      "Gonadotropin-Independent Testosterone Synthesis",
+      "Androgen-Driven Virilization",
+      "Peripheral Aromatization of Testosterone to Estradiol",
+      "Premature Leydig Cell Proliferation",
+      "Secondary Central Puberty Activation"
+    ],
+    "cell_types": [
+      "Leydig cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000178"
+    ],
+    "biological_processes": [
+      "adenylate cyclase-activating G protein-coupled receptor signaling pathway",
+      "testosterone biosynthetic process",
+      "androgen receptor signaling pathway",
+      "estrogen biosynthetic process"
+    ],
+    "phenotypes": [
+      "Precocious puberty in males",
+      "Increased serum testosterone level",
+      "Decreased circulating luteinizing hormone level",
+      "Decreased circulating follicle stimulating hormone concentration",
+      "Increased serum estradiol",
+      "Accelerated skeletal maturation",
+      "Short stature",
+      "Accelerated childhood linear growth",
+      "Premature pubarche",
+      "Penile enlargement",
+      "Acne",
+      "Aggressive behavior",
+      "Leydig cell hyperplasia",
+      "Testicular germ cell tumor in adulthood",
+      "Leydig cell adenoma"
+    ],
+    "phenotype_categories": [
+      "Endocrine",
+      "Skeletal",
+      "Growth",
+      "Genitourinary",
+      "Dermatological",
+      "Behavioral",
+      "Reproductive",
+      "Neoplastic"
+    ],
+    "phenotype_hpo_categories": [
+      "Endocrine",
+      "Genitourinary",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008185",
+      "HP:0030088",
+      "HP:0030344",
+      "HP:0030341",
+      "HP:0025134",
+      "HP:0005616",
+      "HP:0004322",
+      "HP:0000098",
+      "HP:0012411",
+      "HP:0000040",
+      "HP:0001061",
+      "HP:0000718",
+      "HP:0010791",
+      "HP:0010788",
+      "HP:0100618"
+    ],
+    "frequencies": [],
+    "genes": [
+      "LHCGR"
+    ],
+    "treatments": [
+      "Antiandrogen plus Aromatase Inhibitor",
+      "Ketoconazole",
+      "GnRH Agonist for Secondary Central Puberty"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Familial_Male-limited_Precocious_Puberty.yaml",
+    "page_url": "../pages/disorders/Familial_Male-limited_Precocious_Puberty.html",
+    "num_phenotypes": 15,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Familial Mediterranean Fever",
@@ -176460,7 +176649,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "CACNA1S-related hypokalemic periodic paralysis",
-      "SCN4A-related hypokalemic periodic paralysis"
+      "SCN4A-related hypokalemic periodic paralysis",
+      "KCNA7-related hypokalemic periodic paralysis"
     ],
     "treatments": [
       "Potassium Chloride for Acute Attacks",
@@ -176477,7 +176667,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Hypokalemic_Periodic_Paralysis.html",
     "num_phenotypes": 4,
     "num_pathophysiology": 3,
-    "num_genes": 2,
+    "num_genes": 3,
     "num_treatments": 5,
     "causal_graph_edges": "11",
     "causal_graph_longest_path": "3"
@@ -359433,17 +359623,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3331,
-  "total_subtypes": 4633,
-  "total_disorders_and_subtypes": 7964,
-  "total_unique_evidence_sources": 50042,
-  "total_unique_publications": 46666,
+  "total_disorder_pages": 3333,
+  "total_subtypes": 4636,
+  "total_disorders_and_subtypes": 7969,
+  "total_unique_evidence_sources": 50084,
+  "total_unique_publications": 46703,
   "total_unique_disease_categories": 61,
   "total_unique_phenotype_categories": 296,
-  "total_pathographs": 3327,
-  "total_unique_pathological_events": 21987,
+  "total_pathographs": 3329,
+  "total_unique_pathological_events": 21999,
   "total_modules": 191,
-  "total_research_reports": 3448,
+  "total_research_reports": 3450,
   "total_classifications": 21,
   "total_comorbidities": 51,
   "total_groupings": 113
