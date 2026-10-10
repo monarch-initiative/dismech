@@ -290,6 +290,33 @@ uv run python scripts/hypothesis_deep_research.py run \
   --analysis-objective 'Prespecified case-versus-control expression contrast'
 ```
 
+### Recovering a finished OpenScientist job
+
+An OpenScientist job keeps running on the provider's side when the local client
+dies, for example on a read timeout while it waits. The runner reads the job ID
+from the client's log and writes it beside the report as
+`<provider>.md.job.yaml`, so a failed or timed-out run names the job and the
+command that recovers it. `fetch` downloads the job's bundle (retrying gateway
+timeouts and resuming a partial download), writes the report in the usual
+`## Question` / `## Output` layout with the job ID in its frontmatter, restores
+the run's whole `openscientist_artifacts/` directory with its original paths, and
+then applies the same manifest binding and analysis gate as `run`:
+
+```bash
+uv run python scripts/hypothesis_deep_research.py fetch \
+  openscientist <Disease> <hypothesis_id> \
+  --template templates/hypothesis_dataset_analysis.md \
+  [--job-id <id>] [--overwrite]
+```
+
+Without `--job-id`, `fetch` uses the `.job.yaml` record, then a single recent job
+whose question names the hypothesis; when several match it lists them and stops.
+After a successful `run`, the runner also restores the artifact directory from the
+bundle. The client otherwise keeps only some file extensions and flattens paths, which
+drops `MANIFEST.yaml`, `analysis.py` and `environment.txt` (#11254); flattened copies
+identical to a restored file are removed. Recovery does not correct the bundle: a
+manifest that uses the wrong field names still fails the gate.
+
 Commit when reviewable and reasonably small:
 
 - a manifest naming external inputs, accessions/versions, retrieval dates, and

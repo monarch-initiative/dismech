@@ -43,6 +43,15 @@ from dismech.deep_research_policy import (
     explicitly_requests_biomni,
 )
 from dismech.hypothesis_analysis_run import iter_analysis_run_problems
+from dismech.openscientist_jobs import (
+    OpenScientistJobs,
+    extract_artifact_subtree,
+    extract_job_id,
+    find_report_markdown,
+    read_job_record,
+    remove_flattened_duplicates,
+    write_job_record,
+)
 from dismech.research_reports import AlignmentError, align_report_provider
 from dismech.yaml_io import safe_load
 
@@ -374,14 +383,12 @@ def build_command(
     normalized = normalize_provider(provider)
     output_file = output_file_for(record, output_root, normalized)
     artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
-    command = [
-        "uv",
-        "run",
-        "deep-research-client",
-        "research",
-        "--template",
-        str(template),
-    ]
+    command = ["uv", "run", "deep-research-client"]
+    if normalized == "openscientist":
+        # INFO logging is the only place the client reports the provider job ID,
+        # which is what makes a job recoverable after the client dies (#13616).
+        command.append("-v")
+    command.extend(["research", "--template", str(template)])
     for key, value in template_vars(
         record, artifact_dir=artifact_dir, overrides=template_overrides
     ).items():
@@ -617,6 +624,67 @@ def finish_artifact_quarantine(
     return f"{detail}; {message}" if detail else message
 
 
+def record_provider_job(
+    provider: str, output_file: Path, *streams: str | bytes | None
+) -> str | None:
+    """Record the provider job ID announced in the client's output, if any.
+
+    The record sits beside the report as ``<report>.job.yaml`` so a run whose client
+    died after the provider finished can still be recovered with ``fetch``.
+    """
+    if normalize_provider(provider) != "openscientist":
+        return None
+    text = "\n".join(
+        stream.decode("utf-8", errors="replace")
+        if isinstance(stream, bytes)
+        else stream
+        for stream in streams
+        if stream
+    )
+    job_id = extract_job_id(text)
+    if job_id:
+        write_job_record(output_file, provider="openscientist", job_id=job_id)
+    return job_id
+
+
+def fetch_hint(record: HypothesisRecord, provider: str, job_id: str) -> str:
+    """Return the command that recovers a finished provider job."""
+    return (
+        f"provider job {job_id} may have finished; recover with: "
+        f"uv run python scripts/hypothesis_deep_research.py fetch {provider} "
+        f"{record.disease_slug} {record.hypothesis_group_id}"
+    )
+
+
+def restore_openscientist_artifacts(
+    job_id: str,
+    artifact_dir: Path,
+    *,
+    bundle_dir: Path,
+    jobs: OpenScientistJobs | None = None,
+) -> tuple[Path | None, str]:
+    """Re-download a job's bundle and restore its ``artifact_dir`` subtree intact.
+
+    The client keeps only allowlisted extensions and flattens paths (#11254), which
+    drops ``MANIFEST.yaml``, ``analysis.py`` and ``environment.txt``. This extracts
+    every member under the run's artifact directory with its canonical path, keeps
+    ``raw/`` locally (it is gitignored), and removes flattened copies that the
+    restored files duplicate. The bundle is downloaded into ``bundle_dir``, which the
+    caller owns and removes. Returns the bundle path and a problem description (empty
+    on success).
+    """
+    try:
+        jobs = jobs or OpenScientistJobs.from_environment()
+        bundle = jobs.download_bundle(job_id, bundle_dir / f"{job_id}.zip")
+    except Exception as error:  # recovery must never mask the run result
+        return None, f"artifact bundle not restored: {error}"
+    restored = extract_artifact_subtree(bundle, artifact_dir)
+    remove_flattened_duplicates(artifact_dir)
+    if not restored:
+        return bundle, f"bundle for job {job_id} holds no files under {artifact_dir}"
+    return bundle, ""
+
+
 def run_record(
     record: HypothesisRecord,
     *,
@@ -758,6 +826,18 @@ def run_record(
         duration = time.monotonic() - started
         output_ok = output_file.exists() and output_file.stat().st_size > 0
         detail = tail_detail(result)
+        job_id = record_provider_job(
+            normalized, output_file, result.stdout, result.stderr
+        )
+        if job_id and result.returncode == 0 and output_ok:
+            with tempfile.TemporaryDirectory(prefix="openscientist-bundle-") as tmp:
+                _bundle, restore_detail = restore_openscientist_artifacts(
+                    job_id, artifact_dir, bundle_dir=Path(tmp)
+                )
+            if restore_detail:
+                detail = f"{detail}; {restore_detail}".lstrip("; ")
+        elif job_id and result.returncode != 0:
+            detail = f"{detail}; {fetch_hint(record, normalized, job_id)}".lstrip("; ")
         if result.returncode == 0 and output_ok:
             try:
                 report_claims_analysis_success = (
@@ -841,12 +921,18 @@ def run_record(
             command=command,
             detail=detail,
         )
-    except subprocess.TimeoutExpired:
+    except subprocess.TimeoutExpired as expired:
         duration = time.monotonic() - started
+        timeout_detail = f"timeout after {timeout_seconds}s"
+        job_id = record_provider_job(
+            normalized, output_file, expired.stdout, expired.stderr
+        )
+        if job_id:
+            timeout_detail += f"; {fetch_hint(record, normalized, job_id)}"
         detail = finish_artifact_quarantine(
             artifact_backup,
             status="TIMEOUT",
-            detail=f"timeout after {timeout_seconds}s",
+            detail=timeout_detail,
         )
         return RunResult(
             record=record,
@@ -859,6 +945,147 @@ def run_record(
             command=command,
             detail=detail,
         )
+
+
+def resolve_job_id(
+    record: HypothesisRecord,
+    output_file: Path,
+    jobs: OpenScientistJobs,
+    job_id: str | None,
+) -> tuple[str | None, str]:
+    """Return the job to fetch: explicit ID, then the job record, then a unique search hit."""
+    if job_id:
+        return job_id, ""
+    recorded = read_job_record(output_file)
+    if recorded and recorded.get("job_id"):
+        return str(recorded["job_id"]), ""
+    matches = jobs.find_jobs(record.hypothesis_group_id, record.disease_name)
+    if len(matches) == 1:
+        return str(matches[0].get("id")), ""
+    if not matches:
+        return None, "no job ID recorded and no recent job mentions this hypothesis"
+    listed = ", ".join(
+        f"{job.get('id')} ({job.get('status')}, {job.get('created_at')})"
+        for job in matches
+    )
+    return None, f"several recent jobs match this hypothesis; pass --job-id: {listed}"
+
+
+def fetch_record(
+    record: HypothesisRecord,
+    *,
+    provider: str,
+    output_root: Path,
+    template: Path,
+    job_id: str | None = None,
+    overwrite: bool = False,
+    jobs: OpenScientistJobs | None = None,
+) -> RunResult:
+    """Recover a finished OpenScientist job into the canonical report and artifact paths.
+
+    This is the path for a job that completed server-side after the client died (a
+    read timeout, a killed runner). It writes the provider's markdown report with a
+    frontmatter recording the job, restores the full ``artifact_dir`` subtree, and then
+    applies the same manifest binding and analysis gate as ``run``.
+    """
+    normalized = normalize_provider(provider)
+    output_file = output_file_for(record, output_root, normalized)
+    citations_file = Path(f"{output_file}.citations.md")
+    artifact_dir = output_file.parent / f"{output_file.stem}_artifacts"
+
+    def result(status: str, detail: str, returncode: int | str = 0) -> RunResult:
+        return RunResult(
+            record=record,
+            provider=normalized,
+            status=status,
+            returncode=returncode,
+            duration_seconds=0.0,
+            output_file=output_file,
+            citations_file=citations_file,
+            command=[
+                "fetch",
+                normalized,
+                record.disease_slug,
+                record.hypothesis_group_id,
+            ],
+            detail=detail,
+        )
+
+    if normalized != "openscientist":
+        return result("UNSUPPORTED_PROVIDER", "fetch supports openscientist only", 2)
+    if output_file.exists() and not overwrite:
+        return result("SKIPPED_EXISTS", "use --overwrite to replace existing output")
+    try:
+        jobs = jobs or OpenScientistJobs.from_environment()
+        resolved, problem = resolve_job_id(record, output_file, jobs, job_id)
+        if not resolved:
+            return result("JOB_NOT_FOUND", problem, 1)
+        job = jobs.job(resolved)
+    except Exception as error:  # report API failures as a status
+        return result("FETCH_ERROR", str(error), 1)
+    status = str(job.get("status") or "").lower()
+    if status != "completed":
+        detail = job.get("error_message") or f"job {resolved} is {status or 'unknown'}"
+        return result(f"JOB_{(status or 'unknown').upper()}", str(detail), 1)
+
+    artifact_backup = quarantine_existing_artifacts(artifact_dir) if overwrite else None
+    with tempfile.TemporaryDirectory(prefix="openscientist-bundle-") as tmp:
+        bundle, restore_detail = restore_openscientist_artifacts(
+            resolved, artifact_dir, bundle_dir=Path(tmp), jobs=jobs
+        )
+        markdown = find_report_markdown(bundle, artifact_dir) if bundle else None
+    if not markdown:
+        detail = restore_detail or f"bundle for job {resolved} has no markdown report"
+        detail = finish_artifact_quarantine(
+            artifact_backup, status="MISSING_OUTPUT", detail=detail
+        )
+        return result("MISSING_OUTPUT", detail, 1)
+
+    metadata = {
+        "provider": normalized,
+        "model": "openscientist-autonomous",
+        "job_id": resolved,
+        "job_created_at": job.get("created_at"),
+        "job_updated_at": job.get("updated_at"),
+        "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "recovered_with": "scripts/hypothesis_deep_research.py fetch",
+        "template_file": str(template),
+    }
+    frontmatter = yaml.safe_dump(metadata, sort_keys=False, allow_unicode=True).rstrip()
+    body = markdown.lstrip("\ufeff")
+    question = str(job.get("research_question") or "").strip()
+    # Same section layout the client writes, which the analysis gate relies on: the
+    # provider response must sit inside a single "## Output" section.
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    output_file.write_text(
+        f"{FRONTMATTER_DELIMITER}\n{frontmatter}\n{FRONTMATTER_DELIMITER}\n\n"
+        f"## Question\n\n{question}\n\n## Output\n\n{body}",
+        encoding="utf-8",
+    )
+    write_job_record(output_file, provider=normalized, job_id=resolved)
+
+    detail = restore_detail
+    analysis_required = template_requires_analysis_contract(template)
+    if "ANALYSIS_STATUS: SUCCEEDED" in body.splitlines():
+        binding_detail = bind_report_to_artifact_manifest(output_file, artifact_dir)
+        if binding_detail:
+            status_out, detail = "INVALID_ANALYSIS_RUN", binding_detail
+        else:
+            contract_status, contract_detail = analysis_contract_status(
+                output_file, artifact_dir, required=analysis_required
+            )
+            status_out = contract_status or "OK"
+            detail = contract_detail or detail
+    else:
+        contract_status, contract_detail = analysis_contract_status(
+            output_file, artifact_dir, required=analysis_required
+        )
+        status_out = contract_status or "OK"
+        detail = contract_detail or detail
+    detail = finish_artifact_quarantine(
+        artifact_backup, status=status_out, detail=detail
+    )
+    return result(status_out, detail, 0 if status_out == "OK" else 1)
 
 
 def list_records(
@@ -1013,6 +1240,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         "--timeout-seconds", type=int, default=DEFAULT_SUBPROCESS_TIMEOUT_SECONDS
     )
 
+    fetch_parser = subparsers.add_parser(
+        "fetch",
+        help="Recover a finished provider job whose client died (OpenScientist only).",
+    )
+    add_common_flags(fetch_parser)
+    fetch_parser.add_argument("provider")
+    fetch_parser.add_argument("disorder")
+    fetch_parser.add_argument("hypothesis_group_id")
+    fetch_parser.add_argument(
+        "--job-id",
+        help="Provider job ID. Defaults to the report's .job.yaml record, then to the "
+        "single recent job whose question names this hypothesis.",
+    )
+    fetch_parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
+    fetch_parser.add_argument("--overwrite", action="store_true")
+
     missing_parser = subparsers.add_parser(
         "run-missing", help="Run hypothesis searches missing a provider."
     )
@@ -1084,6 +1327,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         if result.status == "PROVIDER_DISABLED":
             return 2
         return 0 if result.status in {"OK", "DRY_RUN", "SKIPPED_EXISTS"} else 1
+
+    if args.command == "fetch":
+        record = find_hypothesis(args.kb_dir, args.disorder, args.hypothesis_group_id)
+        result = fetch_record(
+            record,
+            provider=args.provider,
+            output_root=args.output_root,
+            template=args.template,
+            job_id=args.job_id,
+            overwrite=args.overwrite,
+        )
+        print_run_result(result)
+        return 0 if result.status in {"OK", "SKIPPED_EXISTS"} else 1
 
     if args.command == "run-missing":
         provider = normalize_provider(args.provider)
