@@ -19,8 +19,8 @@ g = gene("hgnc:119")
 **<span class="result" data-code="g.symbol()">ACOX1<span class="method"></span></span>**
 (<span class="result" data-code="g.name()">acyl-CoA oxidase 1<span class="method"></span></span>)
 is named by
-<span class="result" data-code="g.disorder_count()">1<span class="method"></span></span>
-disorder entry.
+<span class="result" data-code="g.disorder_count()">2<span class="method"></span></span>
+disorder entries.
 
 ## Normal function
 
@@ -33,32 +33,44 @@ in the
 This is the first, FAD-dependent step of peroxisomal beta-oxidation, which
 passes electrons to oxygen and so produces hydrogen peroxide.
 
-## Causative record
+## Causative records
 
-The one entry that names ACOX1 types it as causative:
-<span class="result" data-compare="names" data-code="g.disorders('causative')">Peroxisomal Acyl-CoA Oxidase Deficiency<span class="method"></span></span>,
-with germline variants
-(<span class="result" data-code="g.variant_origin('Peroxisomal Acyl-CoA Oxidase Deficiency')">germline<span class="method"></span></span>).
-The gene sits on the node
+Both entries that name ACOX1 type it as causative:
+<span class="result" data-compare="names" data-code="g.disorders('causative')">Mitchell Syndrome; and Peroxisomal Acyl-CoA Oxidase Deficiency<span class="method"></span></span>.
+They are allelic disorders with opposite mechanisms.
+
+In the recessive disorder the variants are
+<span class="result" data-code="g.variant_origin('Peroxisomal Acyl-CoA Oxidase Deficiency')">germline<span class="method"></span></span>,
+the gene sits on the node
 <span class="result" data-code="g.node('Peroxisomal Acyl-CoA Oxidase Deficiency', 'ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency')">ACOX1 Straight-Chain Acyl-CoA Oxidase Deficiency<span class="method"></span></span>,
-whose functional impact is recorded as
+and the functional impact is recorded as
 <span class="result" data-code="g.functional_impact('Peroxisomal Acyl-CoA Oxidase Deficiency')">loss of function<span class="method"></span></span>.
-ClinGen rates the relationship
+ClinGen rates that relationship
 <span class="result" data-code="g.clingen('Peroxisomal Acyl-CoA Oxidase Deficiency')">definitive<span class="method"></span></span>.
+
+In Mitchell syndrome the recurrent p.Asn237Ser variant is
+<span class="result" data-code="g.variant_origin('Mitchell Syndrome')">germline<span class="method"></span></span>
+(usually de novo), the gene sits on the node
+<span class="result" data-code="g.node('Mitchell Syndrome', 'ACOX1 N237S Gain-of-Function Acyl-CoA Oxidase Hyperactivity')">ACOX1 N237S Gain-of-Function Acyl-CoA Oxidase Hyperactivity<span class="method"></span></span>,
+and the functional impact is recorded as
+<span class="result" data-code="g.functional_impact('Mitchell Syndrome')">gain of function<span class="method"></span></span>:
+the same acyl-CoA oxidase activity is increased rather than lost, and the
+excess hydrogen peroxide damages glia. ClinGen rates this relationship
+<span class="result" data-code="g.clingen('Mitchell Syndrome')">definitive<span class="method"></span></span>
+as well.
 
 ## Agreement between the layers
 
-The KB annotates the ACOX1 node with
+The KB annotates ACOX1 nodes with
 <span class="result" data-compare="names" data-code="g.mechanism_processes()">fatty acid beta-oxidation using acyl-CoA oxidase; and very long-chain fatty acid beta-oxidation<span class="method"></span></span>,
 and both terms are among ai-gene-review's core processes for the gene
 (<span class="result" data-code="len(g.shared_processes())">2<span class="method"></span></span>
 shared by exact identifier).
 
-## Gaps
+## Coverage
 
 ClinGen classifies ACOX1 for
 <span class="result" data-code="g.clingen_diseases()">2<span class="method"></span></span>
-diseases. The one with no dismech entry is
-<span class="result" data-compare="names" data-code="g.clingen_without_entry()">Mitchell syndrome<span class="method"></span></span>,
-the dominant gain-of-function ACOX1 disorder, which is a candidate for a new
-entry.
+diseases, and
+<span class="result" data-code="len(g.clingen_without_entry())">0<span class="method"></span></span>
+of them lack a dismech entry.
